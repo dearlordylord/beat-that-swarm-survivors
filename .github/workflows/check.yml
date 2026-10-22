@@ -49,5 +49,6 @@ jobs:
         run: |
           npm ci --prefix tools/survivors-bot --ignore-scripts
           bash tools/survivors-bot/check.sh
+          bash tools/survivors-bot/check-visible.sh
       - name: Check native profile, UI and application build
         run: bash examples/survivors/check-native.sh

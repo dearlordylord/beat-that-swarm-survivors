@@ -1,6 +1,6 @@
 # Optional Survivors classifier bot
 
-A headless controller for the real Bend simulation. It can ask the TypeSafe `jev-latest` classifier to select an offered upgrade or a movement goal. Bend still owns combat, movement, rewards and legal state transitions. This tool does not control the native game window; the native game remains Node-free and uses the same BendHub dependency.
+A headless controller for the real Bend simulation. It can ask the TypeSafe `jev-latest` classifier to select an offered upgrade or a movement goal. Bend still owns combat, movement, rewards and legal state transitions. The headless entry is described below; the optional visible native entry is described at the end. The ordinary native game remains Node-free and uses the same BendHub dependency.
 
 ## Run
 
@@ -55,3 +55,35 @@ bash tools/survivors-bot/check.sh
 ```
 
 Checks include offline provider/context/controller tests, a real Bend action-catalog fixture and an actual simulation integration with a fake classifier. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
+
+## Visible native run and decision journal
+
+The optional window bot renders the **same native-owned world** it controls. Install the optional dependencies above, then run from the repository root:
+
+```sh
+./tools/survivors-bot/visible.sh --mode heuristic --profile fresh --seconds 120
+# With TYPESAFE_API_KEY exported locally:
+./tools/survivors-bot/visible.sh --mode jev --profile fresh --seconds 120 --max-upgrade-requests 6 --max-goal-requests 2
+```
+
+`visible.sh` rebuilds the current Bend sources before each launch, including on macOS Apple Silicon. It needs Bend, a C compiler and Node.js 24+ for the optional controller. It consumes the same pinned BendHub package as the game. Compilation is bounded to 300 seconds; `--seconds` bounds the session in wall seconds (1–900), rather than guaranteeing a simulation horizon. Escape or closing the window stops the session. The ordinary native game still launches without Node.
+
+In a second terminal, open the journal:
+
+```sh
+node tools/survivors-bot/journal.mjs --host 0.0.0.0 --port 8714
+```
+
+Visit `http://localhost:8714/` on that machine, or its host address on port 8714. The viewer reads the newest run by default; use the printed `--receipt` command to fix a particular run. The read-only viewer exposes the selected journal to hosts that can reach its listening address; use default `127.0.0.1` for local-only access.
+
+The journal shows real alternatives and input context while inference is pending, the validated selection actually sent to the engine, classifier/fallback identity, measured response time, source/binary hashes, and observed HP/kills/gold/level changes after 0.5, 2 and 5 simulation seconds. These are observational intervals, not causal credit. No model reasoning is invented. The map is actual snapshot telemetry; the native window supplies the game rendering.
+
+This first visible bridge is **lockstep**: simulation waits during inference, while the window keeps processing events. Movement commands cover six normal simulation ticks before another observation, ending early for a reward. Goals are revalidated between batches and last at most 120 ticks. Short batches still leave a delay before reacting to a changing target. A session-private sequence filename binds each command to one stationary observation; classifier answers additionally pass the existing run/sequence/frame/candidate checks. Malformed native commands leave the game waiting, and the session wall limit still applies. Bot profiles are isolated; no human save is read or written. Audio is disabled in this experiment window.
+
+```sh
+bash tools/survivors-bot/check-visible.sh
+# Linux diagnostic only, after building the bot binary and providing Xvfb/xdotool:
+NIGHTFALL_X11_SYSROOT=/path/to/sysroot bash tools/survivors-bot/visible-window-smoke.sh
+```
+
+The next mechanics step is to select one evidenced issue from a run, state a measurable hypothesis, and compare one change. See [the observation loop](../../research/mechanics-improvement-loop.md).

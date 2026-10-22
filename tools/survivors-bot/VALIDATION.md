@@ -30,3 +30,34 @@ The matching compiled bot-module SHA-256 was:
 Each ignored JSONL receipt records the relevant game, facade, catalog, controller, provider, dependency-lock and compiled-module hashes. The evidence is bound to those hashes: other game work was in progress, and subsequent source changes require new matching observations. Receipt paths above identify local ignored development artifacts, not files distributed with the repository.
 
 The model was the mutable provider alias `jev-latest`. Usage is provider-reported; actual price was not measured. Engine-derived previews are immediate pure upgrade calculations, not combat rollouts. Movement targets have unassessed safety, and the selected goal remains subject to ordinary steering and revalidation. The fixed simulation seed is `12345`; no multi-seed claim is made.
+
+## Visible native decision journal — 2026-10-22
+
+The optional native app now renders and advances one native-owned Bend world. The external Node controller receives engine observations and submits bounded movement or an exact offered upgrade. Ordinary game sources and the pinned BendHub dependency remain authoritative. Native audio and human profile persistence are excluded from this experiment entry; no macOS execution was available here.
+
+Validation on Linux AArch64 with Bend 2.0.37 and the existing Clang 19 setup:
+
+- 36 offline provider/context/controller/viewer/process tests passed (`/tmp/nightfall-visible-unit-final.log`). Process stubs test cleanup and exit reporting, not game behavior, and store their receipts in isolated temporary directories.
+- New Bend sources passed the source checker. The actual native protocol fixture executed against fresh initialization and passed malformed/range/horizon rejection, invalid upgrade rejection, 16 ms pacing, horizon completion, sequence advancement and paused waiting (`/tmp/nightfall-visible-fixture.log`).
+- Actual X11/Xvfb window smoke passed: native 1024×768 window, changing captured pixels, advancing tick/sequence, Escape, controller termination, no remaining game window, and `window-closed` receipt (`/tmp/nightfall-visible-window.log`, diagnostic directory `/tmp/nightfall-visible-window-b51jIS`).
+- The live browser journal rendered actual native telemetry, selected candidates and outcome intervals without JavaScript errors; screenshot `/tmp/nightfall-visible-journal-live.png`. The telemetry map is not native rendering.
+- Dependency audit passed: one example, 18 Bend modules, no source-checkout ECS imports. No added npm dependencies.
+
+### Successful live native observation
+
+Receipt: ignored local `examples/survivors/dist/bot-runs/af180082-b4f0-488c-bf28-49ec1de7470a.jsonl`.
+
+Fresh profile, engine-fixed seed12345, 60 wall seconds, at most one goal and one upgrade classifier request, 5000 ms timeout, no retries. Simulation waited during inference; normal window/IPC pacing also contributes wall time. This is not an FPS result.
+
+| Actual classification | Simulation tick | Selection | Provider latency |
+| --- | ---: | --- | ---: |
+| Movement goal | 6 | Move north | 265.95 ms |
+| Upgrade | 416 | Spark Wand rank 1 → 2 | 206.35 ms |
+
+Both responses passed context/candidate validation and were submitted to the native world. The immediate post-choice native frame matched the selected Bend upgrade preview for HP, max HP, gold, weapons and passives. Usage reported by the provider was 10057 input/270 output tokens for the goal and 11590 input/125 output for the upgrade; no monetary price is inferred. Later decisions explicitly used budget fallback.
+
+Final observation: tick2096 (34.93 simulation seconds), phase0, HP70/70, level3, kills138, gold116. The run stopped at its wall limit, not by death or completion. Receipt records `outcome: wall-limit` and native `SIGTERM` with `expected: true`. There were no error fallbacks; exhausted-budget fallback is separate. Native binary SHA-256: `16da00bc72d0dede7d512519cb023c83ca3d95663acd88139f6e69f2196d8e93`.
+
+An earlier 90-wall-second observation (`7d2517f6-5a30-40ad-92e2-24bd0174a5c9`) supplied two successful real classifications, but its summary incorrectly labeled deliberate wall-limit termination as `native-error`. The cleanup reporting bug was fixed, regression-tested, and the successful run above repeated the ordinary entry. The campaign made four live classifier requests total. The earlier journal was retained unchanged as evidence of that reporting bug.
+
+Source and binary hashes are recorded at run start. These bind the observed working-tree build, including concurrent uncommitted game changes; selected file hashes are not a complete import closure, and these numerical results are not claimed for a different checkout. The frozen `check-visible.sh` entry also passed end to end (`/tmp/nightfall-visible-check-final.log`). CI is configured to execute this fixture; its outcome is separate from local observations. The classifier alias remains mutable. None of these short observations establishes improved play, desired difficulty, causality or enjoyment.
