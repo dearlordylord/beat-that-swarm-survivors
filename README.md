@@ -56,6 +56,8 @@ bash examples/survivors/check-native-full.sh
 
 [Game-selection research](research/ecs-game-selection/README.md) contains ten initial hypotheses and independent follow-up audits. [The synthesis](research/ecs-game-selection/REPORT.md) compares candidate games and the ECS interactions each could demonstrate. It is a historical investigation, not a benchmark or the current implementation specification.
 
+[Classifier-assisted bot research](research/jev-bot-classifier.md) examines optional Jev calls for choosing upgrades and later movement goals, without importing the Hapsland product. This is a feasibility proposal; no classifier-controlled run has been executed.
+
 ## License
 
 Application source is available under **MIT OR Apache-2.0**; see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Original content and procedural graphics accompany the examples. Game titles mentioned in research identify their respective games; no assets from those games are included.
