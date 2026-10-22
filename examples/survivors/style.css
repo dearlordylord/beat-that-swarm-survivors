@@ -1,0 +1,622 @@
+:root {
+  color-scheme: dark;
+  --ink: #ece6d7;
+  --muted: #a09fa8;
+  --gold: #d3b573;
+  --panel: #181c25;
+  --line: #3c3c48;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #090c12;
+  color: var(--ink);
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+}
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: #252832;
+  border-radius: 6px;
+  padding: 10px 15px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+button:hover {
+  background: #343540;
+  border-color: var(--gold);
+}
+button:active {
+  transform: translateY(1px);
+}
+button:focus-visible {
+  outline: 2px solid #e5c581;
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.primary {
+  background: #c6a468;
+  color: #171820;
+  font-weight: 800;
+  border-color: #ead39e;
+}
+.primary:hover {
+  background: #e4c88e;
+}
+.quiet {
+  background: transparent;
+}
+#app {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 420px;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  outline: 0;
+  background: #121c20;
+}
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: #0d1119ed;
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+[hidden] {
+  display: none !important;
+}
+.menu-wrap {
+  max-width: 1100px;
+  margin: auto;
+  padding: 30px 32px 20px;
+}
+header {
+  text-align: center;
+}
+header h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 1.1;
+  margin: 6px 0 12px;
+  font-weight: normal;
+  letter-spacing: -2px;
+}
+h1 em {
+  color: var(--gold);
+  font-style: normal;
+}
+.eyebrow {
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 5px;
+}
+header p {
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+nav button {
+  background: transparent;
+  border-color: transparent;
+}
+nav .active {
+  color: var(--gold);
+  background: #d3b57312;
+  border-color: #d3b57344;
+}
+#wallet {
+  text-align: right;
+  font-size: 13px;
+  color: var(--gold);
+  margin: 12px 0;
+}
+.section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin: 18px 0 10px;
+}
+.grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.heroes {
+  grid-template-columns: repeat(4, 1fr);
+}
+.card {
+  text-align: left;
+  background: linear-gradient(145deg, #242733, #161b24);
+  border: 1px solid #353844;
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  min-width: 0;
+}
+.card.selected {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px #d3b57344;
+  background: linear-gradient(145deg, #3a342d, #20232b);
+}
+.card h3 {
+  font: 600 16px/1.3 system-ui;
+  margin: 0 0 6px;
+}
+.card p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 5px 0;
+}
+.card .icon {
+  font-size: 25px;
+  line-height: 1.2;
+  display: block;
+  margin-bottom: 10px;
+  color: var(--gold);
+}
+.card small {
+  color: var(--gold);
+  font-size: 11px;
+}
+.card.locked {
+  opacity: 0.65;
+}
+.hero-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.portrait {
+  width: 35px;
+  height: 44px;
+  position: relative;
+  background: linear-gradient(
+    0deg,
+    var(--hero) 0 46%,
+    #d6b992 46% 73%,
+    #343142 73% 100%
+  );
+  border: 6px solid #151923;
+  border-bottom-width: 2px;
+  box-shadow: 0 0 20px #0006;
+  flex-shrink: 0;
+}
+.start-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin: 24px 0 10px;
+}
+.start-row p {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 500px;
+}
+.start-row button {
+  padding: 15px 36px;
+  font-size: 17px;
+}
+.arcana {
+  grid-template-columns: repeat(4, 1fr);
+}
+.arcana .card {
+  padding: 12px;
+}
+.arcana .icon {
+  float: left;
+  margin: 0 12px 5px 0;
+}
+.arcana h3 {
+  font-size: 13px;
+}
+.arcana p {
+  font-size: 11px;
+}
+.shop .card button {
+  width: 100%;
+  margin-top: 10px;
+}
+.progress {
+  display: block;
+  color: var(--gold);
+  letter-spacing: 3px;
+  font-size: 13px;
+}
+.collection-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+.collection .card {
+  padding: 12px;
+}
+.collection .card h3 {
+  font-size: 14px;
+}
+.recipe {
+  border-top: 1px solid var(--line);
+  padding-top: 8px !important;
+  color: #c3b3d6 !important;
+}
+.achieved {
+  border-color: #99824d;
+  background: #342f232f;
+}
+.settings {
+  max-width: 600px;
+  margin: 30px auto;
+}
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.setting span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.setting input {
+  accent-color: var(--gold);
+  width: 20px;
+  height: 20px;
+}
+footer {
+  text-align: center;
+  color: #777e8d;
+  font-size: 11px;
+  line-height: 1.9;
+  margin-top: 28px;
+}
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: 18px 24px;
+  color: #eee8db;
+  text-shadow: 0 2px 3px #000;
+  z-index: 2;
+}
+.topline {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-size: 14px;
+}
+.brand {
+  font: 18px Georgia;
+  color: var(--gold);
+}
+#clock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+#gold {
+  margin-left: auto;
+  color: #edcd83;
+}
+#pause {
+  pointer-events: auto;
+  padding: 3px 12px;
+  background: #111821b0;
+}
+.xp {
+  position: absolute;
+  top: 61px;
+  left: 24px;
+  right: 24px;
+  height: 6px;
+  background: #0b101bcc;
+  border: 1px solid #8498bf33;
+}
+.xp i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #698cd3, #bed9ff);
+  width: 0;
+}
+.xp span {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  font-size: 11px;
+}
+.health {
+  position: absolute;
+  bottom: 27px;
+  left: 24px;
+  width: 190px;
+  height: 10px;
+  background: #161019;
+  border: 1px solid #895264;
+}
+.health i {
+  display: block;
+  background: linear-gradient(90deg, #9c4058, #e3868b);
+  height: 100%;
+}
+.health span {
+  position: absolute;
+  bottom: 14px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#loadout {
+  position: absolute;
+  bottom: 23px;
+  left: 240px;
+  right: 100px;
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.slot {
+  border: 1px solid #6e6575;
+  background: #151a25c9;
+  width: 34px;
+  height: 34px;
+  text-align: center;
+  line-height: 28px;
+  font-size: 19px;
+  position: relative;
+}
+.slot small {
+  position: absolute;
+  bottom: -2px;
+  right: 2px;
+  font-size: 9px;
+  line-height: 12px;
+  color: #fff;
+}
+#runStats {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  color: #bbbfc8;
+  font-size: 11px;
+}
+.dialog {
+  max-width: 850px;
+  margin: 12vh auto 40px;
+  padding: 28px;
+  text-align: center;
+}
+.dialog h2 {
+  font: normal 40px Georgia;
+  margin: 0 0 8px;
+  color: var(--gold);
+}
+.dialog > p {
+  color: var(--muted);
+}
+.choices {
+  margin: 24px 0;
+  grid-template-columns: repeat(3, 1fr);
+}
+.choices .card {
+  min-height: 180px;
+  padding: 22px;
+}
+.choices .card .icon {
+  font-size: 36px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.summary {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin: 25px 0;
+}
+.summary strong {
+  display: block;
+  font-size: 25px;
+  color: var(--ink);
+}
+.summary span {
+  font-size: 11px;
+  color: var(--muted);
+}
+#toast {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+  background: #242936ee;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 12px 20px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 13px;
+  text-align: center;
+}
+#toast.visible {
+  opacity: 1;
+}
+#error {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  background: #522b37;
+  border: 1px solid #f294a0;
+  padding: 20px;
+  white-space: pre-wrap;
+}
+#joystick {
+  position: absolute;
+  bottom: 55px;
+  left: 40px;
+  width: 110px;
+  height: 110px;
+  border: 1px solid #f4e9cd55;
+  background: #151b2533;
+  border-radius: 50%;
+  z-index: 3;
+  touch-action: none;
+}
+#stick {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  left: 32px;
+  top: 32px;
+  background: #c9bb9377;
+  border: 1px solid #eee0be99;
+  border-radius: 50%;
+  pointer-events: none;
+}
+@media (pointer: coarse) {
+  #joystick:not([hidden]) {
+    display: block;
+  }
+  #loadout {
+    left: auto;
+    right: 16px;
+    bottom: 60px;
+    max-width: 220px;
+  }
+  .health {
+    left: auto;
+    right: 16px;
+  }
+  #runStats {
+    bottom: 14px;
+  }
+  .brand {
+    font-size: 14px;
+  }
+}
+@media (max-width: 700px) {
+  .menu-wrap {
+    padding: 22px 16px;
+  }
+  .heroes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .arcana {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid {
+    gap: 7px;
+  }
+  .card {
+    padding: 12px;
+  }
+  .card h3 {
+    font-size: 14px;
+  }
+  .card p {
+    font-size: 11px;
+  }
+  .start-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .start-row button {
+    width: 100%;
+  }
+  .dialog {
+    margin: 8vh auto 20px;
+    padding: 20px 12px;
+  }
+  .dialog h2 {
+    font-size: 30px;
+  }
+  .choices {
+    grid-template-columns: 1fr;
+    margin: 15px 0;
+  }
+  .choices .card {
+    min-height: 80px;
+    padding: 13px;
+  }
+  .choices .card .icon {
+    float: left;
+    margin: 0 15px 5px 0;
+    font-size: 28px;
+  }
+  .summary {
+    gap: 16px;
+  }
+  .summary strong {
+    font-size: 20px;
+  }
+  #hud {
+    padding: 13px;
+  }
+  .topline {
+    gap: 10px;
+  }
+  .xp {
+    left: 13px;
+    right: 13px;
+    top: 51px;
+  }
+  #clock {
+    font-size: 20px;
+  }
+  .health {
+    width: 140px;
+  }
+  nav button {
+    padding: 8px 9px;
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+#level[role="button"] {
+  pointer-events: auto;
+  color: var(--gold);
+}
+#level[role="button"]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}

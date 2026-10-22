@@ -1,0 +1,15 @@
+# Local compiler packages and generated artifacts
+.bend/
+.bendhub/
+node_modules/
+**/dist/
+*.o
+*.dSYM/
+.DS_Store
+nightfall-profile.txt
+.env
+.env.*
+!.env.example
+
+nightfall-profile.tmp
+__pycache__/

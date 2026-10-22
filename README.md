@@ -1,0 +1,61 @@
+# Bendvy ECS examples
+
+Playable examples of [Bendvy](https://github.com/dearlordylord/bendvy), consuming its published **BendHub distribution**. This repository contains application code and game-design research; Bendvy itself is fetched by the Bend compiler.
+
+## Play Nightfall Survivors
+
+An original single-player survivors game: 24 weapons, 24 evolutions, six unions, 18 passive upgrades, eight heroes, five arenas, twelve Arcana, persistent progression and independent world actors. The native version uses Bend for simulation, rendering, input, sound and saved profiles.
+
+Install **Bend 2.0.37 or newer** and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
+
+```sh
+git clone https://github.com/dearlordylord/bendvy-ecs-examples.git
+cd bendvy-ecs-examples
+./examples/survivors/run.command
+```
+
+The launcher builds your current local sources and opens a native window. It needs neither Node.js nor a browser. Update the checkout with `git pull` to receive new source versions. See the [game guide](examples/survivors/README.md) for controls, save locations, optional browser mode and checks.
+
+## BendHub dependency
+
+Application imports use the published package directly:
+
+```bend
+import bendvy-ecs-core@0.1.0.1/world.bend as W
+import bendvy-ecs-core@0.1.0.1/compose.bend as Q
+```
+
+The compiler downloads the public package on first use and validates its content. No Bendvy checkout, copied ECS tree or local path alias is required. [bendhub-dependencies.json](bendhub-dependencies.json) records the audited package version, content hash and manifest hash; it is repository metadata, not a compiler-native lockfile.
+
+```sh
+python3 scripts/check-dependencies.py --registry
+```
+
+This audits all example imports and verifies the public registry binding. Every new example follows the same distribution rule. Dependency upgrades change both the imports and the recorded pin, followed by functional checks.
+
+## Development checks
+
+Node.js 20+ is used only for development checks and the optional browser frontend. Native Linux builds additionally need Clang, X11 development headers and ALSA development headers. Clang 19 is the qualified Linux compiler; use `CC=clang-19` where necessary.
+
+```sh
+python3 scripts/check-dependencies.py --registry
+bash examples/survivors/build.sh
+bash examples/survivors/check.sh
+bash examples/survivors/check-native.sh
+```
+
+The longer native controller is separate:
+
+```sh
+bash examples/survivors/check-native-full.sh
+```
+
+[Validation](examples/survivors/VALIDATION.md) distinguishes executed checks from historical results and platform limitations. [Balance notes](examples/survivors/BALANCE.md) describe the current pacing work; authored difficulty values are not proof of fun or parity with another game.
+
+## Research
+
+[Game-selection research](research/ecs-game-selection/README.md) contains ten initial hypotheses and independent follow-up audits. [The synthesis](research/ecs-game-selection/REPORT.md) compares candidate games and the ECS interactions each could demonstrate. It is a historical investigation, not a benchmark or the current implementation specification.
+
+## License
+
+Application source is available under **MIT OR Apache-2.0**; see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Original content and procedural graphics accompany the examples. Game titles mentioned in research identify their respective games; no assets from those games are included.

@@ -1,0 +1,44 @@
+name: Examples
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BEND_NO_TELEMETRY: '1'
+      CC: clang-19
+      BEND_LIB: ${{ runner.temp }}/bendhub
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.20.0'
+      - name: Install Bend 2.0.37
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/bend-2.0.37-linux-x64.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
+            https://github.com/bendlang/bend/releases/download/v2.0.37/bend-2.0.37-linux-x64.tar.gz \
+            -o "$archive"
+          echo "84c32465a39bc9ac315eade23f470cb8db03153dc860f89564fcfec153c3e445  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          echo "BEND=$RUNNER_TEMP/bend/bin/bend" >> "$GITHUB_ENV"
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-19 libx11-dev libasound2-dev
+      - name: Audit published dependencies
+        run: python3 scripts/check-dependencies.py --registry
+      - name: Check portable timeout helper
+        run: node examples/run-bounded.test.mjs
+      - name: Build using a fresh BendHub cache
+        run: bash examples/survivors/build.sh
+      - name: Check gameplay and browser-side progression
+        run: bash examples/survivors/check.sh
+      - name: Check native profile, UI and application build
+        run: bash examples/survivors/check-native.sh

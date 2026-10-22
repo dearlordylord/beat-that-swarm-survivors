@@ -1,0 +1,103 @@
+# Current standalone revision validation — 22 October 2026
+
+The examples now import the published BendHub package rather than a local ECS source tree. See the [root dependency instructions](../../README.md). The current fixed pool contains 748 entities: 512 enemy/loot slots, 192 player shots, 32 hostile shots and 12 independent actors. The first level needs 100 XP and subsequent thresholds use `100 + 3 * L + L * L / 3`, with the previous level as L. XP pacing is slower and the native reward panel is opened explicitly with E; combat continues with pending rewards until the panel opens, and Esc resumes it.
+
+| Current check | Observed evidence | Scope |
+| --- | --- | --- |
+| Emitted Bend gameplay and content suite | `/tmp/nightfall-paced-hub-check.log`: catalogs, profiles, trajectories, recipes, public API, objectives, balance, defeat and ordinary gameplay passed | Executed using the current BendHub-importing sources |
+| Horde capacity | Same log: 511 admitted enemies, 511 present at tick 21,672, phase 0 | Injected-clock capacity regression; not an input-only complete run or frame-rate measurement |
+| Early pressure and independent actors | 96 enemies at tick 120; eight wisps and four wards; ward damage 24, slow 90; Reaper control-immunity regression passed | Functional boundary checks; injected-clock finales are not complete-run witnesses |
+| Deferred progression | Pending reward queue regression passed at tick 7 with five queued rewards; native UI tests below cover level and treasure panels | Simulation and explicitly fabricated UI boundaries are distinguished |
+| Fresh stationary defeat | Tick 421, phase 3, HP 0, 83 kills, 122 gold | One fresh-profile stationary scenario |
+| Fresh moving loot-chasing policy | Death at tick 511 (about 8.52 simulated seconds), level 3, two choices, 124 kills; first reward at tick 296 (about 4.93 seconds) | One novice nearest-loot policy, not representative human playtesting or a complete-run progression result |
+| Native profile, deferred UI and application build | `/tmp/nightfall-examples-native-final.log`: profile persistence/roundtrip, both pending phase 1 and phase 2 panels, E opening, Esc resuming, numeric input before opening, queued next choice remaining closed, atomic reward banking and native application compilation passed | Actual Linux native functional execution and headless captures; reward/terminal boundaries are explicitly fabricated. A later instruction-text polish does not change game or queue behavior; its final application/window check is recorded below |
+| Fresh native kiting diagnostic | `/tmp/nightfall-native-pacing.log`: tick 3,600 (60 simulated seconds), phase 0, HP 70, level 4, 187 kills, three choices; first reward tick 540 (9 seconds), maximum 163 living enemies, first damage tick 162, minimum HP 32, four health-drop events | Actual fresh native-UI initialization: start → configure 0/0 → fresh weapon mask, Glass Heart, 70 initial HP. Input-only observation, not a full run or FPS measurement |
+| Final launcher and actual Linux window | `/tmp/nightfall-examples-launcher-build.log` and `/tmp/nightfall-examples-window.log` passed after the instruction polish; native window started, accepted input, held paused pixels, returned to camp, saved and closed gracefully | Final Linux/aarch64 binary SHA-256: `737be4a0ef9dcedde69261b0c53e4bbc15e44709e68b32fed9d2f3e5e8c1ae2b`; no macOS or physical audio qualification |
+| Optional browser frontend | `/tmp/nightfall-examples-browser.log`: menu, collection, gameplay, keyboard/touch movement, modal focus, pause, abandon and reload passed | Headless Chromium functional smoke; deferred reward behavior is covered by the core and native UI tests |
+| Current native complete run | Not executed for this revision | Previous full-run results below belong to the prior balance and source closure |
+| macOS Apple Silicon | Not executed in this environment | Portable launcher implementation is not native macOS execution evidence |
+
+The native kiting and JavaScript nearest-loot scenarios use different unlock initialization and reward-selection policies as well as different movement. Their outcomes are separate observations, not an isolated causal comparison of movement strategies or representative human playtesting.
+
+The paced-suite receipt supersedes the earlier `/tmp/bendvy-ecs-examples-hub-check.log` observation of level 10 after 600 ticks; that earlier result used a different XP threshold and is not current evidence.
+
+The raw receipt paths identify local development evidence and are not files shipped with this repository. No current full-run outcome, FPS target, numerical balance equivalence or player enjoyment result is claimed. In particular, an authored target of 60–80 level decisions is not an observed full-run result. Historical witnesses below do not replace current-revision validation.
+
+---
+
+# Historical native delivery — 22 October 2026
+
+The following evidence belongs to the previous 428-slot native delivery and its earlier XP and reward-panel behavior. It does not qualify the current 748-slot BendHub-based revision, its slower progression, deferred reward selection or current native executable. The authentic complete-run and Linux window witnesses remain historical evidence only.
+
+| Historical requirement | Observed evidence | Status |
+| --- | --- | --- |
+| Complete run with revised pressure and actual Reaper death | Pure Bend `native-full-run.bend`, compiled to a native Linux/aarch64 executable; only public start/configure/choose/advance inputs | Pass: tick 36,661, phase 4, HP 0, level 185, 6,405 kills, 7,870 gold, 188 upgrade decisions |
+| Alive at the time limit, then lethal pursuit | Same complete run, maximum legal permanent upgrades `[5,5,5,3,5,5,5,5,5,2]`, Agatha, Standard Graveyard, Living Tree | At tick 36,000: HP 372, level 182, 6,293 kills; actual death followed 661 ticks later |
+| Ordinary gameplay and content regressions | `/tmp/survivors-native-final-check-v2.log` passed catalog, profiles, projectiles, recipes, API, objectives, balance, defeat and smoke | Pass on the final simulation; fresh defeat tick 349, 39 kills, 66 gold; ordinary input survives 600 ticks with 111 kills |
+| Dense opening and independent actors | Final ordinary suite: 62 enemies at tick 120; eight wisps/four wards; ward damage 24 and slow 90; injected-clock finales for Standard/Inverse/Trial | Pass on the final simulation. Injected-clock tests are boundary regressions, not complete-run witnesses |
+| Reaper control immunity and terminal reward | Pinned source check `/tmp/nightfall-reaper-immune-check.log`; complete native run uses the current simulation hash below | Pass: final runtime confirms 25 damage is applied, freeze/slow/pull/knock are rejected and pursuit continues |
+| Native profile persistence | `/tmp/nightfall-native-profile-run.log` reports native file roundtrip, invalid/truncated recovery, names and collections passing | Pass; final native UI also writes, reloads and deduplicates terminal/abandonment reward paths |
+| Native UI, renderer captures and complete executable | `/tmp/nightfall-native-final-v2/receipt.json`: PASS with unchanged source/tool guards; actual typed UI input flow, positive 37-gold boundary and final Clang 19 application build | Pass; captures in `/tmp/nightfall-native-delivery-captures`, final executable SHA-256 `dd3ff4e268711f358c0132a2b634c8d4b9f381ccc94310e31a8763a7dcff5c98` |
+| Real native window/event lifecycle | `/tmp/nightfall-native-window-v2/receipt.json`: PASS, exact binary/source/tool guards, isolated Xvfb, actual 1024×768 window captures | Start/input delivery, unchanged paused pixels, camp return, saved profile and graceful window close pass; physical audio output is not qualified |
+| macOS Apple Silicon | Portable launcher and Bend native frontend are implemented | Not executed on macOS in this environment |
+| Independent final Spec/Standards review | Independent review cleared source, runtime receipts and corrected abandonment/recipe/control findings; Astra approved native graphics and bounded window plan | Pass for the declared scope; macOS execution and human balance playtesting remain separate |
+
+This is one advanced defensive-build witness, not an estimate of fresh-profile win rate, proof that every build survives, measured parity with Vampire Survivors, a performance result or a universal correctness claim. The native full controller does not inject clocks, inventories, health, entities or terminal outcomes. Its 42,000-action fuel includes level-up choices; success requires actual phase 4 with zero health between ticks 36,000 and 37,000, plus observed boss, chest, level-up and evolution events.
+
+## Historical source bindings and receipts
+
+The successful native full run used `check-native-full.sh` under the shared heavy lock, a 300-second compilation bound, a 900-second runtime bound and a fresh temporary working directory. Receipt `/tmp/nightfall-native-full-v1.log` records the following hashes and the successful terminal output. Compilation used the reviewed private Clang 19.1.7 toolchain on Linux/aarch64; no compiler optimization flags were changed. An initial standalone compiler identity probe omitted its required private-root variable and failed; the actual compile/run had both approved environment variables from the start, and a clean compiler identity was appended after completion.
+
+| Native full-run source | SHA-256 |
+| --- | --- |
+| game.bend | `363d917bf617930f1983edf6f69a75c1a5c4153633eb5b0fb5b5fd982fae72cc` |
+| actors.bend | `be902db163d8c1da6e88ff6f402c84086be35f0c5a49a9bf4393a025e90e1729` |
+| encounters.bend | `a01bf07bb63ed2c542b65aacb49836ce362925c42e717c536c689d32a915702e` |
+| projectile.bend | `26d2aac48b3c2cac231545975c9b0ce57cd1029516b80b46f7f7a6cede2d317f` |
+| native-full-run.bend | `cd8cbe552eee3681126c874226de2f45e959a5e7465b37ad999abed247b23eae` |
+| check-native-full.sh | `e30d9d122ddb86630fe823db2d4b8fc156f43e0d9cbfdbaea79a16c7a634199a` |
+
+The earlier JavaScript controller receipt `/tmp/survivors-native-v3-full.log` is partial: it was deliberately interrupted after tick 10,800 when review required Reaper control-immunity repairs. It is not a completion pass. Earlier ordinary receipt `/tmp/survivors-native-balance-check.log` failed its stale-source check during concurrent edits; the successor `/tmp/survivors-native-v2-check.log` passed, but still predates the final immunity/reward changes. Native build diagnostics `/tmp/nightfall-native-check.log` and `/tmp/nightfall-native-final-check.log` include missing local ALSA headers and a Clang 14 internal compiler error respectively; neither qualifies the final native executable.
+
+Final ordinary suite: `/tmp/survivors-native-final-build.log` and `/tmp/survivors-native-final-check-v2.log`. The first final ordinary attempt, `/tmp/survivors-native-final-check.log`, caught a missing Dawn Reaper entry in the optional browser collection; production catalog metadata was repaired and the unchanged oracle passed. That JavaScript-only metadata repair does not change the native Bend closure.
+
+Final native UI/capture/build: `/tmp/nightfall-native-final-v2/{receipt.json,manifest.json,raw.log}`; status PASS, 144.418 seconds, exact native sources and tools guarded before and after execution through `ReceiptBoundary`. The manifest retains native frontend hashes. Explicitly injected upgrade, terminal and positive-gold boundaries are labeled as such; genuine menu, movement, pause and busy-world input cases are separate. Native profile and launcher results are reused from their matching earlier receipts. Linux build-only dependencies were extracted to temporary sysroots; no npm or project dependency was added.
+
+Actual native window: `/tmp/nightfall-native-window-v2/receipt.json`, PASS in 4.554 seconds, immutable binary/source/tool guards. Actual X11 pixels and device logs are retained in `/tmp/nightfall-window-FkGY64`; gameplay, stable pause and camp return were inspected. The earlier `/tmp/nightfall-native-window-v1/receipt.json` is INCOMPLETE: Xvfb could not compile its keyboard map before the game started. Its successor supplies isolated Debian keyboard data/compiler resources and a reviewed Xvfb-only compiler-path shim; no game binary or system installation was modified. The window diagnostic verifies event delivery and screenshots; quantitative movement is asserted separately by the headless native UI test.
+
+Independent Spec/Standards review found no remaining blocking issue in the delivered scope. Astra reviewed the actual native renderer captures and graphics. No macOS/Metal execution, physical audio output, human enjoyment study or general balance equivalence is claimed.
+
+---
+
+# Historical browser delivery — 22 October 2026
+
+The following records describe the previous browser delivery and its previous balance. They do not qualify the current native frontend, denser waves, independent actors or Reaper finale. Independent Spec and Standards reviews at that historical delivery found no remaining blocking issue after the healing, pierce, discovery and progression corrections.
+
+| Requirement | Evidence | Result |
+| --- | --- | --- |
+| Complete single-player run | Input-only controller, Standard arena 0, character 0, maximum permanent upgrades, Arcana 9 | Victory at tick 36,000; 11,269 kills; level 250; four bosses; weapon 0 evolved to level 9 |
+| Defeat and continued progression | Fresh profile, character 0, no permanent upgrades, ordinary enemy-seeking input | Defeat at tick 478; HP 0; seven kills; 64 gold; terminal state stays terminal |
+| Weapons and builds | Actual emitted Bend functions, 24 trajectory/lifetime controls, 24 positive/negative evolution recipes, six union recipes and bounded offers | Pass; includes delayed impacts, gravity, homing, return, healing and finite-pierce regressions |
+| Public progression commands | Natural level-ups and opaque State consumption | Stage/Arcana selection, four modes, unlock mask, reroll/banish/skip charges and invalid-phase no-ops pass |
+| Arena objectives and unlocks | Input-only traversal in all five arenas, then profile persistence/reload | Artifacts recovered at ticks 184/184/184/184/263; designated weapons open; artifacts do not respawn |
+| Trial | Two independent zero-meta/max-meta inputs | Five-minute endpoint; permanent-health bonus disabled; HP 125 in both Trial cases |
+| Persistent profile | Purchases, caps, replay deduplication, goals, unlocks and malformed-save recovery | Pass |
+| Browser | Chromium through existing Playwright, desktop and 390×844 touch viewport | Keyboard/touch movement, focus trapping, pause, collection navigation, abandon and reload pass; portrait rendering inspected |
+| Bend/ECS authority | Source check, stock ESM build, independent review and reached query execution | Four narrow query passes; affine world ownership; Body/Vitals/Motion storage; fixed 416-slot pool; no core changes |
+| Content breadth | Catalog checks and independent source review against GAME_SPEC/REFERENCE_SCOPE | 24 weapons, 24 evolutions, six unions, 18 passives, 12 Arcana, eight heroes, five arenas, four modes, 30 enemies/bosses, ten permanent upgrades, 20 achievements |
+
+The breadth review checks distinct mechanics, interaction paths, objectives and unlocks. Catalog totals alone do not establish numerical equivalence to the current Vampire Survivors catalog. The full run is one advanced-build witness, not exhaustive balance testing of every combination. No universal correctness or comparative performance result is asserted.
+
+## Source bindings and retained receipts
+
+The full simulation and ordinary suite used immutable snapshot `/tmp/nightfall-validation-20261022-v4`. Only presentation scaling and the enemy-discovery regression changed afterward. Affected checks passed against the final 399-file snapshot `/tmp/nightfall-validation-20261022-v6`; its executable closure was hash-compared to this worktree. The Bend source and emitted backend are unchanged between those snapshots. Manifests and raw logs remain outside the repository.
+
+| Source | SHA-256 |
+| --- | --- |
+| game.bend | `41446f2651ddf4cf4b323484bae9d8e1992dde7029c41b53f8c91902128a9aee` |
+| projectile.bend | `26d2aac48b3c2cac231545975c9b0ce57cd1029516b80b46f7f7a6cede2d317f` |
+| encounters.bend | `e853b04f04786903edd38e39c7e603b42d134cb816a349901aedc49cd7651929` |
+
+Receipts: `/tmp/survivors-build-v4.log`, `/tmp/survivors-check-v4.log`, `/tmp/survivors-full-v4.log`, `/tmp/survivors-frontend-v5.log`, `/tmp/survivors-browser-v6.log`. Browser environment: Node 24.20.0, installed Playwright at `/tmp/blob-reconnect-tools/node_modules/playwright/index.mjs`, existing libraries from `/tmp/chromium-libs/extracted/usr/lib/aarch64-linux-gnu`; no packages installed for the game.
+
+Historical failures are preserved: v1 reached victory but failed its evolution assertion; v2r reached tick 28,800 before its unchanged 360-second deadline. Neither is presented as a successful final qualification. The original Bendvy repository recorded the scoped 900-second successor in its `docs/limits.md`; that file is not part of this standalone repository.

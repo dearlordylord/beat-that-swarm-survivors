@@ -1,0 +1,39 @@
+# 21 — factual review of the synthesis
+
+**Review time:** 2026-10-21 01:04:55 UTC. Read-only review of [REPORT](REPORT.md), the evaluation contract, coordination log, reports 03, 07, 11–19, and the linked Bendvy API descriptions. Official SS14 and Streets of Rogue pages were checked directly. No game, compiler, tests, benchmarks, or prototype were run.
+
+## Verdict
+
+The draft follows the user's stated priority: it selects SS14 for maximum natural ECS breadth and treats Streets of Rogue, Baba, and Magicka as conditional alternatives for a narrower or more convenient first consumer. It does not silently replace “maximum ECS” with “fastest MVP.” Its concrete station scenes are labeled as proposals, and it plainly says that a solo emergency shift is not a faithful copy of SS14's multiplayer social loop.
+
+The primary-source boundary is generally sound. SS14's official page describes a round-based multiplayer role-playing game with jobs, inventory, reactor work, and player-driven outcomes; its ECS guide gives shared examples such as Borgs and coffee makers sharing power, and most game objects sharing damage behavior. Those sources support the mechanics and the reference architecture, while the claim that SS14 is the strongest Bendvy consumer remains a reasoned comparison. SoR's developer page supports its mission, traits/items/environment, AI residents, and solo mode; the report appropriately does not infer SoR's internal ECS. See [SS14 About](https://spacestation14.com/about/about/), [SS14 ECS guide](https://docs.spacestation14.com/en/robust-toolbox/ecs.html), and [SoR developer page](https://store.steampowered.com/app/512900/Streets_of_Rogue/).
+
+At this review time the required hour has **not** elapsed: the recorded start is 00:33:48 UTC and the earliest completion is 01:33:48 UTC. `REPORT.md` and the log correctly remain provisional. Keep them marked as drafts until that gate passes. The log records ten distinct hypotheses, two waves of five Luna/max workers, and follow-up reviews by those same workers; the report's process statement agrees with that record.
+
+All 13 relative links in `REPORT.md` resolve to existing files. I found no malformed Markdown in the reviewed report. Its current Bendvy claims are source-level claims, not runtime claims: it says the API was inspected without edits, explicitly says no compiler/tests/benchmarks were run, and does not claim that a backend or game is currently executable. The World snapshot/checkpoint caveat, schedule ordering, and late-barrier failure wording align with the evaluation contract and cited API audit.
+
+## Must fix before treating the API comparison as settled
+
+1. **Correct report 12's resource-route claim.** Independent review 18 found that the recognized ordinary App surface already supports a current-row component `write` paired with whole-resource `resource_write` using `pair`, registered via `Component.add`; the Sparse consumer provides source-level evidence. Report 12 should not say that component-query plus resource access generally needs custom Ops, an adapter, or separate phases. Narrow that caveat to arbitrary query/resource combinations and the separate selected-resource-field factory. This does not establish every selector/field combination, and it does not solve actor→tool→door relation joins. See [18](18-api-audit-review.md) and the [recognized declaration](../../../bendvy/src/ecs/recognized-query-declaration.bend).
+
+2. **Preserve the relation caveat with its exception.** Report 18 also identifies a standard hierarchy helper that walks descendants from a known root and queries those handles as current rows. Report 12 should acknowledge this specialized tree path while retaining the narrower conclusion: there is no general atomic join from each source row through an arbitrary outgoing relation to the target's components. The current synthesis's relation statement is broadly correct, but its phrase “запись нескольких семейств” is ambiguous. Specify that the difficulty is an action spanning distinct entities such as actor, held tool, and door; don't imply that current-row multi-component or component-plus-whole-resource writes are absent.
+
+3. **Keep the “Baba/Magicka on today's ordinary App” rationale independent of the resource mistake.** In the synthesis, explain this recommendation through the shape of their same-family or preplanned actions and the remaining cross-entity relation join, not through a general lack of component/resource writes. SS14 remains the maximum-breadth selection even after this correction.
+
+These are source-scope corrections, not runtime findings. The reports correctly state that neither the consumers nor the proposed games were executed.
+
+## Advisory points
+
+- The SS14-over-RimWorld/Cosmoteer ranking is plausible but remains qualitative. The cited gameplay sources support the candidate mechanics; they cannot prove a unique ECS winner. The synthesis correctly labels the comparison as qualitative and points to independent ranking 17. Keep the colony job/reservation/path-planner cost as an explicit risk or inference: RimWorld's developer documents pathfinding work, but that does not show that a small colony slice must be dominated by a global solver.
+- AI and scheduler costs are appropriately framed as project risks for SoR and colony games, not as audited original architectures. The same standard should apply to SS14: atmospherics, topology, host/network work, and content remain substantial non-ECS systems even though SS14 itself uses ECS.
+- The requirement for several interacting roles is the right recognition check for a faithful SS14-style loop. A solo engineer shift can still be a useful *station-inspired ECS slice*, provided the final recommendation continues to label that fidelity loss as it does now.
+
+No files other than this review were changed. No implementation or execution validation was performed.
+
+## Re-review after reports 20–25 (pre-hour checkpoint)
+
+The three must-fix items above are addressed in the current [REPORT](REPORT.md): it recognizes the supported component-write plus whole-resource route, narrows the limitation to cross-entity relation joins/writes while naming hierarchy traversal as a special case, and keeps the SS14 recommendation independent from the former resource-access error. The matched station and colony traces in [24a](24a-station-matched-interaction.md) and [24b](24b-colony-matched-interaction.md) treat domain solvers symmetrically: internal atmosphere/field steps and job, reservation, or pathfinding work are not counted as extra ECS queries, and the colony scheduler is included when its scenario needs it.
+
+The colony note correctly treats `Handle<Schema>` as `Data`; it separates that fact from the ordinary callback's missing convenient current-row handle binding. The synthesis also follows the granularity audit: no zero-branch rule or marker-per-property requirement remains. Its clone-identity claim is qualified: an SS14 solo emergency is an adaptation, while a recognizable SS14 clone needs interacting crew roles; the [scope audit](13-clone-scope-audit.md) supports that distinction. The [host audit](25-host-interface-audit.md) is represented as a limitation: existing browser and App paths are building blocks, not a completed game host, and input/render DTOs plus committed side-effect handling remain application work.
+
+The current report distinguishes published game/API facts from ECS rankings and proposed scenarios, and it does not claim a playable backend or runtime validation. Read-only link checking covered all 30 Markdown files in this study directory: 784 links checked, with no malformed link starts, missing local targets, or out-of-range line anchors. **Must-fix remaining:** none identified in the current report. This is a pre-hour review checkpoint only; the one-hour gate remains unsatisfied and the report must remain provisional until that gate passes.

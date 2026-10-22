@@ -1,0 +1,650 @@
+import Game from "./dist/game.mjs";
+import {
+  WEAPONS,
+  PASSIVES,
+  CHARACTERS,
+  STAGES,
+  ARCANA,
+  META_UPGRADES,
+  ENEMIES,
+  ACHIEVEMENTS,
+  UNIONS,
+  RUN_MODES,
+  WEAPON_UNLOCKS,
+  STAGE_RELICS,
+} from "./content.mjs";
+import { Renderer } from "./renderer.mjs";
+import { AudioEngine } from "./audio.mjs";
+import {
+  loadProfile,
+  saveProfile,
+  buyUpgrade,
+  metaCode,
+  recordRun,
+  isUnlocked,
+  unlock,
+  upgradeCost,
+  requirementsMet,
+  allowedWeapons,
+} from "./progression.mjs";
+const $ = (s) => document.querySelector(s),
+  canvas = $("#game"),
+  renderer = new Renderer(canvas),
+  audio = new AudioEngine();
+let profile = loadProfile(),
+  state,
+  frame,
+  running = false,
+  paused = false,
+  upgradeOpen = false,
+  accumulator = 0,
+  previous = 0,
+  tab = "expedition",
+  collectionTab = "weapons",
+  character = 0,
+  stage = 0,
+  arcana = 0,
+  mode = 0,
+  shownPhase = -1,
+  toastTimer,
+  runId = "";
+let loadoutSignature = "";
+let seenWeapons = new Set(),
+  seenEvolutions = new Set();
+const runResult = () => ({
+  ...frame,
+  runId,
+  usedWeapons: [...seenWeapons],
+  evolvedWeapons: [...seenEvolutions],
+});
+const keys = new Set(),
+  touch = { x: 0, y: 0 },
+  STEP = 1000 / 60;
+const esc = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+const time = (t) =>
+  `${Math.floor(t / 60)
+    .toString()
+    .padStart(2, "0")}:${Math.floor(t % 60)
+    .toString()
+    .padStart(2, "0")}`;
+function toast(message) {
+  $("#toast").textContent = message;
+  $("#toast").classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("#toast").classList.remove("visible"), 3000);
+}
+function settings() {
+  audio.setMuted(profile.settings.muted);
+  audio.setVolume(profile.settings.volume);
+}
+function card(item, attributes = "", extra = "", selected = false) {
+  const pressed = /data-(stage|arcana|mode)=/.test(attributes)
+    ? `aria-pressed="${selected}"`
+    : "";
+  return `<button class="card ${selected ? "selected" : ""}" ${attributes} ${pressed}><span class="icon" style="color:${item.color || "var(--gold)"}">${item.icon || "✦"}</span><h3>${esc(item.name)}</h3><p>${esc(item.description)}</p>${extra}</button>`;
+}
+function menu() {
+  const previousFocus = $("#menu").contains(document.activeElement)
+    ? {
+        id: document.activeElement.id,
+        data: { ...document.activeElement.dataset },
+      }
+    : null;
+  running = false;
+  paused = false;
+  keys.clear();
+  touch.x = touch.y = 0;
+  audio.stop();
+  $("#menu").hidden = false;
+  $("#overlay").hidden = true;
+  $("#hud").hidden = true;
+  $("#joystick").hidden = true;
+  $("#wallet").textContent =
+    `◈ ${profile.gold.toLocaleString("en-US")} · legacy gold`;
+  document
+    .querySelectorAll("#tabs button")
+    .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  let html = "";
+  if (tab === "expedition") {
+    html =
+      '<div class="section-title">I · Choose your fate</div><div class="grid heroes">' +
+      CHARACTERS.map((h) => {
+        let open = isUnlocked(profile, "character", h.id);
+        return `<button class="card ${character === h.id ? "selected" : ""} ${open ? "" : "locked"}" data-character="${h.id}" aria-pressed="${character === h.id}"><div class="hero-head"><div class="portrait" style="--hero:${h.color}"></div><div><h3>${h.name}</h3><small>${h.title}</small></div></div><p>${h.description}</p><small>${open ? WEAPONS[h.weapon].name : `Unlock · ${h.cost} ◈`}</small>${!open && !requirementsMet(profile, h) ? `<small>${h.hint}</small>` : ""}</button>`;
+      }).join("") +
+      '</div><div class="section-title">II · Choose your hunting ground</div><div class="grid">' +
+      STAGES.map((s) =>
+        card(
+          { ...s, icon: ["☾", "▤", "♧", "❄", "♨"][s.id] },
+          `data-stage="${s.id}"`,
+          `<small>${isUnlocked(profile, "stage", s.id) ? (mode === 3 ? "5-minute Trial" : mode === 2 ? "Endless night" : "10 minutes until dawn") : `Unlock · ${s.cost} ◈`}</small>${!requirementsMet(profile, s) ? `<small>${s.hint}</small>` : ""}`,
+          stage === s.id,
+        ),
+      ).join("") +
+      '</div><div class="section-title">III · Arcana — reshape your run</div><div class="grid arcana">' +
+      ARCANA.map((a) =>
+        card(a, `data-arcana="${a.id}"`, "", arcana === a.id),
+      ).join("") +
+      '</div><div class="section-title">IV · Shape the night</div><div class="grid">' +
+      RUN_MODES.map((m) =>
+        card(
+          { ...m, icon: ["☾", "◑", "∞", "⚔"][m.id] },
+          `data-mode="${m.id}"`,
+          isUnlocked(profile, "mode", m.id)
+            ? ""
+            : `<small>Locked · ${m.hint}</small>`,
+          mode === m.id,
+        ),
+      ).join("") +
+      '</div><div class="start-row"><p>Collect experience shards and build a loadout of 6 weapons and 6 relics. A level VIII weapon and its matching relic unlock an evolution from a chest.</p><button class="primary" id="start">Into the night →</button></div>';
+  } else if (tab === "shop") {
+    html =
+      '<div class="section-title">Power that outlives the night</div><div class="grid shop">' +
+      META_UPGRADES.map((u) => {
+        let rank = profile.meta[u.id] || 0,
+          cost = upgradeCost(profile, u.id);
+        return `<article class="card"><h3>${u.name}</h3><p>${u.description}</p><span class="progress">${"◆".repeat(rank)}${"◇".repeat(u.maxLevel - rank)}</span><button data-upgrade="${u.id}" ${rank >= u.maxLevel || profile.gold < cost ? "disabled" : ""}>${rank >= u.maxLevel ? "Fully upgraded" : `Upgrade · ${cost} ◈`}</button></article>`;
+      }).join("") +
+      "</div>";
+  } else if (tab === "collection") {
+    html =
+      '<div class="collection-tabs">' +
+      [
+        ["weapons", "Weapons · 24"],
+        ["evolutions", "Evolutions · 24"],
+        ["unions", "Unions · 6"],
+        ["passives", "Relics · 18"],
+        ["enemies", "Bestiary · 30"],
+        ["artifacts", "Artifacts · 5"],
+      ]
+        .map(
+          ([id, name]) =>
+            `<button data-collection="${id}" class="${collectionTab === id ? "primary" : ""}">${name}</button>`,
+        )
+        .join("") +
+      '</div><div class="grid collection">';
+    let list =
+      collectionTab === "artifacts"
+        ? STAGE_RELICS
+        : collectionTab === "unions"
+          ? UNIONS
+          : collectionTab === "passives"
+            ? PASSIVES
+            : collectionTab === "enemies"
+              ? ENEMIES
+              : WEAPONS;
+    html +=
+      list
+        .map(
+          (i) =>
+            `<article class="card"><span class="icon" style="color:${i.color || "var(--gold)"}">${i.icon || (i.boss ? "♜" : "♟")}</span><h3>${collectionTab === "evolutions" ? i.evolvedName : i.name}</h3><p>${collectionTab === "evolutions" ? i.evolvedDescription : i.description || (i.boss ? "Lord of the night" : "Creature of the night")}</p>${collectionTab === "artifacts" ? `<p class="recipe">${profile.stageRelics.includes(i.id) ? "Recovered" : "Find in " + STAGES[i.id].name} · unlocks ${WEAPONS[i.weapon].name}</p>` : ""}${collectionTab === "weapons" && !isUnlocked(profile, "weapon", i.id) ? `<p class="recipe">Locked · ${WEAPON_UNLOCKS.find((w) => w.id === i.id)?.hint || ""}</p>` : ""}${collectionTab === "unions" ? `<p class="recipe">${i.weapons.map((id) => WEAPONS[id].name + " VIII").join(" + ")}<br>→ ${i.name}</p>` : ""}${collectionTab === "weapons" || collectionTab === "evolutions" ? `<p class="recipe">${i.name} VIII + ${PASSIVES[i.passive].name}<br>→ ${i.evolvedName}</p>` : ""}</article>`,
+        )
+        .join("") + "</div>";
+  } else if (tab === "achievements") {
+    html =
+      '<div class="section-title">A chronicle of your nights</div><div class="grid">' +
+      ACHIEVEMENTS.map(
+        (a) =>
+          `<article class="card ${profile.achievements.includes(a.id) ? "achieved" : ""}"><h3>${profile.achievements.includes(a.id) ? "◆" : "◇"} ${a.name}</h3><p>${a.description}</p><small>${profile.achievements.includes(a.id) ? "Completed" : "Still to come"}</small></article>`,
+      ).join("") +
+      "</div>";
+  } else {
+    html = `<div class="settings"><label class="setting"><div>Music and sound<span>An original synthesized soundtrack</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
+  }
+  $("#menuContent").innerHTML = html;
+  if (previousFocus) {
+    const match = [...$("#menu").querySelectorAll("button,input")].find(
+      (element) =>
+        previousFocus.id
+          ? element.id === previousFocus.id
+          : Object.keys(previousFocus.data).length &&
+            Object.entries(previousFocus.data).every(
+              ([key, value]) => element.dataset[key] === value,
+            ),
+    );
+    match?.focus({ preventScroll: true });
+  } else {
+    $("#tabs .active")?.focus({ preventScroll: true });
+  }
+}
+function consume(method, ...args) {
+  const owner = state;
+  state = undefined;
+  accept(Game[method](owner, ...args));
+}
+function accept(packet) {
+  if (packet.$ === "Failed") throw Error(packet.error);
+  if (packet.$ !== "Packet") throw Error("Invalid simulation response");
+  state = packet.state;
+  let old = frame;
+  frame = JSON.parse(packet.frame);
+  frame.weapons.forEach((level, id) => {
+    if (level > 0) seenWeapons.add(id);
+    if (level >= 9) seenEvolutions.add(id);
+  });
+  frame.stage ??= stage;
+  if (old && running) {
+    if (frame.hp < old.hp) audio.event("hit");
+    if (frame.kills > old.kills) audio.event("kill");
+    if (frame.hp > old.hp) audio.event("heal");
+  }
+  if (frame.phase !== shownPhase) {
+    shownPhase = frame.phase;
+    phase();
+  }
+}
+function start() {
+  upgradeOpen = false;
+  banishing = false;
+  runId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  audio.unlock();
+  audio.stop();
+  settings();
+  renderer.reset();
+  seenWeapons = new Set();
+  seenEvolutions = new Set();
+  frame = undefined;
+  shownPhase = -1;
+  running = true;
+  paused = false;
+  accumulator = 0;
+  previous = 0;
+  $("#menu").hidden = true;
+  $("#hud").hidden = false;
+  $("#joystick").hidden = !matchMedia("(pointer:coarse)").matches;
+  accept(Game.start(character, metaCode(profile)));
+  consume("configure", stage, arcana);
+  consume("set_mode", mode);
+  consume("configure_unlocks", allowedWeapons(profile));
+  canvas.focus();
+}
+function focusDialog() {
+  const dialog = $("#dialog");
+  (
+    dialog.querySelector(
+      "button:not(:disabled),input:not(:disabled),[tabindex='0']",
+    ) || dialog
+  ).focus({ preventScroll: true });
+}
+function phase() {
+  if (!running) return;
+  banishing = false;
+  paused = false;
+  if (![1, 2].includes(frame.phase)) upgradeOpen = false;
+  if (frame.phase === 0 || ([1, 2].includes(frame.phase) && !upgradeOpen)) {
+    const wasOpen = !$("#overlay").hidden;
+    $("#overlay").hidden = true;
+    if (wasOpen) canvas.focus({ preventScroll: true });
+    return;
+  }
+  keys.clear();
+  touch.x = touch.y = 0;
+  $("#overlay").hidden = false;
+  const d = $("#dialog");
+  if (frame.phase === 1 || frame.phase === 2) {
+    audio.event(frame.phase === 1 ? "level" : "chest");
+    let offers = frame.offers || [];
+    d.innerHTML = `<div class="eyebrow">${frame.phase === 1 ? `LEVEL ${frame.level}` : "TREASURE OF THE NIGHT"}</div><h2 id="dialog-title">${frame.phase === 1 ? "Power awakens" : "A fallen lord’s gift"}</h2><p>${frame.phase === 1 ? "Choose an ability for the next wave." : "Choose your reward. A matching weapon may evolve."}</p><div class="grid choices">${offers
+      .map((o, index) => {
+        const isW = o.kind === 0 || o.kind === 3,
+          item =
+            o.kind === 5
+              ? UNIONS[o.id]
+              : isW
+                ? WEAPONS[o.id]
+                : o.kind === 1
+                  ? PASSIVES[o.id]
+                  : o.kind === 4
+                    ? {
+                        name: "Golden gift",
+                        icon: "◈",
+                        description: "Gain gold for this run.",
+                      }
+                    : {
+                        name: "Restorative elixir",
+                        icon: "♥",
+                        description: "Restore health.",
+                      };
+        return card(
+          {
+            ...item,
+            name: o.kind === 3 ? item.evolvedName : item.name,
+            description:
+              o.kind === 3 ? item.evolvedDescription : item.description,
+          },
+          `data-choice="${index}"`,
+          `<small>${o.kind === 5 ? "UNION" : o.kind === 3 ? "EVOLUTION" : o.kind === 2 ? "Healing" : o.kind === 4 ? "Gold" : `Level ${o.level}`} · key ${index + 1}</small>`,
+        );
+      })
+      .join(
+        "",
+      )}</div>${frame.phase === 1 ? `<div class="dialog-actions"><button data-run="reroll" ${frame.rerolls === 0 ? "disabled" : ""}>↻ Reroll${frame.rerolls !== undefined ? ` (${frame.rerolls})` : ""}</button><button id="banish">Banish an offer…</button><button data-run="skip">Skip</button></div>` : ""}`;
+  } else if (frame.phase === 3 || frame.phase === 4) {
+    audio.event(frame.phase === 4 ? "victory" : "gameover");
+    const awards = recordRun(profile, runResult());
+    saveProfile(profile);
+    d.innerHTML = `<div class="eyebrow">${STAGES[stage].name.toUpperCase()}</div><h2 id="dialog-title">${frame.phase === 4 ? "The dawn is yours" : "The night will remember"}</h2><p>${frame.phase === 4 ? "The horde has fallen. Your legacy grows stronger." : "Every shard of power brings the next dawn closer."}</p><div class="summary"><div><strong>${time(frame.tick / 60)}</strong><span>TIME</span></div><div><strong>${frame.kills}</strong><span>DEFEATED</span></div><div><strong>${frame.level}</strong><span>LEVEL</span></div><div><strong>+${frame.gold} ◈</strong><span>LEGACY</span></div></div>${awards.length ? `<p>New achievements: ${awards.map((id) => ACHIEVEMENTS.find((a) => a.id === id)?.name || id).join(", ")}</p>` : ""}<div class="dialog-actions"><button class="primary" id="restart">Another night</button><button id="return">Return to menu</button></div>`;
+  }
+  focusDialog();
+}
+function openUpgrade() {
+  if (!running || ![1, 2].includes(frame?.phase)) return;
+  upgradeOpen = true;
+  accumulator = 0;
+  phase();
+}
+function pause(value) {
+  if (upgradeOpen) {
+    if (value === true) return;
+    upgradeOpen = false;
+    phase();
+    return;
+  }
+  if (!running || ![0, 1, 2].includes(frame?.phase)) return;
+  paused = value ?? !paused;
+  keys.clear();
+  touch.x = touch.y = 0;
+  accumulator = 0;
+  if (paused) {
+    audio.stop();
+    $("#overlay").hidden = false;
+    $("#dialog").innerHTML =
+      '<div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">A moment of rest</h2><p>The night will wait for your return.</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. XP collects automatically after 2 seconds.<br>Collect chests manually; press E to choose a ready reward.<br>Guide wisps home and activate wards. Carry up to 6 weapons and 6 relics.</p>';
+    focusDialog();
+  } else {
+    $("#overlay").hidden = true;
+    canvas.focus();
+  }
+}
+function hud() {
+  if (!frame) return;
+  canvas.dataset.playerX = frame.px;
+  canvas.dataset.playerY = frame.py;
+  canvas.dataset.tick = frame.tick;
+  $("#clock").textContent = time(frame.tick / 60);
+  $("#gold").textContent = `◈ ${frame.gold}`;
+  $("#level").textContent = [1, 2].includes(frame.phase) ? `LEVEL ${frame.level} · ${frame.phase === 2 ? "TREASURE" : "UPGRADE"} READY [E]` : `LEVEL ${frame.level}`;
+  $("#level").style.cursor = [1, 2].includes(frame.phase) ? "pointer" : "";
+  $("#level").onclick = openUpgrade;
+  $("#level").setAttribute("role", [1, 2].includes(frame.phase) ? "button" : "status");
+  $("#level").tabIndex = [1, 2].includes(frame.phase) ? 0 : -1;
+  $("#level").onkeydown = (event) => {
+    if (event.code === "Enter" || event.code === "Space") {
+      event.preventDefault();
+      event.stopPropagation();
+      openUpgrade();
+    }
+  };
+  $("#xpFill").style.width =
+    `${Math.min(100, (frame.xp / Math.max(1, frame.xpNeed)) * 100)}%`;
+  $("#hpFill").style.width =
+    `${Math.max(0, (frame.hp / Math.max(1, frame.maxHp)) * 100)}%`;
+  $("#healthText").textContent = `♥ ${frame.hp} / ${frame.maxHp}`;
+  $("#runStats").textContent = `☠ ${frame.kills}`;
+  const signature = JSON.stringify([frame.weapons, frame.passives]);
+  if (signature === loadoutSignature) return;
+  loadoutSignature = signature;
+  const slots = [
+    ...(frame.weapons || []).flatMap((n, i) =>
+      n ? [{ ...WEAPONS[i], ...(n >= 10 ? UNIONS[n - 10] : {}), n }] : [],
+    ),
+    ...(frame.passives || []).flatMap((n, i) =>
+      n ? [{ ...PASSIVES[i], n }] : [],
+    ),
+  ];
+  $("#loadout").innerHTML = slots
+    .map(
+      (w) =>
+        `<span class="slot" title="${esc(w.n >= 10 ? w.name : w.n > 8 ? w.evolvedName : w.name)}" style="color:${w.color || "#d9d0b7"}">${w.icon}<small>${w.n > 8 ? "✦" : w.n}</small></span>`,
+    )
+    .join("");
+}
+function fail(error) {
+  paused = true;
+  $("#error").hidden = false;
+  $("#error").textContent =
+    `Unable to continue the game: ${error.message}\nReload the page to return to the menu.`;
+  console.error(error);
+}
+function animation(now) {
+  let dt = Math.min(100, now - (previous || now));
+  previous = now;
+  try {
+    if (running && frame) {
+      if (!paused && !upgradeOpen && [0, 1, 2].includes(frame.phase)) {
+        accumulator += dt;
+        while (accumulator >= STEP) {
+          let dx =
+              Number(keys.has("KeyD") || keys.has("ArrowRight")) -
+              Number(keys.has("KeyA") || keys.has("ArrowLeft")) +
+              touch.x,
+            dy =
+              Number(keys.has("KeyS") || keys.has("ArrowDown")) -
+              Number(keys.has("KeyW") || keys.has("ArrowUp")) +
+              touch.y,
+            l = Math.max(1, Math.hypot(dx, dy));
+          consume("advance_live", dx / l, dy / l);
+          accumulator -= STEP;
+          if (![0, 1, 2].includes(frame.phase) || upgradeOpen) {
+            accumulator = 0;
+            break;
+          }
+        }
+        audio.update(frame);
+      } else accumulator = 0;
+      renderer.draw(frame, dt / 1000, profile.settings);
+      hud();
+    }
+  } catch (e) {
+    fail(e);
+  }
+  requestAnimationFrame(animation);
+}
+let banishing = false;
+document.addEventListener("click", (event) => {
+  const b = event.target.closest("button");
+  if (!b || b.disabled) return;
+  audio.unlock();
+  try {
+    if (b.dataset.tab) {
+      tab = b.dataset.tab;
+      menu();
+    } else if (b.dataset.character !== undefined) {
+      let id = +b.dataset.character;
+      if (
+        isUnlocked(profile, "character", id) ||
+        unlock(profile, "character", id)
+      ) {
+        character = id;
+        saveProfile(profile);
+        menu();
+      } else
+        toast(
+          requirementsMet(profile, CHARACTERS[id])
+            ? "Not enough legacy gold"
+            : CHARACTERS[id].hint,
+        );
+    } else if (b.dataset.stage !== undefined) {
+      let id = +b.dataset.stage;
+      if (isUnlocked(profile, "stage", id) || unlock(profile, "stage", id)) {
+        stage = id;
+        saveProfile(profile);
+        menu();
+      } else
+        toast(
+          requirementsMet(profile, STAGES[id])
+            ? "Not enough legacy gold"
+            : STAGES[id].hint,
+        );
+    } else if (b.dataset.mode !== undefined) {
+      const next = +b.dataset.mode;
+      if (isUnlocked(profile, "mode", next)) {
+        mode = next;
+        menu();
+      } else toast(RUN_MODES[next].hint);
+    } else if (b.dataset.arcana !== undefined) {
+      arcana = +b.dataset.arcana;
+      menu();
+    } else if (b.dataset.upgrade !== undefined) {
+      if (buyUpgrade(profile, +b.dataset.upgrade)) {
+        saveProfile(profile);
+        audio.event("choose");
+        menu();
+      }
+    } else if (b.dataset.collection) {
+      collectionTab = b.dataset.collection;
+      menu();
+    } else if (b.dataset.choice !== undefined) {
+      audio.event("choose");
+      upgradeOpen = false;
+      consume(banishing ? "banish" : "choose", +b.dataset.choice);
+      banishing = false;
+      shownPhase = -1;
+      phase();
+      shownPhase = frame.phase;
+    } else if (b.dataset.run) {
+      if (b.dataset.run === "skip") upgradeOpen = false;
+      consume(b.dataset.run);
+      shownPhase = -1;
+      phase();
+      shownPhase = frame.phase;
+    } else if (b.id === "banish") {
+      banishing = !banishing;
+      b.textContent = banishing
+        ? "Choose an ability to banish"
+        : "Banish an offer…";
+    } else if (b.id === "start" || b.id === "restart") start();
+    else if (b.id === "pause" || b.id === "resume") pause();
+    else if (b.id === "return") menu();
+    else if (b.id === "abandon") {
+      recordRun(profile, { ...runResult(), phase: 3 });
+      saveProfile(profile);
+      menu();
+    }
+  } catch (e) {
+    fail(e);
+  }
+});
+document.addEventListener("change", (e) => {
+  const id = e.target.id;
+  if (id === "sound") profile.settings.muted = !e.target.checked;
+  else if (id === "motion") profile.settings.reducedMotion = e.target.checked;
+  else if (id === "damage") profile.settings.showDamage = e.target.checked;
+  else if (id === "volume") profile.settings.volume = +e.target.value;
+  else return;
+  settings();
+  saveProfile(profile);
+});
+window.addEventListener("keydown", (e) => {
+  if (!$("#overlay").hidden && e.code === "Tab") {
+    const controls = [
+      ...$("#dialog").querySelectorAll(
+        "button:not(:disabled),input:not(:disabled),[tabindex='0']",
+      ),
+    ];
+    const first = controls[0],
+      last = controls.at(-1);
+    if (!first) {
+      e.preventDefault();
+      $("#dialog").focus();
+      return;
+    }
+    if (!$("#dialog").contains(document.activeElement)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    } else if (
+      (e.shiftKey && document.activeElement === first) ||
+      (!e.shiftKey && document.activeElement === last)
+    ) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    }
+    return;
+  }
+  // Preserve native keyboard activation and text/range controls.
+  if (
+    e.code !== "Escape" &&
+    (document.activeElement?.matches("input,select,textarea") ||
+      (document.activeElement?.matches("button") &&
+        !/^Digit[123]$/.test(e.code)))
+  )
+    return;
+  if (
+    [
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "Space",
+      "Escape",
+      "KeyW",
+      "KeyA",
+      "KeyS",
+      "KeyD",
+      "KeyE",
+      "Digit1",
+      "Digit2",
+      "Digit3",
+    ].includes(e.code)
+  ) {
+    if (running) e.preventDefault();
+    if (e.repeat) return;
+    if (e.code === "KeyE") openUpgrade();
+    else if (e.code === "Escape" || e.code === "Space") pause();
+    else if (
+      /^Digit[123]$/.test(e.code) &&
+      running &&
+      !paused &&
+      ([1, 2].includes(frame.phase) && upgradeOpen)
+    )
+      document
+        .querySelector(`[data-choice="${+e.code.slice(-1) - 1}"]`)
+        ?.click();
+    else keys.add(e.code);
+  }
+});
+window.addEventListener("keyup", (e) => keys.delete(e.code));
+window.addEventListener("blur", () => {
+  keys.clear();
+  pause(true);
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pause(true);
+});
+const joy = $("#joystick");
+let pointer = null;
+function joystick(e) {
+  const r = joy.getBoundingClientRect(),
+    x = e.clientX - r.left - r.width / 2,
+    y = e.clientY - r.top - r.height / 2,
+    l = Math.max(35, Math.hypot(x, y));
+  touch.x = x / l;
+  touch.y = y / l;
+  $("#stick").style.transform =
+    `translate(${touch.x * 33}px,${touch.y * 33}px)`;
+  e.preventDefault();
+}
+joy.addEventListener("pointerdown", (e) => {
+  pointer = e.pointerId;
+  joy.setPointerCapture(pointer);
+  joystick(e);
+});
+joy.addEventListener("pointermove", (e) => {
+  if (e.pointerId === pointer) joystick(e);
+});
+for (const type of ["pointerup", "pointercancel"])
+  joy.addEventListener(type, () => {
+    pointer = null;
+    touch.x = touch.y = 0;
+    $("#stick").style.transform = "";
+  });
+settings();
+menu();
+requestAnimationFrame(animation);

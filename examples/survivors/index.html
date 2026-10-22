@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#11151d" />
+    <title>Nightfall Survivors</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <canvas
+        id="game"
+        width="1024"
+        height="640"
+        aria-label="Nightfall Survivors game field"
+        tabindex="0"
+      ></canvas>
+      <div id="hud" hidden>
+        <div class="topline">
+          <span class="brand">Nightfall Survivors</span
+          ><span id="clock">00:00</span><span id="gold"></span
+          ><button id="pause" aria-label="Pause">Ⅱ</button>
+        </div>
+        <div class="xp"><i id="xpFill"></i><span id="level"></span></div>
+        <div class="health">
+          <i id="hpFill"></i><span id="healthText"></span>
+        </div>
+        <div id="loadout"></div>
+        <div id="runStats"></div>
+      </div>
+      <section id="menu" class="screen">
+        <div class="menu-wrap">
+          <header>
+            <div class="eyebrow">NIGHTFALL SURVIVORS</div>
+            <h1>Nightfall <em>Survivors</em></h1>
+            <p>Become the storm. Survive the night.</p>
+          </header>
+          <nav id="tabs">
+            <button data-tab="expedition" class="active">Expedition</button
+            ><button data-tab="shop">Legacy</button
+            ><button data-tab="collection">Collection</button
+            ><button data-tab="achievements">Achievements</button
+            ><button data-tab="settings">Settings</button>
+          </nav>
+          <div id="wallet"></div>
+          <div id="menuContent"></div>
+          <footer>
+            WASD / arrow keys to move · Esc / Space to pause · attacks are
+            automatic<br />Experience unlocks abilities. Chests awaken
+            evolutions.
+          </footer>
+        </div>
+      </section>
+      <section id="overlay" class="screen" hidden>
+        <div
+          id="dialog"
+          class="dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dialog-title"
+          tabindex="-1"
+        ></div>
+      </section>
+      <div id="toast" role="status"></div>
+      <div id="joystick" hidden><div id="stick"></div></div>
+      <div id="error" hidden role="alert"></div>
+    </main>
+    <script type="module" src="./browser.mjs"></script>
+  </body>
+</html>

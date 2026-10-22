@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "bendVersion": "2.0.37",
+  "registry": "https://hub.bend-lang.com",
+  "packages": {
+    "bendvy-ecs-core@0.1.0.1": {
+      "contentHash": "0xf435da9e535b3846d643dad16580e35f",
+      "manifestSha256": "f435da9e535b3846d643dad16580e35fb9ae485317226d9d0325ad1dcaa1fdb0"
+    }
+  }
+}
