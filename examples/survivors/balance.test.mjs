@@ -8,9 +8,9 @@ assert.equal(Game.active_limit(21600), 512);
 assert.equal(Game.active_limit(100000), 512);
 assert.ok(Game.next_xp_need(40) > Game.next_xp_need(20) * 2,
   "Later levels require accelerating investment rather than constant interruption");
-const openingRadius = Array.from({length: 24}, (_, i) => Game.spawn_radius(i, 60));
-assert.ok(new Set(openingRadius).size > 12, "Spawns occupy varied distances");
-assert.ok(openingRadius.every(r => r >= 270 && r <= 390));
+const openingSpawns = Array.from({length: 24}, (_, i) => Game.enemy_new(i, 60, 1800, 1800, 0, 0, 0));
+assert.ok(new Set(openingSpawns.map(b => b.x + ":" + b.y)).size > 12, "Spawns occupy varied offscreen positions");
+assert.ok(openingSpawns.every(b => Math.max(Math.abs(b.x - 1800), Math.abs(b.y - 1800)) > 512 + 3 * b.radius + 24));
 const early = Game.pressure_damage(1, 0, 0, 0, empty, 0, 0, 0);
 const late = Game.pressure_damage(12, 30000, 0, 0, empty, 0, 0, 0);
 assert.ok(

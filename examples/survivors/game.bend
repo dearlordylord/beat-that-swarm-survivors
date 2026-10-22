@@ -2,6 +2,7 @@ import Base
 import projectile.bend as P
 import encounters.bend as E
 import actors.bend as A
+import spawn-policy.bend as S
 import bendvy-ecs-core@0.1.0.1/world.bend as W
 import bendvy-ecs-core@0.1.0.1/column.bend as Col
 import bendvy-ecs-core@0.1.0.1/component.bend as C
@@ -112,12 +113,13 @@ def distance2(+x: F32,+y: F32,+px: F32,+py: F32) -> F32: ((x - px) * (x - px) + 
 def close(x: F32,y: F32,px: F32,py: F32,+radius: F32) -> Bool: F32.is_le(distance2(x,y,px,py),(radius * radius : F32))
 def wave(+tick: U32) -> U32: (tick / 3600 : U32)
 def angle(+seed: U32) -> F32: (U32.to_f32(((seed * 2399 + 71) % 6283 : U32)) / 1000.0 : F32)
-def spawn_radius(+seed: U32,+tick: U32) -> F32:
-  (270.0 + U32.to_f32(((seed * 73 + tick * 19) % 121 : U32)) : F32)
 # Early growth is quick; quadratic later costs prevent serial upgrade interruptions.
 def next_xp_need(+level: U32) -> U32: (100 + level * 3 + level * level / 3 : U32)
-def enemy_new(+seed: U32,+tick: U32,+px: F32,+py: F32,+variant: U32,+stage: U32,+curse: U32) -> Body:
-  Body{F32.clamp((px + F32.cos(angle((seed + tick * 13 : U32))) * spawn_radius(seed,tick) : F32),20.0,3580.0),F32.clamp((py + F32.sin(angle((seed + tick * 13 : U32))) * spawn_radius(seed,tick) : F32),20.0,3580.0),0,variant,(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),0,seed,E.radius(variant)}
+def enemy_at(point: S.Point,+seed: U32,+tick: U32,+variant: U32,+stage: U32,+curse: U32) -> Body:
+  match point:
+    case S.Point{x,y}: Body{x,y,0,variant,(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),0,seed,E.radius(variant)}
+def enemy_new(+seed: U32,+tick: U32,px: F32,py: F32,+variant: U32,stage: U32,curse: U32) -> Body:
+  enemy_at(S.choose(seed,tick,px,py,E.radius(variant)),seed,tick,variant,stage,curse)
 # A 512-slot enemy budget grows from 96 to the full horde by six minutes.
 def active_limit(+tick: U32) -> U32: U32.min(512,(96 + tick / 50 : U32))
 def initial_body(+slot: U32) -> Body: Body{0.0,0.0,8,slot,0,0,slot,slot,0.0}
@@ -249,9 +251,17 @@ def enemy_result(+hp: U32,+x: F32,+y: F32,+variant: U32,+maxHp: U32,+age: U32,+s
 def enemy_update(body: Body,run: Run) -> Row:
   match body run:
     case Body{+x,+y,_,+variant,+hp,+maxHp,+age,+seed,+radius} Run{_,_,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,+enemyKinds,+relicCollected}: Row{Body{x,y,0,variant,hp,maxHp,age,seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0}
+def admit_enemy(admission: S.Admission,candidate: Body,previous: Body) -> Row:
+  match admission:
+    case S.Admit{}: Row{candidate,0,0,0,0,0,0,0}
+    case S.Reject{}: Row{previous,0,0,0,0,0,0,0}
+def candidate_enemy(candidate: Body,previous: Body,px: F32,py: F32) -> Row:
+  match candidate:
+    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}:
+      admit_enemy(S.admission(x,y,px,py,radius),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},previous)
 def dormant_spawn(active: Bool,+seed: U32,+tick: U32,+px: F32,+py: F32,+variant: U32,+stage: U32,+curse: U32,+body: Body) -> Row:
   match active:
-    case True{}: Row{enemy_new(seed,tick,px,py,variant,stage,curse),0,0,0,0,0,0,0}
+    case True{}: candidate_enemy(enemy_new(seed,tick,px,py,variant,stage,curse),body,px,py)
     case False{}: Row{body,0,0,0,0,0,0,0}
 def dormant(body: Body,run: Run) -> Row:
   match body run:
@@ -268,7 +278,7 @@ def boss_variant(finale: Bool,tick: U32,stage: U32) -> U32:
     case False{}: (20 + stage * 2 + ((tick / 7200) % 2) : U32)
 def update_selected(boss: Bool,finale: Bool,+body: Body,+run: Run,+seed: U32,+tick: U32,+px: F32,+py: F32,+stage: U32) -> Row:
   match boss:
-    case True{}: Row{enemy_new(seed,tick,px,py,boss_variant(finale,tick,stage),stage,0),0,0,0,0,0,0,0}
+    case True{}: candidate_enemy(enemy_new(seed,tick,px,py,boss_variant(finale,tick,stage),stage,0),body,px,py)
     case False{}: update_body(body,run)
 def update(body: Body,run: Run) -> Row:
   match body run:

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from './context.mjs';
+import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate, experienceGoals } from './context.mjs';
 
 export function heuristicUpgrade(frame) {
   const weapons = [4, 19, 10, 0, 2, 17], passives = [11, 1, 6, 2, 0, 7];
@@ -14,15 +14,21 @@ export function heuristicUpgrade(frame) {
   return frame.offers.reduce((best, o, i) => score(o) > score(frame.offers[best]) ? i : best, 0);
 }
 
-export function steering(frame, target) {
+export function steering(frame, target, mechanics = {}) {
   const enemies = frame.bodies.filter((b) => b[2] === 0 && b[4] > 0);
-  const nearest = enemies.reduce((best, b) => Math.hypot(b[0] - frame.px, b[1] - frame.py) < Math.hypot(best[0] - frame.px, best[1] - frame.py) ? b : best, [frame.px + 300, frame.py]);
+  const nearest = enemies.reduce((best, b) => Math.hypot(b[0] - frame.px, b[1] - frame.py) < Math.hypot(best[0] - frame.px, best[1] - frame.py) ? b : best, enemies[0] ?? [frame.px + 300, frame.py]);
+  const stats=mechanics.current?.weaponStats ?? [];
+  const closeOnly=enemies.length>0 && stats.length>0 && stats.every(w=>w.selfFieldRadius>0);
+  const aura=closeOnly ? Math.max(...stats.map(w=>w.selfFieldRadius)) : 0;
+  const desired=closeOnly ? Math.max((nearest[8]??12)+26,aura+(nearest[8]??12)-6) : 220;
   const nx = frame.px - nearest[0], ny = frame.py - nearest[1], nd = Math.max(1, Math.hypot(nx, ny));
-  let dx = target ? target.x - frame.px : nx / nd * Math.max(0, 220 - nd) * 6 + ny / nd * 35 + (1800 - frame.px) * 0.05;
-  let dy = target ? target.y - frame.py : ny / nd * Math.max(0, 220 - nd) * 6 - nx / nd * 35 + (1800 - frame.py) * 0.05;
+  let dx = target ? target.x - frame.px : nx / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 + ny / nd * (closeOnly?12:35) + (1800 - frame.px) * 0.05;
+  let dy = target ? target.y - frame.py : ny / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 - nx / nd * (closeOnly?12:35) + (1800 - frame.py) * 0.05;
   for (const b of frame.bodies) {
     if (![0, 7].includes(b[2])) continue;
-    const x = frame.px - b[0], y = frame.py - b[1], d = Math.max(1, Math.hypot(x, y)), force = Math.max(0, 140 - d) * 4;
+    const x = frame.px - b[0], y = frame.py - b[1], d = Math.max(1, Math.hypot(x, y));
+    const avoidance=closeOnly && b[2]===0 ? (b[8]??12)+26 : 140;
+    const force=Math.max(0,avoidance-d)*(closeOnly && b[2]===0 ? 12 : 4);
     dx += x / d * force; dy += y / d * force;
   }
   dx += (frame.px < 200 ? 1000 : 0) - (frame.px > 3400 ? 1000 : 0);
@@ -31,8 +37,8 @@ export function steering(frame, target) {
   return [dx / length, dy / length];
 }
 
-function bestGoal(request, frame) {
-  const cost = (c) => frame.bodies.filter((b) => b[2] === 0 && b[4] > 0 && Math.hypot(b[0] - c.goal.target.x, b[1] - c.goal.target.y) < 100).length * 100 + c.goal.distance * 0.01;
+export function bestGoal(request, frame) {
+  const cost = (c) => frame.bodies.filter((b) => b[2] === 0 && b[4] > 0 && Math.hypot(b[0] - c.goal.target.x, b[1] - c.goal.target.y) < 100).length * 100 + c.goal.distance * 0.01 - (c.goal.kind === 'approach_experience' ? 30 : 0);
   return request.candidates.reduce((best, candidate) => cost(candidate) < cost(best) ? candidate : best).goal;
 }
 
@@ -125,9 +131,11 @@ export async function runBot(Game, {
       }
       nextGoalTick = frame.tick + 300;
     }
-    const target = continuingGoal(plan, frame, catalog);
+    let target = continuingGoal(plan, frame, catalog);
     if (!target) plan = null;
-    const [dx, dy] = steering(frame, target);
+    // Resource collection remains active between the sparse high-level choices.
+    if (!plan || plan.goal.kind.startsWith('move_')) target = experienceGoals(frame,catalog,engineMechanics)[0]?.target ?? target;
+    const [dx, dy] = steering(frame, target, engineMechanics);
     const state = current.state; current.state = undefined;
     current = accept(Game.advance(state, dx, dy));
   }

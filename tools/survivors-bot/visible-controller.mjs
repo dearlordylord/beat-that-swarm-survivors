@@ -1,5 +1,5 @@
-import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from './context.mjs';
-import { heuristicUpgrade, steering, continuingGoal } from './runner.mjs';
+import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate, experienceGoals } from './context.mjs';
+import { heuristicUpgrade, steering, continuingGoal, bestGoal } from './runner.mjs';
 
 // The native process alone advances the world. This controller receives snapshots.
 export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fresh', classify,
@@ -8,7 +8,7 @@ export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fr
   for (const n of [maxUpgradeRequests,maxGoalRequests]) if (!Number.isSafeInteger(n)||n<0||n>50) throw new Error('Invalid request budget');
   if (maxUpgradeRequests+maxGoalRequests>50 || !Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000) throw new Error('Invalid bounded options');
   if(mode==='jev' && typeof classify!=='function') throw new Error('Classifier required');
-  let lastSequence=0, decisionSeq=0, nextGoal=1, plan=null, previous=null, lastFrameTick=-60, pending=[];
+  let lastSequence=0, decisionSeq=0, nextGoal=1, plan=null, previous=null, lastFrameTick=-60, pending=[], lastResource=null;
   const history=[], attempts={upgrade:0,goal:0};
   return async function command(observation) {
     const {sequence,frame:f,actions:catalog,mechanics:engineMechanics}=observation;
@@ -49,13 +49,20 @@ export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fr
     }
     if(f.tick>=nextGoal) {
       const request=buildGoalDecision(f,catalog,options);
-      const fallback=request.candidates.reduce((best,c)=>c.goal.distance<best.goal.distance?c:best).goal;
+      const fallback=bestGoal(request,f);
       const goal=await select(request,fallback,a=>resolveGoalCandidate(request,a,f,catalog,options));
       plan={goal,tick:f.tick,until:f.tick+120}; nextGoal=f.tick+300;
       history.push({tick:f.tick,hp:f.hp,action:'choose_goal',goal:goal.kind,target:goal.target});
     }
-    const target=continuingGoal(plan,f,catalog); if(!target)plan=null;
-    const [dx,dy]=steering(f,target);
+    let target=continuingGoal(plan,f,catalog); if(!target)plan=null;
+    if(!plan || plan.goal.kind.startsWith('move_')) {
+      const xp=experienceGoals(f,catalog,engineMechanics)[0];
+      target=xp?.target ?? target;
+      const identity=xp?.id.split(':').slice(2,5).join(':') ?? null;
+      if(identity!==lastResource) emit({type:'movement-intent',tick:f.tick,source:'local-resource-policy',goal:xp??null,reason:xp?'Collect nearby fresh XP before automatic claim; avoid blocked routes.':'XP target collected, expired or no longer worth the detour.'});
+      lastResource=identity;
+    }
+    const [dx,dy]=steering(f,target,engineMechanics);
     // Short batches keep avoidance and goal identity under regular observation.
     return {kind:0,x:Math.round((dx+1)*1000),y:Math.round((dy+1)*1000),index:0,horizon:6};
   };

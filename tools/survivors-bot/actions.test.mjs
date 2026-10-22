@@ -27,13 +27,13 @@ const verify = ({frame, actions, mechanics}) => {
     assert.ok(Number.isFinite(action.distance));
     assert.ok(Math.abs(action.distance - Math.hypot(action.target.x - frame.px, action.target.y - frame.py)) < 0.01);
     if (action.kind.startsWith("move_")) continue;
-    const kind = {approach_chest: 5, approach_relic: 9, approach_wisp: 10, approach_ward: 11}[action.kind];
+    const kind = {approach_experience: 2, approach_chest: 5, approach_relic: 9, approach_wisp: 10, approach_ward: 11}[action.kind];
     assert.ok(frame.bodies.some(b => b[2] === kind && b[0] === action.target.x && b[1] === action.target.y &&
       action.id === `t${frame.tick}:${action.kind}:${b[7]}:${b[2]}:${b[3]}:${b[6]}` &&
       (kind < 10 || (b[3] === 0 && b[4] > 0))), "Every entity goal matches the real engine snapshot");
   }
   for (const body of frame.bodies) {
-    const actionable = body[2] === 5 || body[2] === 9 || ([10,11].includes(body[2]) && body[3] === 0 && body[4] > 0);
+    const actionable = (body[2] === 2 && body[6] < 120) || body[2] === 5 || body[2] === 9 || ([10,11].includes(body[2]) && body[3] === 0 && body[4] > 0);
     if (actionable) assert.ok(actions.some(a => a.target.x === body[0] && a.target.y === body[1] && a.id.includes(`:${body[7]}:${body[2]}:${body[3]}:${body[6]}`)));
   }
 };
@@ -54,6 +54,8 @@ const pureMechanics = JSON.parse(Bot.mechanics(pureRun, {$: "Con", head: {$: "ga
 assert.equal(pureMechanics.offers[0].offerIndex, 0);
 assert.deepEqual(pureMechanics.offers[0].after, healthPreview);
 assert.deepEqual(pureMechanics.current, current.mechanics.current);
+assert.equal(current.mechanics.current.pickupRadius, 24);
+assert.equal(current.mechanics.current.weaponStats[0].selfFieldRadius, 0, "Ranged starter is not treated as a self-field weapon");
 const original = current.frame;
 current = accept(Bot.reroll(current.state));
 assert.deepEqual(current.frame, original, "Reroll outside an upgrade menu does nothing");
@@ -79,13 +81,17 @@ const advanced = accept(Bot.advanced_start());
 assert.equal(advanced.frame.character, 2);
 assert.equal(advanced.frame.arcana, 9);
 assert.equal(advanced.frame.mode, 0);
+assert.ok(advanced.mechanics.current.weaponStats.find(w => w.id === 4).selfFieldRadius > 0, "Aura starter exposes its actual projectile field radius");
 // Pure serialization boundary tests only: no mutated gameplay state or simulated run.
 const list = xs => xs.reduceRight((tail, head) => ({$: "Con", head, tail}), {$: "Nil"});
 const body = (kind, variant, hp, seed) => ({$: "game.Body", x: 100, y: 200, kind, variant, hp, maxHp: hp, age: 7, seed, radius: 12});
-const fixture = list([body(5, 20, 0, 1), body(10, 1, 80, 2), body(11, 0, 0, 3), body(8, 0, 0, 4)]);
+const fixture = list([body(5, 20, 0, 1), body(10, 1, 80, 2), body(11, 0, 0, 3), body(8, 0, 0, 4), body(2, 4, 0, 5), {...body(2, 4, 0, 6), age: 120}]);
 const goals = JSON.parse(Bot.catalog_live(true, 12, 100, 100, fixture));
-assert.equal(goals.length, 5);
-assert.equal(goals.at(-1).kind, "approach_chest");
-assert.equal(goals.at(-1).id, "t12:approach_chest:1:5:20:7");
+assert.equal(goals.length, 6);
+assert.ok(!goals.some(g => g.id.includes(":6:2:4:120")), "XP already due for automatic claim is not offered as a travel goal");
+assert.equal(goals.at(-1).kind, "approach_experience");
+assert.equal(goals.at(-2).kind, "approach_chest");
+
+assert.equal(goals.at(-2).id, "t12:approach_chest:1:5:20:7");
 assert.deepEqual(JSON.parse(Bot.catalog_live(false, 12, 100, 100, fixture)), []);
 console.log("BOT ACTIONS PASS: real affine world observation, fresh/advanced presets, engine-backed goals, snapshot expiry, empty-menu operations, pure inactive/dead actor exclusion");

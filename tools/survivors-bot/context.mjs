@@ -131,7 +131,7 @@ export function resolveCandidate(request,response,currentFrame,{runId,decisionSe
   return candidate.offerIndex;
 }
 
-const GOAL_KINDS = new Set(['move_north','move_east','move_south','move_west','approach_chest','approach_relic','approach_wisp','approach_ward']);
+const GOAL_KINDS = new Set(['move_north','move_east','move_south','move_west','approach_chest','approach_relic','approach_wisp','approach_ward','approach_experience']);
 function catalogOf(frame, catalog) {
   if (!Array.isArray(catalog)) throw new Error('Require engine goal catalog');
   const ids = new Set();
@@ -142,22 +142,46 @@ function catalogOf(frame, catalog) {
   return catalog;
 }
 
+// Prefer nearby fresh XP that can be reached before its automatic claim. This
+// is a local geometric heuristic, not a claim that the route is safe.
+export function experienceGoals(frame, catalog, mechanics = {}) {
+  const speed = 2.5 * (mechanics.current?.speedMultiplier ?? 1);
+  const pickup = mechanics.current?.pickupRadius ?? 24;
+  const enemies = (frame.bodies ?? []).filter(b => [0,7].includes(b[2]) && (b[2] === 7 || b[4] > 0));
+  return catalog.filter(g => {
+    if (g.kind !== 'approach_experience' || g.distance > 120) return false;
+    const [seed,kind,variant,age] = g.id.split(':').slice(2).map(Number);
+    const body = frame.bodies.find(b => b[7] === seed && b[2] === kind && b[3] === variant && b[6] === age);
+    if (!body || kind !== 2 || age >= 120 || Math.max(0,g.distance-pickup)/speed >= 120-age) return false;
+    const vx=g.target.x-frame.px,vy=g.target.y-frame.py,length2=vx*vx+vy*vy;
+    return !enemies.some(b => {
+      const t=length2 ? Math.max(0,Math.min(1,((b[0]-frame.px)*vx+(b[1]-frame.py)*vy)/length2)) : 0;
+      return Math.hypot(b[0]-frame.px-t*vx,b[1]-frame.py-t*vy)<60;
+    });
+  }).sort((a,b) => {
+    const density=g => frame.bodies.filter(body=>body[2]===2 && body[6]<120 && Math.hypot(body[0]-g.target.x,body[1]-g.target.y)<=40).length;
+    return a.distance/Math.max(1,density(a))-b.distance/Math.max(1,density(b)) || a.id.localeCompare(b.id);
+  });
+}
+
 export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=0,history=[],engineMechanics}={}) {
   if (![0,1,2].includes(frame.phase)) throw new Error('Cannot choose movement goal for ended run');
   const catalog=catalogOf(frame,engineCatalog);
   const available=catalog.filter((g)=>g.distance>=1 && Math.hypot(g.target.x-frame.px,g.target.y-frame.py)>=1);
   const cards=available.filter((g)=>g.kind.startsWith('move_'));
-  const entities=available.filter((g)=>g.kind.startsWith('approach_')).sort((a,b)=>a.distance-b.distance || a.id.localeCompare(b.id)).slice(0,4);
+  const xp=experienceGoals(frame,available,engineMechanics).slice(0,1);
+  const entities=[...xp,...available.filter((g)=>g.kind.startsWith('approach_') && g.kind!=='approach_experience').sort((a,b)=>a.distance-b.distance || a.id.localeCompare(b.id))].slice(0,4);
   const selected=[...cards,...entities];
   if(selected.length<2 || selected.length>8) throw new Error('Goal classification requires 2 to 8 actual choices');
   const base=buildUpgradeDecision({...frame,phase:1,offers:frame.offers??[]},{runId,decisionSeq,meta,history,engineMechanics});
   const snapshot=base.snapshot;
   snapshot.facts.phase=frame.phase;
   delete snapshot.facts.rewardType;
-  snapshot.goalExecution={safety:'unassessed',method:'Choose an intent; controller steers using ordinary game movement, local enemy avoidance and a maximum 120-tick horizon. No teleport or direct reward grant.',warning:'Observed distance is geometric distance, not a safe route, arrival guarantee or viewport visibility. Goals expire and must be revalidated while moving.',loot:'Ordinary experience, gold and healing drops auto-claim after 120 ticks (2 simulation seconds). Chests and relics require approach; avoid treating XP travel as necessary.'};
+  snapshot.goalExecution={safety:'unassessed',method:'Choose an intent; controller steers using ordinary game movement, local enemy avoidance and a maximum 120-tick horizon. No teleport or direct reward grant.',warning:'Observed distance is geometric distance, not a safe route, arrival guarantee or viewport visibility. Goals expire and must be revalidated while moving.',loot:'Ordinary experience, gold and healing drops auto-claim after 120 ticks (2 simulation seconds). Approach fresh nearby XP to gain it earlier and accelerate upgrades when the route permits; do not chase distant XP that will auto-claim before arrival. Chests and relics require approach.'};
   snapshot.limits[0]='Select only a listed engine goal. This decision does not select upgrades or invoke an executable engine command.';
   const candidatesHash=hash(selected), observation=observationHash(frame);
   const descriptions={
+    approach_experience:'Approach a real fresh XP drop to collect experience before its 120-tick automatic claim. Pickup uses the engine pickup radius. Nearby clusters can accelerate level-ups; avoid dangerous or long detours. This target disappears on collection or automatic claim.',
     approach_chest:'Approach a real chest. Collection grants a reward choice; evolution/union eligibility depends on the current build. Travel and collection are not guaranteed safe.',
     approach_relic:'Approach the stage relic, which unlocks its associated weapon for future runs. It does not guarantee immediate combat power or a safe route.',
     approach_wisp:'Approach a living inactive wisp. Player proximity strictly below 100 activates it; activation alone pays nothing. It then travels toward the center, can take enemy damage, and pays its rescue reward only if it reaches within 18 units of the center alive.',
@@ -167,6 +191,10 @@ export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=
   const candidates=selected.map((goal)=>{
     const targetThreats=enemies.map((b)=>Math.hypot(b[0]-goal.target.x,b[1]-goal.target.y));
     const effect={intent:goal.kind,target:safeCopy(goal.target),distance:goal.distance,safety:'unassessed',targetGeometry:{enemiesWithin60:targetThreats.filter(d=>d<=60).length,enemiesWithin150:targetThreats.filter(d=>d<=150).length,nearestEnemyDistance:targetThreats.length?Math.min(...targetThreats):null,qualification:'Snapshot geometry only. Does not assess the path, moving enemies, projectile danger or time to arrival.'},rule:descriptions[goal.kind]??'Move toward this bounded cardinal point. This is a geometric direction, not a guaranteed safe retreat or beneficial maneuver.'};
+    if(goal.kind==='approach_experience') {
+      const [seed,kind,variant,age]=goal.id.split(':').slice(2).map(Number);
+      effect.resource={kind:'experience',seed,variant,ageTicks:age,automaticClaimInTicks:120-age,pickupRadius:engineMechanics?.current?.pickupRadius??null,benefit:'Collect earlier to accelerate the next upgrade; automatic collection remains available.'};
+    }
     return {id:`goal:${hash([runId,decisionSeq,candidatesHash,observation,goal.id]).slice(0,24)}`,engineGoalId:goal.id,goal:safeCopy(goal),effect,description:JSON.stringify(effect)};
   });
   return {runId,decisionSeq,candidatesHash,observationHash:observation,catalogHash:hash(catalog),kind:'goal',snapshot,candidates};

@@ -108,6 +108,7 @@ export class Renderer {
     }
     if (!playerDrawn) this.player(px, py, frame.character);
     for (const b of bodies) if (b[2] === 6) this.effect(b, false);
+    for (const b of bodies) this.healthBar(b);
     if (options.showDamage !== false) this.damage(bodies, dt);
     const shade = c.createRadialGradient(
       this.width / 2,
@@ -377,6 +378,17 @@ export class Renderer {
     c.beginPath();
     c.ellipse(x, y + 3, rx, ry, 0, 0, TAU);
     c.fill();
+  }
+  healthBar(b) {
+    if (b[2] !== 0 || !(b[4] > 0)) return;
+    const [x, y] = this.xy(b[0], b[1]);
+    const radius = Math.max(1, Number(b[8]) || 5);
+    const width = Math.max(20, radius * 2);
+    const top = y - Math.max(24, radius * 2) - 8;
+    const ratio = Math.min(1, b[4] / Math.max(1, b[5]));
+    rect(this.ctx, x - width / 2 - 1, top - 1, width + 2, 5, "#eadbc9");
+    rect(this.ctx, x - width / 2, top, width, 3, "#592434");
+    rect(this.ctx, x - width / 2, top, width * ratio, 3, "#a5e2a0");
   }
   body(b) {
     const [x, y] = this.xy(b[0], b[1]);

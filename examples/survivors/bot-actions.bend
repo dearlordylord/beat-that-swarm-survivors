@@ -1,6 +1,7 @@
 import Base
 import game.bend as G
 import native-profile.bend as P
+import projectile.bend as Shots
 
 # Optional controller facade. All states belong to this compiled module's runtime.
 # Observation consumes the affine state once and returns it unchanged. Candidates
@@ -25,6 +26,8 @@ def maybe_entity(enabled: Bool,+tick: U32,+px: F32,+py: F32,body: G.Body,kind: S
 def entity_goals(rows: List<&2,G.Body>,+tick: U32,+px: F32,+py: F32) -> String:
   match rows:
     case []: ""
+    case G.Body{+x,+y,2,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
+      maybe_entity(U32.is_lt(age,120),tick,px,py,G.Body{x,y,2,variant,hp,maxHp,age,seed,radius},"approach_experience",entity_goals(rest,tick,px,py))
     case G.Body{+x,+y,5,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
       "," ++ entity_goal(tick,px,py,G.Body{x,y,5,variant,hp,maxHp,age,seed,radius},"approach_chest") ++ entity_goals(rest,tick,px,py)
     case G.Body{+x,+y,9,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
@@ -48,8 +51,17 @@ def catalog(run: G.Run,bodies: List<&2,G.Body>) -> String:
 
 # Mechanical context comes from the exact functions used by live gameplay.
 # Damage is a per-hit base, not DPS; previews do not simulate future combat.
+def shot_radius(shot: Shots.Shot) -> F32:
+  match shot:
+    case Shots.Shot{_,_,_,_,radius,_,_}: radius
+
+def self_field_radius(enabled: Bool,id: U32,rank: U32,speed: F32,area: F32,duration: F32) -> F32:
+  match enabled:
+    case False{}: 0.0
+    case True{}: shot_radius(Shots.spawn(id,rank,0,0.0,0.0,0.0,0.0,1.0,0.0,speed,area,duration))
+
 def weapon_stat(+id: U32,+rank: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> String:
-  "{\"id\":" ++ U32.show(id) ++ ",\"rank\":" ++ U32.show(rank) ++ ",\"baseHitDamage\":" ++ U32.show(G.weapon_damage(id,rank,passives,meta,arcana,character)) ++ ",\"cooldownTicks\":" ++ U32.show(G.cooldown_for(id,passives,meta,arcana,character)) ++ ",\"areaMultiplier\":" ++ F32.show(G.area_bonus(passives,arcana,rank)) ++ "}"
+  "{\"id\":" ++ U32.show(id) ++ ",\"rank\":" ++ U32.show(rank) ++ ",\"baseHitDamage\":" ++ U32.show(G.weapon_damage(id,rank,passives,meta,arcana,character)) ++ ",\"cooldownTicks\":" ++ U32.show(G.cooldown_for(id,passives,meta,arcana,character)) ++ ",\"selfFieldRadius\":" ++ F32.show(self_field_radius(Bool.and(U32.is_lt(rank,9),Bool.or(U32.is_eq(id,4),U32.is_eq(id,22))),id,rank,G.projectile_speed(passives,arcana),G.area_bonus(passives,arcana,rank),G.duration_bonus(passives,arcana))) ++ ",\"areaMultiplier\":" ++ F32.show(G.area_bonus(passives,arcana,rank)) ++ "}"
 # Tail has a leading comma only when another owned weapon follows.
 def weapon_stat_tail(nonempty: Bool,stats: String) -> String:
   match nonempty:
@@ -66,7 +78,7 @@ def weapon_stats(rows: List<&2,U32>,+id: U32,+passives: List<&2,U32>,+meta: U32,
 def engine_stats(run: G.Run) -> String:
   match run:
     case G.Run{_,_,_,_,hp,maxHp,_,_,_,_,gold,+character,+weapons,+passives,_,_,_,+arcana,+meta,_,_,_,_,_,_,_,_,_,_}:
-      "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ G.nums_json(weapons) ++ "],\"passives\":[" ++ G.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
+      "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ G.nums_json(weapons) ++ "],\"passives\":[" ++ G.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"pickupRadius\":" ++ F32.show(G.pickup_radius(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
 
 def preview_stats(offer: G.Offer,run: G.Run) -> String: engine_stats(G.upgrade(offer,run))
 def preview_json(+index: U32,+offer: G.Offer,run: G.Run) -> String:

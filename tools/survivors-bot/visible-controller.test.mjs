@@ -34,3 +34,18 @@ test('budgets bound calls and wire encoding rejects malformed commands',async()=
  assert.throws(()=>encodeCommand({...result,horizon:31}));assert.throws(()=>encodeCommand({...result,x:NaN}));
  assert.equal(await command(observation(2,10,3)),null);
 });
+
+
+test('visible bot collects fresh nearby XP between classifier decisions, then releases a vanished target',async()=>{
+ const records=[];
+ const command=makeVisibleController({runId:'xp',emit:r=>records.push(r)});
+ await command(observation());
+ const next=observation(2,7);
+ next.frame.bodies=[[1860,1800,2,0,0,10,10,42,6]];
+ next.actions.push({id:'t7:approach_experience:42:2:0:10',kind:'approach_experience',target:{x:1860,y:1800},distance:60,observedTick:7});
+ const move=await command(next);
+ assert.equal(move.x,2000);assert.equal(move.y,1000);
+ const event=records.find(r=>r.type==='movement-intent');assert.equal(event.goal.kind,'approach_experience');
+ await command(observation(3,13));
+ assert.equal(records.filter(r=>r.type==='movement-intent').at(-1).goal,null);
+});

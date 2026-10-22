@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runBot, continuingGoal } from './runner.mjs';
+import { runBot, continuingGoal, bestGoal, steering } from './runner.mjs';
 
 // Deliberately tiny fake affine world: these tests exercise orchestration,
 // not actual game balance. actions.test.mjs separately drives real Bend.
@@ -79,4 +79,28 @@ test('a static relic persists across ticks but collection invalidates its goal',
   const frame = { tick: 20, px: 1800, py: 1800, bodies: [[2400, 1800, 9, 0, 0, 0, 0, 511, 12]] };
   assert.deepEqual(continuingGoal(plan, frame, [{ ...goal, id: 't20:approach_relic:511:9:0:0' }]), goal.target);
   assert.equal(continuingGoal(plan, { ...frame, bodies: [] }, []), null);
+});
+
+
+test('fallback prefers collectible XP over empty travel and invalidates claimed XP identities',()=>{
+ const xp={id:'t1:approach_experience:42:2:0:10',kind:'approach_experience',distance:60,target:{x:1860,y:1800}};
+ const frame={tick:2,px:1800,py:1800,bodies:[[1860,1800,2,0,0,10,11,42,6]]};
+ const cardinal={kind:'move_north',distance:160,target:{x:1800,y:1640}};
+ assert.equal(bestGoal({candidates:[{goal:cardinal},{goal:xp}]},frame),xp);
+ const plan={goal:xp,tick:1,until:121};
+ assert.deepEqual(continuingGoal(plan,frame,[{...xp,id:'t2:approach_experience:42:2:0:11'}]),xp.target);
+ assert.equal(continuingGoal(plan,{...frame,bodies:[]},[]),null);
+});
+
+
+test('self-field-only builds approach attack reach, retreat from contact and retain projectile avoidance',()=>{
+ const frame={px:1800,py:1800,bodies:[[2000,1800,0,0,10,10,0,1,12]]};
+ const close={current:{weaponStats:[{id:4,rank:1,selfFieldRadius:46.125}]}};
+ assert.ok(steering(frame,null,close)[0]>0,'Aura-only bot approaches enemies outside actual field reach');
+ assert.ok(steering({...frame,bodies:[[1200,1800,0,0,10,10,0,1,12]]},null,close)[0]<0,'Seek the actual far-left enemy rather than a synthetic target');
+ assert.ok(steering(frame,null)[0]<0,'Default ranged kiting remains unchanged');
+ assert.ok(steering({...frame,bodies:[[1820,1800,0,0,10,10,0,1,12]]},null,close)[0]<0,'Avoid body contact');
+ assert.ok(steering({...frame,bodies:[[2000,1800,0,0,10,10,0,1,12],[1810,1800,7,0,10,10,0,704,6]]},null,close)[0]<0,'Dodge close hostile shots even while seeking attack range');
+ const mixed={current:{weaponStats:[{selfFieldRadius:46},{selfFieldRadius:0}]}};
+ assert.ok(steering(frame,null,mixed)[0]<0,'Mixed/ranged builds retain kiting');
 });

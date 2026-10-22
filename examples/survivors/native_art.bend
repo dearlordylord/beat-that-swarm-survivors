@@ -342,3 +342,19 @@ def sprite(kind: U32,+variant: U32,+x: F32,+y: F32,+radius: F32,+color: U32,tail
     case 10: actor(variant,kind,x,y,tail)
     case 11: actor(variant,kind,x,y,tail)
     case _: tail
+
+# Always visible for living enemies, including full health. The dark track and
+# pale border keep damage readable against every arena and enemy palette.
+def health_bar_visible(visible: Bool,+x: F32,+y: F32,+radius: F32,hp: U32,+maxHp: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match visible:
+    case False{}: tail
+    case True{}:
+      +width = F32.max(16.0,(radius * 2.0 : F32))
+      +left = (x - width / 2.0 : F32)
+      +top = (y - 24.0 * F32.max(0.5,(radius / 10.0 : F32)) - 8.0 : F32)
+      fill = (width * U32.to_f32(U32.min(hp,maxHp)) / U32.to_f32(U32.max(1,maxHp)) : F32)
+      D.rect(left,top,fill,2.0,10871200,
+        D.rect(left,top,width,2.0,5841972,
+          D.rect((left - 1.0 : F32),(top - 1.0 : F32),(width + 2.0 : F32),4.0,15391673,tail)))
+def health_bar(+kind: U32,+hp: U32,maxHp: U32,x: F32,y: F32,radius: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  health_bar_visible(Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),x,y,radius,hp,maxHp,tail)

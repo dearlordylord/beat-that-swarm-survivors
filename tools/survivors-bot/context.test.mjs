@@ -88,3 +88,18 @@ test('authoritative Bend mechanics override explanatory fallback and bind every 
  assert.throws(()=>buildUpgradeDecision(f,{...options,engineMechanics:{...engineMechanics,offers:[]}}));
  assert.equal(buildUpgradeDecision(f,options).snapshot.engineMechanics.available,false);
 });
+
+
+test('fresh reachable XP gets a classifier slot; expired, blocked and distant XP do not',()=>{
+ const f=frame({phase:0,bodies:[[1860,1800,2,0,0,10,20,42,6]],offers:[]});
+ const xp={id:`t${f.tick}:approach_experience:42:2:0:20`,kind:'approach_experience',target:{x:1860,y:1800},distance:60,observedTick:f.tick};
+ const catalog=[...goals(f),...Array.from({length:6},(_,i)=>({id:`ward${i}`,kind:'approach_ward',target:{x:1820+i,y:1800},distance:20+i,observedTick:f.tick})),xp];
+ const r=buildGoalDecision(f,catalog,options);
+ assert.equal(r.candidates.length,8);assert.ok(r.candidates.some(c=>c.goal.kind==='approach_experience'));
+ const unavailable=[
+  {...f,bodies:[[1860,1800,2,0,0,10,119,42,6]]},
+  {...f,bodies:[...f.bodies,[1830,1800,0,0,10,10,0,1,8]]},
+  {...f,bodies:[]}
+ ];
+ for(const changed of unavailable) assert.equal(buildGoalDecision(changed,catalog,options).candidates.some(c=>c.goal.kind==='approach_experience'),false);
+});

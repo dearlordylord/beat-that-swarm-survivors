@@ -252,11 +252,20 @@ def body_visible(visible: Bool,kind: U32,variant: U32,x: F32,y: F32,radius: F32,
     case True{}: Art.sprite(kind,variant,x,y,radius,color,tail)
     case False{}: tail
 
-def bodies(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def body_sprites(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
     case G.Body{x,y,+kind,+variant,hp,maxHp,age,seed,radius} <> rest:
-      body_visible(actor_visible(kind,hp),kind,variant,((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),F32.max(2.0,(radius * 0.65 : F32)),body_color(kind,variant),bodies(rest,px,py,tail))
+      body_visible(actor_visible(kind,hp),kind,variant,((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),F32.max(2.0,(radius * 0.65 : F32)),body_color(kind,variant),body_sprites(rest,px,py,tail))
+
+# A separate overlay keeps a nearby sprite from hiding another enemy's HP.
+def body_healthbars(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match rows:
+    case []: tail
+    case G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius} <> rest:
+      Art.health_bar(kind,hp,maxHp,((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),F32.max(2.0,(radius * 0.65 : F32)),body_healthbars(rest,px,py,tail))
+def bodies(+rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  body_healthbars(rows,px,py,body_sprites(rows,px,py,tail))
 
 def loadout(rows: List<&2,U32>,+index: U32,+x: F32,+y: F32,+category: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:

@@ -45,7 +45,7 @@ for ((attempt=0;attempt<100;attempt++)); do
 done
 [[ -s "$receipt/display" ]]
 export DISPLAY=":$(cat "$receipt/display")"
-"${NODE:-node}" tools/survivors-bot/visible.mjs --mode heuristic --seconds 20 --binary "$binary" >"$receipt/controller.log" 2>&1 &
+"${NODE:-node}" tools/survivors-bot/visible.mjs --mode heuristic --seconds 20 --binary "$binary" --receipts-dir "$receipt/runs" >"$receipt/controller.log" 2>&1 &
 game_pid=$!
 window=
 for ((attempt=0;attempt<120;attempt++)); do
@@ -86,7 +86,7 @@ if cmp -s "$receipt/first.ppm" "$receipt/second.ppm"; then
   echo 'Visible bot did not change actual window pixels.' >&2
   exit 1
 fi
-"$xdotool" key --window "$window" Escape
+"$xdotool" keydown --window "$window" Escape
 for ((attempt=0;attempt<100;attempt++)); do
   kill -0 "$game_pid" 2>/dev/null || break
   sleep 0.05
