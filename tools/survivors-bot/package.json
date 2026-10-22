@@ -1,0 +1,17 @@
+{
+  "name": "@bendvy-examples/survivors-bot",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test provider.test.mjs context.test.mjs runner.test.mjs",
+    "check": "bash check.sh",
+    "bot": "bash run.sh"
+  },
+  "dependencies": {
+    "effect": "4.0.0",
+    "@effect/ai-typesafe": "4.0.0"
+  }
+}

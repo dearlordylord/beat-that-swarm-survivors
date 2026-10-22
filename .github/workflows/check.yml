@@ -45,5 +45,9 @@ jobs:
         run: bash examples/survivors/build.sh
       - name: Check gameplay and browser-side progression
         run: bash examples/survivors/check.sh
+      - name: Check optional classifier bot offline
+        run: |
+          npm ci --prefix tools/survivors-bot --ignore-scripts
+          bash tools/survivors-bot/check.sh
       - name: Check native profile, UI and application build
         run: bash examples/survivors/check-native.sh

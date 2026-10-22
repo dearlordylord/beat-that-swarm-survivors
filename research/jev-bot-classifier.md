@@ -12,6 +12,8 @@
 
 **Lifecycle:** Review when the classifier API, game decision interface, or dependency versions change; consolidate accepted decisions into the prototype contract.
 
+**Implementation follow-up:** The research below records the initial feasibility inspection. An [optional controller](../tools/survivors-bot/README.md) subsequently implemented both upgrade choice and movement-goal selection, with authoritative Bend-derived immediate previews. See its [validation](../tools/survivors-bot/VALIDATION.md) for offline checks and the bounded live observation; the historical latency figures below remain a separate dataset.
+
 ## Finding
 
 **Feasible as an optional low-frequency decision adviser. Start with choosing one legal upgrade.** Keep deterministic Bend movement and authoritative game transitions. Jev need not run Hapsland, inspect code, or control the complete game loop. A small optional TypeScript harness can call the same external classifier through Effect. Classifier confidence is not a calibrated probability that an action maximizes survival.

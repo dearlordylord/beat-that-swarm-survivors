@@ -1,0 +1,139 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from './context.mjs';
+
+export function heuristicUpgrade(frame) {
+  const weapons = [4, 19, 10, 0, 2, 17], passives = [11, 1, 6, 2, 0, 7];
+  const score = (o) => {
+    if ([3, 5].includes(o.kind)) return 1000;
+    if (o.kind === 0 && weapons.includes(o.id)) return (o.id === 4 ? 260 : 170) + (frame.weapons[o.id] > 0 ? 30 : 0) - weapons.indexOf(o.id);
+    if (o.kind === 1 && passives.includes(o.id)) return 210 - passives.indexOf(o.id) * 5 + (frame.passives[o.id] === 0 ? 20 : 0);
+    if (o.kind === 2) return frame.hp < frame.maxHp * 0.7 ? 300 : 10;
+    return o.kind === 4 ? 5 : -100;
+  };
+  if (!frame.offers.length) throw new Error('Pending reward has no actual offers');
+  return frame.offers.reduce((best, o, i) => score(o) > score(frame.offers[best]) ? i : best, 0);
+}
+
+export function steering(frame, target) {
+  const enemies = frame.bodies.filter((b) => b[2] === 0 && b[4] > 0);
+  const nearest = enemies.reduce((best, b) => Math.hypot(b[0] - frame.px, b[1] - frame.py) < Math.hypot(best[0] - frame.px, best[1] - frame.py) ? b : best, [frame.px + 300, frame.py]);
+  const nx = frame.px - nearest[0], ny = frame.py - nearest[1], nd = Math.max(1, Math.hypot(nx, ny));
+  let dx = target ? target.x - frame.px : nx / nd * Math.max(0, 220 - nd) * 6 + ny / nd * 35 + (1800 - frame.px) * 0.05;
+  let dy = target ? target.y - frame.py : ny / nd * Math.max(0, 220 - nd) * 6 - nx / nd * 35 + (1800 - frame.py) * 0.05;
+  for (const b of frame.bodies) {
+    if (![0, 7].includes(b[2])) continue;
+    const x = frame.px - b[0], y = frame.py - b[1], d = Math.max(1, Math.hypot(x, y)), force = Math.max(0, 140 - d) * 4;
+    dx += x / d * force; dy += y / d * force;
+  }
+  dx += (frame.px < 200 ? 1000 : 0) - (frame.px > 3400 ? 1000 : 0);
+  dy += (frame.py < 200 ? 1000 : 0) - (frame.py > 3400 ? 1000 : 0);
+  const length = Math.max(1, Math.hypot(dx, dy));
+  return [dx / length, dy / length];
+}
+
+function bestGoal(request, frame) {
+  const cost = (c) => frame.bodies.filter((b) => b[2] === 0 && b[4] > 0 && Math.hypot(b[0] - c.goal.target.x, b[1] - c.goal.target.y) < 100).length * 100 + c.goal.distance * 0.01;
+  return request.candidates.reduce((best, candidate) => cost(candidate) < cost(best) ? candidate : best).goal;
+}
+
+export function continuingGoal(plan, frame, catalog) {
+  if (!plan || frame.tick >= plan.until || Math.hypot(plan.goal.target.x - frame.px, plan.goal.target.y - frame.py) < 18) return null;
+  if (plan.goal.kind.startsWith('move_')) return plan.goal.target;
+  // Entity goals last only while the original snapshot identity ages normally.
+  // A different kind/phase, consumed target or reset age invalidates the plan.
+  const identity = plan.goal.id.split(':').slice(2).map(Number);
+  const [seed, kind, variant, age] = identity;
+  // The stage relic is recreated as the same static target with age zero.
+  const expectedAge = kind === 9 ? age : age + frame.tick - plan.tick;
+  const alive = frame.bodies.find((b) => b[7] === seed && b[2] === kind && b[3] === variant && b[6] === expectedAge);
+  if (!alive || !catalog.some((g) => g.kind === plan.goal.kind && g.id.split(':')[2] === String(seed))) return null;
+  return { x: alive[0], y: alive[1] };
+}
+
+export async function runBot(Game, {
+  mode = 'heuristic', profile = 'fresh', ticks = 1800, decisions = 'both',
+  maxUpgradeRequests = 6, maxGoalRequests = 2, timeoutMs = 2000,
+  classify, emit = () => {}, runId = randomUUID(),
+} = {}) {
+  if (!['heuristic', 'jev'].includes(mode) || !['fresh', 'advanced'].includes(profile) || !['upgrades', 'both'].includes(decisions)) throw new Error('Invalid bot mode/profile/decision policy');
+  for (const [name, n, max] of [['ticks', ticks, 37000], ['maxUpgradeRequests', maxUpgradeRequests, 50], ['maxGoalRequests', maxGoalRequests, 50], ['timeoutMs', timeoutMs, 10000]]) if (!Number.isSafeInteger(n) || n < (name === 'ticks' || name === 'timeoutMs' ? 1 : 0) || n > max) throw new Error('Invalid bounded option: ' + name);
+  if (maxUpgradeRequests + maxGoalRequests > 50) throw new Error('At most 50 classifier requests per run');
+  if (mode === 'jev' && typeof classify !== 'function') throw new Error('Explicit classifier dependency required');
+  const accept = (packet) => {
+    if (packet.$ !== 'game.Packet') throw new Error('Bend simulation rejected a transition');
+    const frame = JSON.parse(packet.frame);
+    if (!Number.isFinite(frame.px) || !Number.isFinite(frame.py) || frame.hp > frame.maxHp) throw new Error('Invalid Bend observation');
+    return { state: packet.state, frame };
+  };
+  let current = accept(profile === 'fresh' ? Game.fresh_start() : Game.advanced_start());
+  let sequence = 0, nextGoalTick = 1, plan = null, choices = 0, goals = 0, fallbacks = 0, waitMs = 0, maxLiving = 0, firstRewardTick = null;
+  const calls = { upgrade: 0, goal: 0 }, successes = { upgrade: 0, goal: 0 }, history = [];
+  const meta = profile === 'fresh' ? 0 : 364304237, started = performance.now();
+  emit({ type: 'start', runId, mode, profile, decisions, ticks, maxUpgradeRequests, maxGoalRequests, timeoutMs, seed: 12345, seedControl: 'fixed by Bend', initial: { hp: current.frame.hp, character: current.frame.character, arcana: current.frame.arcana } });
+  async function select(request, resolve, fallback, catalog) {
+    let selected = fallback, source = 'heuristic', reason;
+    const ceiling = request.kind === 'upgrade' ? maxUpgradeRequests : maxGoalRequests;
+    let answer;
+    if (mode === 'jev' && request.candidates.length > 1 && calls[request.kind] < ceiling) {
+      calls[request.kind]++;
+      const start = performance.now();
+      try {
+        answer = await classify(request, { timeoutMs });
+        selected = resolve(request, answer, current.frame, catalog);
+        source = 'classifier'; successes[request.kind]++;
+      } catch (error) {
+        reason = ['timeout', 'missing-credential', 'provider-unavailable', 'invalid-request'].includes(error?.code) ? error.code : 'invalid-or-stale-response';
+        source = 'fallback'; fallbacks++;
+      }
+      waitMs += performance.now() - start;
+    } else if (mode === 'jev') {
+      source = request.candidates.length === 1 ? 'only-legal-candidate' : 'budget-fallback';
+      if (source === 'budget-fallback') fallbacks++;
+    }
+    emit({ type: 'decision', request, result: { source, reason, selected, response: answer && { selectedCandidateId: answer.selectedCandidateId, model: answer.model, latencyMs: answer.latencyMs, usage: answer.usage, probabilities: answer.probabilities } } });
+    return selected;
+  }
+  // Bound choice processing as well as simulation ticks: no infinite menu loop.
+  for (let fuel = 0; fuel < ticks * 4 + 100 && current.frame.tick < ticks && ![3, 4].includes(current.frame.phase); fuel++) {
+    const owner = current.state; current.state = undefined;
+    const observed = Game.observe(owner);
+    if (observed.$ !== 'Observed') throw new Error('Bend observation failed');
+    current = { state: observed.state, frame: JSON.parse(observed.frame) };
+    const frame = current.frame, catalog = JSON.parse(observed.actions);
+    if (typeof observed.mechanics !== 'string') throw new Error('Rebuild bot facade: engine mechanics are required');
+    const engineMechanics = JSON.parse(observed.mechanics);
+    maxLiving = Math.max(maxLiving, frame.bodies.filter((b) => b[2] === 0 && b[4] > 0).length);
+    if (history.length === 0 || frame.tick - history.at(-1).tick >= 30 || history.at(-1).hp !== frame.hp) history.push({ tick: frame.tick, hp: frame.hp });
+    while (history.length > 32) history.shift();
+    if ([1, 2].includes(frame.phase)) {
+      firstRewardTick ??= frame.tick;
+      const options = { runId, decisionSeq: ++sequence, meta, history, engineMechanics };
+      const request = buildUpgradeDecision(frame, options);
+      const index = await select(request, (r, a, f) => resolveCandidate(r, a, f, options), heuristicUpgrade(frame));
+      history.push({ tick: frame.tick, hp: frame.hp, action: 'choose_upgrade', offer: frame.offers[index] });
+      const state = current.state; current.state = undefined;
+      current = accept(Game.choose(state, index)); choices++;
+      continue;
+    }
+    if (decisions === 'both' && frame.tick >= nextGoalTick) {
+      const options = { runId, decisionSeq: ++sequence, meta, history, engineMechanics };
+      const request = buildGoalDecision(frame, catalog, options);
+      if (request.candidates.length >= 2) {
+        const goal = await select(request, (r, a, f, c) => resolveGoalCandidate(r, a, f, c, options), bestGoal(request, frame), catalog);
+        plan = { goal, tick: frame.tick, until: frame.tick + 120 }; goals++;
+        history.push({ tick: frame.tick, hp: frame.hp, action: 'choose_goal', goal: goal.kind, target: goal.target });
+      }
+      nextGoalTick = frame.tick + 300;
+    }
+    const target = continuingGoal(plan, frame, catalog);
+    if (!target) plan = null;
+    const [dx, dy] = steering(frame, target);
+    const state = current.state; current.state = undefined;
+    current = accept(Game.advance(state, dx, dy));
+  }
+  const f = current.frame;
+  maxLiving = Math.max(maxLiving, f.bodies.filter((b) => b[2] === 0 && b[4] > 0).length);
+  const summary = { type: 'summary', runId, mode, profile, decisions, tick: f.tick, simulatedSeconds: f.tick / 60, phase: f.phase, hp: f.hp, level: f.level, kills: f.kills, gold: f.gold, evolvedWeapons: f.weapons.filter((rank) => rank >= 9).length, choices, goals, firstRewardTick, maxLiving, classifierAttempts: calls, successes, fallbacks, classifierWaitMs: waitMs, wallMs: performance.now() - started, outcome: [3, 4].includes(f.phase) ? 'terminal' : 'bounded-observation', lastFrameHash: createHash('sha256').update(JSON.stringify(f)).digest('hex') };
+  emit(summary);
+  return summary;
+}
