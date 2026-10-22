@@ -1,0 +1,1 @@
+{"type":"config","name":"Survivors headless lifecycle optimization","goal":"Reduce fixed ten-seed headless runtime while preserving full frame traces and game mechanics; overall deadline 2026-10-23T00:11:00Z accepted by user","metricName":"batch_seconds","metricUnit":"s","bestDirection":"lower"}
