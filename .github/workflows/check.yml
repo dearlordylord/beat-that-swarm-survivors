@@ -12,7 +12,6 @@ jobs:
     env:
       BEND_NO_TELEMETRY: '1'
       CC: clang-19
-      BEND_LIB: ${{ runner.temp }}/bendhub
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +27,7 @@ jobs:
           echo "84c32465a39bc9ac315eade23f470cb8db03153dc860f89564fcfec153c3e445  $archive" | sha256sum -c -
           tar -xzf "$archive" -C "$RUNNER_TEMP"
           echo "BEND=$RUNNER_TEMP/bend/bin/bend" >> "$GITHUB_ENV"
+          echo "BEND_LIB=$RUNNER_TEMP/bendhub" >> "$GITHUB_ENV"
       - name: Install native build dependencies
         run: |
           sudo apt-get update -qq
