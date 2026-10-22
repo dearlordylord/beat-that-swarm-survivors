@@ -50,9 +50,15 @@ export async function runBot(Game, {
   if(!Number.isSafeInteger(seed)||seed<0||seed>0xffffffff) throw new Error('Invalid U32 seed');
   const accept = (packet) => {
     if (packet.$ !== 'game.Packet') throw new Error('Bend simulation rejected a transition');
-    const frame = JSON.parse(packet.frame);
+    // Each transition already serialized this frame. Consume that Packet once
+    // instead of asking G.packet to serialize the same owned world again.
+    const observed = typeof Game.observed_packet === 'function'
+      ? Game.observed_packet(packet) : Game.observe(packet.state);
+    if (observed.$ !== 'Observed') throw new Error('Bend observation failed');
+    if (typeof observed.mechanics !== 'string') throw new Error('Rebuild bot facade: engine mechanics are required');
+    const frame = JSON.parse(observed.frame);
     if (!Number.isFinite(frame.px) || !Number.isFinite(frame.py) || frame.hp > frame.maxHp) throw new Error('Invalid Bend observation');
-    return { state: packet.state, frame };
+    return { state: observed.state, frame, catalog:JSON.parse(observed.actions), engineMechanics:JSON.parse(observed.mechanics) };
   };
   const startSeed=profile==='fresh'?Game.fresh_start_seed:Game.advanced_start_seed;
   if(!startSeed && seed!==12345) throw new Error('Rebuild bot facade for explicit seed control');
@@ -88,13 +94,7 @@ export async function runBot(Game, {
   }
   // Bound choice processing as well as simulation ticks: no infinite menu loop.
   for (let fuel = 0; fuel < ticks * 4 + 100 && current.frame.tick < ticks && ![3, 4].includes(current.frame.phase); fuel++) {
-    const owner = current.state; current.state = undefined;
-    const observed = Game.observe(owner);
-    if (observed.$ !== 'Observed') throw new Error('Bend observation failed');
-    current = { state: observed.state, frame: JSON.parse(observed.frame) };
-    const frame = current.frame, catalog = JSON.parse(observed.actions);
-    if (typeof observed.mechanics !== 'string') throw new Error('Rebuild bot facade: engine mechanics are required');
-    const engineMechanics = JSON.parse(observed.mechanics);
+    const {frame,catalog,engineMechanics}=current;
     maxLiving = Math.max(maxLiving, frame.bodies.filter((b) => b[2] === 0 && b[4] > 0).length);
     if (history.length === 0 || frame.tick - history.at(-1).tick >= 30 || history.at(-1).hp !== frame.hp) history.push({ tick: frame.tick, hp: frame.hp });
     while (history.length > 32) history.shift();

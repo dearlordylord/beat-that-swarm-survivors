@@ -85,3 +85,30 @@ test('explicit U32 seeds reach the engine and invalid or unsupported seeds fail 
  await assert.rejects(runBot(toyGame(),{seed:1,ticks:1}),/explicit seed control/);
  for(const seed of [-1,2**32,NaN,1.2]) await assert.rejects(runBot(toyGame(),{seed,ticks:1}),/U32 seed/);
 });
+
+
+test('packet observation consumes one affine owner and preserves legacy replay outcomes',async()=>{
+ const baseline=await runBot(toyGame({queued:true}),{ticks:8,mode:'jev',runId:'reuse',classify:async r=>answer(r,1)});
+ const game=toyGame({queued:true}),legacyObserve=game.observe;
+ let packets=0;
+ game.observed_packet=packet=>{
+  assert.equal(packet.$,'game.Packet');packets++;
+  const observed=legacyObserve(packet.state);
+  assert.equal(observed.frame,packet.frame,'Catalog and mechanics correspond to this exact transition frame');
+  return {...observed,frame:packet.frame};
+ };
+ game.observe=()=>assert.fail('The existing Packet must not be observed/serialized a second time');
+ const actual=await runBot(game,{ticks:8,mode:'jev',runId:'reuse',classify:async r=>{
+  if(r.kind==='goal')assert.ok(r.candidates.every(c=>c.goal.observedTick===r.snapshot.facts.tick));
+  return answer(r,1);
+ }});
+ assert.equal(packets,1+actual.tick+actual.choices,'One observation for initial state and every actual transition');
+ for(const key of ['lastFrameHash','tick','phase','hp','level','kills','choices','firstRewardTick'])assert.deepEqual(actual[key],baseline[key],key);
+});
+
+test('a failing packet observer is rejected without falling back to a second owner access',async()=>{
+ const game=toyGame();
+ game.observed_packet=()=>({$:'ObserveFailed'});
+ game.observe=()=>assert.fail('Fallback is allowed only when the packet API is absent');
+ await assert.rejects(runBot(game,{ticks:1}),/Bend observation failed/);
+});

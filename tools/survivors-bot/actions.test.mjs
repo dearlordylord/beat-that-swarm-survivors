@@ -3,9 +3,10 @@ import Bot from "../../examples/survivors/dist/bot-actions.mjs";
 
 const accept = (packet) => {
   assert.equal(packet.$, "game.Packet", packet.error);
-  const observation = Bot.observe(packet.state);
+  const originalFrame = packet.frame;
+  const observation = Bot.observed_packet(packet);
   assert.equal(observation.$, "Observed", observation.error);
-  assert.deepEqual(JSON.parse(observation.frame), JSON.parse(packet.frame));
+  assert.equal(observation.frame, originalFrame, "Packet observation reuses the exact serialized frame");
   return { state: observation.state, frame: JSON.parse(observation.frame), actions: JSON.parse(observation.actions), mechanics: JSON.parse(observation.mechanics) };
 };
 const verify = ({frame, actions, mechanics}) => {
