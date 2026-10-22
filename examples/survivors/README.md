@@ -64,7 +64,7 @@ bash examples/survivors/check.sh
 bash examples/survivors/check-full.sh
 ```
 
-The ordinary suite checks catalogs, purchases, corrupted-save recovery, actual projectile trajectories, evolution/union recipes, healing and pierce regressions, public commands, all five artifact pickups, unlock persistence and a fresh-profile defeat. The longer full-run controller uses maximum purchased upgrades and Arcana 9, chooses through the public API and checks a genuine ten-minute completion with a boss, chest and evolution. Historical complete-run results used the prior balance; they do not qualify the current slower-XP, larger-horde revision. See [VALIDATION.md](VALIDATION.md) for checks actually executed against the current sources.
+The ordinary suite checks catalogs, purchases, corrupted-save recovery, actual projectile trajectories, evolution/union recipes, healing and pierce regressions, public commands, all five artifact pickups, unlock persistence and a fresh-profile defeat. The longer full-run controller uses maximum purchased upgrades and Arcana 9, chooses through the public API and checks a genuine ten-minute completion with a boss, chest and evolution. The current native witness reached dawn at level 41 and died to the Reaper at tick 36,713 (about 10:11.88), with 42 upgrade/reward decisions. This validates one advanced purchased build on the slower-XP, larger-horde revision, not fresh-profile win rates or every build. Historical complete-run results remain separately labeled. See [VALIDATION.md](VALIDATION.md) for checks actually executed against the current sources.
 
 Browser checks reuse an already installed Playwright; they never install packages:
 
