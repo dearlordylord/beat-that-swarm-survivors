@@ -137,51 +137,42 @@ function catalogOf(frame, catalog) {
   const ids = new Set();
   for (const g of catalog) {
     if (!g || typeof g.id !== 'string' || !g.id || ids.has(g.id) || !GOAL_KINDS.has(g.kind) || g.observedTick !== frame.tick || !Number.isFinite(g.distance) || g.distance < 0 || !Number.isFinite(g.target?.x) || !Number.isFinite(g.target?.y) || g.target.x < 20 || g.target.x > 3580 || g.target.y < 20 || g.target.y > 3580) throw new Error('Invalid, duplicate or expired engine goal');
+    if(g.kind==='approach_experience') {
+      const [seed,kind,variant,age]=g.id.split(':').slice(2).map(Number),r=g.resource;
+      if(!r || !Number.isSafeInteger(r.baseXp)||r.baseXp<=0 || !Number.isSafeInteger(r.generation)||r.generation<0 || r.autoClaimTicks!==null || !frame.bodies.some(b=>b[7]===seed&&b[2]===kind&&kind===2&&b[3]===variant&&b[6]===age&&b[4]===r.baseXp&&b[5]===r.generation&&b[0]===g.target.x&&b[1]===g.target.y)) throw new Error('XP goal does not match a current persistent engine pile');
+    }
     ids.add(g.id);
   }
   return catalog;
 }
 
-// Prefer nearby fresh XP that can be reached before its automatic claim. This
-// is a local geometric heuristic, not a claim that the route is safe.
-export function experienceGoals(frame, catalog, mechanics = {}) {
-  const speed = 2.5 * (mechanics.current?.speedMultiplier ?? 1);
-  const pickup = mechanics.current?.pickupRadius ?? 24;
-  const enemies = (frame.bodies ?? []).filter(b => [0,7].includes(b[2]) && (b[2] === 7 || b[4] > 0));
-  return catalog.filter(g => {
-    if (g.kind !== 'approach_experience' || g.distance > 120) return false;
-    const [seed,kind,variant,age] = g.id.split(':').slice(2).map(Number);
-    const body = frame.bodies.find(b => b[7] === seed && b[2] === kind && b[3] === variant && b[6] === age);
-    if (!body || kind !== 2 || age >= 120 || Math.max(0,g.distance-pickup)/speed >= 120-age) return false;
-    const vx=g.target.x-frame.px,vy=g.target.y-frame.py,length2=vx*vx+vy*vy;
-    return !enemies.some(b => {
-      const t=length2 ? Math.max(0,Math.min(1,((b[0]-frame.px)*vx+(b[1]-frame.py)*vy)/length2)) : 0;
-      return Math.hypot(b[0]-frame.px-t*vx,b[1]-frame.py-t*vy)<60;
-    });
-  }).sort((a,b) => {
-    const density=g => frame.bodies.filter(body=>body[2]===2 && body[6]<120 && Math.hypot(body[0]-g.target.x,body[1]-g.target.y)<=40).length;
-    return a.distance/Math.max(1,density(a))-b.distance/Math.max(1,density(b)) || a.id.localeCompare(b.id);
-  });
+// Persistent resource candidates are ranked by cluster value, distance and risk.
+// Navigation and temporal memory live in the shared spatial planner.
+export function experienceGoals(frame, catalog) {
+  return catalog.filter(g => g.kind === 'approach_experience').sort((a,b) =>
+    (b.resource?.baseXp??0)/Math.max(24,b.distance) - (a.resource?.baseXp??0)/Math.max(24,a.distance) || a.id.localeCompare(b.id));
 }
 
-export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=0,history=[],engineMechanics}={}) {
+export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=0,history=[],engineMechanics,planner}={}) {
   if (![0,1,2].includes(frame.phase)) throw new Error('Cannot choose movement goal for ended run');
   const catalog=catalogOf(frame,engineCatalog);
   const available=catalog.filter((g)=>g.distance>=1 && Math.hypot(g.target.x-frame.px,g.target.y-frame.py)>=1);
   const cards=available.filter((g)=>g.kind.startsWith('move_'));
-  const xp=experienceGoals(frame,available,engineMechanics).slice(0,1);
+  const xp=experienceGoals(frame,available).slice(0,3);
   const entities=[...xp,...available.filter((g)=>g.kind.startsWith('approach_') && g.kind!=='approach_experience').sort((a,b)=>a.distance-b.distance || a.id.localeCompare(b.id))].slice(0,4);
-  const selected=[...cards,...entities];
+  const proposed=planner?.candidates?.map(c=>catalog.find(g=>g.id===c.goal.id)).filter(Boolean);
+  const selected=proposed?.length>=2 ? proposed.slice(0,8) : [...cards,...entities];
   if(selected.length<2 || selected.length>8) throw new Error('Goal classification requires 2 to 8 actual choices');
   const base=buildUpgradeDecision({...frame,phase:1,offers:frame.offers??[]},{runId,decisionSeq,meta,history,engineMechanics});
   const snapshot=base.snapshot;
   snapshot.facts.phase=frame.phase;
   delete snapshot.facts.rewardType;
-  snapshot.goalExecution={safety:'unassessed',method:'Choose an intent; controller steers using ordinary game movement, local enemy avoidance and a maximum 120-tick horizon. No teleport or direct reward grant.',warning:'Observed distance is geometric distance, not a safe route, arrival guarantee or viewport visibility. Goals expire and must be revalidated while moving.',loot:'Ordinary experience, gold and healing drops auto-claim after 120 ticks (2 simulation seconds). Approach fresh nearby XP to gain it earlier and accelerate upgrades when the route permits; do not chase distant XP that will auto-claim before arrival. Chests and relics require approach.'};
+  snapshot.spatialPlanner=planner ? safeCopy({reason:planner.reason,search:planner.search,memory:{resources:Object.keys(planner.memory?.objects??{}).length,clusters:(planner.clusters??[]).slice(0,8).map(c=>({id:c.id,reward:c.reward,x:c.x,y:c.y,firstSeen:c.firstSeen,members:c.members?.length??0}))},selectedPlan:planner.chosen?.goal?.id??null}) : null;
+  snapshot.goalExecution={safety:'unassessed',method:'Choose an intent; controller steers using ordinary game movement, local enemy avoidance and persistent route memory, bounded searches and short movement batches. No teleport or direct reward grant.',warning:'Observed distance is geometric distance, not a safe route, arrival guarantee or viewport visibility. Snapshot goal IDs expire; persistent resource identities and routes are revalidated while moving.',loot:'XP drops persist until collected within the engine pickup radius. Plan visits to valuable clusters, account for danger and remember routes; there is no timed XP auto-claim. Gold and healing follow their separate engine rules. Chests and relics require approach.'};
   snapshot.limits[0]='Select only a listed engine goal. This decision does not select upgrades or invoke an executable engine command.';
   const candidatesHash=hash(selected), observation=observationHash(frame);
   const descriptions={
-    approach_experience:'Approach a real fresh XP drop to collect experience before its 120-tick automatic claim. Pickup uses the engine pickup radius. Nearby clusters can accelerate level-ups; avoid dangerous or long detours. This target disappears on collection or automatic claim.',
+    approach_experience:'Collect a real persistent XP cluster within the engine pickup radius. Compare value, travel time, route danger and current upgrade progress. The cluster remains until collected; merging can increase its value while keeping its identity.',
     approach_chest:'Approach a real chest. Collection grants a reward choice; evolution/union eligibility depends on the current build. Travel and collection are not guaranteed safe.',
     approach_relic:'Approach the stage relic, which unlocks its associated weapon for future runs. It does not guarantee immediate combat power or a safe route.',
     approach_wisp:'Approach a living inactive wisp. Player proximity strictly below 100 activates it; activation alone pays nothing. It then travels toward the center, can take enemy damage, and pays its rescue reward only if it reaches within 18 units of the center alive.',
@@ -193,8 +184,10 @@ export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=
     const effect={intent:goal.kind,target:safeCopy(goal.target),distance:goal.distance,safety:'unassessed',targetGeometry:{enemiesWithin60:targetThreats.filter(d=>d<=60).length,enemiesWithin150:targetThreats.filter(d=>d<=150).length,nearestEnemyDistance:targetThreats.length?Math.min(...targetThreats):null,qualification:'Snapshot geometry only. Does not assess the path, moving enemies, projectile danger or time to arrival.'},rule:descriptions[goal.kind]??'Move toward this bounded cardinal point. This is a geometric direction, not a guaranteed safe retreat or beneficial maneuver.'};
     if(goal.kind==='approach_experience') {
       const [seed,kind,variant,age]=goal.id.split(':').slice(2).map(Number);
-      effect.resource={kind:'experience',seed,variant,ageTicks:age,automaticClaimInTicks:120-age,pickupRadius:engineMechanics?.current?.pickupRadius??null,benefit:'Collect earlier to accelerate the next upgrade; automatic collection remains available.'};
+      effect.resource={...safeCopy(goal.resource??{}),kind:'experience',seed,variant,ageTicks:age,autoClaimTicks:null,pickupRadius:engineMechanics?.current?.pickupRadius??null,benefit:'Collect experience to progress toward the next upgrade; XP persists until approached.'};
     }
+    const route=planner?.candidates?.find(c=>c.goal.id===goal.id);
+    if(route) effect.route=safeCopy({waypoints:route.waypoints,risk:route.risk,etaTicks:route.etaTicks,reward:route.reward,length:route.length,clusterId:route.clusterId,qualification:'Bounded planner estimate from observed positions, not a guarantee against moving threats.'});
     return {id:`goal:${hash([runId,decisionSeq,candidatesHash,observation,goal.id]).slice(0,24)}`,engineGoalId:goal.id,goal:safeCopy(goal),effect,description:JSON.stringify(effect)};
   });
   return {runId,decisionSeq,candidatesHash,observationHash:observation,catalogHash:hash(catalog),kind:'goal',snapshot,candidates};

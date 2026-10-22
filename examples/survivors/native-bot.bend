@@ -162,16 +162,22 @@ def view(state: Bot) -> Bot & Image:
   match state:
     case Bot{game,directory,sequence,published,left,dx,dy,last}: bot_image(directory,sequence,published,left,dx,dy,last,N.view(rendering_native(game)))
 def environment(result: Result<&1,&1,U32 & String,String>) -> String: text_result(result)
-def initial_game(mode: String) -> G.Packet:
+def seed_result(value: Maybe<&2,U32>) -> U32:
+  match value:
+    case Some{n}: n
+    case None{}: 12345
+def seed_value(text: String) -> U32: seed_result(U32.read(text))
+def initial_game(mode: String,seed: U32) -> G.Packet:
   match mode:
-    case "advanced": B.advanced_start()
-    case _: B.fresh_start()
-def launch(directory: String,mode: String) -> IO(Unit):
+    case "advanced": B.advanced_start_seed(seed)
+    case _: B.fresh_start_seed(seed)
+def launch(directory: String,mode: String,seed: U32) -> IO(Unit):
   match directory:
     case "": IO.print_err("Set NIGHTFALL_BOT_SESSION to a writable session directory")
-    case _: App.run(~Bot,~App{view,tick},"Nightfall - Visible Bot (inference pauses simulation)",1024,768,Bot{initial_game(mode),directory,1,0,0,0.0,0.0,0n})
+    case _: App.run(~Bot,~App{view,tick},"Nightfall - Visible Bot (inference pauses simulation)",1024,768,Bot{initial_game(mode,seed),directory,1,0,0,0.0,0.0,0n})
 def main() -> IO(Unit):
   do IO<Unit>:
     directory : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_SESSION")
     mode : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_PROFILE")
-    launch(environment(directory),environment(mode))
+    seed : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_SEED")
+    launch(environment(directory),environment(mode),seed_value(environment(seed)))

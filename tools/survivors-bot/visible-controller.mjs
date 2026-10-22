@@ -1,5 +1,6 @@
-import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate, experienceGoals } from './context.mjs';
-import { heuristicUpgrade, steering, continuingGoal, bestGoal } from './runner.mjs';
+import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from './context.mjs';
+import { heuristicUpgrade, steering } from './runner.mjs';
+import { createPlanner, planMovement, advisePlanner } from './planner.mjs';
 
 // The native process alone advances the world. This controller receives snapshots.
 export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fresh', classify,
@@ -8,7 +9,8 @@ export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fr
   for (const n of [maxUpgradeRequests,maxGoalRequests]) if (!Number.isSafeInteger(n)||n<0||n>50) throw new Error('Invalid request budget');
   if (maxUpgradeRequests+maxGoalRequests>50 || !Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000) throw new Error('Invalid bounded options');
   if(mode==='jev' && typeof classify!=='function') throw new Error('Classifier required');
-  let lastSequence=0, decisionSeq=0, nextGoal=1, plan=null, previous=null, lastFrameTick=-60, pending=[], lastResource=null;
+  let lastSequence=0, decisionSeq=0, nextGoal=1, lastAdviceTick=-300, previous=null, lastFrameTick=-60, pending=[], lastIntent=null;
+  const plannerMemory=createPlanner();
   const history=[], attempts={upgrade:0,goal:0};
   return async function command(observation) {
     const {sequence,frame:f,actions:catalog,mechanics:engineMechanics}=observation;
@@ -37,6 +39,7 @@ export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fr
         catch(error) {source='fallback'; reason=['timeout','missing-credential','provider-unavailable','invalid-request'].includes(error?.code)?error.code:'invalid-or-stale-response';}
       } else if(mode==='jev') source=request.candidates.length===1?'only-legal-candidate':'budget-fallback';
       const safeResponse=response&&{selectedCandidateId:response.selectedCandidateId,model:response.model,latencyMs:response.latencyMs,usage:response.usage,probabilities:response.probabilities};
+      if(request.kind==='goal' && source==='classifier' && !advisePlanner(plannerMemory,selected.id)) throw new Error('Selected goal is not a current planner candidate');
       emit({type:'decision',request,result:{source,reason,selected,response:safeResponse}});
       for(const window of [30,120,300]) pending.push({decisionSeq:request.decisionSeq,kind:request.kind,tick:f.tick,until:f.tick+window,hp:f.hp,kills:f.kills,gold:f.gold,level:f.level});
       return selected;
@@ -47,21 +50,20 @@ export function makeVisibleController({ runId, mode = 'heuristic', profile = 'fr
       history.push({tick:f.tick,hp:f.hp,action:'choose_upgrade',offer:f.offers[index]});
       return {kind:1,x:1000,y:1000,index,horizon:1};
     }
-    if(f.tick>=nextGoal) {
-      const request=buildGoalDecision(f,catalog,options);
-      const fallback=bestGoal(request,f);
+    let spatial=planMovement(plannerMemory,f,catalog,engineMechanics);
+    const urgent=['target-gone','damage','stuck'].includes(spatial.reason) && f.tick-lastAdviceTick>=60;
+    if(mode==='jev' && (f.tick>=nextGoal || urgent) && spatial.candidates.length>=2) {
+      const request=buildGoalDecision(f,catalog,{...options,planner:spatial});
+      const fallback=spatial.chosen?.goal ?? null;
       const goal=await select(request,fallback,a=>resolveGoalCandidate(request,a,f,catalog,options));
-      plan={goal,tick:f.tick,until:f.tick+120}; nextGoal=f.tick+300;
-      history.push({tick:f.tick,hp:f.hp,action:'choose_goal',goal:goal.kind,target:goal.target});
+      spatial=planMovement(plannerMemory,f,catalog,engineMechanics); nextGoal=f.tick+300;lastAdviceTick=f.tick;
+      history.push({tick:f.tick,hp:f.hp,action:'choose_goal',goal:goal?.kind??'retain_combat',target:goal?.target??null});
     }
-    let target=continuingGoal(plan,f,catalog); if(!target)plan=null;
-    if(!plan || plan.goal.kind.startsWith('move_')) {
-      const xp=experienceGoals(f,catalog,engineMechanics)[0];
-      target=xp?.target ?? target;
-      const identity=xp?.id.split(':').slice(2,5).join(':') ?? null;
-      if(identity!==lastResource) emit({type:'movement-intent',tick:f.tick,source:'local-resource-policy',goal:xp??null,reason:xp?'Collect nearby fresh XP before automatic claim; avoid blocked routes.':'XP target collected, expired or no longer worth the detour.'});
-      lastResource=identity;
-    }
+    const target=spatial.target,identity=spatial.chosen?.identity??null;
+    if(identity!==lastIntent) emit({type:'movement-intent',tick:f.tick,source:'memory-planner',goal:spatial.chosen?.goal??null,
+      route:spatial.chosen?.waypoints??[],risk:spatial.chosen?.risk??null,reward:spatial.chosen?.reward??null,
+      reason:spatial.reason,memory:{resources:Object.keys(plannerMemory.objects).length,clusters:plannerMemory.clusters.length}});
+    lastIntent=identity;
     const [dx,dy]=steering(f,target,engineMechanics);
     // Short batches keep avoidance and goal identity under regular observation.
     return {kind:0,x:Math.round((dx+1)*1000),y:Math.round((dy+1)*1000),index:0,horizon:6};

@@ -17,6 +17,12 @@ def check(state: V.Bot,+sequence: U32,+tick: U32,+left: U32) -> IO(V.Bot):
     case _: IO.die(V.Bot,1,"Native engine failure")
 def main() -> IO(Unit):
   do IO<Unit>:
+    expect(U32.is_eq(V.seed_value(""),12345),"missing seed defaults safely")
+    expect(U32.is_eq(V.seed_value("invalid"),12345),"invalid seed defaults safely")
+    expect(U32.is_eq(V.seed_value("4294967296"),12345),"overflow seed defaults safely")
+    expect(U32.is_eq(V.seed_value("-1"),12345),"negative seed defaults safely")
+    expect(U32.is_eq(V.seed_value("0"),0),"zero seed accepted")
+    expect(U32.is_eq(V.seed_value("4294967295"),4294967295),"maximum U32 seed accepted")
     expect(Bool.not(V.valid_move(V.parse("0\n2001\n1000\n0\n6\n"))),"out-of-range direction rejected")
     expect(Bool.not(V.valid_move(V.parse("0\n1000\n1000\n0\n31\n"))),"unbounded horizon rejected")
     expect(Bool.not(V.valid_move(V.parse("0\n1000\n1000\n0\n0\n"))),"zero horizon rejected")

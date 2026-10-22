@@ -51,14 +51,14 @@ assert.deepEqual(Game.candidate_enemy(visibleCandidate, dormant, 1800, 1800).bod
 const safeCandidate = Game.enemy_new(17, 0, 1800, 1800, 0, 0, 0);
 assert.deepEqual(Game.candidate_enemy(safeCandidate, dormant, 1800, 1800).body, safeCandidate,
   "The actual spawn mutation gate admits a safe candidate");
-assert.deepEqual(Game.dormant_spawn(false, 17, 0, 1800, 1800, 0, 0, 0, dormant).body, dormant,
+assert.deepEqual(Game.dormant_spawn(false, 17, 12345, 0, 1800, 1800, 0, 0, 0, dormant).body, dormant,
   "An inactive spawn slot remains dormant");
-assert.deepEqual(Game.dormant_spawn(true, 17, 0, 1800, 1800, 0, 0, 0, dormant).body, safeCandidate,
+assert.deepEqual(Game.dormant_spawn(true, 17, 12345, 0, 1800, 1800, 0, 0, 0, dormant).body, safeCandidate,
   "An active spawn slot admits the actual offscreen candidate");
 // Actual six-tick slot admission must populate all four approach directions.
 const sides=new Set();
 for(let tick=1;tick<=6;tick++) for(let seed=0;seed<96;seed++) {
-  const row=Game.dormant_spawn((tick+seed)%6===0,seed,tick,1800,1800,0,0,0,Game.initial_body(seed));
+  const row=Game.dormant_spawn((tick+seed)%6===0,seed,12345,tick,1800,1800,0,0,0,Game.initial_body(seed));
   if(row.body.kind!==0)continue;
   const dx=row.body.x-1800,dy=row.body.y-1800;
   sides.add(Math.abs(dx)>Math.abs(dy)?(dx>0?'east':'west'):(dy>0?'south':'north'));
@@ -67,7 +67,7 @@ assert.equal(sides.size,4,'Spawn side selection must not alias the six-tick admi
 // Scheduled bosses and the final Reaper use the same real admission path.
 const bossRun=Game.start(0,0).state.run;
 for (const finale of [false,true]) for (let stage=0;stage<5;stage++) {
-  const boss=Game.update_selected(true,finale,dormant,bossRun,0,finale?36000:7200,20,20,stage).body;
+  const boss=Game.update_selected(true,finale,dormant,bossRun,0,12345,finale?36000:7200,20,20,stage).body;
   assert.equal(boss.kind,0);
   assert.equal(accepted(boss.x,boss.y,20,20,boss.radius),true);
 }

@@ -56,7 +56,7 @@ function command(name, ...args) {
 function budget() {
   assert.ok(
     performance.now() < deadline,
-    "Objective integration exceeded its 28 second gameplay budget",
+    "Objective integration exceeded its 28 second gameplay budget: " + JSON.stringify({stage:current?.frame.stage,tick:current?.frame.tick,level:current?.frame.level,elapsedMs:performance.now()-started}),
   );
 }
 function resolveChoice() {
@@ -181,6 +181,7 @@ try {
       "Weapon unlock persists through profile reload",
     );
     results.push({ stage: relic.id, tick: collectedAt, weapon: relic.weapon });
+    console.log(JSON.stringify({test:"relic-stage-completed",stage:relic.id,tick:collectedAt,elapsedMs:performance.now()-started}));
     current = null; // Discard this owned run; it is never reused for another stage.
   }
   assert.deepEqual([...profile.stageRelics].sort(), [0, 1, 2, 3, 4]);

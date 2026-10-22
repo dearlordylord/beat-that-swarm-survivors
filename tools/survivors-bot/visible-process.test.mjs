@@ -5,11 +5,11 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawn} from 'node:child_process';
 // Process-lifecycle fixtures only: these executable stubs are not game runs.
-async function runStub(body){
+async function runStub(body,{seed='12345'}={}){
  const directory=await mkdtemp(join(tmpdir(),'visible-process-'));
  try{
   const binary=join(directory,'stub');await writeFile(binary,'#!/usr/bin/env node\n'+body,{mode:0o700});
-  const child=spawn(process.execPath,['tools/survivors-bot/visible.mjs','--mode','heuristic','--seconds','1','--binary',binary,'--receipts-dir',join(directory,'receipts')],{cwd:resolve('.'),stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,['tools/survivors-bot/visible.mjs','--mode','heuristic','--seconds','1','--seed',seed,'--binary',binary,'--receipts-dir',join(directory,'receipts')],{cwd:resolve('.'),stdio:['ignore','pipe','pipe']});
   let stdout='',stderr='';child.stdout.on('data',x=>stdout+=x);child.stderr.on('data',x=>stderr+=x);
   const timer=setTimeout(()=>child.kill('SIGKILL'),6000);
   const code=await new Promise((r,j)=>{child.on('error',j);child.on('exit',r)});clearTimeout(timer);
@@ -30,4 +30,10 @@ test('controller errors terminate and reap native process on error path',async()
 test('unexpected native signal marks the session failed',async()=>{
  const {code,records}=await runStub("process.kill(process.pid,'SIGTERM');");
  assert.equal(code,1);const end=records.at(-1);assert.equal(end.outcome,'native-error');assert.equal(end.nativeExit.expected,false);assert.equal(end.nativeExit.signal,'SIGTERM');
+});
+
+
+test('explicit seed is forwarded to native environment and recorded in the journal',async()=>{
+ const {code,records}=await runStub("if(process.env.NIGHTFALL_BOT_SEED!=='4294967295')process.exit(2);setInterval(()=>{},1000);",{seed:'4294967295'});
+ assert.equal(code,0);assert.equal(records.find(r=>r.type==='start').seed,4294967295);assert.equal(records.at(-1).seed,4294967295);
 });

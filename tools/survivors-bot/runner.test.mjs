@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runBot, continuingGoal, bestGoal, steering } from './runner.mjs';
+import { runBot, steering } from './runner.mjs';
 
 // Deliberately tiny fake affine world: these tests exercise orchestration,
 // not actual game balance. actions.test.mjs separately drives real Bend.
@@ -64,35 +64,6 @@ test('heuristic mode never invokes inference and invalid budgets fail before sim
   await assert.rejects(runBot(toyGame(), { maxUpgradeRequests: 49, maxGoalRequests: 2 }), /At most 50/);
 });
 
-test('a reused entity slot or activation cancels an old spatial plan', () => {
-  const goal = { id: 't1:approach_ward:744:11:0:7', kind: 'approach_ward', target: { x: 2000, y: 1800 } };
-  const plan = { goal, tick: 1, until: 121 };
-  const frame = { tick: 3, px: 1800, py: 1800, bodies: [[2000, 1800, 11, 0, 100, 160, 9, 744, 12]] };
-  assert.deepEqual(continuingGoal(plan, frame, [{ ...goal, id: 't3:approach_ward:744:11:0:9' }]), goal.target);
-  assert.equal(continuingGoal(plan, { ...frame, bodies: [[2000, 1800, 11, 0, 100, 160, 0, 744, 12]] }, [goal]), null);
-  assert.equal(continuingGoal(plan, { ...frame, bodies: [[2000, 1800, 11, 1, 100, 160, 9, 744, 12]] }, []), null);
-});
-
-test('a static relic persists across ticks but collection invalidates its goal', () => {
-  const goal = { id: 't1:approach_relic:511:9:0:0', kind: 'approach_relic', target: { x: 2400, y: 1800 } };
-  const plan = { goal, tick: 1, until: 121 };
-  const frame = { tick: 20, px: 1800, py: 1800, bodies: [[2400, 1800, 9, 0, 0, 0, 0, 511, 12]] };
-  assert.deepEqual(continuingGoal(plan, frame, [{ ...goal, id: 't20:approach_relic:511:9:0:0' }]), goal.target);
-  assert.equal(continuingGoal(plan, { ...frame, bodies: [] }, []), null);
-});
-
-
-test('fallback prefers collectible XP over empty travel and invalidates claimed XP identities',()=>{
- const xp={id:'t1:approach_experience:42:2:0:10',kind:'approach_experience',distance:60,target:{x:1860,y:1800}};
- const frame={tick:2,px:1800,py:1800,bodies:[[1860,1800,2,0,0,10,11,42,6]]};
- const cardinal={kind:'move_north',distance:160,target:{x:1800,y:1640}};
- assert.equal(bestGoal({candidates:[{goal:cardinal},{goal:xp}]},frame),xp);
- const plan={goal:xp,tick:1,until:121};
- assert.deepEqual(continuingGoal(plan,frame,[{...xp,id:'t2:approach_experience:42:2:0:11'}]),xp.target);
- assert.equal(continuingGoal(plan,{...frame,bodies:[]},[]),null);
-});
-
-
 test('self-field-only builds approach attack reach, retreat from contact and retain projectile avoidance',()=>{
  const frame={px:1800,py:1800,bodies:[[2000,1800,0,0,10,10,0,1,12]]};
  const close={current:{weaponStats:[{id:4,rank:1,selfFieldRadius:46.125}]}};
@@ -103,4 +74,14 @@ test('self-field-only builds approach attack reach, retreat from contact and ret
  assert.ok(steering({...frame,bodies:[[2000,1800,0,0,10,10,0,1,12],[1810,1800,7,0,10,10,0,704,6]]},null,close)[0]<0,'Dodge close hostile shots even while seeking attack range');
  const mixed={current:{weaponStats:[{selfFieldRadius:46},{selfFieldRadius:0}]}};
  assert.ok(steering(frame,null,mixed)[0]<0,'Mixed/ranged builds retain kiting');
+});
+
+
+test('explicit U32 seeds reach the engine and invalid or unsupported seeds fail before play',async()=>{
+ const game=toyGame();let received;
+ game.fresh_start_seed=seed=>{received=seed;return game.fresh_start()};
+ const result=await runBot(game,{ticks:5,seed:987654,mode:'heuristic'});
+ assert.equal(received,987654);assert.equal(result.seed,987654);
+ await assert.rejects(runBot(toyGame(),{seed:1,ticks:1}),/explicit seed control/);
+ for(const seed of [-1,2**32,NaN,1.2]) await assert.rejects(runBot(toyGame(),{seed,ticks:1}),/U32 seed/);
 });

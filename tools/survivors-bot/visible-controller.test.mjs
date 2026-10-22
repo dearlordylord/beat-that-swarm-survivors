@@ -36,16 +36,29 @@ test('budgets bound calls and wire encoding rejects malformed commands',async()=
 });
 
 
-test('visible bot collects fresh nearby XP between classifier decisions, then releases a vanished target',async()=>{
+test('visible bot follows a persistent XP route between advice calls and releases a collected target',async()=>{
  const records=[];
  const command=makeVisibleController({runId:'xp',emit:r=>records.push(r)});
  await command(observation());
  const next=observation(2,7);
- next.frame.bodies=[[1860,1800,2,0,0,10,10,42,6]];
- next.actions.push({id:'t7:approach_experience:42:2:0:10',kind:'approach_experience',target:{x:1860,y:1800},distance:60,observedTick:7});
+ next.frame.bodies=[[1860,1800,2,0,8,3,1500,748,6]];
+ next.actions.push({id:'t7:approach_experience:748:2:0:1500',kind:'approach_experience',target:{x:1860,y:1800},distance:60,observedTick:7,resource:{baseXp:8,generation:3,autoClaimTicks:null}});
  const move=await command(next);
- assert.equal(move.x,2000);assert.equal(move.y,1000);
+ assert.ok(move.x>1000, "Follow the eastward route; waypoints may add a lateral component");
  const event=records.find(r=>r.type==='movement-intent');assert.equal(event.goal.kind,'approach_experience');
  await command(observation(3,13));
  assert.equal(records.filter(r=>r.type==='movement-intent').at(-1).goal,null);
+});
+
+
+test('provider failures preserve resource memory and the same free planner route',async()=>{
+ const requests=[],records=[];
+ const command=makeVisibleController({runId:'memory',mode:'jev',maxGoalRequests:2,emit:r=>records.push(r),classify:async r=>{requests.push(r);throw Object.assign(new Error('offline'),{code:'provider-unavailable'})}});
+ const pile=(seq,tick)=>{const o=observation(seq,tick);o.frame.bodies=[[2100,1800,2,0,25,3,tick+500,748,6]];o.actions.push({id:`t${tick}:approach_experience:748:2:0:${tick+500}`,kind:'approach_experience',target:{x:2100,y:1800},distance:300,observedTick:tick,resource:{baseXp:25,generation:3,autoClaimTicks:null}});return o};
+ await command(pile(1,7));await command(pile(2,307));
+ assert.equal(requests.length,2);
+ for(const r of requests){assert.equal(r.snapshot.spatialPlanner.memory.clusters[0].firstSeen,7);assert.ok(r.candidates.some(c=>c.effect.resource?.baseXp===25));}
+ const decision=records.filter(r=>r.type==='decision');assert.ok(decision.every(r=>r.result.source==='fallback'));
+ assert.ok(decision.every(r=>r.result.selected.kind==='approach_experience'));
+ assert.equal(records.filter(r=>r.type==='movement-intent').length,1,'Stable resource identity survives provider failure and age changes');
 });

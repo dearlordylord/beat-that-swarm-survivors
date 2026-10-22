@@ -3,6 +3,7 @@ import projectile.bend as P
 import encounters.bend as E
 import actors.bend as A
 import spawn-policy.bend as S
+import persistent-xp.bend as X
 import bendvy-ecs-core@0.1.0.1/world.bend as W
 import bendvy-ecs-core@0.1.0.1/column.bend as Col
 import bendvy-ecs-core@0.1.0.1/component.bend as C
@@ -84,7 +85,8 @@ def spawn_finish(result: T.Tx<World(),Unit> & W.Reservation<Schema>) -> World():
     case (T.Tx{world,_,_,_,_},W.ReservationRejected{_}): world
 def spawn(world: World(),body: Body) -> World():
   spawn_finish(Cmd.tx_spawn(~Schema,~Store,~Unit,~Unit,~Body,~populate,T.begin(~World(),~Unit,world),body))
-# A bounded pool of ECS bodies cycles enemy -> loot -> dormant -> enemy.
+# Enemy slots recycle independently of 256 persistent XP entries.
+# Kind2 hp is exact baseXP; maxHp is the pile generation tick, not health.
 # Weapons and progression are immutable run data; every entity update uses Q.each.
 type Run is Data: Run{phase: U32,tick: U32,px: F32,py: F32,hp: U32,maxHp: U32,xp: U32,xpNeed: U32,level: U32,kills: U32,gold: U32,character: U32,weapons: List<&2,U32>,passives: List<&2,U32>,invuln: U32,seed: U32,stage: U32,arcana: U32,meta: U32,revivals: U32,bosses: U32,mode: U32,rerolls: U32,banishes: U32,skips: U32,bannedWeapons: U32,bannedPassives: U32,enemyKinds: List<&2,U32>,relicCollected: U32}
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
@@ -120,6 +122,9 @@ def enemy_at(point: S.Point,+seed: U32,+tick: U32,+variant: U32,+stage: U32,+cur
     case S.Point{x,y}: Body{x,y,0,variant,(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),0,seed,E.radius(variant)}
 def enemy_new(+seed: U32,+tick: U32,px: F32,py: F32,+variant: U32,stage: U32,curse: U32) -> Body:
   enemy_at(S.choose(seed,tick,px,py,E.radius(variant)),seed,tick,variant,stage,curse)
+# Entity seeds remain stable pool identities; run entropy changes only spawn placement.
+def enemy_new_seed(+slot: U32,+entropy: U32,+tick: U32,px: F32,py: F32,+variant: U32,stage: U32,curse: U32) -> Body:
+  enemy_at(S.choose((slot + (entropy - 12345) * 31 : U32),tick,px,py,E.radius(variant)),slot,tick,variant,stage,curse)
 # A 512-slot enemy budget grows from 96 to the full horde by six minutes.
 def active_limit(+tick: U32) -> U32: U32.min(512,(96 + tick / 50 : U32))
 def initial_body(+slot: U32) -> Body: Body{0.0,0.0,8,slot,0,0,slot,slot,0.0}
@@ -237,13 +242,13 @@ def motion_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Motion,Motion>:
 def loot_collected(found: Bool,+body: Body,+kind: U32,+amount: U32) -> Row:
   match found body:
     case False{} body: Row{body,0,0,0,0,0,0,0}
-    case True{} Body{+x,+y,_,+variant,_,+maxHp,_,+seed,_}: Row{Body{x,y,8,variant,0,maxHp,0,seed,0.0},0,(amount * Bool.to_u32(U32.is_eq(kind,2)) : U32),(amount * Bool.to_u32(U32.is_eq(kind,3)) : U32),(25 * Bool.to_u32(U32.is_eq(kind,4)) : U32),Bool.to_u32(U32.is_eq(kind,5)),0,0}
+    case True{} Body{+x,+y,_,+variant,_,+maxHp,_,+seed,_}: Row{Body{x,y,8,variant,0,maxHp,0,seed,0.0},0,X.credited(U32.is_eq(kind,2),amount),(amount * Bool.to_u32(U32.is_eq(kind,3)) : U32),(25 * Bool.to_u32(U32.is_eq(kind,4)) : U32),Bool.to_u32(U32.is_eq(kind,5)),0,0}
 def pickup_radius(+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> F32:
   (24.0 * (1.0 + U32.to_f32(at(passives,8)) * 0.25 + U32.to_f32(meta_rank(meta,6)) * 0.15 + stat_bonus(arcana,6) + 0.50 * U32.to_f32(Bool.to_u32(U32.is_eq(character,7)))) : F32)
 def loot_update(body: Body,run: Run) -> Row:
   match body run:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{_,_,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,_,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
-      loot_collected(Bool.or(close(x,y,px,py,pickup_radius(passives,meta,arcana,character)),Bool.and(U32.is_lt(kind,5),U32.is_le(120,age))),Body{x,y,kind,variant,hp,maxHp,(age + 1 : U32),seed,radius},kind,(2 + U32.min(4,(variant / 4 : U32)) : U32))
+      loot_collected(Bool.or(close(x,y,px,py,pickup_radius(passives,meta,arcana,character)),Bool.and(Bool.or(U32.is_eq(kind,3),U32.is_eq(kind,4)),U32.is_le(120,age))),Body{x,y,kind,variant,hp,maxHp,(age + 1 : U32),seed,radius},kind,Bool.pick(U32,U32.is_eq(kind,2),hp,(2 + U32.min(4,(variant / 4 : U32)) : U32)))
 def enemy_result(+hp: U32,+x: F32,+y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
   match hp:
     case 0: Row{Body{x,y,loot_kind(seed,variant),variant,0,maxHp,0,seed,6.0},0,0,0,0,0,1,0}
@@ -259,14 +264,14 @@ def candidate_enemy(candidate: Body,previous: Body,px: F32,py: F32) -> Row:
   match candidate:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}:
       admit_enemy(S.admission(x,y,px,py,radius),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},previous)
-def dormant_spawn(active: Bool,+seed: U32,+tick: U32,+px: F32,+py: F32,+variant: U32,+stage: U32,+curse: U32,+body: Body) -> Row:
+def dormant_spawn(active: Bool,+seed: U32,+entropy: U32,+tick: U32,+px: F32,+py: F32,+variant: U32,+stage: U32,+curse: U32,+body: Body) -> Row:
   match active:
-    case True{}: candidate_enemy(enemy_new(seed,tick,px,py,variant,stage,curse),body,px,py)
+    case True{}: candidate_enemy(enemy_new_seed(seed,entropy,tick,px,py,variant,stage,curse),body,px,py)
     case False{}: Row{body,0,0,0,0,0,0,0}
 def dormant(body: Body,run: Run) -> Row:
   match body run:
-    case Body{+x,+y,_,+variant,_,+maxHp,+age,+seed,_} Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,_,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
-      dormant_spawn(Bool.and(U32.is_lt((seed % 512 : U32),U32.min(512,(active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32))),U32.is_eq(((tick + seed) % 6 : U32),0)),seed,wave_tick(mode,tick),px,py,E.variant(stage,wave_tick(mode,tick),seed),stage,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0})
+    case Body{+x,+y,_,+variant,_,+maxHp,+age,+seed,_} Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,+rng,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
+      dormant_spawn(Bool.and(U32.is_lt((seed % 512 : U32),U32.min(512,(active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32))),U32.is_eq(((tick + seed) % 6 : U32),0)),seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,E.variant(stage,wave_tick(mode,tick),seed),stage,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0})
 def update_body(body: Body,run: Run) -> Row:
   match body:
     case Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius}: enemy_update(Body{x,y,0,variant,hp,maxHp,age,seed,radius},run)
@@ -276,14 +281,14 @@ def boss_variant(finale: Bool,tick: U32,stage: U32) -> U32:
   match finale:
     case True{}: 30
     case False{}: (20 + stage * 2 + ((tick / 7200) % 2) : U32)
-def update_selected(boss: Bool,finale: Bool,+body: Body,+run: Run,+seed: U32,+tick: U32,+px: F32,+py: F32,+stage: U32) -> Row:
+def update_selected(boss: Bool,finale: Bool,+body: Body,+run: Run,+seed: U32,+entropy: U32,+tick: U32,+px: F32,+py: F32,+stage: U32) -> Row:
   match boss:
-    case True{}: candidate_enemy(enemy_new(seed,tick,px,py,boss_variant(finale,tick,stage),stage,0),body,px,py)
+    case True{}: candidate_enemy(enemy_new_seed(seed,entropy,tick,px,py,boss_variant(finale,tick,stage),stage,0),body,px,py)
     case False{}: update_body(body,run)
 def update(body: Body,run: Run) -> Row:
   match body run:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{+phase,+tick,+px,+py,+playerHp,+playerMax,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+rng,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
-      update_selected(Bool.and(U32.is_eq(seed,0),Bool.and(U32.is_lt(0,tick),Bool.or(Bool.and(Bool.or(U32.is_lt(wave_tick(mode,tick),36000),U32.is_eq(mode,2)),U32.is_eq((wave_tick(mode,tick) % 7200 : U32),0)),Bool.or(U32.is_eq(wave_tick(mode,tick),34200),U32.is_eq(wave_tick(mode,tick),36000))))),Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_eq(wave_tick(mode,tick),36000)),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Run{phase,tick,px,py,playerHp,playerMax,xp,need,level,kills,gold,character,weapons,passives,invuln,rng,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},seed,wave_tick(mode,tick),px,py,stage)
+      update_selected(Bool.and(U32.is_eq(seed,0),Bool.and(U32.is_lt(0,tick),Bool.or(Bool.and(Bool.or(U32.is_lt(wave_tick(mode,tick),36000),U32.is_eq(mode,2)),U32.is_eq((wave_tick(mode,tick) % 7200 : U32),0)),Bool.or(U32.is_eq(wave_tick(mode,tick),34200),U32.is_eq(wave_tick(mode,tick),36000))))),Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_eq(wave_tick(mode,tick),36000)),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Run{phase,tick,px,py,playerHp,playerMax,xp,need,level,kills,gold,character,weapons,passives,invuln,rng,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,stage)
 type EntityRow is Data: EntityRow{row: Row,motion: Motion}
 # Spatial snapshots are only observations; Q capabilities own all three components.
 type Aim is Data: Aim{x: F32,y: F32,id: U32,distance: F32}
@@ -326,6 +331,17 @@ def plan_hits(rows: List<&2,Snapshot>,+bodies: List<&2,Body>) -> List<&2,HitPlan
     case Snapshot{Body{+x,+y,1,+id,+damage,_,+age,+seed,+radius},Motion{_,_,+life,+pierce,+visited,_,_}} <> rest: append_hit_plan(Bool.and(P.active_hit(id,age),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce))),seed,id,damage,x,y,radius,pierce,visited,bodies,plan_hits(rest,bodies))
     case Snapshot{Body{+x,+y,11,+phase,+hp,_,_,+seed,_},Motion{_,_,+cooldown,_,_,_,_}} <> rest: append_hit_plan(A.pulse(11,hp,phase,cooldown),seed,10,A.ward_damage(),x,y,A.ward_radius(),9999,[],bodies,plan_hits(rest,bodies))
     case _ <> rest: plan_hits(rest,bodies)
+# Frozen targeting inputs contain enemies only. XP, actors, shots and dormant
+# bodies remain in the full frame/snapshots, without multiplying aim/contact work.
+def enemy_geometry(rows: List<&2,Body>) -> List<&2,Body>:
+  match rows:
+    case []: []
+    case Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest: Body{x,y,0,variant,hp,maxHp,age,seed,radius} <> enemy_geometry(rest)
+    case _ <> rest: enemy_geometry(rest)
+def combat_args_enemies(run: Run,+enemies: List<&2,Body>,dx: F32,dy: F32,+snapshots: List<&2,Snapshot>) -> Args:
+  Args{run,enemies,dx,dy,snapshots,plan_hits(snapshots,enemies)}
+def combat_args(run: Run,bodies: List<&2,Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>) -> Args:
+  combat_args_enemies(run,enemy_geometry(bodies),dx,dy,snapshots)
 def select_hit_targets(selected: Bool,targets: List<&2,U32>) -> List<&2,U32>:
   match selected:
     case True{}: targets
@@ -500,10 +516,26 @@ def normal_dispatch(actor: Bool,body: Body,motion: Motion,args: Args) -> EntityR
   match actor:
     case True{}: actor_entity(body,motion,args)
     case False{}: normal_regular_entity(body,motion,args)
+def xp_amount(body: Body) -> U32:
+  match body:
+    case Body{_,_,2,_,amount,_,_,_,_}: amount
+    case _: 0
+def xp_entity(body: Body,args: Args) -> EntityRow:
+  match body args:
+    case Body{+x,+y,2,+variant,+amount,+generation,+age,+seed,+radius} Args{run,_,_,_,_,_}: EntityRow{loot_update(Body{x,y,2,variant,amount,generation,age,seed,radius},run),empty_motion()}
+    case Body{+x,+y,_,+variant,_,+generation,+age,+seed,_} _: dormant_entity(x,y,seed)
+def extra_entity(xp: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
+  match xp:
+    case True{}: xp_entity(body,args)
+    case False{}: normal_dispatch(True{},body,motion,args)
+def normal_pool(extra: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
+  match extra body:
+    case True{} Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: extra_entity(U32.is_le(748,seed),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args)
+    case False{} body: normal_dispatch(False{},body,motion,args)
 def normal_entity(body: Body,motion: Motion,args: Args) -> EntityRow:
   match body:
     case Body{_,_,_,_,_,_,_,511,_}: relic_entity(args)
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: normal_dispatch(U32.is_le(736,seed),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args)
+    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: normal_pool(U32.is_le(736,seed),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args)
 def intent_fire(intent: E.Intent) -> Bool:
   match intent:
     case E.Intent{_,_,fire}: fire
@@ -610,9 +642,16 @@ def observed_vitals(~H: Type,~ops: Ops<H>,+args: Args,body: Body,result: H & C.A
   match body result:
     case Body{+x,+y,+kind,+variant,_,_,+age,+seed,+radius} Tuple{ctx,C.Found{Vitals{+health,+maximum}}}: observed_motion(~H,~ops,args,Body{x,y,kind,variant,health,maximum,age,seed,radius},Cap.get(~H,~Motion,~Motion,~motion_cap(~H,ops),ctx))
     case _ Tuple{ctx,_}: (ctx,(T.Failure{MissingBody{}},missing_row()))
+def observed_pool_selected(~H: Type,~ops: Ops<H>,xp: Bool,+args: Args,+body: Body,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
+  match xp:
+    case True{}: write_row(~H,~ops,ctx,xp_entity(body,args))
+    case False{}: observed_vitals(~H,~ops,args,body,Cap.get(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx))
+def observed_pool(~H: Type,~ops: Ops<H>,+args: Args,+body: Body,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
+  match body:
+    case Body{_,_,_,_,_,_,_,+seed,_}: observed_pool_selected(~H,~ops,U32.is_le(748,seed),args,body,ctx)
 def observed(~H: Type,~ops: Ops<H>,+args: Args,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{body}): observed_vitals(~H,~ops,args,body,Cap.get(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx))
+    case (ctx,C.Found{body}): observed_pool(~H,~ops,args,body,ctx)
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def body_system(~H: Type,~ops: Ops<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): observed(~H,~ops,args,Cap.read(~H,~Body,~body_cap(~H,ops),ctx))
 def plan() -> Q.Plan<Schema,Store,Unit,Unit,OpsType>: Q.Plan{Ops{Q.read_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,~vital_family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_pool}
@@ -627,10 +666,15 @@ def prefer_body(found: Bool,body: Body,fallback: Body) -> Body:
   match found:
     case True{}: body
     case False{}: fallback
+# Carry the equality result into the recursive matcher so a hit never evaluates
+# the remaining lookup. The first matching row wins, including duplicate IDs.
+def planned_body_match(rows: List<&2,EntityRow>,found: Bool,+seed: U32,+fallback: Body,current: Body) -> Body:
+  match rows found:
+    case _ True{}: current
+    case Nil{} False{}: fallback
+    case Con{EntityRow{Row{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+id,+radius},_,_,_,_,_,_,_},_},rest} False{}: planned_body_match(rest,U32.is_eq(id,seed),seed,fallback,Body{x,y,kind,variant,hp,maxHp,age,id,radius})
 def planned_body(rows: List<&2,EntityRow>,+seed: U32,+fallback: Body) -> Body:
-  match rows:
-    case []: fallback
-    case EntityRow{Row{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+id,+radius},_,_,_,_,_,_,+relic},_} <> rest: prefer_body(U32.is_eq(id,seed),Body{x,y,kind,variant,hp,maxHp,age,id,radius},planned_body(rest,seed,fallback))
+  planned_body_match(rows,False{},seed,fallback,fallback)
 def loot_observed(~H: Type,~ops: LootOps<H>,+rows: List<&2,EntityRow>,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Unit):
   match result:
     case (ctx,C.Found{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}}): (Cap.set(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx,planned_body(rows,seed,Body{x,y,kind,variant,hp,maxHp,age,seed,radius})),(T.Success{},Unit{}))
@@ -643,13 +687,60 @@ def lifecycle_done(+rows: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<
   match result:
     case Q.Executed{world,T.Success{},_}: Q.Executed{world,T.Success{},rows}
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
-def combat_done(+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
+# XP entries preserve exact drop positions until the dedicated pool is full.
+# Overflow merges into the nearest existing pile; no XP is silently discarded.
+def xp_pool_keep(keep: Bool,row: EntityRow,rest: List<&2,EntityRow>) -> List<&2,EntityRow>:
+  match keep:
+    case True{}: row <> rest
+    case False{}: rest
+def xp_pool_filter(+row: EntityRow,+pool: Bool,rest: List<&2,EntityRow>) -> List<&2,EntityRow>:
+  match row:
+    case EntityRow{Row{Body{_,_,_,_,_,_,_,+seed,_},_,_,_,_,_,_,_},_}: xp_pool_keep(Bool.or(Bool.and(U32.is_le(748,seed),pool),Bool.and(Bool.not(U32.is_le(748,seed)),Bool.not(pool))),row,rest)
+def xp_pool_rows(rows: List<&2,EntityRow>,+pool: Bool) -> List<&2,EntityRow>:
+  match rows:
+    case []: []
+    case +row <> rest: xp_pool_filter(row,pool,xp_pool_rows(rest,pool))
+def xp_available(rows: List<&2,EntityRow>,+x: F32,+y: F32,+best: Aim) -> Aim:
+  match rows:
+    case []: best
+    case EntityRow{Row{Body{_,_,8,_,_,_,_,+seed,_},_,_,_,_,_,_,_},_} <> _: Aim{0.0,0.0,seed,0.0}
+    case EntityRow{Row{Body{+px,+py,_,_,_,_,_,+seed,_},_,_,_,_,_,_,_},_} <> rest: xp_available(rest,x,y,prefer_aim(F32.is_lt(distance2(x,y,px,py),aim_distance(best)),px,py,seed,distance2(x,y,px,py),best))
+def xp_deposit_body(selected: Bool,+body: Body,+amount: U32,+x: F32,+y: F32,+tick: U32) -> Body:
+  match selected body:
+    case False{} body: body
+    case True{} Body{+px,+py,2,+variant,+old,+generation,+age,+seed,_}: Body{px,py,2,variant,X.merge(old,amount),generation,age,seed,6.0}
+    case True{} Body{_,_,_,_,_,_,_,+seed,_}: Body{x,y,2,0,amount,tick,0,seed,6.0}
+def xp_deposit_selected(rows: List<&2,EntityRow>,+selected: U32,+amount: U32,+x: F32,+y: F32,+tick: U32) -> List<&2,EntityRow>:
+  match rows:
+    case []: []
+    case EntityRow{Row{Body{+px,+py,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion} <> rest: EntityRow{Row{xp_deposit_body(U32.is_eq(seed,selected),Body{px,py,kind,variant,hp,maxHp,age,seed,radius},amount,x,y,tick),hit,xp,gold,heal,chest,killed,relic},motion} <> xp_deposit_selected(rest,selected,amount,x,y,tick)
+def xp_deposit_target(pool: List<&2,EntityRow>,amount: U32,x: F32,y: F32,tick: U32,target: Aim) -> List<&2,EntityRow>:
+  match target:
+    case Aim{_,_,seed,_}: xp_deposit_selected(pool,seed,amount,x,y,tick)
+def xp_apply_events(events: List<&2,EntityRow>,+pool: List<&2,EntityRow>,+tick: U32) -> List<&2,EntityRow>:
+  match events:
+    case []: pool
+    case EntityRow{Row{Body{+x,+y,2,+variant,_,_,_,_,_},_,_,_,_,_,1,_},_} <> rest: xp_apply_events(rest,xp_deposit_target(pool,X.drop_amount(variant),x,y,tick,xp_available(pool,x,y,Aim{0.0,0.0,748,100000000.0})),tick)
+    case _ <> rest: xp_apply_events(rest,pool,tick)
+def xp_free_enemies(rows: List<&2,EntityRow>) -> List<&2,EntityRow>:
+  match rows:
+    case []: []
+    case EntityRow{Row{Body{+x,+y,2,+variant,_,+maximum,_,+seed,_},+hit,+xp,+gold,+heal,+chest,1,+relic},motion} <> rest: EntityRow{Row{Body{x,y,8,variant,0,maximum,0,seed,0.0},hit,xp,gold,heal,chest,1,relic},motion} <> xp_free_enemies(rest)
+    case row <> rest: row <> xp_free_enemies(rest)
+def xp_route_rows(+rows: List<&2,EntityRow>,+tick: U32) -> List<&2,EntityRow>:
+  List.append(&2,EntityRow,xp_free_enemies(xp_pool_rows(rows,False{})),xp_apply_events(rows,xp_pool_rows(rows,True{}),tick))
+def args_tick(args: Args) -> U32:
+  match args:
+    case Args{Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}: tick
+def xp_lifecycle(+projectiles: List<&2,EntityRow>,+rows: List<&2,EntityRow>,world: World()) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
+  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~List<&2,EntityRow>,~Error,~Unit,~loot_plan(),~loot_system,rows,world))
+def combat_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},+rows}: lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~List<&2,EntityRow>,~Error,~Unit,~loot_plan(),~loot_system,rows,world))
+    case Q.Executed{world,T.Success{},+rows}: xp_lifecycle(projectiles,xp_route_rows(rows,args_tick(args)),world)
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def movement_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,Unit>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},_}: combat_done(projectiles,Q.each(~Schema,~Store,~Unit,~Unit,~OpsType,~Args,~Error,~EntityRow,~plan(),~body_system,args,world))
+    case Q.Executed{world,T.Success{},_}: combat_done(args,projectiles,Q.each(~Schema,~Store,~Unit,~Unit,~OpsType,~Args,~Error,~EntityRow,~plan(),~body_system,args,world))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def projectile_done(+args: Args,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
@@ -801,13 +892,22 @@ def executed(+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> 
 def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet:
   match state:
     case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+snapshot,_,+snapshots,pending}:
-      executed(Run{0,(tick + 1 : U32),F32.clamp((px + dx * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),20.0,3580.0),F32.clamp((py + dy * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),20.0,3580.0),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,Args{Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots,plan_hits(snapshots,snapshot)}))
+      executed(Run{0,(tick + 1 : U32),F32.clamp((px + dx * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),20.0,3580.0),F32.clamp((py + dy * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),20.0,3580.0),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
     case state: packet(state)
 def started(+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
   match created:
-    case W.Created{_,world}: packet(State{W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(748n,0,world)),Run{0,0,1800.0,1800.0,(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,100,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
+    case W.Created{_,world}: packet(State{W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(1004n,0,world)),Run{0,0,1800.0,1800.0,(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,100,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
     case W.CreateRejected{_,_}: Failed{"World creation refused"}
 def start(character: U32,meta: U32) -> Packet: started(U32.min(character,7),meta,W.create(~Schema,~Store,~Unit,~Unit,~empty,W.factory(),Unit{}))
+
+def seeded_run(run: Run,+selectedSeed: U32) -> Run:
+  match run:
+    case Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,_,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,selectedSeed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+def seeded_packet(packetValue: Packet,+selectedSeed: U32) -> Packet:
+  match packetValue:
+    case Packet{State{world,run,bodies,offers,snapshots,pending},_}: packet(State{world,seeded_run(run,selectedSeed),bodies,offers,snapshots,pending})
+    case Failed{error}: Failed{error}
+def start_seed(character: U32,meta: U32,seed: U32) -> Packet: seeded_packet(start(character,meta),seed)
 
 def mode_configured(run: Run,+selected: U32) -> Run:
   match run:

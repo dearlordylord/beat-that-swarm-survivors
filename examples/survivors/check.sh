@@ -2,6 +2,7 @@
 set -euo pipefail
 source "$(dirname -- "$0")/../common.sh"
 cd "$example_repo"
+example_node examples/survivors/persistent-xp.test.mjs
 example_node examples/survivors/progression.test.mjs
 example_node --test examples/survivors/catalog.test.mjs
 example_node examples/survivors/projectiles.test.mjs
@@ -9,6 +10,7 @@ example_node examples/survivors/builds.test.mjs
 # Seven natural level-ups need a longer bounded integration horizon.
 example_timeout 180 "${example_cpu[@]}" "$NODE" examples/survivors/api.test.mjs
 example_node examples/survivors/objectives.test.mjs
-example_node examples/survivors/balance.test.mjs
+# The 1004-entity fixture covers three finales, Endless, actors and horde capacity.
+example_timeout 90 "${example_cpu[@]}" "$NODE" examples/survivors/balance.test.mjs
 example_node examples/survivors/defeat.test.mjs
 example_node examples/survivors/smoke.mjs

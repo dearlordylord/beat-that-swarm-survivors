@@ -33,7 +33,7 @@ const verify = ({frame, actions, mechanics}) => {
       (kind < 10 || (b[3] === 0 && b[4] > 0))), "Every entity goal matches the real engine snapshot");
   }
   for (const body of frame.bodies) {
-    const actionable = (body[2] === 2 && body[6] < 120) || body[2] === 5 || body[2] === 9 || ([10,11].includes(body[2]) && body[3] === 0 && body[4] > 0);
+    const actionable = (body[2] === 2 && body[4] > 0) || body[2] === 5 || body[2] === 9 || ([10,11].includes(body[2]) && body[3] === 0 && body[4] > 0);
     if (actionable) assert.ok(actions.some(a => a.target.x === body[0] && a.target.y === body[1] && a.id.includes(`:${body[7]}:${body[2]}:${body[3]}:${body[6]}`)));
   }
 };
@@ -85,13 +85,13 @@ assert.ok(advanced.mechanics.current.weaponStats.find(w => w.id === 4).selfField
 // Pure serialization boundary tests only: no mutated gameplay state or simulated run.
 const list = xs => xs.reduceRight((tail, head) => ({$: "Con", head, tail}), {$: "Nil"});
 const body = (kind, variant, hp, seed) => ({$: "game.Body", x: 100, y: 200, kind, variant, hp, maxHp: hp, age: 7, seed, radius: 12});
-const fixture = list([body(5, 20, 0, 1), body(10, 1, 80, 2), body(11, 0, 0, 3), body(8, 0, 0, 4), body(2, 4, 0, 5), {...body(2, 4, 0, 6), age: 120}]);
+const fixture = list([body(5, 20, 0, 1), body(10, 1, 80, 2), body(11, 0, 0, 3), body(8, 0, 0, 4), body(2, 4, 12, 748), {...body(2, 4, 18, 749), age: 2000}]);
 const goals = JSON.parse(Bot.catalog_live(true, 12, 100, 100, fixture));
-assert.equal(goals.length, 6);
-assert.ok(!goals.some(g => g.id.includes(":6:2:4:120")), "XP already due for automatic claim is not offered as a travel goal");
+assert.equal(goals.length, 7);
+assert.ok(goals.some(g=>g.resource?.baseXp===18 && g.resource.autoClaimTicks===null), "Old XP piles remain actionable until approached");
 assert.equal(goals.at(-1).kind, "approach_experience");
-assert.equal(goals.at(-2).kind, "approach_chest");
+assert.equal(goals.at(-3).kind, "approach_chest");
 
-assert.equal(goals.at(-2).id, "t12:approach_chest:1:5:20:7");
+assert.equal(goals.at(-3).id, "t12:approach_chest:1:5:20:7");
 assert.deepEqual(JSON.parse(Bot.catalog_live(false, 12, 100, 100, fixture)), []);
 console.log("BOT ACTIONS PASS: real affine world observation, fresh/advanced presets, engine-backed goals, snapshot expiry, empty-menu operations, pure inactive/dead actor exclusion");

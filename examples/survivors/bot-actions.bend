@@ -10,13 +10,21 @@ type Observed is Type:
   Observed{state: G.State,frame: String,actions: String,mechanics: String}
   ObserveFailed{error: String}
 
+def goal_data(+tick: U32,+px: F32,+py: F32,+kind: String,+x: F32,+y: F32,identity: String,resource: String) -> String:
+  "{\"id\":\"t" ++ U32.show(tick) ++ ":" ++ kind ++ ":" ++ identity ++ "\",\"kind\":\"" ++ kind ++ "\",\"target\":{\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ "},\"distance\":" ++ F32.show(F32.sqrt(G.distance2(px,py,x,y))) ++ ",\"observedTick\":" ++ U32.show(tick) ++ ",\"validOnlyAtObservedTick\":true,\"executable\":false,\"safety\":\"unassessed\"" ++ resource ++ "}"
+
 def goal(+tick: U32,+px: F32,+py: F32,+kind: String,+x: F32,+y: F32,identity: String) -> String:
-  "{\"id\":\"t" ++ U32.show(tick) ++ ":" ++ kind ++ ":" ++ identity ++ "\",\"kind\":\"" ++ kind ++ "\",\"target\":{\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ "},\"distance\":" ++ F32.show(F32.sqrt(G.distance2(px,py,x,y))) ++ ",\"observedTick\":" ++ U32.show(tick) ++ ",\"validOnlyAtObservedTick\":true,\"executable\":false,\"safety\":\"unassessed\"}"
+  goal_data(tick,px,py,kind,x,y,identity,"")
+
+def resource_metadata(kind: U32,amount: U32,generation: U32) -> String:
+  match kind:
+    case 2: ",\"resource\":{\"kind\":\"experience\",\"baseXp\":" ++ U32.show(amount) ++ ",\"generation\":" ++ U32.show(generation) ++ ",\"autoClaimTicks\":null}"
+    case _: ""
 
 def entity_goal(+tick: U32,+px: F32,+py: F32,body: G.Body,+kind: String) -> String:
   match body:
-    case G.Body{+x,+y,+bodyKind,+variant,_,_,+age,+seed,_}:
-      goal(tick,px,py,kind,x,y,U32.show(seed) ++ ":" ++ U32.show(bodyKind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show(age))
+    case G.Body{+x,+y,+bodyKind,+variant,+hp,+generation,+age,+seed,+radius}:
+      goal_data(tick,px,py,kind,x,y,U32.show(seed) ++ ":" ++ U32.show(bodyKind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show(age),resource_metadata(bodyKind,G.xp_amount(G.Body{x,y,bodyKind,variant,hp,generation,age,seed,radius}),generation))
 
 def maybe_entity(enabled: Bool,+tick: U32,+px: F32,+py: F32,body: G.Body,kind: String,tail: String) -> String:
   match enabled:
@@ -27,7 +35,7 @@ def entity_goals(rows: List<&2,G.Body>,+tick: U32,+px: F32,+py: F32) -> String:
   match rows:
     case []: ""
     case G.Body{+x,+y,2,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      maybe_entity(U32.is_lt(age,120),tick,px,py,G.Body{x,y,2,variant,hp,maxHp,age,seed,radius},"approach_experience",entity_goals(rest,tick,px,py))
+      maybe_entity(U32.is_lt(0,hp),tick,px,py,G.Body{x,y,2,variant,hp,maxHp,age,seed,radius},"approach_experience",entity_goals(rest,tick,px,py))
     case G.Body{+x,+y,5,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
       "," ++ entity_goal(tick,px,py,G.Body{x,y,5,variant,hp,maxHp,age,seed,radius},"approach_chest") ++ entity_goals(rest,tick,px,py)
     case G.Body{+x,+y,9,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
@@ -126,8 +134,12 @@ def start_configured(packet: G.Packet,stage: U32,arcana: U32) -> G.Packet:
     case G.Packet{state,_}: G.configure(state,stage,arcana)
     case G.Failed{error}: G.Failed{error}
 # Same fresh profile, stage and mode as the native UI. No profile injection.
-def fresh_start() -> G.Packet:
-  start_unlocks(start_mode(start_configured(G.start(0,P.meta(P.fresh())),0,0),0),P.weapon_mask(P.fresh()))
+def fresh_start_seed(seed: U32) -> G.Packet:
+  start_unlocks(start_mode(start_configured(G.start_seed(0,P.meta(P.fresh()),seed),0,0),0),P.weapon_mask(P.fresh()))
+
+def fresh_start() -> G.Packet: fresh_start_seed(12345)
 # Explicit qualification preset: advanced profile, Agatha, Living Tree Arcana.
-def advanced_start() -> G.Packet:
-  start_mode(start_configured(G.start(2,364304237),0,9),0)
+def advanced_start_seed(seed: U32) -> G.Packet:
+  start_mode(start_configured(G.start_seed(2,364304237,seed),0,9),0)
+
+def advanced_start() -> G.Packet: advanced_start_seed(12345)

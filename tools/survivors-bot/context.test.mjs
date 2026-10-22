@@ -60,7 +60,7 @@ test('goal requests use actual engine intents, informative warnings and snapshot
  const f=frame({phase:0}),catalog=goals(f);
  catalog.push({id:'wisp',kind:'approach_wisp',target:{x:1900,y:1800},distance:100,observedTick:f.tick,executable:false});
  const r=buildGoalDecision(f,catalog,options);assert.equal(r.kind,'goal');assert.equal(r.candidates.length,5);assert.equal(r.snapshot.facts.phase,0);
- assert.match(r.snapshot.goalExecution.loot,/120 ticks/);assert.match(r.candidates[4].description,/strictly below 100/);assert.match(r.candidates[4].description,/only if/);assert.equal(r.candidates[4].effect.safety,'unassessed');
+ assert.match(r.snapshot.goalExecution.loot,/persist until collected/);assert.match(r.candidates[4].description,/strictly below 100/);assert.match(r.candidates[4].description,/only if/);assert.equal(r.candidates[4].effect.safety,'unassessed');
  assert.equal(resolveGoalCandidate(r,response(r,4),f,catalog,options),catalog[4]);
 });
 test('goal choices omit no-ops, cap targets by actual nearest geometry, retain cardinals',()=>{
@@ -90,16 +90,14 @@ test('authoritative Bend mechanics override explanatory fallback and bind every 
 });
 
 
-test('fresh reachable XP gets a classifier slot; expired, blocked and distant XP do not',()=>{
- const f=frame({phase:0,bodies:[[1860,1800,2,0,0,10,20,42,6]],offers:[]});
- const xp={id:`t${f.tick}:approach_experience:42:2:0:20`,kind:'approach_experience',target:{x:1860,y:1800},distance:60,observedTick:f.tick};
- const catalog=[...goals(f),...Array.from({length:6},(_,i)=>({id:`ward${i}`,kind:'approach_ward',target:{x:1820+i,y:1800},distance:20+i,observedTick:f.tick})),xp];
- const r=buildGoalDecision(f,catalog,options);
- assert.equal(r.candidates.length,8);assert.ok(r.candidates.some(c=>c.goal.kind==='approach_experience'));
- const unavailable=[
-  {...f,bodies:[[1860,1800,2,0,0,10,119,42,6]]},
-  {...f,bodies:[...f.bodies,[1830,1800,0,0,10,10,0,1,8]]},
-  {...f,bodies:[]}
- ];
- for(const changed of unavailable) assert.equal(buildGoalDecision(changed,catalog,options).candidates.some(c=>c.goal.kind==='approach_experience'),false);
+test('persistent XP alternatives include old distant piles and explicit route facts without an automatic deadline',()=>{
+ const f=frame({phase:0,bodies:[[2200,1800,2,0,15,123,2000,748,6],[1800,2000,2,0,30,234,1500,749,6]],offers:[]});
+ const xp=(b)=>({id:`t${f.tick}:approach_experience:${b[7]}:2:0:${b[6]}`,kind:'approach_experience',target:{x:b[0],y:b[1]},distance:Math.hypot(b[0]-f.px,b[1]-f.py),observedTick:f.tick,resource:{baseXp:b[4],generation:b[5],autoClaimTicks:null}});
+ const catalog=[...goals(f),...f.bodies.map(xp)],r=buildGoalDecision(f,catalog,options);
+ const choices=r.candidates.filter(c=>c.goal.kind==='approach_experience');
+ assert.equal(choices.length,2);assert.equal(choices[0].effect.resource.autoClaimTicks,null);assert.match(r.snapshot.goalExecution.loot,/no timed XP auto-claim/);
+ assert.throws(()=>buildGoalDecision({...f,bodies:[]},catalog,options),/persistent engine pile/);
+ const planner={reason:'periodic',memory:{objects:{pile:{}}},clusters:[],candidates:catalog.map(goal=>({goal,waypoints:[goal.target],risk:2,etaTicks:40,reward:15,length:100,score:999}))};
+ const planned=buildGoalDecision(f,catalog,{...options,planner});
+ assert.equal(planned.candidates[0].effect.route.length,100);assert.equal(planned.candidates[0].effect.route.score,undefined);
 });
