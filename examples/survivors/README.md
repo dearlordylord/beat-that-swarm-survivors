@@ -16,6 +16,8 @@ At camp, use arrows to select, Left/Right to change category, Enter to equip or 
 
 XP awards and bonuses are unchanged, and the first level-up still requires 100 XP; subsequent thresholds are doubled to `2 * (100 + 3 * L + L * L / 3)` using the previous level L. Later choices require more kills; deferred rewards remain queued without being automatically spent. The collection explains all 24 weapons, 24 evolutions, six weapon unions and 18 passive upgrades. Eight heroes have different starting weapons; twelve Arcana reshape builds. Five arenas have distinct encounters, hazards and a recoverable artifact that opens a weapon. Characters, arenas, weapons and modes open through survival, kills, discoveries, bosses and victories. Legacy gold purchases permanent upgrades. Native progress is saved to disk between runs.
 
+The upper-right HUD shows measured FPS after a half-second warmup (`FPS --` initially). It counts rendered callbacks over real elapsed time, independently of simulation catch-up, with smoothing. Native play uses typed, frame-free Bend updates and skips offscreen sprite construction. Reused enemy slots clear previous-life status: tower slow/freeze cannot teleport a respawn to its old corpse. The [offscreen birth invariant](spawn-policy/README.md) records the verified laws and integration checks.
+
 Standard and Inverse reach dawn after ten simulated minutes, then a lethal Reaper pursues you. Surviving until dawn earns completion credit when the run ends. Endless continues without the Reaper. The separate five-minute Trial accelerates waves and disables permanent upgrades. Both deaths and victories earn gold; ending a run from the pause screen keeps the gold already collected.
 
 ## Browser version

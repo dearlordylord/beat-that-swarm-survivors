@@ -3,6 +3,7 @@ import projectile.bend as P
 import encounters.bend as E
 import actors.bend as A
 import spawn-policy.bend as S
+import spawn-lifecycle.bend as SL
 import persistent-xp.bend as X
 import body-index.bend as BI
 import bendvy-ecs-core@0.1.0.1/world.bend as W
@@ -536,9 +537,21 @@ def relic_run(run: Run) -> EntityRow:
 def relic_entity(args: Args) -> EntityRow:
   match args:
     case Args{run,_,_,_,_,_}: relic_run(run)
-def normal_regular_entity(body: Body,motion: Motion,args: Args) -> EntityRow:
+# A reused slot starts a new incarnation: old slows, burns and hits belong
+# to the previous occupant and must never move or damage the admitted spawn.
+def newborn_entity(result: Row & Motion) -> EntityRow:
+  (row,motion) = result
+  EntityRow{row,motion}
+def regular_routed(+oldX: F32,+oldY: F32,+radius: F32,+seed: U32,routed: SL.Routed<Row>,motion: Motion,args: Args) -> EntityRow:
+  match routed args:
+    case SL.Fresh{row} _: newborn_entity(SL.newborn(~Row,~Motion,row,empty_motion()))
+    case SL.Existing{row} Args{run,_,_,_,_,hits}: enemy_applied(oldX,oldY,row,motion,collisions(hits,oldX,oldY,radius,seed),run)
+def regular_updated(+oldX: F32,+oldY: F32,radius: F32,seed: U32,previousKind: U32,previousAge: U32,+row: Row,motion: Motion,args: Args) -> EntityRow:
+  match row:
+    case Row{Body{_,_,kind,_,_,_,age,_,_},_,_,_,_,_,_,_}: regular_routed(oldX,oldY,radius,seed,SL.route(~Row,previousKind,previousAge,kind,age,row),motion,args)
+def normal_regular_entity(body: Body,motion: Motion,+args: Args) -> EntityRow:
   match body args:
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Args{+run,+bodies,_,_,+snapshots,+hits}: enemy_applied(x,y,update(Body{x,y,kind,variant,hp,maxHp,age,seed,radius},run),motion,collisions(hits,x,y,radius,seed),run)
+    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Args{+run,_,_,_,_,_}: regular_updated(x,y,radius,seed,kind,age,update(Body{x,y,kind,variant,hp,maxHp,age,seed,radius},run),motion,args)
 def actor_row(+kind: U32,+seed: U32,actor: A.Actor) -> EntityRow:
   match actor:
     case A.Actor{+x,+y,+hp,+age,+cooldown,+phase,+reward}: EntityRow{Row{Body{x,y,kind,phase,hp,(80 + 80 * Bool.to_u32(U32.is_eq(kind,11)) : U32),age,seed,12.0},0,(40 * reward : U32),(50 * reward : U32),(15 * reward : U32),0,0,0},Motion{0.0,0.0,cooldown,0,[],0,0}}
@@ -1070,18 +1083,23 @@ def promote(result: Packet) -> Packet: promote_with(~packet,result)
 def choose(state: State,choice: U32) -> Packet: promote(choose_raw(state,choice))
 def skip(state: State) -> Packet: promote(skip_raw(state))
 def banish(state: State,choice: U32) -> Packet: promote(banish_raw(state,choice))
-def live_selected(terminal: Bool,held: Bool,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: World(),+run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet:
+def live_selected_with(~emit: State -> Packet,terminal: Bool,held: Bool,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: World(),+run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet:
   match terminal held:
-    case True{} _: packet(State{world,run,bodies,[],snapshots,[]})
-    case False{} True{}: packet(State{world,with_phase(run,oldPhase),bodies,oldOffers,snapshots,pending_add(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),pending,run_phase(run))})
-    case False{} False{}: packet(State{world,run,bodies,offers,snapshots,pending})
-def live_result(+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet:
+    case True{} _: emit(State{world,run,bodies,[],snapshots,[]})
+    case False{} True{}: emit(State{world,with_phase(run,oldPhase),bodies,oldOffers,snapshots,pending_add(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),pending,run_phase(run))})
+    case False{} False{}: emit(State{world,run,bodies,offers,snapshots,pending})
+def live_result_with(~emit: State -> Packet,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,+offers,snapshots,newPending},_}: live_selected(Bool.or(U32.is_eq(run_phase(run),3),U32.is_eq(run_phase(run),4)),Bool.or(U32.is_eq(oldPhase,1),U32.is_eq(oldPhase,2)),oldPhase,oldLevel,oldOffers,pending_join(pending,newPending),world,run,bodies,offers,snapshots)
+    case Packet{State{world,+run,bodies,+offers,snapshots,newPending},_}: live_selected_with(~emit,Bool.or(U32.is_eq(run_phase(run),3),U32.is_eq(run_phase(run),4)),Bool.or(U32.is_eq(oldPhase,1),U32.is_eq(oldPhase,2)),oldPhase,oldLevel,oldOffers,pending_join(pending,newPending),world,run,bodies,offers,snapshots)
     case result: result
-def advance_live(state: State,dx: F32,dy: F32) -> Packet:
+def advance_live_with(~emit: State -> Packet,state: State,dx: F32,dy: F32) -> Packet:
   match state:
-    case State{world,+run,bodies,+offers,snapshots,pending}: live_result(run_phase(run),run_level(run),offers,pending,advance_raw_with(~quiet_packet,State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),bodies,offers,snapshots,[]},dx,dy))
+    case State{world,+run,bodies,+offers,snapshots,pending}: live_result_with(~emit,run_phase(run),run_level(run),offers,pending,advance_raw_with(~quiet_packet,State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),bodies,offers,snapshots,[]},dx,dy))
+
+def live_selected(terminal: Bool,held: Bool,oldPhase: U32,oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: World(),run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet: live_selected_with(~packet,terminal,held,oldPhase,oldLevel,oldOffers,pending,world,run,bodies,offers,snapshots)
+def live_result(oldPhase: U32,oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet: live_result_with(~packet,oldPhase,oldLevel,oldOffers,pending,result)
+def advance_live(state: State,dx: F32,dy: F32) -> Packet: advance_live_with(~packet,state,dx,dy)
+def advance_live_quiet(state: State,dx: F32,dy: F32) -> Packet: advance_live_with(~quiet_packet,state,dx,dy)
 
 # Typed consumers omit presentation frames at every initialization/upgrade finish.
 def start_quiet(character: U32,meta: U32) -> Packet: start_with(~quiet_packet,character,meta)

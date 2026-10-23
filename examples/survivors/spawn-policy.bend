@@ -1,6 +1,7 @@
 import Base
+import viewport.bend as V
 
-# Both presentations fit inside a player-centered 1024 x 1024 world rectangle.
+# Both presentations fit inside the shared viewport exclusion rectangle.
 # 3r + 24 includes the complete enemy sprite, shadow and health indicator.
 # Candidate placement adds 16 world units for rounding and the same-tick camera step.
 type Point is Data: Point{x: F32,y: F32}
@@ -8,7 +9,7 @@ type Admission is Data:
   Admit{}
   Reject{}
 
-def clearance(+radius: F32) -> F32: (512.0 + 3.0 * radius + 24.0 : F32)
+def clearance(+radius: F32) -> F32: (V.exclusion_half_extent() + 3.0 * radius + 24.0 : F32)
 def outside(+x: F32,+y: F32,+px: F32,+py: F32,radius: F32) -> Bool:
   +gap = clearance(radius)
   Bool.or(F32.is_lt(gap,F32.abs((x - px : F32))),F32.is_lt(gap,F32.abs((y - py : F32))))

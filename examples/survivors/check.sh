@@ -2,6 +2,9 @@
 set -euo pipefail
 source "$(dirname -- "$0")/../common.sh"
 cd "$example_repo"
+example_node examples/survivors/spawn-lifecycle.test.mjs
+example_node examples/survivors/live-quiet.test.mjs
+example_node examples/survivors/spawn-policy.test.mjs
 example_node examples/survivors/persistent-xp.test.mjs
 example_node examples/survivors/progression.test.mjs
 example_node --test examples/survivors/catalog.test.mjs

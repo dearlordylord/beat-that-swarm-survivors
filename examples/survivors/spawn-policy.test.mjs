@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { stat } from "node:fs/promises";
 
 const artifact = new URL("./dist/game.mjs", import.meta.url);
-for (const source of ["game.bend", "spawn-policy.bend", "encounters.bend"])
+for (const source of ["game.bend", "spawn-policy.bend", "encounters.bend", "viewport.bend", "spawn-lifecycle.bend"])
   assert.ok((await stat(artifact)).mtimeMs >= (await stat(new URL(source, import.meta.url))).mtimeMs, `Rebuild stale ${source}`);
 const { default: Game } = await import(artifact.href);
 const choose = Game["spawn-policy:choose"];
@@ -26,6 +26,13 @@ for (let variant = 0; variant < 31; variant++) {
         const extent = 3 * radius + 24;
         assert.ok(Math.abs(point.x - px) > 512 + extent || Math.abs(point.y - py) > 512 + extent, context);
         assert.equal(accepted(point.x, point.y, px, py, radius), true, context);
+        // Independent actual native projection, including its asymmetric hero
+        // anchor. App stretches this fixed Image at every window aspect ratio.
+        const nativeX = Math.fround(Math.fround(Math.fround(point.x - px) * Math.fround(.65)) + 256);
+        const nativeY = Math.fround(Math.fround(Math.fround(point.y - py) * Math.fround(.65)) + 210);
+        const nativeEnvelope = extent * .65;
+        assert.ok(nativeX + nativeEnvelope < 0 || nativeX - nativeEnvelope > 512 ||
+          nativeY + nativeEnvelope < 0 || nativeY - nativeEnvelope > 512, context);
         // The real construction used for ordinary enemies and bosses must use
         // this policy too; checking its result prevents a disconnected test.
         const body = Game.enemy_new(seed, tick, px, py, variant, 0, 0);
@@ -72,3 +79,42 @@ for (const finale of [false,true]) for (let stage=0;stage<5;stage++) {
   assert.equal(accepted(boss.x,boss.y,20,20,boss.radius),true);
 }
 console.log(`Spawn policy: ${checked} actual enemy placements, all 31 variants, arena edges/corners, strict complete-appearance admission passed.`);
+// Exercise the native consumer's actual live advancement, not only the pure
+// placement helper. Every enemy-pool slot is observed before and after every
+// step; projection uses the post-step camera (the player moves during the step).
+const bodyList = value => {
+  const result=[];
+  for(let node=value;node.$==='Con';node=node.tail) result.push(node.head);
+  return result;
+};
+let liveSpawns=0;
+for(const [px,py] of [[20,20],[20,3580],[1800,1800],[3580,20],[3580,3580]])
+  for(const startTick of [0,21600,35994]) {
+    let packet=Game.start_seed(0,0,12345);
+    packet.state.run={...packet.state.run,px,py,tick:startTick};
+    const seen=new Set();
+    for(let step=0;step<6;step++) {
+      const before=new Map(bodyList(packet.state.bodies).map(body=>[body.seed,body.kind]));
+      packet=Game.advance_live(packet.state,step%2? -1:1,step%2?1:-1);
+      assert.equal(packet.$,'Packet','actual live advance must succeed');
+      const run=packet.state.run;
+      for(const body of bodyList(packet.state.bodies)) {
+        if(body.seed>=512 || body.kind!==0 || before.get(body.seed)===0) continue;
+        const context=JSON.stringify({px,py,startTick,step,body,runPx:run.px,runPy:run.py});
+        assert.equal(accepted(body.x,body.y,run.px,run.py,body.radius),true,context);
+        const x=(body.x-run.px)*.65+256,y=(body.y-run.py)*.65+210;
+        const envelope=(3*body.radius+24)*.65;
+        assert.ok(x+envelope<0||x-envelope>512||y+envelope<0||y-envelope>512,context);
+        seen.add(body.seed);liveSpawns++;
+      }
+    }
+    if(startTick===21600) {
+      // normal_entity reserves pool identity511 for relic_entity; it is not an
+      // enemy slot even though the admission budget has a nominal cap of512.
+      assert.deepEqual([...seen].sort((a,b)=>a-b),Array.from({length:511},(_,i)=>i),
+        'Dense fixture observes every actual enemy slot (0..510), including boss identity0');
+      assert.notEqual(bodyList(packet.state.bodies).find(body=>body.seed===511)?.kind,0,
+        'Reserved relic identity511 must never be counted as an enemy');
+    }
+  }
+console.log(`Native live spawning: ${liveSpawns} actual non-enemy → enemy transitions checked against the post-step camera.`);

@@ -6,6 +6,7 @@ import native_art.bend as Art
 import native_audio.bend as Sound
 import native-content.bend as C
 import native-profile.bend as P
+import viewport.bend as V
 
 type Ui is Data: Ui{screen: U32,tab: U32,page: U32,selected: U32,character: U32,stage: U32,arcana: U32,mode: U32,paused: U32,keys: U32,quit: U32,dirty: U32,recorded: U32,frames: U32,clock: Nat,lag: U32}
 type Native is Type: Native{game: G.Packet,ui: Ui,profile: P.Profile}
@@ -162,7 +163,7 @@ def set_lag(ui: Ui,value: U32) -> Ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,value}
 
 def initial_ui() -> Ui: Ui{0,2,0,0,0,0,0,0,0,0,0,0,0,0,0n,0}
-def initial_game(profile: P.Profile) -> G.Packet: G.start(0,P.meta(profile))
+def initial_game(profile: P.Profile) -> G.Packet: G.start_quiet(0,P.meta(profile))
 def select_color(selected: Bool,yes: U32,no: U32) -> U32:
   match selected:
     case True{}: yes
@@ -252,18 +253,34 @@ def body_visible(visible: Bool,kind: U32,variant: U32,x: F32,y: F32,radius: F32,
     case True{}: Art.sprite(kind,variant,x,y,radius,color,tail)
     case False{}: tail
 
+# Cull before expanding sprites into display-list rectangles. This conservative
+# envelope includes oversized effects, shadows and HP bars at the raster edge.
+def body_on_screen(+x: F32,+y: F32,+radius: F32) -> Bool:
+  +margin = (radius * 3.0 + 24.0 : F32)
+  Bool.and(Bool.and(F32.is_le((0.0 - margin : F32),x),F32.is_le(x,(V.native_image_extent() + margin : F32))),Bool.and(F32.is_le((0.0 - margin : F32),y),F32.is_le(y,(V.native_image_extent() + margin : F32))))
+def healthbar_visible(visible: Bool,kind: U32,hp: U32,maxHp: U32,x: F32,y: F32,radius: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match visible:
+    case True{}: Art.health_bar(kind,hp,maxHp,x,y,radius,tail)
+    case False{}: tail
+
 def body_sprites(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
     case G.Body{x,y,+kind,+variant,hp,maxHp,age,seed,radius} <> rest:
-      body_visible(actor_visible(kind,hp),kind,variant,((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),F32.max(2.0,(radius * 0.65 : F32)),body_color(kind,variant),body_sprites(rest,px,py,tail))
+      +sx = V.native_x(x,px)
+      +sy = V.native_y(y,py)
+      +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
+      body_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,body_color(kind,variant),body_sprites(rest,px,py,tail))
 
 # A separate overlay keeps a nearby sprite from hiding another enemy's HP.
 def body_healthbars(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
     case G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius} <> rest:
-      Art.health_bar(kind,hp,maxHp,((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),F32.max(2.0,(radius * 0.65 : F32)),body_healthbars(rest,px,py,tail))
+      +sx = V.native_x(x,px)
+      +sy = V.native_y(y,py)
+      +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
+      healthbar_visible(body_on_screen(sx,sy,scaled),kind,hp,maxHp,sx,sy,scaled,body_healthbars(rest,px,py,tail))
 def bodies(+rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   body_healthbars(rows,px,py,body_sprites(rows,px,py,tail))
 
@@ -334,7 +351,7 @@ def modal(phase: U32,+run: G.Run,offers: List<&2,G.Offer>,paused: U32,tail: List
   match phase paused:
     case 0 0: tail
     case 0 p:
-      D.text("PAUSED",72.0,76.0,3.0,15584891,D.text("ESC RESUME  Q END EXPEDITION",56.0,116.0,1.0,15196103,D.text("XP AUTO COLLECTS AFTER 2S / TAKE CHESTS",56.0,134.0,1.0,7985384,D.text("GUIDE WISPS HOME / ACTIVATE WARDS",56.0,146.0,1.0,7985384,loadout(run_weapons(run),0,56.0,162.0,0,loadout(run_passives(run),0,280.0,162.0,1,D.rect(28.0,52.0,456.0,296.0,724763,tail)))))))
+      D.text("PAUSED",72.0,76.0,3.0,15584891,D.text("ESC RESUME  Q END EXPEDITION",56.0,116.0,1.0,15196103,D.text("COLLECT XP GEMS / TAKE CHESTS",56.0,134.0,1.0,7985384,D.text("GUIDE WISPS HOME / ACTIVATE WARDS",56.0,146.0,1.0,7985384,loadout(run_weapons(run),0,56.0,162.0,0,loadout(run_passives(run),0,280.0,162.0,1,D.rect(28.0,52.0,456.0,296.0,724763,tail)))))))
     case 1 0: tail
     case 1 1: D.text("PAUSED - ESC RESUME / E UPGRADE",74.0,180.0,1.0,15584891,D.rect(28.0,156.0,456.0,56.0,724763,tail))
     case 1 p:
@@ -401,17 +418,31 @@ def view(state: Native) -> Native & Image:
     case Native{G.Failed{+error},ui,profile}:
       (Native{G.Failed{error},ui,profile},D.image(D.text("ENGINE ERROR",32.0,32.0,2.0,16348792,D.wrapped(error,32.0,80.0,32.0,480.0,450.0,15196103,[]))))
 
+def fps_overlay(ready: Bool,value: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match ready:
+    case False{}: D.text("FPS --",438.0,36.0,1.0,15196103,tail)
+    case True{}: D.text("FPS " ++ U32.show(value),438.0,36.0,1.0,15196103,tail)
+def scene_fps(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>,ready: Bool,value: U32) -> Image:
+  match screen:
+    case 1: D.image(fps_overlay(ready,value,gameplay_rows(run,rows,offers,ui,snapshots)))
+    case _: D.image(fps_overlay(ready,value,menu_rows(ui,profile)))
+def view_fps(state: Native,ready: Bool,value: U32) -> Native & Image:
+  match state:
+    case Native{G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending},frame},+ui,+profile}:
+      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile},scene_fps(ui_screen(ui),ui,profile,run,rows,offers,snapshots,ready,value))
+    case state: view(state)
+
 # Packet transformations retain explicit engine failures for the error screen.
 def apply_game(packet: G.Packet,change: G.State -> G.Packet) -> G.Packet:
   match packet:
     case G.Packet{state,frame}: change(state)
     case G.Failed{error}: G.Failed{error}
 def configured(packet: G.Packet,+ui: Ui,+profile: P.Profile) -> G.Packet:
-  apply_game(apply_game(apply_game(packet,state => G.configure(state,ui_stage(ui),ui_arcana(ui))),state => G.set_mode(state,ui_mode(ui))),state => G.configure_unlocks(state,P.weapon_mask(profile)))
+  apply_game(apply_game(apply_game(packet,state => G.configure_quiet(state,ui_stage(ui),ui_arcana(ui))),state => G.set_mode_quiet(state,ui_mode(ui))),state => G.configure_unlocks_quiet(state,P.weapon_mask(profile)))
 def begin(state: Native) -> Native:
   match state:
     case Native{game,+ui,+profile}:
-      Native{configured(G.start(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),1),0),0),P.begin(profile)}
+      Native{configured(G.start_quiet(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),1),0),0),P.begin(profile)}
 
 def active_category(screen: U32,tab: U32,+direction: U32) -> U32:
   match screen:
@@ -504,7 +535,7 @@ def automatic_upgrade(state: Native) -> Native:
     case state: state
 def choose_key(allowed: Bool,index: U32,state: Native) -> Native:
   match allowed state:
-    case True{} Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.choose(s,index)),set_paused(ui,0),profile})
+    case True{} Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.choose_quiet(s,index)),set_paused(ui,0),profile})
     case False{} state: state
 
 def offer_action(paused: U32,action: U32,state: Native) -> Native:
@@ -604,7 +635,7 @@ def new_reward(previousPhase: U32,state: Native) -> Native:
     case _: state
 def simulate(active: Bool,state: Native) -> Native:
   match active state:
-    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},s => G.advance_live(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile})
+    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},s => G.advance_live_quiet(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile})
     case _ state: state
 
 def frame(state: Native) -> Native:
@@ -651,21 +682,50 @@ def timed(+now: Nat,state: Native) -> Native:
     case Native{game,+ui,profile}:
       +total = (ui_lag(ui) + elapsed(ui_clock(ui),now,ui_clock(ui)) * 60 : U32)
       frames(U32.to_nat(U32.min(8,(total / 1000 : U32))),Native{game,set_lag(set_clock(ui,now),(total % 1000 : U32)),profile})
+def tick_at(now: Nat,events: List<Event>,state: Native) -> IO(Maybe<Native>):
+  do IO<Maybe<Native>>:
+    state : Native <- persist(settle(timed(now,reduce(events,state))))
+    finish_state(state)
 def tick(events: List<Event>,state: Native) -> IO(Maybe<Native>):
   do IO<Maybe<Native>>:
     now : Nat <- IO.now()
-    state : Native <- persist(settle(timed(now,reduce(events,state))))
-    finish_state(state)
+    tick_at(now,events,state)
 
 def initial(+profile: P.Profile) -> Native: Native{initial_game(profile),initial_ui(),profile}
 
-type Session is Type: Session{native: Native,audio: Maybe<Audio>,kills: U32,level: U32,health: U32}
-def session_shown(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,drawn: Native & Image) -> Session & Image:
+# Count actual image callbacks, independently of simulation catch-up ticks.
+# Half-second wall-clock windows are smoothed with a 3:1 exponential average.
+type Fps is Data: Fps{clock: Nat,frames: U32,value: U32,ready: Bool}
+def fps_initial() -> Fps: Fps{0n,0,0,False{}}
+def fps_ready(fps: Fps) -> Bool:
+  match fps:
+    case Fps{_,_,_,ready}: ready
+def fps_value(fps: Fps) -> U32:
+  match fps:
+    case Fps{_,_,value,_}: value
+def fps_count(fps: Fps) -> Fps:
+  match fps:
+    case Fps{clock,frames,value,ready}: Fps{clock,U32.min(1000000,(frames + 1 : U32)),value,ready}
+def fps_smooth(ready: Bool,previous: U32,sample: U32) -> U32:
+  match ready:
+    case False{}: sample
+    case True{}: ((previous * 3 + sample + 2) / 4 : U32)
+def fps_measured(enough: Bool,+now: Nat,+span: U32,fps: Fps) -> Fps:
+  match enough fps:
+    case False{} fps: fps
+    case True{} Fps{_,frames,value,ready}: Fps{now,0,fps_smooth(ready,value,((frames * 1000 + span / 2) / U32.max(1,span) : U32)),True{}}
+def fps_sample(+now: Nat,fps: Fps) -> Fps:
+  match fps:
+    case Fps{0n,_,value,ready}: Fps{now,0,value,ready}
+    case Fps{+clock,frames,value,ready}: fps_measured(Nat.is_le(500n,Nat.sub(now,clock)),now,U32.from_nat(Nat.min(4294967295n,Nat.sub(now,clock))),Fps{clock,frames,value,ready})
+
+type Session is Type: Session{native: Native,audio: Maybe<Audio>,kills: U32,level: U32,health: U32,fps: Fps}
+def session_shown(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,fps: Fps,drawn: Native & Image) -> Session & Image:
   (native,image) = drawn
-  (Session{native,audio,kills,level,health},image)
+  (Session{native,audio,kills,level,health,fps_count(fps)},image)
 def session_view(state: Session) -> Session & Image:
   match state:
-    case Session{native,audio,kills,level,health}: session_shown(audio,kills,level,health,view(native))
+    case Session{native,audio,kills,level,health,+fps}: session_shown(audio,kills,level,health,fps,view_fps(native,fps_ready(fps),fps_value(fps)))
 
 def metrics(state: Native) -> Native & (U32 & U32 & U32 & U32):
   match state:
@@ -680,23 +740,27 @@ def sound_cue(muted: U32,damaged: Bool,levelled: Bool,killed: Bool) -> U32:
     case _ _ _ True{}: 2
     case _ _ _ _: 0
 
-def session_with_audio(native: Native,kills: U32,level: U32,health: U32,audio: Maybe<Audio>) -> IO(Maybe<Session>):
-  IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health}})
-def session_metrics(audio: Maybe<Audio>,oldKills: U32,oldLevel: U32,oldHealth: U32,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
+def session_with_audio(native: Native,kills: U32,level: U32,health: U32,fps: Fps,audio: Maybe<Audio>) -> IO(Maybe<Session>):
+  IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health,fps}})
+def session_metrics(audio: Maybe<Audio>,oldKills: U32,oldLevel: U32,oldHealth: U32,fps: Fps,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
   (native,(+kills,+level,+health,muted)) = result
-  IO.bind(Maybe<Audio>,Maybe<Session>,Sound.play(audio,sound_cue(muted,U32.is_lt(health,oldHealth),U32.is_lt(oldLevel,level),U32.is_lt(oldKills,kills))),session_with_audio(native,kills,level,health))
-def session_next(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,result: Maybe<Native>) -> IO(Maybe<Session>):
+  IO.bind(Maybe<Audio>,Maybe<Session>,Sound.play(audio,sound_cue(muted,U32.is_lt(health,oldHealth),U32.is_lt(oldLevel,level),U32.is_lt(oldKills,kills))),session_with_audio(native,kills,level,health,fps))
+def session_next(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Native>) -> IO(Maybe<Session>):
   match result:
     case None{}:
       do IO<Maybe<Session>>:
         Unit <- Sound.close(audio)
         IO.pure(Maybe<Session>,None{})
-    case Some{native}: session_metrics(audio,kills,level,health,metrics(native))
+    case Some{native}: session_metrics(audio,kills,level,health,fps,metrics(native))
 def session_tick(events: List<Event>,state: Session) -> IO(Maybe<Session>):
   match state:
-    case Session{native,audio,kills,level,health}: IO.bind(Maybe<Native>,Maybe<Session>,tick(events,native),session_next(audio,kills,level,health))
+    case Session{native,audio,kills,level,health,+fps}:
+      do IO<Maybe<Session>>:
+        +now : Nat <- IO.now()
+        result : Maybe<Native> <- tick_at(now,events,native)
+        session_next(audio,kills,level,health,fps_sample(now,fps),result)
 def main() -> IO(Unit):
   do IO<Unit>:
     profile : P.Profile <- P.load()
     audio : Maybe<Audio> <- Sound.open()
-    App.run(~Session,~App{session_view,session_tick},"Nightfall Survivors - Bend",1024,768,Session{initial(profile),audio,0,1,100})
+    App.run(~Session,~App{session_view,session_tick},"Nightfall Survivors - Bend",1024,768,Session{initial(profile),audio,0,1,100,fps_initial()})
