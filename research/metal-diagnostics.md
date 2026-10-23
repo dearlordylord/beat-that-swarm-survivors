@@ -23,6 +23,19 @@ The report records source/tool/artifact hashes, C sizes, function counts, stage 
 
 ## Local evidence and interpretation
 
-Bend 2.0.38 generated 120,713 bytes of C with 37 function IDs for arithmetic and 259,112 bytes with 49 IDs for columns, versus 5,333,935 bytes for the full game. Both passed the fixed two-argument dispatch contract. Twelve CPU/oracle cases passed, including U32 wraparound, zero checksum and 4096 iterations. Finite arithmetic proof fixtures passed kernel checking. Four simulated supervisor tests passed, including timeout preservation and rejection of equal but incorrect CPU/GPU results. Independent source and launch review passed. Actual Mac Metal execution is pending.
+Bend 2.0.38 generated 120,713 bytes of C with 37 function IDs for arithmetic and 259,112 bytes with 49 IDs for columns, versus 5,333,935 bytes for the full game. Both passed the fixed two-argument dispatch contract. Twelve CPU/oracle cases passed, including U32 wraparound, zero checksum and 4096 iterations. Finite arithmetic proof fixtures passed kernel checking. Four simulated supervisor tests passed, including timeout preservation and rejection of equal but incorrect CPU/GPU results. Independent source and launch review passed. The subsequent Mac run passed both controls; see the host results below.
 
 If arithmetic fails, inspect the minimal runtime/Metal failure first. If only columns fail, investigate storage-generated code. If both pass, reduce the full-game GPU boundary incrementally; its reachable code currently includes frame and summary formatting. These controls narrow the problem but do not establish compiler-time attribution.
+
+## M2 Max host results (2026-10-23)
+
+Run `run-20261023T162720Z-11890` completed both controls on Bend 2.0.38 / Apple clang 21 / macOS 27.0 in 10.953 seconds total. Both forced-GPU outputs exactly matched CPU and the independent oracle (172032).
+
+| Control | Metal compilation | CPU process | GPU process |
+| --- | ---: | ---: | ---: |
+| Arithmetic | 0.391 s | 0.184 s | 1.856 s |
+| Published Hub columns | 3.135 s | 0.130 s | 1.551 s |
+
+These are single process wall times including startup, not repeated steady-state kernel benchmarks. GPU was slower on these tiny workloads; no game speedup follows. The runner reports 39 and 51 FID definitions respectively (the earlier manual counts were 37 and 49); generated C byte sizes match the local controls.
+
+The basic Metal path and these raw column operations work on this host. The full-game compilation failure therefore needs investigation in the larger generated program; size alone is not established as the cause. Next candidate: move reachable frame/result formatting outside the game GPU boundary, preserve game state and exact CPU summaries, then measure C reduction before a bounded host build. Full-game GPU correctness and performance remain unqualified. The original report is preserved under `../bend-games/research/metal-diagnostics-20261023/host-small-probes-pass.json`.

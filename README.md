@@ -76,4 +76,4 @@ bash tools/survivors-bot/native-batch.sh --execution bend --count 100 --ticks 18
 
 The default process mode remains available. See [batch options and timing semantics](tools/survivors-bot/README.md#native-offline-batches) and the [parallelism experiment](research/bend-parallel-bots.md).
 
-The full-game Metal build exceeded 20 minutes on M2 Max. Run `bash tools/survivors-bot/metal-diagnose.sh` from this repository on the Mac for two bounded small controls first. See [Metal diagnostics](research/metal-diagnostics.md); GPU correctness and performance remain unqualified.
+The full-game Metal build exceeded 20 minutes on M2 Max. Run `bash tools/survivors-bot/metal-diagnose.sh` from this repository on the Mac for two bounded small controls first. See [Metal diagnostics](research/metal-diagnostics.md); the small controls pass on M2 Max, while full-game GPU correctness and performance remain unqualified.

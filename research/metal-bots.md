@@ -4,7 +4,7 @@ This prepares a real GPU experiment for a macOS Apple Silicon host. **Metal comp
 
 ## Current status: full-game Metal compilation timed out
 
-The second M2 Max run completed C emission (11.46 seconds) and native compilation (13.93 seconds), then exceeded the separate 1200-second Metal build limit. No GPU simulation or CPU/GPU performance comparison ran. `STATIC_CONTRACT_VERIFIED` only describes generated-code inspection. Use the [small diagnostic controls](metal-diagnostics.md) next; do not increase the full-game timeout again.
+The second M2 Max run completed C emission (11.46 seconds) and native compilation (13.93 seconds), then exceeded the separate 1200-second Metal build limit. No GPU simulation or CPU/GPU performance comparison ran. `STATIC_CONTRACT_VERIFIED` only describes generated-code inspection. The [small diagnostic controls](metal-diagnostics.md) subsequently passed on this M2 Max: arithmetic and published Hub column CPU/GPU outputs match the independent oracle. Full-game Metal compilation remains unresolved; do not increase its timeout again.
 
 ## Original full-game command (retained for later investigation)
 
