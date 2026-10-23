@@ -1,0 +1,145 @@
+{
+  "scope": "Native-step investigation from91a7 baseline; finite workload results only. Candidate gates unchanged. Other proposals unmeasured.",
+  "results": [
+    {
+      "candidate": "ArgsCarrier",
+      "evidenceDirectory": "args-confirm-v1",
+      "accepted": true,
+      "summary": {
+        "status": "completed",
+        "pairs": 63,
+        "fixtures": 21,
+        "medianCandidateOverReference": 0.9496304939712175,
+        "geometricMeanCandidateOverReference": 0.9563311066641316,
+        "fixtureClusterBootstrap95": [
+          0.9381369949565191,
+          0.9749697139072125
+        ],
+        "medianRatioByOrder": {
+          "reference-first": 0.9538451296099537,
+          "candidate-first": 0.9450145208131655
+        },
+        "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+      },
+      "summarySHA256": "e618bc66c3f6f56e023f85c14353b713a4d6a6bd82edafba595fc89ceac36b6c"
+    },
+    {
+      "candidate": "Fused component.get",
+      "evidenceDirectory": "core-controlled-confirm-v1",
+      "accepted": false,
+      "summary": {
+        "status": "completed",
+        "pairs": 63,
+        "fixtures": 21,
+        "medianCandidateOverReference": 0.975796178343949,
+        "geometricMeanCandidateOverReference": 0.9868963265902582,
+        "fixtureClusterBootstrap95": [
+          0.9461823722079512,
+          1.0395157777504116
+        ],
+        "medianRatioByOrder": {
+          "reference-first": 0.971042662568912,
+          "candidate-first": 0.9814999005370997
+        },
+        "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+      },
+      "summarySHA256": "7bf214d5ff64458593740833654c2c74cbf3e079ddfa25334a73ce46664ff722"
+    },
+    {
+      "candidate": "Direct named selectors",
+      "evidenceDirectory": "direct-selector-pilot-v1",
+      "accepted": false,
+      "summary": {
+        "status": "completed",
+        "pairs": 9,
+        "fixtures": 3,
+        "medianCandidateOverReference": 0.9763779527559056,
+        "geometricMeanCandidateOverReference": 0.9768356477560659,
+        "fixtureClusterBootstrap95": [
+          0.9321175139519661,
+          1.001224205311153
+        ],
+        "medianRatioByOrder": {
+          "reference-first": 0.9763779527559056,
+          "candidate-first": 0.9984358539385403
+        },
+        "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+      },
+      "summarySHA256": "9079b497059fc7af17374a04d9b15aad26eb9a376f6b9896192cd6fd14b1b3c2"
+    },
+    {
+      "candidate": "Skip unused projectile nearest",
+      "evidenceDirectory": "nonhoming-pilot-v1",
+      "accepted": false,
+      "summary": {
+        "status": "completed",
+        "pairs": 9,
+        "fixtures": 3,
+        "medianCandidateOverReference": 0.9822274881516587,
+        "geometricMeanCandidateOverReference": 1.003061811252329,
+        "fixtureClusterBootstrap95": [
+          0.8948272873276831,
+          1.1389618656209004
+        ],
+        "medianRatioByOrder": {
+          "reference-first": 0.9360114777618365,
+          "candidate-first": 1.057639154146507
+        },
+        "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+      },
+      "summarySHA256": "757723beb667580994c43a5a3fe649a5c498a2c95641f0e7a3089a9413cf37f5"
+    },
+    {
+      "candidate": "Share live handles across queries",
+      "evidenceDirectory": "shared-handles-pilot-v1",
+      "accepted": false,
+      "summary": {
+        "status": "completed",
+        "pairs": 9,
+        "fixtures": 3,
+        "medianCandidateOverReference": 0.9454986760812003,
+        "geometricMeanCandidateOverReference": 0.9079389330755889,
+        "fixtureClusterBootstrap95": [
+          0.8085742162189444,
+          1.1245933064308913
+        ],
+        "medianRatioByOrder": {
+          "reference-first": 0.9454986760812003,
+          "candidate-first": 0.9484355489012994
+        },
+        "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+      },
+      "summarySHA256": "67083d3df17a6b975f017f8aa060407e479da64b4271fa4a88e16bebc84ace9e"
+    },
+    {
+      "candidate": "Guard unused collisions by updated kind",
+      "evidenceDirectory": "collision-guard-confirm-v1",
+      "accepted": false,
+      "summary": {
+        "status": "completed",
+        "pairs": 63,
+        "fixtures": 21,
+        "medianCandidateOverReference": 0.9893305439330544,
+        "geometricMeanCandidateOverReference": 0.9848148114246885,
+        "fixtureClusterBootstrap95": [
+          0.9734529179174531,
+          0.9962840389803768
+        ],
+        "medianRatioByOrder": {
+          "reference-first": 0.9582833068006521,
+          "candidate-first": 0.9912301493244845
+        },
+        "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+      },
+      "summarySHA256": "18793847aa7f09efdaadd33f1f4ae5121e736c64a68f922c3d0accdb1b14015a"
+    }
+  ],
+  "finalSelection": {
+    "gameSHA256": "a3be401a08129612fc5b34b8ff356ccc6289c5c4daf5129ff0f440b3c84504c6",
+    "core": "bendvy-ecs-core@0.1.0.1",
+    "accepted": [
+      "ArgsCarrier"
+    ],
+    "unqualifiedCore": "fused-visible-map: no complete game-native or timing qualification"
+  }
+}

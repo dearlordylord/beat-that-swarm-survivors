@@ -13,3 +13,6 @@ nightfall-profile.txt
 
 nightfall-profile.tmp
 __pycache__/
+
+# Private measured-investigation state
+.autoresearch/

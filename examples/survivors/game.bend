@@ -227,6 +227,15 @@ def loot_kind(+seed: U32,+variant: U32) -> U32:
     case _: normal_loot(seed)
 type HitPlan is Data: HitPlan{shot: U32,weapon: U32,damage: U32,x: F32,y: F32,radius: F32,area: Bool,targets: List<&2,U32>}
 type Args is Data: Args{run: Run,bodies: List<&2,Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
+# Share one immutable argument owner across the query traversal. The recursive
+# carrier keeps Args boxed until a selected row invokes its gameplay callback.
+type ArgsCarrier is Data:
+  ArgsHeld{args: Args}
+  ArgsWrapped{inner: ArgsCarrier}
+def carried_args(carrier: ArgsCarrier) -> Args:
+  match carrier:
+    case ArgsHeld{args}: args
+    case ArgsWrapped{inner}: carried_args(inner)
 type Row is Data: Row{body: Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
 type Error is Data: MissingBody{}
 type Ops<-H: Type> is Type: Ops{body: Cap.Read<H,Body>,vitals: Cap.Write<H,Vitals,Vitals>,motion: Cap.Write<H,Motion,Motion>}
@@ -628,6 +637,7 @@ def projectile_body_observed(~H: Type,~ops: ProjectileOps<H>,+args: Args,result:
     case (ctx,C.Found{body}): projectile_motion_observed(~H,~ops,args,body,Cap.get(~H,~Motion,~Motion,~projectile_motion_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def projectile_system(~H: Type,~ops: ProjectileOps<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): projectile_body_observed(~H,~ops,args,Cap.get(~H,~Body,~Body,~projectile_body_cap(~H,ops),ctx))
+def carried_projectile_system(~H: Type,~ops: ProjectileOps<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & EntityRow): projectile_system(~H,~ops,carried_args(carrier),ctx)
 def projectile_plan() -> Q.Plan<Schema,Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_projectile}
 
 # Movement reads status and writes geometry. It has no health writer or status writer.
@@ -654,6 +664,7 @@ def move_body_observed(~H: Type,~ops: MoveOps<H>,+args: Args,result: H & C.Acces
     case (ctx,C.Found{body}): move_motion_observed(~H,~ops,args,body,Cap.read(~H,~Motion,~move_motion_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
 def move_system(~H: Type,~ops: MoveOps<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & Unit): move_body_observed(~H,~ops,args,Cap.get(~H,~Body,~Body,~move_body_cap(~H,ops),ctx))
+def carried_move_system(~H: Type,~ops: MoveOps<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & Unit): move_system(~H,~ops,carried_args(carrier),ctx)
 def move_plan() -> Q.Plan<Schema,Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.read_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_enemy}
 
 # Combat only observes geometry. Independent health/status columns own its decisions.
@@ -681,6 +692,7 @@ def observed(~H: Type,~ops: Ops<H>,+args: Args,result: H & C.Access<Body>) -> H 
     case (ctx,C.Found{body}): observed_pool(~H,~ops,args,body,ctx)
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def body_system(~H: Type,~ops: Ops<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): observed(~H,~ops,args,Cap.read(~H,~Body,~body_cap(~H,ops),ctx))
+def carried_body_system(~H: Type,~ops: Ops<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & EntityRow): body_system(~H,~ops,carried_args(carrier),ctx)
 def plan() -> Q.Plan<Schema,Store,Unit,Unit,OpsType>: Q.Plan{Ops{Q.read_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,~vital_family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_pool}
 
 # The final lifecycle pass applies spawn/death/drop observations and owns only Body.
@@ -782,13 +794,13 @@ def combat_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def movement_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,Unit>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},_}: combat_done(args,projectiles,Q.each(~Schema,~Store,~Unit,~Unit,~OpsType,~Args,~Error,~EntityRow,~plan(),~body_system,args,world))
+    case Q.Executed{world,T.Success{},_}: combat_done(args,projectiles,Q.each(~Schema,~Store,~Unit,~Unit,~OpsType,~ArgsCarrier,~Error,~EntityRow,~plan(),~carried_body_system,ArgsHeld{args},world))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def projectile_done(+args: Args,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},rows}: movement_done(args,rows,Q.each(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~Args,~Error,~Unit,~move_plan(),~move_system,args,world))
+    case Q.Executed{world,T.Success{},rows}: movement_done(args,rows,Q.each(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~ArgsCarrier,~Error,~Unit,~move_plan(),~carried_move_system,ArgsHeld{args},world))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
-def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,EntityRow>: projectile_done(args,Q.each(~Schema,~Store,~Unit,~Unit,~ProjectileOpsType,~Args,~Error,~EntityRow,~projectile_plan(),~projectile_system,args,world))
+def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,EntityRow>: projectile_done(args,Q.each(~Schema,~Store,~Unit,~Unit,~ProjectileOpsType,~ArgsCarrier,~Error,~EntityRow,~projectile_plan(),~carried_projectile_system,ArgsHeld{args},world))
 
 def owned(rows: List<&2,U32>) -> U32:
   match rows:

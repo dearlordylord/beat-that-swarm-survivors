@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "subject": "ArgsCarrier only; no combined core optimization result",
+  "baselineCommit": "91a7d9286369ab13d568e91aeb57023aa80ceb20",
+  "baselineGameSHA256": "366aa0235e16813d798912473f465f6cba2fafa568636a939784c5383d7ac56f",
+  "candidateGameSHA256": "a3be401a08129612fc5b34b8ff356ccc6289c5c4daf5129ff0f440b3c84504c6",
+  "binarySHA256": {
+    "reference": "38b8f01b563cb4f69446384a019b6e7689e7a5434ad248aa163bf66ffe53a896",
+    "candidate": "09408ce809fc92a7aac6ce4abdf715179e98364705bbb9810491c103e82a6f9e"
+  },
+  "primaryFixtureClusterAnalysis": {
+    "status": "completed",
+    "pairs": 63,
+    "fixtures": 21,
+    "medianCandidateOverReference": 0.9496304939712175,
+    "geometricMeanCandidateOverReference": 0.9563311066641316,
+    "fixtureClusterBootstrap95": [
+      0.9381369949565191,
+      0.9749697139072125
+    ],
+    "medianRatioByOrder": {
+      "reference-first": 0.9538451296099537,
+      "candidate-first": 0.9450145208131655
+    },
+    "interpretation": "Lower is better. Inspect reference repeat noise and order strata before accepting; this interval alone is not an acceptance gate."
+  },
+  "secondarySeedClusterAnalysis": {
+    "kind": "secondary-conservative-seed-cluster-analysis",
+    "pairs": 63,
+    "seedClusters": 10,
+    "seedClusterBootstrap95": [
+      0.9370143478211392,
+      0.975102457076959
+    ],
+    "medianRatioByRound": {
+      "0": 0.9982146399523903,
+      "1": 0.9007501442585113,
+      "2": 0.9483371679564945
+    },
+    "medianReferenceRepeatAbsoluteRelativeDeviation": 0.038890956457015236,
+    "scope": "Same seeds fresh/advanced/later windows grouped together; fixed population timing diagnostic, not universal workload proof. Does not replace predeclared immutable evaluator."
+  },
+  "absoluteThroughput": {
+    "fresh": {
+      "samplesPerRole": 30,
+      "fixtures": 10,
+      "roles": {
+        "reference": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 2.418379685610641,
+            "median": 3.853193369730996,
+            "observedMaximum": 4.6253469010175765
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.6033333333333335,
+            "median": 4.325416666666667,
+            "observedMaximum": 6.891666666666667
+          },
+          "weightedTicksPerSecond": 225.86534660919648,
+          "allWindowsFasterThan60Hz": true
+        },
+        "candidate": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 3.1036623215394163,
+            "median": 4.074282071702301,
+            "observedMaximum": 4.6072333563695
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.6175,
+            "median": 4.090833333333333,
+            "observedMaximum": 5.37
+          },
+          "weightedTicksPerSecond": 240.06241622821932,
+          "allWindowsFasterThan60Hz": true
+        }
+      }
+    },
+    "advanced": {
+      "samplesPerRole": 30,
+      "fixtures": 10,
+      "roles": {
+        "reference": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 3.127932436659368,
+            "median": 3.8509718745212704,
+            "observedMaximum": 4.698144233027954
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.5475,
+            "median": 4.327916666666667,
+            "observedMaximum": 5.328333333333333
+          },
+          "weightedTicksPerSecond": 227.00616700087016,
+          "allWindowsFasterThan60Hz": true
+        },
+        "candidate": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 2.8805991646262425,
+            "median": 4.048721679947834,
+            "observedMaximum": 4.601932811780948
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.6216666666666666,
+            "median": 4.117083333333333,
+            "observedMaximum": 5.785833333333334
+          },
+          "weightedTicksPerSecond": 236.43767240246947,
+          "allWindowsFasterThan60Hz": true
+        }
+      }
+    },
+    "later-natural": {
+      "samplesPerRole": 3,
+      "fixtures": 1,
+      "roles": {
+        "reference": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 3.442340791738382,
+            "median": 3.5398230088495573,
+            "observedMaximum": 4.297378599054577
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.8783333333333334,
+            "median": 4.708333333333333,
+            "observedMaximum": 4.841666666666667
+          },
+          "weightedTicksPerSecond": 223.4082164577386,
+          "allWindowsFasterThan60Hz": true
+        },
+        "candidate": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 3.0902348578491963,
+            "median": 3.543586109142452,
+            "observedMaximum": 4.086636697997548
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 4.078333333333333,
+            "median": 4.703333333333333,
+            "observedMaximum": 5.3933333333333335
+          },
+          "weightedTicksPerSecond": 211.64021164021162,
+          "allWindowsFasterThan60Hz": true
+        }
+      }
+    },
+    "all": {
+      "samplesPerRole": 63,
+      "fixtures": 21,
+      "roles": {
+        "reference": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 2.418379685610641,
+            "median": 3.8528221922558274,
+            "observedMaximum": 4.698144233027954
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.5475,
+            "median": 4.325833333333334,
+            "observedMaximum": 6.891666666666667
+          },
+          "weightedTicksPerSecond": 226.3595374658774,
+          "allWindowsFasterThan60Hz": true
+        },
+        "candidate": {
+          "simulatedSecondsPerWindowSecond": {
+            "observedMinimum": 2.8805991646262425,
+            "median": 4.051043143609479,
+            "observedMaximum": 4.6072333563695
+          },
+          "millisecondsPerTick": {
+            "observedMinimum": 3.6175,
+            "median": 4.114166666666667,
+            "observedMaximum": 5.785833333333334
+          },
+          "weightedTicksPerSecond": 237.50828704389076,
+          "allWindowsFasterThan60Hz": true
+        }
+      }
+    }
+  },
+  "sourceEvidenceSHA256": {
+    "plan.json": "ca36a54a7792125d715e9ee29c82fb22f064fbc9f9e3da7702434c1bd1cc0def",
+    "pairs.jsonl": "5542400063459b94521c074a0eb0c66c3443a685c7334a2d205390846857fbaf",
+    "summary.json": "e618bc66c3f6f56e023f85c14353b713a4d6a6bd82edafba595fc89ceac36b6c",
+    "secondary-analysis.json": "d313445b488acc413db984ff7e4ea27ad0b2fececc06803bfda8599230d57946"
+  },
+  "evaluatorsSHA256": {
+    "measure-native-step.py": "4c892a8eb4a902fcb03108b24d2c092e013a5a4c40008d53bbc98dd8c324c75b",
+    "replay_compare.py": "ac5f0a974e969b17f28d1eaa1de4a57fa7e1e8f86c02171a8e8e8447d2b5f3af",
+    "fixtures.json": "761af7b2c9544cf6617be3ee0f39e0f36ac0638b4a7af05e4d789da8c3a94447"
+  },
+  "fixtures": {
+    "dense-attempt-p1-s101-w3600-e4200.trace": "a05f15f54942af886de26ce200bdc38df55b71f873070b711f0eda04991d0fab",
+    "normal-p0-s100-w0-e1200.trace": "51ce5f85cc4a0780f399e16565eec7c928e65cffbf68a186f9fbd86dc80b7b03",
+    "normal-p1-s100-w0-e1200.trace": "9fe335671d8463ee94c5ce75c4d2440e11b6cd87ce80bf8db733a60653dbe215",
+    "normal-p0-s101-w0-e1200.trace": "2e6408927e63afd2229f36879cb71384eea0bd52519f82bc34c4afbffbbf3f91",
+    "normal-p1-s101-w0-e1200.trace": "73867cc213de3becf91a54d7997b66a05797063d8f5098a1267cba48e0f6cd6b",
+    "normal-p0-s102-w0-e1200.trace": "a7ad0756ba18f20ec422b39db530593f4561086ef6dffa9cd5d2afc3aad26e34",
+    "normal-p1-s102-w0-e1200.trace": "5da2dfb992ac9688ef99517acb7963a9ce1411b8ce39f655298aac49d076a6a3",
+    "normal-p0-s103-w0-e1200.trace": "167ede5eb0ff0902bfe8da681462a5149d7290c1fb8335a067a974b2329392bf",
+    "normal-p1-s103-w0-e1200.trace": "96ba1d762dca79a7a64e9296e18665593468257b9ddfe165abf90253eb87dee8",
+    "normal-p0-s104-w0-e1200.trace": "987b3b89fe7c0ac6655ef12c5bd6b0a8c90ce773967a8c47985771f95d74609c",
+    "normal-p1-s104-w0-e1200.trace": "b1ac4211567c74ae910e30b0439986cf5ed21f1d45ef993fd4d4dfd92c32b2a5",
+    "normal-p0-s105-w0-e1200.trace": "78c070ffaaa6b7873a1bfe6117f0a091b64ce47e11d288726d6ccae49249d517",
+    "normal-p1-s105-w0-e1200.trace": "438e4af2490076f6bcbacbd5cb23590d29c894af866eb84e1a9662eb3907e222",
+    "normal-p0-s106-w0-e1200.trace": "a134fd166265fa46b8a1728c552bba83c6de4a264608490c429f262a739b5cac",
+    "normal-p1-s106-w0-e1200.trace": "c93a3653cef18b693223387dc42cd531050dd205846956d03e2a97dc5dd109ee",
+    "normal-p0-s107-w0-e1200.trace": "e4b97787f37d20eac06b56114c026ce68af796650537d178eb7bc38160b1d037",
+    "normal-p1-s107-w0-e1200.trace": "b0bb2fee29a14170f4976c59d10a979193c7d0cd07575df7036ec897e2e05336",
+    "normal-p0-s108-w0-e1200.trace": "1ae2f88c8611f12f0c5950b3c6857a87f0b1d7ea9b6e4d42c57db7ace9872508",
+    "normal-p1-s108-w0-e1200.trace": "d72193101c0c69ae78d234884ea1af0c120ade2d744711d483966107e759c91a",
+    "normal-p0-s109-w0-e1200.trace": "6ddb9efb00bf69cd641ef7c92b7ddc84d2e8fc377581ca40d9900fb055a8d885",
+    "normal-p1-s109-w0-e1200.trace": "434277d9bbaa4c824e4b290df0aa948d83c08a484fbb1e035b93bd059473c612"
+  },
+  "scope": "21 fixed traces,3rounds,63pairs; native1thread CPU0. Exact declared gameplay+1004component columns/stamps/worldmetadata at replay checkpoints. No endgame/UI FPS guarantee."
+}

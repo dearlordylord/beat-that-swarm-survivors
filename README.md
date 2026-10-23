@@ -18,6 +18,10 @@ New enemies, including scheduled bosses and the Reaper, spawn beyond the support
 
 The launcher builds your current local sources and opens a native window. It needs neither Node.js nor a browser. Update the checkout with `git pull` to receive new source versions. See the [game guide](examples/survivors/README.md) for controls, save locations, optional browser mode and checks.
 
+## Native-step measurements
+
+The [native replay report](research/native-step-results.md) documents the qualified argument-transport change, exact-state checks, rejected candidates and finite workload limits. Native bots and gameplay execute compiled Bend/C; Node is used only for development and optional browser tooling.
+
 ## BendHub dependency
 
 Application imports use the published package directly:

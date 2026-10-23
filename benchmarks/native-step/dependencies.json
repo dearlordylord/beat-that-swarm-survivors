@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "criteria": {
+    "replay-faithful": {
+      "subject": [
+        "examples/survivors/game.bend"
+      ],
+      "evaluator": [
+        "tools/survivors-bot/measure-native-step.py",
+        "examples/survivors/bot-actions.bend",
+        "examples/survivors/persistent-xp.bend",
+        "examples/survivors/native-capture.bend",
+        "examples/survivors/actors.bend",
+        "examples/survivors/native-full-run.bend",
+        "examples/survivors/native-replay.bend",
+        "examples/survivors/native-replay-format.bend",
+        "examples/survivors/native-bot-test.bend",
+        "examples/survivors/native_art.bend",
+        "examples/survivors/native-bot.bend",
+        "examples/survivors/offline-policy.bend",
+        "examples/survivors/native-replay-observe.bend",
+        "examples/survivors/encounters.bend",
+        "examples/survivors/offline-batch.bend",
+        "examples/survivors/native-content.bend",
+        "examples/survivors/native_audio.bend",
+        "examples/survivors/native-profile.bend",
+        "examples/survivors/native-pacing-run.bend",
+        "examples/survivors/native-replay-record.bend",
+        "examples/survivors/native-replay-laws.bend",
+        "examples/survivors/native.bend",
+        "examples/survivors/native_draw.bend",
+        "examples/survivors/projectile.bend",
+        "examples/survivors/native-profile-test.bend",
+        "examples/survivors/native-test.bend",
+        "examples/survivors/native-replay-proof.bend",
+        "examples/survivors/body-index.bend",
+        "examples/survivors/spawn-policy.bend",
+        "examples/survivors/native-healthbars-test.bend",
+        "examples/survivors/native-replay-common.bend",
+        "examples/survivors/persistent-xp/PROOF.bend",
+        "examples/survivors/persistent-xp/LAWS.bend",
+        "examples/survivors/body-index/PROOF.bend",
+        "examples/survivors/body-index/LAWS.bend",
+        "examples/survivors/spawn-policy/PROOF.bend",
+        "examples/survivors/spawn-policy/LAWS.bend",
+        "examples/survivors/offline-policy/PROOF.bend",
+        "examples/survivors/offline-policy/LAWS.bend",
+        "examples/survivors/offline-policy/risk-grid.bend",
+        "examples/survivors/offline-policy/primitives.bend",
+        "bendhub-dependencies.json"
+      ],
+      "fixtures": [
+        "benchmarks/native-step/fixtures.json",
+        "benchmarks/native-step/fixtures"
+      ],
+      "checks": [
+        "tools/survivors-bot/replay_compare.py",
+        "tools/survivors-bot/replay_check.py"
+      ]
+    },
+    "faster-equivalent-step": {
+      "subject": [
+        "examples/survivors/game.bend"
+      ],
+      "evaluator": [
+        "tools/survivors-bot/measure-native-step.py",
+        "examples/survivors/bot-actions.bend",
+        "examples/survivors/persistent-xp.bend",
+        "examples/survivors/native-capture.bend",
+        "examples/survivors/actors.bend",
+        "examples/survivors/native-full-run.bend",
+        "examples/survivors/native-replay.bend",
+        "examples/survivors/native-replay-format.bend",
+        "examples/survivors/native-bot-test.bend",
+        "examples/survivors/native_art.bend",
+        "examples/survivors/native-bot.bend",
+        "examples/survivors/offline-policy.bend",
+        "examples/survivors/native-replay-observe.bend",
+        "examples/survivors/encounters.bend",
+        "examples/survivors/offline-batch.bend",
+        "examples/survivors/native-content.bend",
+        "examples/survivors/native_audio.bend",
+        "examples/survivors/native-profile.bend",
+        "examples/survivors/native-pacing-run.bend",
+        "examples/survivors/native-replay-record.bend",
+        "examples/survivors/native-replay-laws.bend",
+        "examples/survivors/native.bend",
+        "examples/survivors/native_draw.bend",
+        "examples/survivors/projectile.bend",
+        "examples/survivors/native-profile-test.bend",
+        "examples/survivors/native-test.bend",
+        "examples/survivors/native-replay-proof.bend",
+        "examples/survivors/body-index.bend",
+        "examples/survivors/spawn-policy.bend",
+        "examples/survivors/native-healthbars-test.bend",
+        "examples/survivors/native-replay-common.bend",
+        "examples/survivors/persistent-xp/PROOF.bend",
+        "examples/survivors/persistent-xp/LAWS.bend",
+        "examples/survivors/body-index/PROOF.bend",
+        "examples/survivors/body-index/LAWS.bend",
+        "examples/survivors/spawn-policy/PROOF.bend",
+        "examples/survivors/spawn-policy/LAWS.bend",
+        "examples/survivors/offline-policy/PROOF.bend",
+        "examples/survivors/offline-policy/LAWS.bend",
+        "examples/survivors/offline-policy/risk-grid.bend",
+        "examples/survivors/offline-policy/primitives.bend",
+        "bendhub-dependencies.json"
+      ],
+      "fixtures": [
+        "benchmarks/native-step/fixtures.json",
+        "benchmarks/native-step/fixtures"
+      ],
+      "checks": [
+        "tools/survivors-bot/replay_compare.py",
+        "tools/survivors-bot/replay_check.py"
+      ]
+    },
+    "ordinary-delivery": {
+      "subject": [
+        "examples/survivors/game.bend"
+      ],
+      "evaluator": [
+        "tools/survivors-bot/measure-native-step.py",
+        "examples/survivors/bot-actions.bend",
+        "examples/survivors/persistent-xp.bend",
+        "examples/survivors/native-capture.bend",
+        "examples/survivors/actors.bend",
+        "examples/survivors/native-full-run.bend",
+        "examples/survivors/native-replay.bend",
+        "examples/survivors/native-replay-format.bend",
+        "examples/survivors/native-bot-test.bend",
+        "examples/survivors/native_art.bend",
+        "examples/survivors/native-bot.bend",
+        "examples/survivors/offline-policy.bend",
+        "examples/survivors/native-replay-observe.bend",
+        "examples/survivors/encounters.bend",
+        "examples/survivors/offline-batch.bend",
+        "examples/survivors/native-content.bend",
+        "examples/survivors/native_audio.bend",
+        "examples/survivors/native-profile.bend",
+        "examples/survivors/native-pacing-run.bend",
+        "examples/survivors/native-replay-record.bend",
+        "examples/survivors/native-replay-laws.bend",
+        "examples/survivors/native.bend",
+        "examples/survivors/native_draw.bend",
+        "examples/survivors/projectile.bend",
+        "examples/survivors/native-profile-test.bend",
+        "examples/survivors/native-test.bend",
+        "examples/survivors/native-replay-proof.bend",
+        "examples/survivors/body-index.bend",
+        "examples/survivors/spawn-policy.bend",
+        "examples/survivors/native-healthbars-test.bend",
+        "examples/survivors/native-replay-common.bend",
+        "examples/survivors/persistent-xp/PROOF.bend",
+        "examples/survivors/persistent-xp/LAWS.bend",
+        "examples/survivors/body-index/PROOF.bend",
+        "examples/survivors/body-index/LAWS.bend",
+        "examples/survivors/spawn-policy/PROOF.bend",
+        "examples/survivors/spawn-policy/LAWS.bend",
+        "examples/survivors/offline-policy/PROOF.bend",
+        "examples/survivors/offline-policy/LAWS.bend",
+        "examples/survivors/offline-policy/risk-grid.bend",
+        "examples/survivors/offline-policy/primitives.bend",
+        "bendhub-dependencies.json"
+      ],
+      "fixtures": [
+        "benchmarks/native-step/fixtures.json",
+        "benchmarks/native-step/fixtures"
+      ],
+      "checks": [
+        "tools/survivors-bot/replay_compare.py",
+        "tools/survivors-bot/replay_check.py"
+      ]
+    }
+  }
+}
