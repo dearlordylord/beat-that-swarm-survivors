@@ -167,3 +167,13 @@ Planner tests cover retained resource generations, disappearance, blocked neares
 The ordinary balance fixture has a separate 90-second wall limit after adding the 256 XP entities (1004 total). Its previous 30-second run completed two finale cases before timing out. The fixture still checks all three finales, Endless, actors, the dense horde and reward queues; the longer bound changes no oracle. Other ordinary Node checks retain 30 seconds, natural bot integration 60 seconds and public API progression 180 seconds. This is a correctness-run bound, not a performance qualification.
 
 The headless controller consumes each returned `Packet` through `observed_packet`, reusing the exact existing frame string. It parses the frame, actions and mechanics once per transition. The legacy `observe(state)` fallback is used only when a facade lacks that helper; observation failures never retry a consumed owner. This removes duplicate frame generation, without claiming a measured speedup.
+
+## Experimental Metal batches on macOS
+
+From the repository root on an Apple Silicon Mac:
+
+```sh
+bash tools/survivors-bot/metal-experiment.sh
+```
+
+This rebuilds a GPU entry and compares the same native binary on CPU and forced Metal. The default starts small: a two-job smoke check, then eight 120-tick jobs in three paired repetitions. It prints parity, dispatch, timing and the persistent report path. Send that final block for analysis; if it fails, include the error and `Report:` path. Python 3 supervises the experiment; the bots execute Bend/C. See [requirements, limits and validation status](../../research/metal-bots.md). Actual Metal execution has not been validated in the Linux development environment.

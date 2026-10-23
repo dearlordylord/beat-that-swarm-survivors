@@ -75,3 +75,5 @@ bash tools/survivors-bot/native-batch.sh --execution bend --count 100 --ticks 18
 ```
 
 The default process mode remains available. See [batch options and timing semantics](tools/survivors-bot/README.md#native-offline-batches) and the [parallelism experiment](research/bend-parallel-bots.md).
+
+For the experimental Apple Silicon GPU comparison, run `bash tools/survivors-bot/metal-experiment.sh` from this repository on the Mac. See the [Metal experiment instructions](research/metal-bots.md); GPU results remain pending a host run.
