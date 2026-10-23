@@ -100,35 +100,31 @@ def wrapped(value: String,+x: F32,+y: F32,left: F32,right: F32,bottom: F32,color
 def overlap(r: Rect,+x: F32,+y: F32,+size: F32) -> Bool:
   match r:
     case Rect{+rx,+ry,w,h,color}: Bool.and(Bool.and(F32.is_lt(rx,(x + size : F32)),F32.is_lt(x,(rx + w : F32))),Bool.and(F32.is_lt(ry,(y + size : F32)),F32.is_lt(y,(ry + h : F32))))
-def keep(found: Bool,r: Rect,tail: List<&2,Rect>) -> List<&2,Rect>:
-  match found:
-    case True{}: r <> tail
-    case False{}: tail
-
-def clip(rows: List<&2,Rect>,+x: F32,+y: F32,+size: F32) -> List<&2,Rect>:
-  match rows:
-    case []: []
-    case +r <> rest: keep(overlap(r,x,y,size),r,clip(rest,x,y,size))
-
 def covers(r: Rect,+x: F32,+y: F32,+size: F32) -> Bool:
   match r:
     case Rect{+rx,+ry,w,h,color}: Bool.and(Bool.and(F32.is_le(rx,x),F32.is_le(ry,y)),Bool.and(F32.is_le((x + size : F32),(rx + w : F32)),F32.is_le((y + size : F32),(ry + h : F32))))
 def rectangle_color(r: Rect) -> U32:
   match r:
     case Rect{x,y,w,h,color}: color
-def solid_or(covered: Bool,color: U32,draw: Unit -> Image) -> Image:
-  match covered:
-    case True{}: Pix{color}
-    case False{}: draw(Unit{})
-
-def tile(fuel: Nat,rows: List<&2,Rect>,+x: F32,+y: F32,+size: F32) -> Image:
-  match fuel rows:
-    case 0n Nil{}: Pix{725017}
-    case 0n Con{Rect{rx,ry,w,h,color},rest}: Pix{color}
-    case 1n+k Nil{}: Pix{725017}
-    case 1n++k Con{+r,+rest}:
+# Paint back-to-front, updating only touched quadtree branches. Earlier display
+# list entries remain on top; leaf overlap matches the original raster semantics.
+def paint_hit(+r: Rect,fuel: Nat,+x: F32,+y: F32,+size: F32,hit: Bool,covered: Bool,image: Image) -> Image:
+  match fuel hit covered image:
+    case _ False{} _ image: image
+    case _ True{} True{} _: Pix{rectangle_color(r)}
+    case 0n True{} False{} _: Pix{rectangle_color(r)}
+    case 1n++k True{} False{} Pix{+color}:
       +half = (size / 2.0 : F32)
-      +rows : List<&2,Rect> = r <> rest
-      solid_or(covers(r,x,y,size),rectangle_color(r),unit => Qua{tile(k,clip(rows,x,y,half),x,y,half),tile(k,clip(rows,(x + half : F32),y,half),(x + half : F32),y,half),tile(k,clip(rows,x,(y + half : F32),half),x,(y + half : F32),half),tile(k,clip(rows,(x + half : F32),(y + half : F32),half),(x + half : F32),(y + half : F32),half)})
+      Qua{paint_hit(r,k,x,y,half,overlap(r,x,y,half),covers(r,x,y,half),Pix{color}),paint_hit(r,k,(x + half : F32),y,half,overlap(r,(x + half : F32),y,half),covers(r,(x + half : F32),y,half),Pix{color}),paint_hit(r,k,x,(y + half : F32),half,overlap(r,x,(y + half : F32),half),covers(r,x,(y + half : F32),half),Pix{color}),paint_hit(r,k,(x + half : F32),(y + half : F32),half,overlap(r,(x + half : F32),(y + half : F32),half),covers(r,(x + half : F32),(y + half : F32),half),Pix{color})}
+    case 1n++k True{} False{} Qua{tl,tr,bl,br}:
+      +half = (size / 2.0 : F32)
+      Qua{paint_hit(r,k,x,y,half,overlap(r,x,y,half),covers(r,x,y,half),tl),paint_hit(r,k,(x + half : F32),y,half,overlap(r,(x + half : F32),y,half),covers(r,(x + half : F32),y,half),tr),paint_hit(r,k,x,(y + half : F32),half,overlap(r,x,(y + half : F32),half),covers(r,x,(y + half : F32),half),bl),paint_hit(r,k,(x + half : F32),(y + half : F32),half,overlap(r,(x + half : F32),(y + half : F32),half),covers(r,(x + half : F32),(y + half : F32),half),br)}
+def paint(+r: Rect,image: Image) -> Image:
+  paint_hit(r,9n,0.0,0.0,512.0,overlap(r,0.0,0.0,512.0),covers(r,0.0,0.0,512.0),image)
+def image_painted(rows: List<&2,Rect>) -> Image:
+  match rows:
+    case []: Pix{725017}
+    case r <> rest: paint(r,image_painted(rest))
 
-def image(rows: List<&2,Rect>) -> Image: tile(9n,clip(rows,0.0,0.0,512.0),0.0,0.0,512.0)
+# Native callers use the same public entry point for menus and gameplay.
+def image(rows: List<&2,Rect>) -> Image: image_painted(rows)

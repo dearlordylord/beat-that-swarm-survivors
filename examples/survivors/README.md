@@ -16,7 +16,7 @@ At camp, use arrows to select, Left/Right to change category, Enter to equip or 
 
 XP awards and bonuses are unchanged, and the first level-up still requires 100 XP; subsequent thresholds are doubled to `2 * (100 + 3 * L + L * L / 3)` using the previous level L. Later choices require more kills; deferred rewards remain queued without being automatically spent. The collection explains all 24 weapons, 24 evolutions, six weapon unions and 18 passive upgrades. Eight heroes have different starting weapons; twelve Arcana reshape builds. Five arenas have distinct encounters, hazards and a recoverable artifact that opens a weapon. Characters, arenas, weapons and modes open through survival, kills, discoveries, bosses and victories. Legacy gold purchases permanent upgrades. Native progress is saved to disk between runs.
 
-The upper-right HUD shows measured FPS after a half-second warmup (`FPS --` initially). It counts rendered callbacks over real elapsed time, independently of simulation catch-up, with smoothing. Native play uses typed, frame-free Bend updates and skips offscreen sprite construction. Reused enemy slots clear previous-life status: tower slow/freeze cannot teleport a respawn to its old corpse. The [offscreen birth invariant](spawn-policy/README.md) records the verified laws and integration checks.
+The upper-right HUD shows measured FPS after a half-second warmup (`FPS --` initially). It counts rendered callbacks over real elapsed time, independently of simulation catch-up, with smoothing. Native play uses typed, frame-free Bend updates, skips offscreen sprite construction and paints only touched image branches. See the [native frame measurements](../../research/native-renderer-performance.md) for the dense-scene renderer improvement and its limits. Reused enemy slots clear previous-life status: tower slow/freeze cannot teleport a respawn to its old corpse. The [offscreen birth invariant](spawn-policy/README.md) records the verified laws and integration checks.
 
 Standard and Inverse reach dawn after ten simulated minutes, then a lethal Reaper pursues you. Surviving until dawn earns completion credit when the run ends. Endless continues without the Reaper. The separate five-minute Trial accelerates waves and disables permanent upgrades. Both deaths and victories earn gold; ending a run from the pause screen keeps the gold already collected.
 
@@ -37,6 +37,7 @@ Qualification scripts require Node.js 20+, Bend, a C compiler and the platform a
 
 ```sh
 bash examples/survivors/check-native.sh
+bash examples/survivors/check-native-draw.sh
 bash examples/survivors/check-native-full.sh
 bash examples/survivors/check-quiet-boundary.sh
 ```
@@ -50,6 +51,8 @@ bash examples/survivors/check-native-pacing.sh
 This diagnostic initializes the fresh native UI loadout and uses input-only control. Its outcome is a scenario observation, not a full-run balance qualification or frame-rate measurement.
 
 `check-quiet-boundary.sh` uses the Bend JavaScript backend for a development-only comparison of complete authoritative state across frame-producing and quiet bot initialization, reward choices and natural runs. Native bot execution uses Bend/C.
+
+`check-native-draw.sh` compares every pixel of 29 scenes against an independent display-list oracle, including fractional geometry, sprite layering, fonts and health bars.
 
 `check-native.sh` checks the launcher, native profile, real UI event flow and exact Bend-rendered frame captures, then compiles the windowed application. `check-native-full.sh` drives a full native run using public gameplay inputs. Native `run.command` does not require Node.js or the test helpers. The native application was qualified with Clang 19.1.7 on Linux arm64; set `CC` to select your compiler. macOS compilation uses the local Apple toolchain.
 

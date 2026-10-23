@@ -122,3 +122,23 @@ The native application builds with Bend 2.0.38 / Clang 19 on Linux arm64. Fourte
 A controlled single-CPU/native O3 diagnostic used 1004 real ECS entities, 100/400 active enemies, 20 measured steps and three alternating pairs. The old frame-producing path versus quiet path matched complete native state in all twelve observations. Median step times were 4.7→3.6 ms at 100 enemies and 7.5→4.25 ms at 400. The window includes one final completion barrier, excludes rendering, startup/warmup and the after-clock full snapshot. These are current-host simulation observations, not measured Mac FPS or a universal 60-FPS guarantee. Raw evidence: `../bend-games/research/native-live-step-20261023/`.
 
 A separate display-list clipping shortcut showed no native improvement and was reverted. Its evidence remains in `../bend-games/research/native-render-20261023/`; it is not part of the game update. Early native body/health-bar culling remains, with on-screen HP visibility preserved by focused checks.
+
+
+## Dense-scene renderer correction — 2026-10-23
+
+The native renderer now paints display-list entries back-to-front into touched
+quadtree branches instead of repeatedly clipping the full list. An independent
+pixel oracle passes 29 scenes / 7,602,176 pixels, including fractional geometry,
+fonts, sprites, opaque ordering and health bars. A frozen full-frame native
+fixture with 400 enemies, 48 projectiles and 32 hit plans passes twelve runs: all
+complete state payloads and 512-square PPM bytes match the original renderer.
+Three alternating-pair medians are 37→14 ms total at one catch-up step and
+55→31 ms at four; Image construction is 31→7 and 30→7 ms respectively.
+These are Linux CPU fixture measurements, not measured Mac FPS. The exact
+contract, raw evidence paths and limits are in
+[the renderer report](../../research/native-renderer-performance.md).
+
+The final production native windowed application compiles with Bend 2.0.38 and
+Clang 19 on Linux arm64. The final pixel oracle, BendHub dependency audit
+(54 modules) and unchanged spawn-policy kernel proofs pass. Final source/binary
+hashes and logs: `../bend-games/research/native-render-final-20261023/`.
