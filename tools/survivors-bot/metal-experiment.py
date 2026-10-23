@@ -38,11 +38,13 @@ class Experiment:
         self.repo = Path(repo)
         self.out = Path(args.output).resolve()
         self.out.mkdir(parents=True, exist_ok=False)
+        print('Logs and report: ' + str(self.out), flush=True)
         self.started = time.monotonic()
         self.deadline = self.started + args.total_seconds
         self.report = {'status': 'FAIL', 'commands': [], 'population': {'count': args.count, 'ticks': args.ticks, 'seed': args.seed, 'profiles': args.profile, 'repetitions': args.repetitions, 'threads': args.threads}, 'scope': 'Same native binary, CPU off versus GPU on; smoke excluded from measured repetitions. No macOS result exists until this command succeeds on that host.'}
         self.env = dict(os.environ)
         self.env.pop('BENDRTS', None)
+        self.report['limits'] = {'emitCSeconds': 300, 'nativeBuildSeconds': 300, 'metalBuildSeconds': args.metal_build_seconds, 'eachRunSeconds': args.run_seconds, 'totalSeconds': args.total_seconds}
         self.child = None
         self.guard_files = {str(Path(__file__).resolve()): sha(__file__)}
         launcher = Path(__file__).with_suffix('.sh')
@@ -222,14 +224,29 @@ class Experiment:
             cfile = self.out / 'generated.c'
             self.guard()
             self.execute('emit-c', [bend, str(source), '-o', str(cfile)], 300)
+            self.guard_files[str(cfile)] = sha(cfile)
+            self.report['artifacts'] = {'generatedCSHA256': sha(cfile)}
+            self.report['dispatch'] = verify_dispatch_contract(cfile.read_text(errors='replace'), source.read_text())
+            self.report['dispatch']['status'] = 'STATIC_CONTRACT_VERIFIED'
+            self.save()
             self.guard()
-            self.execute('build', [bend, str(source), '-o', str(binary)], 300)
+            # Exact Darwin native-build recipe from the official Bend 2.0.38 CLI.
+            native_command = [self.env['CC'], '-DBEND_METAL=1', '-x', 'objective-c', '-fobjc-arc', '-fmodules', '-std=c11', '-O3', str(cfile), '-lpthread', '-lm', '-o', str(binary)]
+            self.execute('native-build', native_command, 300)
             if not os.access(binary, os.X_OK):
-                raise Failure('Compiler did not create an executable')
+                raise Failure('Native compiler did not create an executable')
+            self.guard_files[str(binary)] = sha(binary)
+            self.report['artifacts']['binarySHA256'] = sha(binary)
+            self.save()
             self.guard()
-            self.guard_files.update({str(p): sha(p) for p in (binary, cfile, Path(str(binary) + '.gpu'))})
-            self.report['artifacts'] = {'binarySHA256': sha(binary), 'generatedCSHA256': sha(cfile)}
-            self.report['dispatch'] = self.dispatch_evidence(cfile, Path(str(binary) + '.gpu'))
+            # Metal library compilation is a separate, potentially much slower stage.
+            self.execute('metal-build', [str(binary), '+RTS', '--gpu-build', '-RTS'], self.args.metal_build_seconds)
+            self.guard()
+            sidecar = Path(str(binary) + '.gpu')
+            self.report['dispatch'] = self.dispatch_evidence(cfile, sidecar)
+            self.guard_files[str(sidecar)] = sha(sidecar)
+            self.report['artifacts']['gpuSidecarSHA256'] = sha(sidecar)
+            self.save()
             cpu, _ = self.run_case('smoke-cpu', 'off', 2, 60)
             gpu, _ = self.run_case('smoke-gpu', 'on', 2, 60)
             self.parity(cpu, gpu, 'Smoke CPU/GPU')
@@ -301,14 +318,15 @@ def parser():
     p.add_argument('--threads', type=int, default=min(8, os.cpu_count() or 1))
     p.add_argument('--repetitions', type=int, default=3)
     p.add_argument('--run-seconds', type=int, default=180)
-    p.add_argument('--total-seconds', type=int, default=1800)
+    p.add_argument('--metal-build-seconds', type=int, default=1200)
+    p.add_argument('--total-seconds', type=int, default=2400)
     p.add_argument('--output', default=None)
     return p
 
 def main():
     p = parser()
     a = p.parse_args()
-    if not (1 <= a.count <= 10000 and 1 <= a.ticks <= 37000 and (0 <= a.seed <= 4294967295) and (1 <= a.threads <= 128) and (1 <= a.repetitions <= 10) and (1 <= a.run_seconds <= 180) and (1 <= a.total_seconds <= 1800)):
+    if not (1 <= a.count <= 10000 and 1 <= a.ticks <= 37000 and (0 <= a.seed <= 4294967295) and (1 <= a.threads <= 128) and (1 <= a.repetitions <= 10) and (1 <= a.run_seconds <= 180) and (1 <= a.metal_build_seconds <= 1800) and (1 <= a.total_seconds <= 3600)):
         p.error('Workload or timeout outside documented bounds')
     repo = Path(__file__).resolve().parents[2]
     if a.output is None:
