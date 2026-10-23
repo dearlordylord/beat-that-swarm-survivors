@@ -269,10 +269,22 @@ def dormant_spawn(active: Bool,+seed: U32,+entropy: U32,+tick: U32,+px: F32,+py:
   match active:
     case True{}: candidate_enemy(enemy_new_seed(seed,entropy,tick,px,py,variant,stage,curse),body,px,py)
     case False{}: Row{body,0,0,0,0,0,0,0}
-def dormant(body: Body,run: Run) -> Row:
+# Spawn cadence rejects five of six slots before evaluating wave limits or
+# passive ranks. Variant and curse are only materialized for admitted spawns.
+def dormant_admitted(active: Bool,+seed: U32,+body: Body,run: Run) -> Row:
+  match active run:
+    case False{} _: Row{body,0,0,0,0,0,0,0}
+    case True{} Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,+rng,+stage,+arcana,_,_,_,+mode,_,_,_,_,_,_,_}:
+      dormant_spawn(True{},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,E.variant(stage,wave_tick(mode,tick),seed),stage,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),body)
+def dormant_scheduled(scheduled: Bool,+seed: U32,+body: Body,+run: Run) -> Row:
+  match scheduled run:
+    case False{} _: Row{body,0,0,0,0,0,0,0}
+    case True{} Run{_,+tick,_,_,_,_,_,_,_,_,_,_,_,+passives,_,_,_,+arcana,_,_,_,+mode,_,_,_,_,_,_,_}:
+      dormant_admitted(U32.is_lt((seed % 512 : U32),U32.min(512,(active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32))),seed,body,run)
+def dormant(body: Body,+run: Run) -> Row:
   match body run:
-    case Body{+x,+y,_,+variant,_,+maxHp,+age,+seed,_} Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,+rng,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
-      dormant_spawn(Bool.and(U32.is_lt((seed % 512 : U32),U32.min(512,(active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32))),U32.is_eq(((tick + seed) % 6 : U32),0)),seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,E.variant(stage,wave_tick(mode,tick),seed),stage,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0})
+    case Body{+x,+y,_,+variant,_,+maxHp,+age,+seed,_} Run{_,+tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
+      dormant_scheduled(U32.is_eq(((tick + seed) % 6 : U32),0),seed,Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0},run)
 def update_body(body: Body,run: Run) -> Row:
   match body:
     case Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius}: enemy_update(Body{x,y,0,variant,hp,maxHp,age,seed,radius},run)
