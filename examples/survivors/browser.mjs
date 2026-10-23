@@ -218,6 +218,9 @@ function consume(method, ...args) {
   const owner = state;
   state = undefined;
   accept(Game[method](owner, ...args));
+  if (["choose", "skip", "banish"].includes(method) && [1, 2].includes(frame.phase)) {
+    upgradeOpen = true;
+  }
 }
 function accept(packet) {
   if (packet.$ === "Failed") throw Error(packet.error);
@@ -225,6 +228,7 @@ function accept(packet) {
   state = packet.state;
   let old = frame;
   frame = JSON.parse(packet.frame);
+  if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true;
   frame.weapons.forEach((level, id) => {
     if (level > 0) seenWeapons.add(id);
     if (level >= 9) seenEvolutions.add(id);

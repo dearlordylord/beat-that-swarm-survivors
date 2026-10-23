@@ -491,23 +491,27 @@ def held(down: Bool,+old: U32,+bit: U32) -> U32:
     case True{}: U32.or(old,bit)
     case False{}: U32.and(old,U32.xor(4294967295,bit))
 
-# Pending upgrades never steal movement or stop combat. Only E opens the
+# New rewards open automatically. Esc explicitly defers; E reopens a deferred
 # choice panel (paused=2); ordinary pause remains paused=1.
 def upgrade_key(phase: U32,state: Native) -> Native:
   match phase state:
     case 1 Native{game,+ui,profile}: Native{game,set_keys(set_paused(ui,2),0),profile}
     case 2 Native{game,+ui,profile}: Native{game,set_keys(set_paused(ui,2),0),profile}
     case p state: state
+def automatic_upgrade(state: Native) -> Native:
+  match state:
+    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}: upgrade_key(run_phase(run),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
+    case state: state
 def choose_key(allowed: Bool,index: U32,state: Native) -> Native:
   match allowed state:
-    case True{} Native{game,ui,profile}: Native{apply_game(game,s => G.choose(s,index)),set_paused(ui,0),profile}
+    case True{} Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.choose(s,index)),set_paused(ui,0),profile})
     case False{} state: state
 
 def offer_action(paused: U32,action: U32,state: Native) -> Native:
   match paused action state:
     case 2 0 Native{game,ui,profile}: Native{apply_game(game,G.reroll),ui,profile}
-    case 2 1 Native{game,ui,profile}: Native{apply_game(game,G.skip),set_paused(ui,0),profile}
-    case 2 2 Native{game,ui,profile}: Native{apply_game(game,s => G.banish(s,0)),set_paused(ui,0),profile}
+    case 2 1 Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,G.skip),set_paused(ui,0),profile})
+    case 2 2 Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.banish(s,0)),set_paused(ui,0),profile})
     case p a state: state
 
 def game_key(code: U32,state: Native) -> Native:
@@ -594,10 +598,14 @@ def reduce(events: List<Event>,state: Native) -> Native:
 
 def direction(+keys: U32,positive: U32,negative: U32) -> F32:
   (U32.to_f32(Bool.to_u32(U32.is_lt(0,U32.and(keys,positive)))) - U32.to_f32(Bool.to_u32(U32.is_lt(0,U32.and(keys,negative)))) : F32)
+def new_reward(previousPhase: U32,state: Native) -> Native:
+  match previousPhase:
+    case 0: automatic_upgrade(state)
+    case _: state
 def simulate(active: Bool,state: Native) -> Native:
   match active state:
-    case True{} Native{game,+ui,profile}: Native{apply_game(game,s => G.advance_live(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile}
-    case False{} state: state
+    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},s => G.advance_live(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile})
+    case _ state: state
 
 def frame(state: Native) -> Native:
   match state:

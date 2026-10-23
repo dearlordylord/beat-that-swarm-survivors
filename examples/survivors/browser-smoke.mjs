@@ -94,6 +94,38 @@ try {
   await page.waitForSelector("#start");
   await page.reload();
   await page.waitForSelector("#start");
+  // Explicit XP boundary fixture: keep the actual Bend game and browser UI,
+  // seed XP at start to trigger real levels and exercise the deferred queue.
+  const rewards = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  rewards.setDefaultTimeout(5000);
+  rewards.on("pageerror", (e) => errors.push(e.message));
+  await rewards.route("**/dist/game.mjs", async (route) => {
+    const response = await route.fetch();
+    const source = await response.text();
+    assert.ok(source.includes("export default {"));
+    await route.fulfill({ response, body: source.replace("export default {", "const fixtureGame = {") + `
+export default { ...fixtureGame, start: (...args) => {
+  const packet = fixtureGame.start(...args);
+  packet.state.run.xp = 4 * packet.state.run.xpNeed;
+  return packet;
+} };` });
+  });
+  await rewards.goto(`http://127.0.0.1:${server.address().port}/`);
+  await rewards.locator("#start").click();
+  await rewards.waitForSelector("[data-choice]");
+  const rewardTick = await rewards.locator("#game").getAttribute("data-tick");
+  await rewards.waitForTimeout(200);
+  assert.equal(await rewards.locator("#game").getAttribute("data-tick"), rewardTick,
+    "Automatic reward panel pauses the battlefield without E");
+  await rewards.keyboard.press("Escape");
+  await rewards.waitForFunction(tick => Number(document.querySelector("#game").dataset.tick) > Number(tick), rewardTick);
+  await rewards.keyboard.press("KeyE");
+  await rewards.waitForSelector("[data-choice]");
+  await rewards.locator("[data-choice]").first().click();
+  assert.ok(await rewards.locator("#overlay").isVisible(), "Queued reward automatically opens after the first choice");
+  await rewards.locator("[data-choice]").first().click();
+  assert.ok(await rewards.locator("#overlay").isHidden(), "Choosing all earned rewards resumes combat");
+  await rewards.close();
   const mobile = await browser.newPage({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -131,7 +163,7 @@ try {
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(
-    "Browser menu, collection, gameplay, keyboard/touch movement, modal focus, pause, abandon, reload pass.",
+    "Browser menu, collection, gameplay, keyboard/touch movement, modal focus, automatic reward pause/choice, explicit defer/reopen, pause, abandon, reload pass.",
   );
 } finally {
   await browser?.close();

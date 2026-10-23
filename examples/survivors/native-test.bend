@@ -54,6 +54,21 @@ def boundary(state: N.Native,phase: U32,gold: U32) -> N.Native:
     case N.Native{G.Packet{G.State{world,+run,rows,_,snapshots,_},frame},ui,profile}:
       N.Native{G.Packet{G.State{world,phase_run(run,phase,gold),rows,[G.Offer{0,0,(G.at(N.run_weapons(run),0) + 1 : U32)},G.Offer{1,0,1},G.Offer{0,1,1}],snapshots,[]},frame},N.set_paused(ui,0),profile}
     case state: state
+def paid_run(run: G.Run) -> G.Run:
+  match run:
+    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,_,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{0,tick,px,py,hp,maxHp,need,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+def earned_panel_test(state: N.Native) -> IO(Unit):
+  match state:
+    case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},u,p}:
+      do IO<Unit>:
+        state : N.Native <- check(N.frame(N.Native{G.Packet{G.State{world,paid_run(r),rows,offers,snapshots,pending},frame},u,p}),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),2)),"seeded XP: actual ECS level automatically opens panel")
+        return Unit{}
+    case _: IO.die(Unit,1,"Automatic level engine failure")
+def automatic_test(state: N.Native) -> IO(N.Native):
+  do IO<N.Native>:
+    state : N.Native <- check(N.new_reward(0,state),o => U32.is_eq(N.ui_paused(ui(o)),2),"new reward opens automatically")
+    state : N.Native <- check(frames(2n,state),o => U32.is_eq(N.ui_paused(ui(o)),2),"automatic reward keeps battlefield paused")
+    return key(27,state)
 def pending_test(state: N.Native) -> IO(N.Native):
   match state:
     case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending},frame},u,p}:
@@ -68,7 +83,7 @@ def pending_test(state: N.Native) -> IO(N.Native):
 def queued_test(state: N.Native) -> IO(N.Native):
   match state:
     case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,_},frame},u,p}:
-      check(key(49,key(101,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,[1]},frame},u,p})),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),0)),"queued next level remains deferred after one choice")
+      check(key(49,key(101,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,[1]},frame},u,p})),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),2)),"queued next level automatically opens after one choice")
     case state: IO.die(N.Native,1,"Queued upgrade engine failure")
 def choose_test(state: N.Native) -> IO(N.Native):
   match state:
@@ -124,14 +139,17 @@ def main() -> IO(Unit):
     state : N.Native <- abandon_test(state)
     IO.print("Explicit UI boundary: inject37 collected gold into an otherwise live run")
     state : N.Native <- abandon_test(boundary(state,0,37))
-    state : N.Native <- pending_test(boundary(state,1,777))
+    state : N.Native <- automatic_test(boundary(state,1,777))
+    state : N.Native <- pending_test(state)
     state : N.Native <- Capture.view("upgrade.ppm",key(101,state))
     state : N.Native <- choose_test(state)
-    state : N.Native <- pending_test(boundary(state,2,777))
+    state : N.Native <- automatic_test(boundary(state,2,777))
+    state : N.Native <- pending_test(state)
     state : N.Native <- check(key(49,key(101,state)),o => U32.is_eq(N.ui_paused(ui(o)),0),"treasure choice closes explicit panel")
     state : N.Native <- queued_test(boundary(state,1,777))
     state : N.Native <- terminal_test(state)
     state : N.Native <- check(key(13,state),o => U32.is_eq(N.ui_screen(ui(o)),0),"terminal Enter returns camp")
     result : Maybe<N.Native> <- N.tick([Close{}],state)
     quit_result(result)
+    earned_panel_test(key(32,N.initial(P.fresh())))
     IO.print("NATIVE UI PASS")

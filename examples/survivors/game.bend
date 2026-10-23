@@ -117,7 +117,7 @@ def close(x: F32,y: F32,px: F32,py: F32,+radius: F32) -> Bool: F32.is_le(distanc
 def wave(+tick: U32) -> U32: (tick / 3600 : U32)
 def angle(+seed: U32) -> F32: (U32.to_f32(((seed * 2399 + 71) % 6283 : U32)) / 1000.0 : F32)
 # Early growth is quick; quadratic later costs prevent serial upgrade interruptions.
-def next_xp_need(+level: U32) -> U32: (100 + level * 3 + level * level / 3 : U32)
+def next_xp_need(+level: U32) -> U32: (2 * (100 + level * 3 + level * level / 3) : U32)
 def enemy_at(point: S.Point,+seed: U32,+tick: U32,+variant: U32,+stage: U32,+curse: U32) -> Body:
   match point:
     case S.Point{x,y}: Body{x,y,0,variant,(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),0,seed,E.radius(variant)}

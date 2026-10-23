@@ -1,3 +1,13 @@
+# Automatic choices and slower XP follow-up
+
+New level and treasure choices automatically pause combat and open their panels. Esc explicitly defers a choice; E reopens it. Consuming a reward promotes and opens the next queued reward. No reward is spent automatically.
+
+XP awards and bonus arithmetic remain unchanged. The opening threshold stays at 100 XP. Subsequent thresholds double to `2 * (100 + 3 * L + L * L / 3)`, so later levels require twice the XP without introducing extra rounding loss into XP bonuses. This is a tuning change, not a measured claim about final-run level count. API integration still exercises seven natural choices; its child cap is 60 seconds (internal 58-second budget), because the progression it waits for is intentionally slower.
+
+The observations below predate this follow-up; the level-41/42-choice full run does not qualify the revised XP economy.
+
+---
+
 # Horde pressure and progression revision
 
 The ECS world reserves **512 enemy/loot slots**, 192 player projectile slots, 32 hostile projectile slots and 12 independent actors: **1004 entities**, including 256 dedicated persistent XP piles. The opening admits 96 enemy slots; the budget grows to 240 at two minutes and reaches 512 before six minutes. These are capacity and admission limits, not a claim that every slot is a living visible enemy. A slot may also hold loot or await its next refill. Dormant enemies retry every six ticks. XP leaves enemy slots immediately and persists in its own pool until physical pickup. At capacity, new XP merges into the nearest existing pile while preserving base XP value. Gold and healing retain their two-second collection rule. Chests remain on the ground until collected.

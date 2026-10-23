@@ -1,4 +1,14 @@
-# Current standalone revision validation — 22 October 2026
+# Automatic reward panel follow-up
+
+The current local follow-up restores automatic level/treasure panels with combat paused. Esc defers and E reopens; queued choices open in order. XP awards and bonuses are unchanged; the first threshold remains 100 and subsequent thresholds are doubled. Verification below is separate from the previous revision:
+
+- `/tmp/survivors-auto-gameplay.log`: the emitted gameplay suite passed; seven natural API level-ups reached at tick 1,533. The injected-clock capacity check retained 511 living enemies. The short nearest-loot controller first earned a reward at tick 296 and reached level 2 with one choice before death at tick 511.
+- `/tmp/survivors-auto-browser.log`: desktop/mobile smoke and explicit seeded-XP checks passed for automatic opening, frozen simulation, Esc deferral, E reopening, automatic queued promotion and final choice/resume. The fixture uses real Bend transitions; no production testing hook was added.
+- `/tmp/survivors-auto-native.log`: native profile/UI execution and application compilation passed. UI assertions cover automatic level and treasure panels, queued promotion, deferred choices, and a seeded-XP boundary through the actual ECS/frame path. This check did not open a physical window.
+
+All receipt paths are local development outputs, not committed artifacts. These checks apply to the local automatic-panel/cost follow-up, not the historical complete-run observations below. No new full-run, macOS, FPS or final-level-count result is claimed for this cost change.
+
+# Previous standalone revision validation — 22 October 2026
 
 The examples now import the published BendHub package rather than a local ECS source tree. See the [root dependency instructions](../../README.md). The current fixed pool contains 748 entities: 512 enemy/loot slots, 192 player shots, 32 hostile shots and 12 independent actors. The first level needs 100 XP and subsequent thresholds use `100 + 3 * L + L * L / 3`, with the previous level as L. XP pacing is slower and the native reward panel is opened explicitly with E; combat continues with pending rewards until the panel opens, and Esc resumes it.
 
