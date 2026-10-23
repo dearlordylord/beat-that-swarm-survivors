@@ -21,7 +21,7 @@
     "tools/survivors-bot/actions.test.mjs": "8bcb103fa6732e17cceeed4ba2dff4c7526138888311ef7ac3a3ec69e4d5115d",
     "tools/survivors-bot/autoresearch/benchmark.mjs": "95d55b0b299eaa4942b62d3485547f2da4948a83e59ed379632293ecf7adf75f",
     "tools/survivors-bot/autoresearch/checks.mjs": "060d1dd602a8bf00adee12cdca5198dd7fd1bfed7a34805c0191553ecf309f4d",
-    "tools/survivors-bot/autoresearch/shared.mjs": "6068b5d38b56adb67cd3a1c3a99195b389d9ad66452196603dcc8445237bdff7",
+    "tools/survivors-bot/autoresearch/shared.mjs": "cf453f1a17c81bfa9d6107f83d10652f39728d473686ade013dddd2138108677",
     "tools/survivors-bot/autoresearch/worker.mjs": "b75dd457f5297498f8f3b629b7e78284d8883ef25296332e8e4678647bc6a40f",
     "tools/survivors-bot/batch.mjs": "0b9892683f20d8d2dc1dae6e97c1ba56a10d08e35aecfb27423f6b21602dbe03",
     "tools/survivors-bot/batch.test.mjs": "385a374057c2530d9dbced89345d2e0ed3c18aa74d7de0fc59a6af2a65a21521",

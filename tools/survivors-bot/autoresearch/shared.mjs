@@ -8,7 +8,7 @@ export const root = new URL('../../../examples/survivors/dist/autoresearch/', im
 export const reference = new URL('../../../examples/survivors/dist/autoresearch-reference/reference.mjs', import.meta.url);
 export const contract = Object.freeze({ count: 10, ticks: 1200, workers: 2, seed: 100, profile: 'fresh' });
 export const workloadSHA = hash(JSON.stringify(contract));
-export const deadline = Math.min(Date.parse('2026-10-23T00:11:00Z'), Date.now() + 465000);
+export const deadline = Math.min(Date.parse('2026-10-23T00:38:25Z'), Date.now() + 465000);
 export function hash(value) { return createHash('sha256').update(value).digest('hex'); }
 export function remaining(maxSeconds = 480) {
   const left = Math.floor((deadline - Date.now()) / 1000);
