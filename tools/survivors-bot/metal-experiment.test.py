@@ -104,6 +104,11 @@ class Tests(unittest.TestCase):
         c = '#define BANGS 1\n#define FID_solve 1\ntypedef struct { u8 ar, resw, bangs, nofk; } Fid;\n#define fid_bangs(x) FID_T[x].bangs\nCONSTV Fid FID_T[] = {{0,0,0,1},{4,0,1,0}};\nu64 task = task_node(e, FID_solve, WL_CONT, WL_IDX, 0); return term_tsk(FID_solve, task);\n' + 'e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;\nwork_loop(e, io_stk, t, !BANGS && pool_size == 1)\nif ((u32)H[tl + 1] != 0) cube_run(H, false);\nif (io_gpu && fid_bangs((u32)term_aux(t))) cube_run(H, true);\nif (gpu == 1 && BANGS != 0 && why != NULL) { err_fail(why); }\nMTLCreateSystemDefaultDevice(); gpu_pass(H);\n[gpu_enc dispatchThreadgroupsWithIndirectBuffer:gpu_buf indirectBufferOffset:H_GROUPS * 8 + at * 12 threadsPerThreadgroup:MTLSizeMake(CUBE_T, 1, 1)];\n[c commit]; [c waitUntilCompleted]; if ([c error]) { gpu_fail([c error]); }\n'
         source = 'solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))'
         self.assertEqual(metal.verify_dispatch_contract(c, source)['status'], 'VERIFIED')
+        probe_c = c.replace('{4,0,1,0}', '{2,0,1,0}')
+        with self.assertRaises(metal.Failure):
+            metal.verify_dispatch_contract(probe_c, source)
+        self.assertEqual(metal.verify_dispatch_contract(probe_c, 'solve!(iterations,seed)', solve_row=(2,0,1,0), boundary='solve!(iterations,seed)')['status'], 'VERIFIED')
+
         for bad in [c.replace('BANGS 1', 'BANGS 0'), c.replace('{4,0,1,0}', '{4,0,0,0}'), c.replace('WL_IDX, 0', 'WL_IDX, 1')]:
             with self.assertRaises(metal.Failure):
                 metal.verify_dispatch_contract(bad, source)

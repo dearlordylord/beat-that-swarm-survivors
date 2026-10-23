@@ -2,7 +2,11 @@
 
 This prepares a real GPU experiment for a macOS Apple Silicon host. **Metal compilation, GPU correctness and GPU performance have not been tested in the Linux development environment.** A successful CPU fallback check is not GPU evidence.
 
-## Run on the Mac
+## Current status: full-game Metal compilation timed out
+
+The second M2 Max run completed C emission (11.46 seconds) and native compilation (13.93 seconds), then exceeded the separate 1200-second Metal build limit. No GPU simulation or CPU/GPU performance comparison ran. `STATIC_CONTRACT_VERIFIED` only describes generated-code inspection. Use the [small diagnostic controls](metal-diagnostics.md) next; do not increase the full-game timeout again.
+
+## Original full-game command (retained for later investigation)
 
 From the `bendvy-ecs-examples` repository root:
 
@@ -40,4 +44,4 @@ The 2.0.38 upgrade repeated C emission and compilation, matched the two 1200-tic
 
 The first host run (Mac14,6, Apple M2 Max, macOS 27.0, Apple clang 21.0.0, Bend 2.0.38) completed C emission in 12.13 seconds, then exceeded the combined 300-second build cap. A 6.78 MB arm64 Mach-O executable was present, but no `.gpu` archive, and build logs were empty. No simulations ran and no parity or performance result exists for that attempt.
 
-The [official 2.0.38 builder](https://github.com/bendlang/bend/blob/v2.0.38/bend2/main.ts) performs native compilation followed by the executable's `+RTS --gpu-build` step. The artifacts therefore point to Metal preparation exceeding the shared budget; they do not establish whether the Metal compiler was making progress or stuck. The supervisor now runs those same two steps separately, using the official Apple clang flags and the already emitted C. It records the C and executable hashes before Metal compilation, provides a dedicated Metal budget, and reports exactly which stage fails. The original failed report is retained unchanged. A new Mac run is required to establish whether the longer Metal stage succeeds.
+The [official 2.0.38 builder](https://github.com/bendlang/bend/blob/v2.0.38/bend2/main.ts) performs native compilation followed by the executable's `+RTS --gpu-build` step. The artifacts therefore point to Metal preparation exceeding the shared budget; they do not establish whether the Metal compiler was making progress or stuck. The supervisor now runs those same two steps separately, using the official Apple clang flags and the already emitted C. It records the C and executable hashes before Metal compilation, provides a dedicated Metal budget, and reports exactly which stage fails. The original failed report is retained unchanged. The second host run subsequently timed out in that separate 1200-second Metal stage; see the current status above.

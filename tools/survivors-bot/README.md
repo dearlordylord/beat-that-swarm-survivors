@@ -170,6 +170,8 @@ The headless controller consumes each returned `Packet` through `observed_packet
 
 ## Experimental Metal batches on macOS
 
+The full-game Metal build timed out after 1200 seconds on M2 Max. Start with `bash tools/survivors-bot/metal-diagnose.sh`: two small controls, at most 90 seconds of Metal compilation each. See [diagnostic instructions](../../research/metal-diagnostics.md). The full-game command below is retained for later investigation, not the recommended next run.
+
 From the repository root on an Apple Silicon Mac:
 
 ```sh

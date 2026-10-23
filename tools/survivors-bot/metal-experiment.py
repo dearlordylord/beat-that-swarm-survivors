@@ -10,7 +10,7 @@ FIELDS = set('type backend policy index seed profile status tick requestedTicks 
 class Failure(RuntimeError):
     pass
 
-def verify_dispatch_contract(text, source):
+def verify_dispatch_contract(text, source, *, solve_row=(4, 0, 1, 0), boundary='solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))'):
     compact = re.sub('\\s+', '', text)
     match = re.search('^\\s*#define\\s+BANGS\\s+(\\d+)', text, re.M)
     fid = re.search('^\\s*#define\\s+FID_solve\\s+(\\d+)', text, re.M)
@@ -19,7 +19,7 @@ def verify_dispatch_contract(text, source):
         raise Failure('Expected known Bend2.0.38 BANGS1/FID_solve table contract')
     rows = [tuple(map(int, row)) for row in re.findall(r'\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}', table.group(1))]
     index = int(fid.group(1))
-    if index >= len(rows) or rows[index] != (4, 0, 1, 0):
+    if index >= len(rows) or rows[index] != tuple(solve_row):
         raise Failure('solve task is not the expected marked GPU function')
     host = re.search('(?:u64|Term)\\s+(\\w+)\\s*=\\s*task_node\\(e,\\s*FID_solve,\\s*WL_CONT,\\s*WL_IDX,\\s*0\\);', text)
     if not host or not re.search('return\\s+term_tsk\\(FID_solve,\\s*' + re.escape(host.group(1)) + '\\);', text[host.end():host.end() + 1000]):
@@ -27,7 +27,7 @@ def verify_dispatch_contract(text, source):
     required = ['typedefstruct{u8ar,resw,bangs,nofk;}Fid;', '#definefid_bangs(x)FID_T[x].bangs', 'e.mem[loc+ar+1]=((u64)idx<<32)|rem;', 'work_loop(e,io_stk,t,!BANGS&&pool_size==1)', 'if((u32)H[tl+1]!=0)', 'cube_run(H,false);', 'if(io_gpu&&fid_bangs((u32)term_aux(t)))', 'cube_run(H,true);', 'if(gpu==1&&BANGS!=0&&why!=NULL){err_fail(why);}', 'MTLCreateSystemDefaultDevice()', 'gpu_pass(H);', '[gpu_encdispatchThreadgroupsWithIndirectBuffer:gpu_bufindirectBufferOffset:H_GROUPS*8+at*12threadsPerThreadgroup:MTLSizeMake(CUBE_T,1,1)]', '[ccommit];', '[cwaitUntilCompleted];', 'if([cerror]){gpu_fail([cerror]);}']
     if any((marker not in compact for marker in required)):
         raise Failure('Generated runtime does not match audited forced-Metal dispatch/completion contract')
-    if 'solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))' not in re.sub('\\s+', '', source):
+    if boundary not in re.sub('\\s+', '', source):
         raise Failure('Source no longer has the audited unconditional solve! boundary')
     return {'status': 'VERIFIED', 'compiledBangs': 1, 'solveFID': index, 'solveRow': list(rows[index]), 'method': 'Known Bend2.0.38 zero-pending marked task → forced-on GPU route → Darwin Metal dispatch/completion. Completed GPU summaries required; CPU fallback forbidden. Not hardware counters.'}
 
