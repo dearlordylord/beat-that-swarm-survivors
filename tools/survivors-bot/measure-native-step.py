@@ -28,13 +28,14 @@ def write_json(path, value):
 
 def run_sample(binary, fixture, output, timeout):
     environment = dict(os.environ)
+    environment.pop("BENDRTS", None)
     environment.update(NIGHTFALL_REPLAY_TRACE=str(fixture),
                        NIGHTFALL_REPLAY_CHECKPOINT_EVERY="0")
     started = time.monotonic()
     with output.open("wb") as stdout, output.with_suffix(".stderr").open("wb") as stderr:
         # Stay in the caller's bounded process group. The audited replay binary
         # creates runtime threads, not subprocesses; no child may daemonize.
-        child = subprocess.Popen([str(binary), "--threads", "1"], env=environment,
+        child = subprocess.Popen([str(binary), "+RTS", "--threads", "1", "-RTS"], env=environment,
                                  stdout=stdout, stderr=stderr)
         try:
             status = child.wait(timeout=timeout)

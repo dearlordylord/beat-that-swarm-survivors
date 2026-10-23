@@ -13,23 +13,23 @@ class Failure(RuntimeError):
 def verify_dispatch_contract(text, source):
     compact = re.sub('\\s+', '', text)
     match = re.search('^\\s*#define\\s+BANGS\\s+(\\d+)', text, re.M)
-    fid = re.search('^\\s*#define\\s+FID_SOLVE\\s+(\\d+)', text, re.M)
-    table = re.search('CONSTV\\s+u8\\s+FID_T\\[\\]\\[3\\]\\s*=\\s*\\{(.*?)\\};', text, re.S)
+    fid = re.search('^\\s*#define\\s+FID_solve\\s+(\\d+)', text, re.M)
+    table = re.search(r'CONSTV\s+Fid\s+FID_T\[\]\s*=\s*\{(.*?)\};', text, re.S)
     if not match or int(match.group(1)) != 1 or (not fid) or (not table):
-        raise Failure('Expected known Bend2.0.37 BANGS1/FID_SOLVE table contract')
-    rows = [tuple(map(int, row)) for row in re.findall('\\{\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\}', table.group(1))]
+        raise Failure('Expected known Bend2.0.38 BANGS1/FID_solve table contract')
+    rows = [tuple(map(int, row)) for row in re.findall(r'\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}', table.group(1))]
     index = int(fid.group(1))
-    if index >= len(rows) or rows[index] != (4, 0, 1):
+    if index >= len(rows) or rows[index] != (4, 0, 1, 0):
         raise Failure('solve task is not the expected marked GPU function')
-    host = re.search('(?:u64|Term)\\s+(\\w+)\\s*=\\s*task_node\\(e,\\s*FID_SOLVE,\\s*WL_CONT,\\s*WL_IDX,\\s*0\\);', text)
-    if not host or not re.search('return\\s+term_tsk\\(FID_SOLVE,\\s*' + re.escape(host.group(1)) + '\\);', text[host.end():host.end() + 1000]):
+    host = re.search('(?:u64|Term)\\s+(\\w+)\\s*=\\s*task_node\\(e,\\s*FID_solve,\\s*WL_CONT,\\s*WL_IDX,\\s*0\\);', text)
+    if not host or not re.search('return\\s+term_tsk\\(FID_solve,\\s*' + re.escape(host.group(1)) + '\\);', text[host.end():host.end() + 1000]):
         raise Failure('solve host task must have zero pending arguments and return directly')
-    required = ['e.mem[loc+ar+1]=((u64)idx<<32)|rem;', 'work_loop(e,io_stk,t,!BANGS&&pool_size==1)', 'if((u32)H[tl+1]!=0)', 'cube_run(H,false);', 'if(io_gpu&&fid_bangs((u32)term_aux(t)))', 'cube_run(H,true);', 'if(gpu==1&&BANGS!=0&&why!=NULL){err_fail(why);}', 'MTLCreateSystemDefaultDevice()', 'gpu_pass(f);', '[gpu_encdispatchThreadgroups:MTLSizeMake(groups,1,1)threadsPerThreadgroup:MTLSizeMake(CUBE_T,1,1)]', '[cbcommit];', '[cbwaitUntilCompleted];', 'if([cberror]){gpu_fail([cberror]);}']
+    required = ['typedefstruct{u8ar,resw,bangs,nofk;}Fid;', '#definefid_bangs(x)FID_T[x].bangs', 'e.mem[loc+ar+1]=((u64)idx<<32)|rem;', 'work_loop(e,io_stk,t,!BANGS&&pool_size==1)', 'if((u32)H[tl+1]!=0)', 'cube_run(H,false);', 'if(io_gpu&&fid_bangs((u32)term_aux(t)))', 'cube_run(H,true);', 'if(gpu==1&&BANGS!=0&&why!=NULL){err_fail(why);}', 'MTLCreateSystemDefaultDevice()', 'gpu_pass(H);', '[gpu_encdispatchThreadgroupsWithIndirectBuffer:gpu_bufindirectBufferOffset:H_GROUPS*8+at*12threadsPerThreadgroup:MTLSizeMake(CUBE_T,1,1)]', '[ccommit];', '[cwaitUntilCompleted];', 'if([cerror]){gpu_fail([cerror]);}']
     if any((marker not in compact for marker in required)):
         raise Failure('Generated runtime does not match audited forced-Metal dispatch/completion contract')
     if 'solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))' not in re.sub('\\s+', '', source):
         raise Failure('Source no longer has the audited unconditional solve! boundary')
-    return {'status': 'VERIFIED', 'compiledBangs': 1, 'solveFID': index, 'solveRow': list(rows[index]), 'method': 'Known Bend2.0.37 zero-pending marked task → forced-on GPU route → Darwin Metal dispatch/completion. Completed GPU summaries required; CPU fallback forbidden. Not hardware counters.'}
+    return {'status': 'VERIFIED', 'compiledBangs': 1, 'solveFID': index, 'solveRow': list(rows[index]), 'method': 'Known Bend2.0.38 zero-pending marked task → forced-on GPU route → Darwin Metal dispatch/completion. Completed GPU summaries required; CPU fallback forbidden. Not hardware counters.'}
 
 class Experiment:
 
@@ -42,6 +42,7 @@ class Experiment:
         self.deadline = self.started + args.total_seconds
         self.report = {'status': 'FAIL', 'commands': [], 'population': {'count': args.count, 'ticks': args.ticks, 'seed': args.seed, 'profiles': args.profile, 'repetitions': args.repetitions, 'threads': args.threads}, 'scope': 'Same native binary, CPU off versus GPU on; smoke excluded from measured repetitions. No macOS result exists until this command succeeds on that host.'}
         self.env = dict(os.environ)
+        self.env.pop('BENDRTS', None)
         self.child = None
         self.guard_files = {str(Path(__file__).resolve()): sha(__file__)}
         launcher = Path(__file__).with_suffix('.sh')
@@ -138,12 +139,12 @@ class Experiment:
         bend = shutil.which(os.environ.get('BEND', 'bend'))
         cc = shutil.which(os.environ.get('CC', 'clang'))
         if not bend or not cc:
-            raise Failure('Install Bend 2.0.37 and Apple clang 17 or newer; BEND and CC may select their paths')
+            raise Failure('Install Bend 2.0.38 and Apple clang 17 or newer; BEND and CC may select their paths')
         self.guard_files.update({bend: sha(bend), cc: sha(cc)})
         self.guard()
         text, _ = self.execute('bend-version', [bend, 'version'], 15)
-        if not re.search('(?<![\\d.])2\\.0\\.37(?![\\d.])', text):
-            raise Failure('This repository requires Bend 2.0.37')
+        if text.strip() != "bend 2.0.38":
+            raise Failure('This repository requires Bend 2.0.38')
         clang, _ = self.execute('clang-version', [cc, '--version'], 15)
         match = re.search('Apple clang version (\\d+)', clang)
         if not match or int(match.group(1)) < 17:
@@ -196,7 +197,7 @@ class Experiment:
     def run_case(self, label, gpu, count, ticks):
         self.guard()
         env = dict(self.env, NIGHTFALL_BATCH_COUNT=str(count), NIGHTFALL_BATCH_TICKS=str(ticks), NIGHTFALL_BATCH_SEED=str(self.args.seed), NIGHTFALL_BATCH_PROFILE=self.args.profile, NIGHTFALL_BATCH_INDEX='0', NIGHTFALL_BATCH_STRIDE='1')
-        _, elapsed = self.execute(label, [str(self.out / 'nightfall-gpu-batch'), '--gpu', gpu, '--threads', str(self.args.threads)], self.args.run_seconds, env)
+        _, elapsed = self.execute(label, [str(self.out / 'nightfall-gpu-batch'), '+RTS', '--gpu', gpu, '--threads', str(self.args.threads), '-RTS'], self.args.run_seconds, env)
         self.guard()
         return (self.summaries(label, count, ticks), elapsed)
 

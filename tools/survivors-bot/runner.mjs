@@ -49,7 +49,7 @@ export async function runBot(Game, {
   if (mode === 'jev' && typeof classify !== 'function') throw new Error('Explicit classifier dependency required');
   if(!Number.isSafeInteger(seed)||seed<0||seed>0xffffffff) throw new Error('Invalid U32 seed');
   const accept = (packet) => {
-    if (packet.$ !== 'game.Packet') throw new Error('Bend simulation rejected a transition');
+    if (packet.$ !== 'Packet') throw new Error('Bend simulation rejected a transition');
     // Each transition already serialized this frame. Consume that Packet once
     // instead of asking G.packet to serialize the same owned world again.
     const observed = typeof Game.observed_packet === 'function'

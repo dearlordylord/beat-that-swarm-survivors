@@ -8,13 +8,13 @@ for (const file of ["game.bend", "projectile.bend", "encounters.bend"])
   );
 const { default: Game } = await import("./dist/game.mjs");
 const spawn = (id, level = 1) =>
-  Game["projectile.spawn"](id, level, 0, 100, 100, 400, 100, 1, 0, 1, 1, 1);
+  Game["projectile:spawn"](id, level, 0, 100, 100, 400, 100, 1, 0, 1, 1, 1);
 const step = (id, age, shot, px = 100, py = 100, tx = 400, ty = 100) =>
-  Game["projectile.step"](id, age, shot, px, py, tx, ty);
-const hit = (id, age) => Game["projectile.active_hit"](id, age) === true;
+  Game["projectile:step"](id, age, shot, px, py, tx, ty);
+const hit = (id, age) => Game["projectile:active_hit"](id, age) === true;
 for (let id = 0; id < 24; id++) {
   let shot = spawn(id);
-  assert.equal(shot.$, "projectile.Shot");
+  assert.equal(shot.$, "Shot");
   assert.ok(shot.life > 0 && shot.radius > 0);
   for (let age = 0; age < 300; age++) {
     const life = shot.life;
@@ -51,8 +51,8 @@ assert.equal(meteor.radius, 78);
 assert.equal(hit(17, 20), true);
 assert.equal(hit(22, 24), false);
 assert.equal(hit(22, 25), true);
-assert.equal(Game["projectile.status"](10), 1);
-assert.equal(Game["projectile.status"](20), 4);
+assert.equal(Game["projectile:status"](10), 1);
+assert.equal(Game["projectile:status"](20), 4);
 console.log(
   "24 projectile lifetimes, finite trajectories, aiming, gravity, homing, return, aura anchoring and delayed impact controls pass.",
 );

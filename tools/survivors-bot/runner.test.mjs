@@ -9,7 +9,7 @@ function toyGame({ queued = false } = {}) {
   const initial = { tick: 0, phase: 0, px: 1800, py: 1800, hp: 70, maxHp: 70, xp: 0, xpNeed: 100, level: 1, kills: 0, gold: 0, character: 0, arcana: 0, stage: 0, mode: 0, runLength: 36000, rerolls: 3, banishes: 3, skips: 3, weapons: [1, ...Array(23).fill(0)], passives: Array(18).fill(0), bodies: [], offers: [] };
   const offers = [{ kind: 0, id: 0, level: 2 }, { kind: 1, id: 7, level: 1 }];
   const take = (state) => { assert.ok(!consumed.has(state), 'An owned state cannot be reused'); consumed.add(state); return structuredClone(state.frame); };
-  const packet = (frame) => { lastTick = frame.tick; return { $: 'game.Packet', state: { frame }, frame: JSON.stringify(frame) }; };
+  const packet = (frame) => { lastTick = frame.tick; return { $: 'Packet', state: { frame }, frame: JSON.stringify(frame) }; };
   return {
     get tick() { return lastTick; },
     fresh_start: () => packet(structuredClone(initial)), advanced_start: () => packet(structuredClone(initial)),
@@ -92,7 +92,7 @@ test('packet observation consumes one affine owner and preserves legacy replay o
  const game=toyGame({queued:true}),legacyObserve=game.observe;
  let packets=0;
  game.observed_packet=packet=>{
-  assert.equal(packet.$,'game.Packet');packets++;
+  assert.equal(packet.$,'Packet');packets++;
   const observed=legacyObserve(packet.state);
   assert.equal(observed.frame,packet.frame,'Catalog and mechanics correspond to this exact transition frame');
   return {...observed,frame:packet.frame};

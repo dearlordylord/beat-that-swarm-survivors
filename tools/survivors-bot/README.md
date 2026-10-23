@@ -77,7 +77,7 @@ The free headless controller also has a Bend-to-C entry. From the repository roo
 bash tools/survivors-bot/native-batch.sh --count 100 --ticks 1800 --workers 2 --seed 100 --profile both
 ```
 
-It rebuilds current sources and runs native Bend without Node, graphics, HTTP or classifier calls. `--execution processes` is the default: each process owns its own world. `--threads` defaults to one Bend runtime thread per process, so multiple processes do not each reserve the full host CPU count. `--ticks` is the actual simulation horizon; upgrade choices do not consume that horizon. Death and reaching the horizon are distinct outcomes. A bounded safety-fuel failure exits nonzero.
+It rebuilds current sources and runs native Bend without Node, graphics, HTTP or classifier calls. `--execution processes` is the default: each process owns its own world. `--threads` defaults to one Bend runtime thread per process, so multiple processes do not each reserve the full host CPU count. The wrapper translates its `--threads` option to Bend 2.0.38 runtime arguments `+RTS --threads N -RTS` and clears ambient `BENDRTS` for repeatable runs. `--ticks` is the actual simulation horizon; upgrade choices do not consume that horizon. Death and reaching the horizon are distinct outcomes. A bounded safety-fuel failure exits nonzero.
 
 To let Bend schedule independent runs inside one process instead, use:
 

@@ -17,7 +17,8 @@ cat > "$3" <<'BINARY'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${EMPTY_WORKER:-0} != 1 ]] || exit 0
-[[ $1 == --threads && $2 == ${EXPECT_THREADS:-1} ]]
+[[ $# == 4 && $1 == +RTS && $2 == --threads && $3 == ${EXPECT_THREADS:-1} && $4 == -RTS ]]
+[[ ${BENDRTS+x} != x ]]
 for ((n=0; n<NIGHTFALL_BATCH_COUNT; n++)); do
   index=$((NIGHTFALL_BATCH_INDEX + n * NIGHTFALL_BATCH_STRIDE))
   seed=$(((NIGHTFALL_BATCH_SEED + index) % 4294967296))
@@ -38,6 +39,7 @@ fi
 BINARY
 COMPILER
 chmod +x "$fixture/compiler"
+export BENDRTS="--threads 99 --gpu on"
 export FIXTURE="$fixture" BEND="$fixture/compiler" NODE=/nonexistent/node BENDVY_EXAMPLE_LOCK_HELD=1
 runner="$fixture/repo/tools/survivors-bot/native-batch.sh"
 bash "$runner" --count 5 --seed 4294967294 --ticks 17 --profile both --workers 2 | sort -n > "$fixture/actual"

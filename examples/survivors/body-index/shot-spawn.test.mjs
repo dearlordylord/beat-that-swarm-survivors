@@ -14,7 +14,7 @@ const [{ default: baseline }, { default: candidate }] = await Promise.all([
   import(pathToFileURL(resolve(baselinePath)).href),
   import(pathToFileURL(resolve(candidatePath)).href),
 ]);
-const namespace = module => typeof module.shot_spawn === 'function' ? '' : 'game.';
+const namespace = module => typeof module.shot_spawn === 'function' ? '' : 'game:';
 const api = (module, name) => {
   const value = module[namespace(module) + name];
   assert.equal(typeof value, 'function', `Artifact must expose ${name}`);
@@ -22,7 +22,7 @@ const api = (module, name) => {
 };
 const list = values => values.reduceRight((tail, head) => ({ $: 'Con', head, tail }), { $: 'Nil' });
 const plain = value => Array.isArray(value) ? value.map(plain) : value && typeof value === 'object'
-  ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, key === '$' && typeof entry === 'string' ? entry.split('.').at(-1) : plain(entry)])) : value;
+  ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, plain(entry)])) : value;
 const emptyPassives = Array(18).fill(0);
 const upgradedPassives = [3, 4, 5, 2, 2, 1, 3, 0, 4, 2, 0, 1, 2, 0, 3, 0, 0, 0];
 const profiles = [
@@ -35,15 +35,14 @@ const geometries = [
   [[1900, 1800, 41], [1700, 1800, 12], [1800, 1900, 77]], // equal-distance ties preserve input order
 ];
 function args(module, level, tick, profile, geometry, direction, invuln = 0) {
-  const prefix = namespace(module);
-  const bodies = geometry.map(([x, y, seed]) => ({ $: prefix + 'Body', x, y, kind: 0, variant: seed % 31, hp: 30, maxHp: 30, age: 18, seed, radius: 12 }));
-  const run = { $: prefix + 'Run', phase: 0, tick, px: 1800, py: 1800,
+  const bodies = geometry.map(([x, y, seed]) => ({ $: 'Body', x, y, kind: 0, variant: seed % 31, hp: 30, maxHp: 30, age: 18, seed, radius: 12 }));
+  const run = { $: 'Run', phase: 0, tick, px: 1800, py: 1800,
     hp: 91, maxHp: 120, xp: 13, xpNeed: 125, level: 3, kills: 17, gold: 23,
     character: profile.character, weapons: list(Array(24).fill(level)), passives: list(profile.passives),
     invuln, seed: 100, stage: 2, arcana: profile.arcana, meta: profile.meta,
     revivals: 2, bosses: 1, mode: 1, rerolls: 3, banishes: 4, skips: 5,
     bannedWeapons: 6, bannedPassives: 7, enemyKinds: list([2, 5]), relicCollected: 1 };
-  return { $: prefix + 'Args', run, bodies: list(bodies), dx: direction[0], dy: direction[1], snapshots: list([]), hits: list([]) };
+  return { $: 'Args', run, bodies: list(bodies), dx: direction[0], dy: direction[1], snapshots: list([]), hits: list([]) };
 }
 let comparisons = 0, scheduledComparisons = 0, fired = 0, dormant = 0;
 const outputHash = createHash('sha256');

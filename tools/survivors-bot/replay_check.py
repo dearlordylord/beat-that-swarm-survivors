@@ -34,8 +34,9 @@ def terminate(child):
         child.wait(timeout=2)
 
 def run(binary, trace, fixture, prefix, seconds, threads):
-    command = [str(binary), "--threads", str(threads)]
+    command = [str(binary), "+RTS", "--threads", str(threads), "-RTS"]
     env = {**os.environ, "NIGHTFALL_REPLAY_TRACE": str(trace), "NIGHTFALL_REPLAY_FIXTURE": fixture}
+    env.pop("BENDRTS", None)
     started = time.monotonic()
     with prefix.with_suffix(".jsonl").open("wb") as stdout, prefix.with_suffix(".stderr").open("wb") as stderr:
         child = subprocess.Popen(command, env=env, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr, start_new_session=True)

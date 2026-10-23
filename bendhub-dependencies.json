@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "bendVersion": "2.0.37",
+  "bendVersion": "2.0.38",
   "registry": "https://hub.bend-lang.com",
   "packages": {
     "bendvy-ecs-core@0.1.0.1": {

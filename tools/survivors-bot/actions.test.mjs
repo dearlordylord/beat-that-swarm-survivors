@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import Bot from "../../examples/survivors/dist/bot-actions.mjs";
 
 const accept = (packet) => {
-  assert.equal(packet.$, "game.Packet", packet.error);
+  assert.equal(packet.$, "Packet", packet.error);
   const originalFrame = packet.frame;
   const observation = Bot.observed_packet(packet);
   assert.equal(observation.$, "Observed", observation.error);
@@ -44,14 +44,14 @@ assert.equal(current.frame.offers.length, 0);
 assert.equal(current.actions.length, 4);
 // Pure Run-data upgrade preview fixture only, not a gameplay choice or rollout.
 const pureRun = structuredClone(current.state.run);
-const healthPreview = JSON.parse(Bot.preview_stats({$: "game.Offer", kind: 1, id: 7, level: 1}, pureRun));
+const healthPreview = JSON.parse(Bot.preview_stats({$: "Offer", kind: 1, id: 7, level: 1}, pureRun));
 assert.equal(healthPreview.maxHp, current.frame.maxHp + Math.floor(current.frame.maxHp * 20 / 100));
 assert.equal(healthPreview.hp, current.frame.hp + Math.floor(current.frame.maxHp * 20 / 100));
 assert.equal(healthPreview.passives[7], 1);
-const weaponPreview = JSON.parse(Bot.preview_stats({$: "game.Offer", kind: 0, id: 0, level: 2}, pureRun));
+const weaponPreview = JSON.parse(Bot.preview_stats({$: "Offer", kind: 0, id: 0, level: 2}, pureRun));
 assert.equal(weaponPreview.weapons[0], current.frame.weapons[0] + 1);
 assert.ok(weaponPreview.weaponStats.find(w => w.id === 0).baseHitDamage > current.mechanics.current.weaponStats.find(w => w.id === 0).baseHitDamage);
-const pureMechanics = JSON.parse(Bot.mechanics(pureRun, {$: "Con", head: {$: "game.Offer", kind: 1, id: 7, level: 1}, tail: {$: "Nil"}}));
+const pureMechanics = JSON.parse(Bot.mechanics(pureRun, {$: "Con", head: {$: "Offer", kind: 1, id: 7, level: 1}, tail: {$: "Nil"}}));
 assert.equal(pureMechanics.offers[0].offerIndex, 0);
 assert.deepEqual(pureMechanics.offers[0].after, healthPreview);
 assert.deepEqual(pureMechanics.current, current.mechanics.current);
@@ -85,7 +85,7 @@ assert.equal(advanced.frame.mode, 0);
 assert.ok(advanced.mechanics.current.weaponStats.find(w => w.id === 4).selfFieldRadius > 0, "Aura starter exposes its actual projectile field radius");
 // Pure serialization boundary tests only: no mutated gameplay state or simulated run.
 const list = xs => xs.reduceRight((tail, head) => ({$: "Con", head, tail}), {$: "Nil"});
-const body = (kind, variant, hp, seed) => ({$: "game.Body", x: 100, y: 200, kind, variant, hp, maxHp: hp, age: 7, seed, radius: 12});
+const body = (kind, variant, hp, seed) => ({$: "Body", x: 100, y: 200, kind, variant, hp, maxHp: hp, age: 7, seed, radius: 12});
 const fixture = list([body(5, 20, 0, 1), body(10, 1, 80, 2), body(11, 0, 0, 3), body(8, 0, 0, 4), body(2, 4, 12, 748), {...body(2, 4, 18, 749), age: 2000}]);
 const goals = JSON.parse(Bot.catalog_live(true, 12, 100, 100, fixture));
 assert.equal(goals.length, 7);

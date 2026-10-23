@@ -5,14 +5,14 @@ const artifact = new URL("./dist/game.mjs", import.meta.url);
 for (const source of ["game.bend", "spawn-policy.bend", "encounters.bend"])
   assert.ok((await stat(artifact)).mtimeMs >= (await stat(new URL(source, import.meta.url))).mtimeMs, `Rebuild stale ${source}`);
 const { default: Game } = await import(artifact.href);
-const choose = Game["spawn-policy.choose"];
-const admit = Game["spawn-policy.admission"];
-const accepted = (x, y, px, py, radius) => admit(x, y, px, py, radius).$ === "spawn-policy.Admit";
+const choose = Game["spawn-policy:choose"];
+const admit = Game["spawn-policy:admission"];
+const accepted = (x, y, px, py, radius) => admit(x, y, px, py, radius).$ === "Admit";
 assert.equal(typeof choose, "function", "Game must import the actual spawn policy");
 let checked = 0;
 const positions = [20, 20.125, 684, 1800, 2916, 3579.875, 3580];
 for (let variant = 0; variant < 31; variant++) {
-  const radius = Game["encounters.radius"](variant);
+  const radius = Game["encounters:radius"](variant);
   assert.ok(radius > 0 && radius <= 42, `footprint premise for variant ${variant}`);
   for (const px of positions) for (const py of positions)
     for (const seed of [0, 1, 2, 3, 17, 511, 0xffffffff])

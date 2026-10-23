@@ -58,7 +58,8 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
             b = stderr.open('wb')
             files += [a, b]
             logs.append(stdout)
-            command = ['/usr/bin/taskset', '-c', ','.join(map(str, cpus)), str(binary), '--threads', str(1 if mode == 'serial' else budget)]
+            env.pop('BENDRTS', None)
+            command = ['/usr/bin/taskset', '-c', ','.join(map(str, cpus)), str(binary), '+RTS', '--threads', str(1 if mode == 'serial' else budget), '-RTS']
             children.append(subprocess.Popen(command, env=env, stdout=a, stderr=b, stdin=subprocess.DEVNULL, start_new_session=True))
         end = min(deadline, started + 360)
         while any((c.poll() is None for c in children)):

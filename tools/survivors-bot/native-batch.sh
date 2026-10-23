@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Rebuild Bend -> C -> native executable; no Node runtime or graphics.
 set -euo pipefail
+# Controlled batch settings come from explicit options, not ambient runtime flags.
+unset BENDRTS
 cd "$(dirname -- "$0")/../.."
 export PATH="$HOME/.bend/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 count=${NIGHTFALL_BATCH_COUNT:-100}
@@ -95,7 +97,7 @@ for ((worker=0; worker<workers; worker++)); do
   jobs=$(((count - 1 - worker) / workers + 1))
   NIGHTFALL_BATCH_COUNT=$jobs NIGHTFALL_BATCH_TICKS=$ticks NIGHTFALL_BATCH_SEED=$seed \
   NIGHTFALL_BATCH_PROFILE=$profile NIGHTFALL_BATCH_INDEX=$worker NIGHTFALL_BATCH_STRIDE=$workers \
-    "$app_dir/dist/$binary_name" --threads "$threads" >"$output_dir/worker-$worker.jsonl" 2>"$output_dir/worker-$worker.stderr" &
+    "$app_dir/dist/$binary_name" +RTS --threads "$threads" -RTS >"$output_dir/worker-$worker.jsonl" 2>"$output_dir/worker-$worker.stderr" &
   pids+=("$!")
 done
 status=0

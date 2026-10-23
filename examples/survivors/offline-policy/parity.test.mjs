@@ -11,8 +11,8 @@ const list=xs=>xs.reduceRight((tail,head)=>({$:'Con',head,tail}),{$:'Nil'});
 const array=xs=>{const out=[];for(let s=xs;s.$==='Con';s=s.tail)out.push(s.head);return out;};
 const point=(x,y)=>({$:'Point',x,y});
 const none={$:'None'};
-const body=(seed,x,y,kind=2,hp=10,generation=0,radius=12)=>({$:'game.Body',seed,x,y,kind,variant:0,hp,maxHp:generation,age:0,radius});
-const run=(patch={})=>({$:'game.Run',phase:0,tick:1,px:900,py:900,hp:100,maxHp:100,xp:0,xpNeed:100,level:1,kills:0,gold:0,character:0,weapons:list(Array(24).fill(0)),passives:list(Array(16).fill(0)),invuln:0,seed:12345,stage:0,arcana:0,meta:0,revivals:0,bosses:0,mode:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0,enemyKinds:list([]),relicCollected:0,...patch});
+const body=(seed,x,y,kind=2,hp=10,generation=0,radius=12)=>({$:'Body',seed,x,y,kind,variant:0,hp,maxHp:generation,age:0,radius});
+const run=(patch={})=>({$:'Run',phase:0,tick:1,px:900,py:900,hp:100,maxHp:100,xp:0,xpNeed:100,level:1,kills:0,gold:0,character:0,weapons:list(Array(24).fill(0)),passives:list(Array(16).fill(0)),invuln:0,seed:12345,stage:0,arcana:0,meta:0,revivals:0,bosses:0,mode:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0,enemyKinds:list([]),relicCollected:0,...patch});
 const frame=(r,bodies=[],offers=[])=>({...r,weapons:array(r.weapons),passives:array(r.passives),offers,bodies:bodies.map(b=>[b.x,b.y,b.kind,b.variant,b.hp,b.maxHp,b.age,b.seed,b.radius])});
 const catalog=(r,bodies)=>bodies.filter(b=>b.kind===2&&b.hp>0).map(b=>({id:`t${r.tick}:approach_experience:${b.seed}:2:0:${b.age}`,kind:'approach_experience',target:{x:b.x,y:b.y},resource:{baseXp:b.hp,generation:b.maxHp}}));
 const chosen=m=>m.current.$==='Some'?m.current.value.goal:null;
@@ -20,7 +20,7 @@ const step=(m,r,b)=>P.movement(m,r,list(b)).fst;
 let upgrades=0;
 for(const hp of [20,70,100])for(const owned of [false,true])for(let kind=0;kind<6;kind++)for(let id=0;id<24;id++){
  const ranks=Array(24).fill(owned?1:0),r=run({hp,weapons:list(ranks),passives:list(ranks)});
- const offers=[{$:'game.Offer',kind:4,id:0,level:1},{$:'game.Offer',kind,id,level:1},{$:'game.Offer',kind:0,id:4,level:1}];
+ const offers=[{$:'Offer',kind:4,id:0,level:1},{$:'Offer',kind,id,level:1},{$:'Offer',kind:0,id:4,level:1}];
  assert.equal(P.upgrade(r,list(offers)),heuristicUpgrade(frame(r,[],offers)),`upgrade hp=${hp} owned=${owned} kind=${kind} id=${id}`);upgrades++;
 }
 for(const [x,y,bodies,target] of [

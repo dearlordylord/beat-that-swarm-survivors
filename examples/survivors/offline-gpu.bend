@@ -1,4 +1,4 @@
-# Experimental native GPU batch. Force --gpu on to reject CPU fallback.
+# Experimental native GPU batch. Force +RTS --gpu on -RTS to reject CPU fallback.
 # Host IO stays outside the marked pure computation.
 import Base
 import offline-batch.bend as Serial

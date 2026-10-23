@@ -17,6 +17,7 @@ else:
  p.write_text('''+repr('#!'+sys.executable+'''\nimport json,os,sys,time
 if os.environ.get('FAKE_FAIL')=='1':sys.exit(7)
 if os.environ.get('FAKE_TIMEOUT')=='1':time.sleep(10)
+assert sys.argv[1]=='+RTS' and sys.argv[-1]=='-RTS'
 gpu=sys.argv[sys.argv.index('--gpu')+1]=='on'
 for i in range(int(os.environ['NIGHTFALL_BATCH_COUNT'])):
  profile=os.environ['NIGHTFALL_BATCH_PROFILE'];profile=('advanced' if i%2 else 'fresh') if profile=='both' else profile
@@ -42,18 +43,18 @@ for i in range(int(os.environ['NIGHTFALL_BATCH_COUNT'])):
  def test_build_failure_preserves_c_and_error(self):
   code,r=self.run_fake(FAKE_BUILD_FAIL='1');self.assertEqual(code,1);self.assertEqual(r['commands'][-1]['exitCode'],9);self.assertTrue((self.root/'output/generated.c').is_file());self.assertNotIn('semanticParity',r)
  def test_dispatch_contract_and_refusals(self):
-  c='#define BANGS 1\n#define FID_SOLVE 1\nCONSTV u8 FID_T[][3] = {{0,0,0},{4,0,1}};\nu64 task = task_node(e, FID_SOLVE, WL_CONT, WL_IDX, 0); return term_tsk(FID_SOLVE, task);\n'+"""e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;
+  c='#define BANGS 1\n#define FID_solve 1\ntypedef struct { u8 ar, resw, bangs, nofk; } Fid;\n#define fid_bangs(x) FID_T[x].bangs\nCONSTV Fid FID_T[] = {{0,0,0,1},{4,0,1,0}};\nu64 task = task_node(e, FID_solve, WL_CONT, WL_IDX, 0); return term_tsk(FID_solve, task);\n'+"""e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;
 work_loop(e, io_stk, t, !BANGS && pool_size == 1)
 if ((u32)H[tl + 1] != 0) cube_run(H, false);
 if (io_gpu && fid_bangs((u32)term_aux(t))) cube_run(H, true);
 if (gpu == 1 && BANGS != 0 && why != NULL) { err_fail(why); }
-MTLCreateSystemDefaultDevice(); gpu_pass(f);
-[gpu_enc dispatchThreadgroups:MTLSizeMake(groups, 1, 1) threadsPerThreadgroup:MTLSizeMake(CUBE_T, 1, 1)];
-[cb commit]; [cb waitUntilCompleted]; if ([cb error]) { gpu_fail([cb error]); }
+MTLCreateSystemDefaultDevice(); gpu_pass(H);
+[gpu_enc dispatchThreadgroupsWithIndirectBuffer:gpu_buf indirectBufferOffset:H_GROUPS * 8 + at * 12 threadsPerThreadgroup:MTLSizeMake(CUBE_T, 1, 1)];
+[c commit]; [c waitUntilCompleted]; if ([c error]) { gpu_fail([c error]); }
 """
   source='solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))'
   self.assertEqual(metal.verify_dispatch_contract(c,source)['status'],'VERIFIED')
-  for bad in [c.replace('BANGS 1','BANGS 0'),c.replace('{4,0,1}','{4,0,0}'),c.replace('WL_IDX, 0','WL_IDX, 1')]:
+  for bad in [c.replace('BANGS 1','BANGS 0'),c.replace('{4,0,1,0}','{4,0,0,0}'),c.replace('WL_IDX, 0','WL_IDX, 1')]:
    with self.assertRaises(metal.Failure):metal.verify_dispatch_contract(bad,source)
  def test_missing_field_rejected_even_if_both_modes_match(self):
   args=metal.parser().parse_args(['--output',str(self.root/'output')]);exp=metal.Experiment(args,self.root)
@@ -80,4 +81,15 @@ MTLCreateSystemDefaultDevice(); gpu_pass(f);
   args=metal.parser().parse_args(['--output',str(self.root/'output')]);exp=metal.Experiment(args,self.root)
   with patch.object(metal.platform,'system',return_value='Linux'):self.assertEqual(exp.run(),1)
   self.assertIn('Apple Silicon',json.loads((self.root/'output/report.json').read_text())['error'])
+ def test_preflight_accepts_new_release_and_rejects_old(self):
+  args=metal.parser().parse_args(['--output',str(self.root/'output')]);exp=metal.Experiment(args,self.root)
+  with patch.object(metal.platform,'system',return_value='Darwin'),patch.object(metal.platform,'machine',return_value='arm64'),patch.object(metal.shutil,'which',return_value=str(self.compiler)):
+   with patch.object(exp,'execute',side_effect=[('bend 2.0.38\n',0),('Apple clang version 17.0.0',0),('MacTest',0),('Apple M3',0)]):
+    self.assertEqual(exp.preflight(),str(self.compiler))
+   with patch.object(exp,'execute',return_value=('bend 2.0.37\n',0)):
+    with self.assertRaisesRegex(metal.Failure,'requires Bend 2.0.38'):exp.preflight()
+ def test_ambient_runtime_settings_are_removed(self):
+  args=metal.parser().parse_args(['--output',str(self.root/'output')])
+  with patch.dict(os.environ,{'BENDRTS':'--gpu off --threads 1'}):exp=metal.Experiment(args,self.root)
+  self.assertNotIn('BENDRTS',exp.env)
 if __name__=='__main__':unittest.main()

@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("oracle_fixtures", HERE / "replay_compare_test.py")
@@ -29,7 +30,7 @@ class MeasurementControls(unittest.TestCase):
         self.fixtures = self.root / "fixtures.json"; self.fixtures.write_text(json.dumps([str(self.trace)]))
     def binary(self, name, body):
         p = self.root / name
-        p.write_text("#!/usr/bin/env python3\nimport pathlib,sys,time,os\n" + body + "\n")
+        p.write_text("#!/usr/bin/env python3\nimport pathlib,sys,time,os\nassert sys.argv[1:]==['+RTS','--threads','1','-RTS']\nassert 'BENDRTS' not in os.environ\n" + body + "\n")
         p.chmod(0o700); return p
     def command(self, ref, candidate, output, **options):
         return ["python3",str(HERE/"measure-native-step.py"),"--reference",str(ref),"--candidate",str(candidate),"--fixtures",str(self.fixtures),"--output",str(output),"--rounds","1","--timeout",str(options.get("timeout",1)),"--max-seconds","5"]
@@ -37,7 +38,7 @@ class MeasurementControls(unittest.TestCase):
         return self.binary(name, f"sys.stdout.write(pathlib.Path({str(self.payload)!r}).read_text())")
     def execute(self, ref, candidate, **options):
         out=self.root/"out"
-        result=subprocess.run(self.command(ref,candidate,out,**options),capture_output=True,text=True,timeout=10,env={**os.environ,"PYTHONDONTWRITEBYTECODE":"1"})
+        result=subprocess.run(self.command(ref,candidate,out,**options),capture_output=True,text=True,timeout=10,env={**os.environ,"PYTHONDONTWRITEBYTECODE":"1","BENDRTS":"--threads 99"})
         return result,out
     def test_completion_and_one_fixture_uncertainty(self):
         result,out=self.execute(self.output_binary("reference"),self.output_binary("candidate"))
@@ -45,6 +46,16 @@ class MeasurementControls(unittest.TestCase):
         summary=json.loads((out/"summary.json").read_text())
         self.assertIsNone(summary["fixtureClusterBootstrap95"])
         self.assertEqual(json.loads((out/"terminal.json").read_text())["status"],"completed")
+    def test_correctness_runner_uses_explicit_rts_and_clears_ambient(self):
+        spec = importlib.util.spec_from_file_location("replay_check_control", HERE / "replay_check.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        binary = self.output_binary("correctness")
+        with patch.dict(os.environ, {"BENDRTS": "--threads 99"}):
+            result = runner.run(binary, self.trace, "fixture", self.root / "correctness-run", 2, 1)
+        self.assertEqual(result["command"][1:], ["+RTS", "--threads", "1", "-RTS"])
+        self.assertEqual(result["exitCode"], 0)
+
     def test_nonzero_child_is_incomplete(self):
         result,out=self.execute(self.binary("reference","sys.exit(7)"),self.output_binary("candidate"))
         self.assertNotEqual(result.returncode,0)
@@ -60,7 +71,7 @@ class MeasurementControls(unittest.TestCase):
         pidfile=self.root/"pid"
         ref=self.binary("reference",f"pathlib.Path({str(pidfile)!r}).write_text(str(os.getpid()))\ntime.sleep(30)")
         out=self.root/"out"
-        child=subprocess.Popen(self.command(ref,self.output_binary("candidate"),out,timeout=5),stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={**os.environ,"PYTHONDONTWRITEBYTECODE":"1"})
+        child=subprocess.Popen(self.command(ref,self.output_binary("candidate"),out,timeout=5),stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={**os.environ,"PYTHONDONTWRITEBYTECODE":"1","BENDRTS":"--threads 99"})
         try:
             deadline=time.monotonic()+3
             while not pidfile.exists() and time.monotonic()<deadline:time.sleep(.01)

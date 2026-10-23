@@ -6,7 +6,7 @@ Playable examples of [Bendvy](https://github.com/dearlordylord/bendvy), consumin
 
 An original single-player survivors game: 24 weapons, 24 evolutions, six unions, 18 passive upgrades, eight heroes, five arenas, twelve Arcana, persistent progression and independent world actors. The native version uses Bend for simulation, rendering, input, sound and saved profiles.
 
-Install **Bend 2.0.37 or newer** and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
+Install **Bend 2.0.38** and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
 
 ```sh
 git clone https://github.com/dearlordylord/bendvy-ecs-examples.git

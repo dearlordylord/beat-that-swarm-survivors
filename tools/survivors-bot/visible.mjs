@@ -30,7 +30,10 @@ let child,exited,done=false,sequence=0,lastFrame,nativeExit,reason='wall-limit',
 const stop=()=>{done=true;reason='interrupted';child?.kill('SIGTERM');};
 process.on('SIGINT',stop);process.on('SIGTERM',stop);
 try {
-  child=spawn(binary,[],{cwd:session,env:{...process.env,NIGHTFALL_BOT_SESSION:session,NIGHTFALL_BOT_PROFILE:v.profile,NIGHTFALL_BOT_SEED:String(seed)},stdio:['ignore','inherit','inherit']});
+  const nativeEnv={...process.env,NIGHTFALL_BOT_SESSION:session,NIGHTFALL_BOT_PROFILE:v.profile,NIGHTFALL_BOT_SEED:String(seed)};
+  // Managed launches use their own runtime defaults, without ambient RTS overrides.
+  delete nativeEnv.BENDRTS;
+  child=spawn(binary,[],{cwd:session,env:nativeEnv,stdio:['ignore','inherit','inherit']});
   exited=new Promise(resolveExit=>{child.on('error',e=>{failure=e;done=true;resolveExit();});child.on('exit',(code,signal)=>{nativeExit={code,signal,expected:done};if(!done){reason=code===0?'window-closed':'native-error';if(code!==0||signal!==null)failure=new Error('Unexpected native exit');}done=true;resolveExit();});});
   const deadline=Date.now()+seconds*1000;
   while(!done&&Date.now()<deadline) {

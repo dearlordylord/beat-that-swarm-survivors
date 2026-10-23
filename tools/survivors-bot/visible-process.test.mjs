@@ -9,7 +9,7 @@ async function runStub(body,{seed='12345'}={}){
  const directory=await mkdtemp(join(tmpdir(),'visible-process-'));
  try{
   const binary=join(directory,'stub');await writeFile(binary,'#!/usr/bin/env node\n'+body,{mode:0o700});
-  const child=spawn(process.execPath,['tools/survivors-bot/visible.mjs','--mode','heuristic','--seconds','1','--seed',seed,'--binary',binary,'--receipts-dir',join(directory,'receipts')],{cwd:resolve('.'),stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,['tools/survivors-bot/visible.mjs','--mode','heuristic','--seconds','1','--seed',seed,'--binary',binary,'--receipts-dir',join(directory,'receipts')],{cwd:resolve('.'),env:{...process.env,BENDRTS:'--threads 99 --gpu on'},stdio:['ignore','pipe','pipe']});
   let stdout='',stderr='';child.stdout.on('data',x=>stdout+=x);child.stderr.on('data',x=>stderr+=x);
   const timer=setTimeout(()=>child.kill('SIGKILL'),6000);
   const code=await new Promise((r,j)=>{child.on('error',j);child.on('exit',r)});clearTimeout(timer);
@@ -36,4 +36,9 @@ test('unexpected native signal marks the session failed',async()=>{
 test('explicit seed is forwarded to native environment and recorded in the journal',async()=>{
  const {code,records}=await runStub("if(process.env.NIGHTFALL_BOT_SEED!=='4294967295')process.exit(2);setInterval(()=>{},1000);",{seed:'4294967295'});
  assert.equal(code,0);assert.equal(records.find(r=>r.type==='start').seed,4294967295);assert.equal(records.at(-1).seed,4294967295);
+});
+
+test('managed native launch removes ambient runtime overrides',async()=>{
+ const {code,records}=await runStub("if('BENDRTS' in process.env)process.exit(2);setInterval(()=>{},1000);");
+ assert.equal(code,0);assert.equal(records.at(-1).outcome,'wall-limit');
 });
