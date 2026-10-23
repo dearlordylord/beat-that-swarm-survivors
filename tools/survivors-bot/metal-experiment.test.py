@@ -22,8 +22,9 @@ class Tests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_fake(self, metal_seconds=2, **env):
+    def run_fake(self, metal_seconds=2, noinline=False, **env):
         args = metal.parser().parse_args(['--output', str(self.root / 'output'), '--count', '3', '--ticks', '12', '--repetitions', '3', '--run-seconds', '1', '--total-seconds', '30', '--metal-build-seconds', str(metal_seconds)])
+        args.metal_noinline_spins = noinline
         exp = metal.Experiment(args, self.root)
         exp.env['CC'] = str(self.compiler)
         with patch.dict(os.environ, env), patch.object(exp, 'preflight', return_value=str(self.compiler)), patch.object(metal, 'verify_dispatch_contract', return_value={'status': 'VERIFIED', 'method': 'fake-contract'}):
@@ -68,8 +69,11 @@ class Tests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(r['commands'][-1]['label'], 'metal-build')
         self.assertTrue(r['commands'][-1]['timedOut'])
-        self.assertEqual(r['commands'][-2]['label'], 'native-build')
-        self.assertEqual(r['commands'][-2]['status'], 'PASS')
+        native = next(row for row in r['commands'] if row['label'] == 'native-build')
+        self.assertEqual(native['status'], 'PASS')
+        self.assertEqual(r['smokeCpu']['status'], 'PASS')
+        self.assertEqual(len(r['smokeCpu']['summariesExcludingWallMs']), 2)
+        self.assertEqual(r['commands'][-2]['label'], 'smoke-cpu')
         self.assertEqual(r['artifacts']['binarySHA256'], metal.sha(self.root / 'output/nightfall-gpu-batch'))
         self.assertNotIn('gpuSidecarSHA256', r['artifacts'])
         self.assertNotIn('semanticParity', r)
@@ -81,6 +85,67 @@ class Tests(unittest.TestCase):
         self.assertEqual(r['commands'][-1]['status'], 'PASS')
         self.assertIn('sidecar', r['error'])
         self.assertIn('binarySHA256', r['artifacts'])
+
+    def test_small_metal_budget_and_cpu_smoke_order(self):
+        defaults = metal.parser().parse_args([])
+        self.assertEqual(defaults.metal_build_seconds, 120)
+        self.assertEqual(defaults.total_seconds, 900)
+        code, report = self.run_fake()
+        self.assertEqual(code, 0)
+        labels = [row['label'] for row in report['commands']]
+        self.assertLess(labels.index('smoke-cpu'), labels.index('metal-build'))
+        self.assertIn('cBytes', report['codeMetrics'])
+        self.assertIn('fidCount', report['codeMetrics'])
+
+    def test_expanded_metal_limit_is_rejected(self):
+        with patch.object(sys, 'argv', ['metal-experiment.py', '--metal-build-seconds', '121']):
+            with self.assertRaises(SystemExit) as error:
+                metal.main()
+        self.assertEqual(error.exception.code, 2)
+
+    def noinline_fixture(self):
+        macros = b'#define FAR static __attribute__((noinline))\n#if DEVICE\n#define DFAR       FAR\n#define LOCK(l)\n#else\n#define DFAR       INLINE\n#endif\n'
+        functions = b'\n'.join(b'INLINE Term ' + name.encode() + b'(Env e) { return 0; }' for name in metal.NOINLINE_SPINS)
+        return macros + functions + b'\n/* unchanged tail */\n'
+
+    def test_noinline_transform_preserves_every_other_byte(self):
+        original = self.noinline_fixture()
+        transformed, metadata = metal.transform_metal_spins(original)
+        expected = original
+        for name in metal.NOINLINE_SPINS:
+            expected = expected.replace(b'INLINE Term ' + name.encode() + b'(', b'DFAR Term ' + name.encode() + b'(')
+        self.assertEqual(transformed, expected)
+        self.assertEqual(metadata['count'], 7)
+        self.assertEqual(metadata['originalSHA256'], metal.hashlib.sha256(original).hexdigest())
+        self.assertEqual(metadata['transformedSHA256'], metal.hashlib.sha256(transformed).hexdigest())
+        self.assertFalse(metal.parser().parse_args([]).metal_noinline_spins)
+
+    def test_noinline_transform_refuses_missing_duplicate_or_changed_macros(self):
+        source = self.noinline_fixture()
+        invalid = [source.replace(b'INLINE Term spin_416', b'FAR Term spin_416'), source + b'INLINE Term spin_416(Env e) { return 0; }\n', source.replace(b'#define DFAR       INLINE', b'#define DFAR       FAR'), source.replace(b'#define DFAR       FAR', b'#define DFAR       INLINE'), source.replace(b'#define FAR static __attribute__((noinline))', b'#define FAR static')]
+        for original in invalid:
+            with self.assertRaises(metal.Failure):
+                metal.transform_metal_spins(original)
+
+    def test_optional_noinline_pipeline_preserves_original_and_reports_metadata(self):
+        fixture = self.noinline_fixture()
+        with patch.object(metal, 'transform_metal_spins', return_value=(fixture, {'mode': 'metal-noinline-spins', 'count': 7})) as transform:
+            code, report = self.run_fake(noinline=True)
+        self.assertEqual(code, 0)
+        transform.assert_called_once()
+        self.assertEqual(report['metalCodeMode'], 'metal-noinline-spins')
+        self.assertTrue((self.root / 'output/generated.original.c').is_file())
+        self.assertEqual((self.root / 'output/generated.c').read_bytes(), fixture)
+        self.assertEqual(report['metalCodeTransform']['count'], 7)
+
+    def test_optional_transform_refusal_retains_raw_c_and_requested_mode(self):
+        with patch.object(metal, 'transform_metal_spins', side_effect=metal.Failure('changed candidate')):
+            code, report = self.run_fake(noinline=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(report['metalCodeMode'], 'metal-noinline-spins')
+        self.assertEqual(report['metalCodeTransform']['status'], 'REQUESTED')
+        self.assertEqual(report['metalCodeTransform']['originalSHA256'], metal.sha(self.root / 'output/generated.original.c'))
+        self.assertEqual([row['label'] for row in report['commands']], ['emit-c'])
 
     def test_native_build_uses_official_darwin_recipe(self):
         code, r = self.run_fake()

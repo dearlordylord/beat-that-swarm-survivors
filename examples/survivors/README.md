@@ -36,6 +36,7 @@ Qualification scripts require Node.js 20+, Bend, a C compiler and the platform a
 ```sh
 bash examples/survivors/check-native.sh
 bash examples/survivors/check-native-full.sh
+bash examples/survivors/check-quiet-boundary.sh
 ```
 
 An optional one-minute fresh-profile kiting observation reports survival, damage, progression and enemy density without requiring survival as a pass condition:
@@ -45,6 +46,8 @@ bash examples/survivors/check-native-pacing.sh
 ```
 
 This diagnostic initializes the fresh native UI loadout and uses input-only control. Its outcome is a scenario observation, not a full-run balance qualification or frame-rate measurement.
+
+`check-quiet-boundary.sh` uses the Bend JavaScript backend for a development-only comparison of complete authoritative state across frame-producing and quiet bot initialization, reward choices and natural runs. Native bot execution uses Bend/C.
 
 `check-native.sh` checks the launcher, native profile, real UI event flow and exact Bend-rendered frame captures, then compiles the windowed application. `check-native-full.sh` drives a full native run using public gameplay inputs. Native `run.command` does not require Node.js or the test helpers. The native application was qualified with Clang 19.1.7 on Linux arm64; set `CC` to select your compiler. macOS compilation uses the local Apple toolchain.
 

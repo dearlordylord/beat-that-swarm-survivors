@@ -170,12 +170,12 @@ The headless controller consumes each returned `Packet` through `observed_packet
 
 ## Experimental Metal batches on macOS
 
-The full-game Metal build timed out after 1200 seconds on M2 Max. Start with `bash tools/survivors-bot/metal-diagnose.sh`: two small controls, at most 90 seconds of Metal compilation each. See [diagnostic instructions](../../research/metal-diagnostics.md). The full-game command below is retained for later investigation, not the recommended next run.
+The full-game Metal build timed out after 1200 seconds on M2 Max. Start with `bash tools/survivors-bot/metal-diagnose.sh`: two small controls, at most 90 seconds of Metal compilation each. See [diagnostic instructions](../../research/metal-diagnostics.md). Those controls pass on M2 Max. The full-game command below now tests a [smaller GPU presentation closure](../../research/metal-game-boundary.md), with Metal compilation capped at 120 seconds and CPU smoke checked first.
 
 From the repository root on an Apple Silicon Mac:
 
 ```sh
-bash tools/survivors-bot/metal-experiment.sh
+bash tools/survivors-bot/metal-experiment.sh --metal-noinline-spins
 ```
 
 This rebuilds a GPU entry and compares the same native binary on CPU and forced Metal. The default starts small: a two-job smoke check, then eight 120-tick jobs in three paired repetitions. It prints parity, dispatch, timing and the persistent report path. Send that final block for analysis; if it fails, include the error and `Report:` path. Python 3 supervises the experiment; the bots execute Bend/C. See [requirements, limits and validation status](../../research/metal-bots.md). Actual Metal execution has not been validated in the Linux development environment.

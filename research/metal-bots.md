@@ -6,19 +6,23 @@ This prepares a real GPU experiment for a macOS Apple Silicon host. **Metal comp
 
 The second M2 Max run completed C emission (11.46 seconds) and native compilation (13.93 seconds), then exceeded the separate 1200-second Metal build limit. No GPU simulation or CPU/GPU performance comparison ran. `STATIC_CONTRACT_VERIFIED` only describes generated-code inspection. The [small diagnostic controls](metal-diagnostics.md) subsequently passed on this M2 Max: arithmetic and published Hub column CPU/GPU outputs match the independent oracle. Full-game Metal compilation remains unresolved; do not increase its timeout again.
 
-## Original full-game command (retained for later investigation)
+## Current full-game candidate
+
+The [presentation-closure reduction](metal-game-boundary.md) removes frame formatting from initialization/upgrades and returns numeric job summaries to the host. The current runner limits Metal compilation to 120 seconds and checks CPU smoke before that stage. Full-game GPU results for this candidate remain pending.
+
+## Run the current candidate on the Mac
 
 From the `bendvy-ecs-examples` repository root:
 
 ```sh
-bash tools/survivors-bot/metal-experiment.sh
+bash tools/survivors-bot/metal-experiment.sh --metal-noinline-spins
 ```
 
 The command needs Python 3 for orchestration, Bend 2.0.38 and Apple clang 17 or newer. The simulations themselves are native Bend, with no Node or classifier. `BEND` and `CC` can select tool paths. The version is intentionally pinned because the forced-dispatch check audits that runtime version; the script does not install or update tools.
 
 Each invocation emits C from current sources, compiles the native executable, and builds the adjacent `.gpu` program in separately reported stages, then uses the same binary with `+RTS --gpu off -RTS` and `+RTS --gpu on -RTS`. It first compares two 60-tick smoke jobs. By default, measurement uses eight jobs of 120 ticks, three paired repetitions in alternating CPU/GPU order, and up to eight CPU threads. These small jobs establish feasibility and a short-run comparison, not late-game performance or optimal GPU occupancy. Compilation and smoke time are excluded from the timing medians.
 
-The supervisor bounds C emission and native compilation to 300 seconds each. Metal compilation has its own 1200-second default budget (`--metal-build-seconds`, maximum 1800). Each simulation remains capped at 180 seconds; the overall default is 2400 seconds (`--total-seconds`, maximum 3600). It stops on compiler/runtime errors, timeout, changed inputs/artifacts or differing gameplay summary fields. It keeps the failure report and logs. The GPU is explicitly required for GPU cases; an unavailable Metal backend cannot silently run the experiment on CPU.
+The supervisor bounds C emission and native compilation to 300 seconds each. Metal compilation has its own 120-second default and maximum budget (`--metal-build-seconds`). Each simulation remains capped at 180 seconds; the overall default is 900 seconds (`--total-seconds`, maximum 1800). It stops on compiler/runtime errors, timeout, changed inputs/artifacts or differing gameplay summary fields. It keeps the failure report and logs. The GPU is explicitly required for GPU cases; an unavailable Metal backend cannot silently run the experiment on CPU.
 
 Copy the final console block, including PASS/FAIL, host/tool information, parity and dispatch status, timing and the `Report:` path. The report and raw logs are under ignored `examples/survivors/dist/metal-experiments/`; they remain on the shared filesystem. A failure is useful evidence: send the final error and report path rather than retrying a larger workload.
 

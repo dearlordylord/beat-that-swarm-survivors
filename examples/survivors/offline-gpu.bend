@@ -7,8 +7,10 @@ import parallel/scheduler.bend as Scheduler
 
 def solve(context: P.JobContext,plan: Scheduler.Plan) -> Scheduler.Results<P.Finished>:
   Scheduler.map_parallel(~P.JobContext,~P.Finished,~P.run_job,context,plan)
-def batch(count: U32,index: U32,stride: U32,seed: U32,profile: String,ticks: U32) -> IO(Unit):
+def batch_numeric(count: U32,index: U32,stride: U32,seed: U32,profile: U32,ticks: U32) -> IO(Unit):
   P.emit_all(Scheduler.to_list(~P.Finished,solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))))
+def batch(count: U32,index: U32,stride: U32,seed: U32,profile: String,ticks: U32) -> IO(Unit):
+  batch_numeric(count,index,stride,seed,P.profile_mode(profile),ticks)
 def main() -> IO(Unit):
   do IO<Unit>:
     count : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BATCH_COUNT")

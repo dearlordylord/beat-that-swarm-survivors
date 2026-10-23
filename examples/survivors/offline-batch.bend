@@ -24,8 +24,8 @@ def select_profile(+name: String,+index: U32) -> U32:
     case _: 0
 def start(+profile: U32,+seed: U32) -> G.Packet:
   match profile:
-    case 1: B.advanced_start_seed(seed)
-    case _: B.fresh_start_seed(seed)
+    case 1: B.advanced_start_seed_quiet(seed)
+    case _: B.fresh_start_seed_quiet(seed)
 def tick(+run: G.Run) -> U32:
   match run:
     case G.Run{_,value,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: value
@@ -61,8 +61,8 @@ def moved(result: Policy.Memory & G.Packet,+choices: U32) -> Progress:
   Progress{memory,packet,choices}
 def next(+currentPhase: U32,state: G.State,+run: G.Run,+rows: List<&2,G.Body>,+offers: List<&2,G.Offer>,+memory: Policy.Memory,+choices: U32) -> Progress:
   match currentPhase:
-    case 1: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
-    case 2: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
+    case 1: Progress{memory,G.choose_quiet(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
+    case 2: Progress{memory,G.choose_quiet(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
     case _: moved(move(state,Policy.movement(memory,run,rows)),choices)
 def gate(+ticks: U32,result: Progress) -> BatchReady:
   match result:

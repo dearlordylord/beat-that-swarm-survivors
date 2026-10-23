@@ -32,14 +32,6 @@ class Diagnosis(shared.Experiment):
         self.report['measurementLogicSHA256'] = dict(self.guard_files)
         self.probe_sources = None
 
-    def execute(self, label, argv, seconds, env=None):
-        try:
-            return super().execute(label, argv, seconds, env)
-        finally:
-            row = next((row for row in reversed(self.report['commands']) if row['label'] == label), None)
-            if row is not None and 'wallSeconds' in row:
-                print(label + ': elapsed ' + format(row['wallSeconds'], '.3f') + 's', flush=True)
-
     def guard(self):
         super().guard()
         if self.probe_sources is not None:

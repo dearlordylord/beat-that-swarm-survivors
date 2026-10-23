@@ -10,6 +10,33 @@ FIELDS = set('type backend policy index seed profile status tick requestedTicks 
 class Failure(RuntimeError):
     pass
 
+NOINLINE_SPINS = ('spin_416', 'spin_511', 'spin_382', 'spin_429', 'spin_451', 'spin_526', 'spin_531')
+
+
+def transform_metal_spins(source):
+    """Replace only seven candidate-specific definition prefixes, byte for byte."""
+    definitions = re.findall(rb'^#define[ \t]+DFAR[ \t]+(\w+)[ \t]*$', source, re.M)
+    layout = rb'^#if DEVICE\r?\n#define DFAR[ \t]+FAR\r?\n(?:(?!^#if|^#elif|^#endif).)*^#else\r?\n#define DFAR[ \t]+INLINE\r?\n'
+    if definitions != [b'FAR', b'INLINE'] or not re.search(layout, source, re.M | re.S):
+        raise Failure('Noinline mode requires the known device DFAR=FAR and host DFAR=INLINE macro branches')
+    if re.findall(rb'^#define[ \t]+FAR[ \t]+([^\r\n]+)', source, re.M) != [b'static __attribute__((noinline))']:
+        raise Failure('Noinline mode requires the known FAR noinline definition')
+    spans = []
+    for name in NOINLINE_SPINS:
+        encoded = name.encode('ascii')
+        pattern = rb'^INLINE Term ' + encoded + rb'\([^;\r\n]*\) \{'
+        matches = list(re.finditer(pattern, source, re.M))
+        all_definitions = re.findall(rb'^\w+[ \t]+Term[ \t]+' + encoded + rb'\([^;\r\n]*\)[ \t]*\{', source, re.M)
+        if len(matches) != 1 or len(all_definitions) != 1:
+            raise Failure('Noinline mode requires exactly one unchanged INLINE definition of ' + name)
+        spans.append((matches[0].start(), matches[0].start() + len(b'INLINE')))
+    transformed = source
+    for start, end in sorted(spans, reverse=True):
+        transformed = transformed[:start] + b'DFAR' + transformed[end:]
+    metadata = {'status': 'APPLIED', 'mode': 'metal-noinline-spins', 'originalSHA256': hashlib.sha256(source).hexdigest(), 'transformedSHA256': hashlib.sha256(transformed).hexdigest(), 'count': len(spans), 'targets': list(NOINLINE_SPINS), 'scope': 'Candidate-specific generated-C diagnostic only: seven INLINE→DFAR definition prefixes. CPU DFAR expands to the identical INLINE macro; device DFAR expands to existing FAR noinline. No flags, math or scheduling changes. Runtime performance and Metal compile benefit are unproven.'}
+    return transformed, metadata
+
+
 def verify_dispatch_contract(text, source, *, solve_row=(4, 0, 1, 0), boundary='solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))'):
     compact = re.sub('\\s+', '', text)
     match = re.search('^\\s*#define\\s+BANGS\\s+(\\d+)', text, re.M)
@@ -93,6 +120,7 @@ class Experiment:
                 for stream in ('stdout', 'stderr'):
                     row[stream + 'SHA256'] = sha(self.out / (label + '.' + stream))
                 self.save()
+                print(label + ': ' + row['status'] + ', elapsed ' + format(row['wallSeconds'], '.3f') + 's', flush=True)
                 if cleanup_error is not None and not active_error:
                     raise Failure('Owned child cleanup failed: ' + str(cleanup_error))
         return ((self.out / (label + '.stdout')).read_text(errors='replace'), row['wallSeconds'])
@@ -224,8 +252,23 @@ class Experiment:
             cfile = self.out / 'generated.c'
             self.guard()
             self.execute('emit-c', [bend, str(source), '-o', str(cfile)], 300)
+            self.report['metalCodeMode'] = 'metal-noinline-spins' if self.args.metal_noinline_spins else 'standard'
+            if self.args.metal_noinline_spins:
+                original = cfile.read_bytes()
+                raw = self.out / 'generated.original.c'
+                raw.write_bytes(original)
+                self.guard_files[str(raw)] = sha(raw)
+                self.report['metalCodeTransform'] = {'status': 'REQUESTED', 'originalSHA256': sha(raw), 'originalPath': str(raw)}
+                self.save()
+                transformed, metadata = transform_metal_spins(original)
+                self.report['metalCodeMode'] = 'metal-noinline-spins'
+                self.report['metalCodeTransform'] = metadata
+                cfile.write_bytes(transformed)
+                self.save()
             self.guard_files[str(cfile)] = sha(cfile)
             self.report['artifacts'] = {'generatedCSHA256': sha(cfile)}
+            self.report['codeMetrics'] = {'cBytes': cfile.stat().st_size, 'fidCount': len(re.findall(r'^\s*#define\s+FID_\w+\s+\d+', cfile.read_text(errors='replace'), re.M))}
+            print('Generated C: ' + str(self.report['codeMetrics']['cBytes']) + ' bytes, ' + str(self.report['codeMetrics']['fidCount']) + ' FIDs', flush=True)
             self.report['dispatch'] = verify_dispatch_contract(cfile.read_text(errors='replace'), source.read_text())
             self.report['dispatch']['status'] = 'STATIC_CONTRACT_VERIFIED'
             self.save()
@@ -239,7 +282,10 @@ class Experiment:
             self.report['artifacts']['binarySHA256'] = sha(binary)
             self.save()
             self.guard()
-            # Metal library compilation is a separate, potentially much slower stage.
+            cpu, cpu_seconds = self.run_case('smoke-cpu', 'off', 2, 60)
+            self.report['smokeCpu'] = {'status': 'PASS', 'wallSeconds': cpu_seconds, 'summariesExcludingWallMs': cpu}
+            self.save()
+            # Keep Metal compilation short; retain the CPU smoke if it times out.
             self.execute('metal-build', [str(binary), '+RTS', '--gpu-build', '-RTS'], self.args.metal_build_seconds)
             self.guard()
             sidecar = Path(str(binary) + '.gpu')
@@ -247,7 +293,6 @@ class Experiment:
             self.guard_files[str(sidecar)] = sha(sidecar)
             self.report['artifacts']['gpuSidecarSHA256'] = sha(sidecar)
             self.save()
-            cpu, _ = self.run_case('smoke-cpu', 'off', 2, 60)
             gpu, _ = self.run_case('smoke-gpu', 'on', 2, 60)
             self.parity(cpu, gpu, 'Smoke CPU/GPU')
             self.report['dispatch']['status'] = 'VERIFIED'
@@ -318,15 +363,16 @@ def parser():
     p.add_argument('--threads', type=int, default=min(8, os.cpu_count() or 1))
     p.add_argument('--repetitions', type=int, default=3)
     p.add_argument('--run-seconds', type=int, default=180)
-    p.add_argument('--metal-build-seconds', type=int, default=1200)
-    p.add_argument('--total-seconds', type=int, default=2400)
+    p.add_argument('--metal-noinline-spins', action='store_true', help='Experimental candidate-specific Metal-only noinline boundaries; disabled by default')
+    p.add_argument('--metal-build-seconds', type=int, default=120)
+    p.add_argument('--total-seconds', type=int, default=900)
     p.add_argument('--output', default=None)
     return p
 
 def main():
     p = parser()
     a = p.parse_args()
-    if not (1 <= a.count <= 10000 and 1 <= a.ticks <= 37000 and (0 <= a.seed <= 4294967295) and (1 <= a.threads <= 128) and (1 <= a.repetitions <= 10) and (1 <= a.run_seconds <= 180) and (1 <= a.metal_build_seconds <= 1800) and (1 <= a.total_seconds <= 3600)):
+    if not (1 <= a.count <= 10000 and 1 <= a.ticks <= 37000 and (0 <= a.seed <= 4294967295) and (1 <= a.threads <= 128) and (1 <= a.repetitions <= 10) and (1 <= a.run_seconds <= 180) and (1 <= a.metal_build_seconds <= 120) and (1 <= a.total_seconds <= 1800)):
         p.error('Workload or timeout outside documented bounds')
     repo = Path(__file__).resolve().parents[2]
     if a.output is None:

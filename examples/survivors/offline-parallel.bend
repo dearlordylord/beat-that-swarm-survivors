@@ -5,33 +5,54 @@ import offline-policy.bend as Policy
 import offline-batch.bend as Serial
 import parallel/scheduler.bend as Scheduler
 
-def summary(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,G.Body>) -> String:
+# GPU workers return only detached numeric result fields on successful jobs.
+# JSON construction and error-message prefixes belong to the host emitter.
+type NumericSummary is Data:
+  NumericSummary{index: U32,seed: U32,profile: U32,choices: U32,requestedTicks: U32,phase: U32,tick: U32,hp: U32,level: U32,xp: U32,xpNeed: U32,kills: U32,gold: U32,xpPiles: U32,uncollectedBaseXp: U32}
+
+def capture(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,G.Body>) -> NumericSummary:
   match run:
-    case G.Run{+phase,+tick,_,_,hp,_,xp,xpNeed,level,kills,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      "{\"type\":\"summary\",\"backend\":\"native\",\"policy\":\"bend-resource-memory-v1\",\"index\":" ++ U32.show(index) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"profile\":\"" ++ Serial.profile_name(profile) ++ "\",\"status\":\"completed\",\"tick\":" ++ U32.show(tick) ++ ",\"requestedTicks\":" ++ U32.show(ticks) ++ ",\"outcome\":\"" ++ Serial.outcome(U32.is_le(3,phase)) ++ "\",\"phase\":" ++ U32.show(phase) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"level\":" ++ U32.show(level) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(xpNeed) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"choices\":" ++ U32.show(choices) ++ ",\"xpPiles\":" ++ U32.show(Serial.piles(rows)) ++ ",\"uncollectedBaseXp\":" ++ U32.show(Serial.xp_sum(rows)) ++ ",\"wallMs\":" ++ "null" ++ "}"
+    case G.Run{phase,tick,_,_,hp,_,xp,xpNeed,level,kills,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
+      NumericSummary{index,seed,profile,choices,ticks,phase,tick,hp,level,xp,xpNeed,kills,gold,Serial.piles(rows),Serial.xp_sum(rows)}
+def summary(result: NumericSummary) -> String:
+  match result:
+    case NumericSummary{index,seed,profile,choices,requestedTicks,+phase,tick,hp,level,xp,xpNeed,kills,gold,xpPiles,uncollectedBaseXp}:
+      "{\"type\":\"summary\",\"backend\":\"native\",\"policy\":\"bend-resource-memory-v1\",\"index\":" ++ U32.show(index) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"profile\":\"" ++ Serial.profile_name(profile) ++ "\",\"status\":\"completed\",\"tick\":" ++ U32.show(tick) ++ ",\"requestedTicks\":" ++ U32.show(requestedTicks) ++ ",\"outcome\":\"" ++ Serial.outcome(U32.is_le(3,phase)) ++ "\",\"phase\":" ++ U32.show(phase) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"level\":" ++ U32.show(level) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(xpNeed) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"choices\":" ++ U32.show(choices) ++ ",\"xpPiles\":" ++ U32.show(xpPiles) ++ ",\"uncollectedBaseXp\":" ++ U32.show(uncollectedBaseXp) ++ ",\"wallMs\":" ++ "null" ++ "}"
 
 type Finished is Data:
-  Complete{summary: String}
+  Complete{result: NumericSummary}
   Failed{error: String}
+  SafetyFuel{}
 
 def simulate(+fuel: Nat,+ticks: U32,+index: U32,+seed: U32,+profile: U32,observed: Serial.BatchReady) -> Finished:
   match fuel observed:
-    case _ Serial.BatchReady{_,Serial.Progress{_,G.Failed{error},_}}: Failed{"Native batch game failure: " ++ error}
-    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,rows,_,_,_},_},choices}}: Complete{summary(index,seed,profile,choices,ticks,run,rows)}
-    case 0n _: Failed{"Native batch exhausted safety fuel before requested tick horizon"}
+    case _ Serial.BatchReady{_,Serial.Progress{_,G.Failed{error},_}}: Failed{error}
+    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,rows,_,_,_},_},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,rows)}
+    case 0n _: SafetyFuel{}
     case 1n+rest Serial.BatchReady{False{},Serial.Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending},_},choices}}:
       simulate(rest,ticks,index,seed,profile,Serial.gate(ticks,Serial.next(G.run_phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,choices)))
-def job(+ticks: U32,+seed: U32,+profile: String,+index: U32) -> Finished:
-  simulate(U32.to_nat((ticks * 4 + 100 : U32)),ticks,index,(seed + index : U32),Serial.select_profile(profile,index),Serial.gate(ticks,Serial.Progress{Policy.initial(),Serial.start(Serial.select_profile(profile,index),(seed + index : U32)),0}))
+# Parse profile names on the host once; mode 2 alternates by global job index.
+def profile_mode(name: String) -> U32:
+  match name:
+    case "advanced": 1
+    case "both": 2
+    case _: 0
+def select_profile(+mode: U32,+index: U32) -> U32:
+  match mode:
+    case 2: (index % 2 : U32)
+    case _: mode
+def job(+ticks: U32,+seed: U32,+profile: U32,+index: U32) -> Finished:
+  simulate(U32.to_nat((ticks * 4 + 100 : U32)),ticks,index,(seed + index : U32),select_profile(profile,index),Serial.gate(ticks,Serial.Progress{Policy.initial(),Serial.start(select_profile(profile,index),(seed + index : U32)),0}))
 def emit(result: Finished) -> IO(Unit):
   match result:
-    case Failed{error}: IO.die(Unit,1,error)
-    case Complete{text}:
+    case Failed{error}: IO.die(Unit,1,"Native batch game failure: " ++ error)
+    case SafetyFuel{}: IO.die(Unit,1,"Native batch exhausted safety fuel before requested tick horizon")
+    case Complete{result}:
       do IO<Unit>:
-        IO.print(text)
+        IO.print(summary(result))
         IO.print_err("Completed native Bend parallel result")
 
-type JobContext is Data: JobContext{ticks: U32,seed: U32,profile: String}
+type JobContext is Data: JobContext{ticks: U32,seed: U32,profile: U32}
 def run_job(context: JobContext,index: U32) -> Finished:
   match context:
     case JobContext{ticks,seed,profile}: job(ticks,seed,profile,index)
@@ -45,7 +66,7 @@ def emit_all(results: List<&2,Finished>) -> IO(Unit):
         emit(first)
         emit_all(rest)
 def batch(count: U32,index: U32,stride: U32,seed: U32,profile: String,ticks: U32) -> IO(Unit):
-  emit_all(Scheduler.to_list(~Finished,Scheduler.map_parallel(~JobContext,~Finished,~run_job,JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))))
+  emit_all(Scheduler.to_list(~Finished,Scheduler.map_parallel(~JobContext,~Finished,~run_job,JobContext{ticks,seed,profile_mode(profile)},Scheduler.build(count,index,stride))))
 def main() -> IO(Unit):
   do IO<Unit>:
     count : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BATCH_COUNT")
