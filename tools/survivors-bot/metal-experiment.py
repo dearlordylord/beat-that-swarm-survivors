@@ -2,6 +2,7 @@
 """Bounded macOS CPU/Metal experiment; Python only orchestrates native Bend."""
 import argparse, fcntl, hashlib, json, os, platform, re, shutil, signal, statistics, subprocess, sys, time
 from pathlib import Path
+from metal_segments import transform_metal_segments
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -37,6 +38,29 @@ def transform_metal_spins(source):
     return transformed, metadata
 
 
+def transform_metal_trace(source):
+    """Instrument host APIs only; never modify the embedded device program."""
+    replacements = [
+        (b'static MTLComputePipelineDescriptor* gpu_desc(void) {', b'static void metal_stage(const char* stage, const char* event) {\n  struct timespec ts;\n  clock_gettime(CLOCK_MONOTONIC, &ts);\n  fprintf(stderr, "[metal-stage] %s %s %.9f\\n", stage, event,\n    (double)ts.tv_sec + (double)ts.tv_nsec / 1e9);\n  fflush(stderr);\n}\n\nstatic MTLComputePipelineDescriptor* gpu_desc(void) {'),
+        (b'  id<MTLLibrary> lib = [gpu_dev newLibraryWithSource:', b'  metal_stage("library", "begin");\n  id<MTLLibrary> lib = [gpu_dev newLibraryWithSource:'),
+        (b'  if (!lib) {', b'  metal_stage("library", "end");\n  if (!lib) {'),
+        (b'  d.computeFunction = [lib newFunctionWithName:@"bend_dev"];', b'  metal_stage("function", "begin");\n  d.computeFunction = [lib newFunctionWithName:@"bend_dev"];\n  metal_stage("function", "end");'),
+        (b'  id<MTLBinaryArchive> ar = [gpu_dev\n    newBinaryArchiveWithDescriptor:', b'  metal_stage("archive-create", "begin");\n  id<MTLBinaryArchive> ar = [gpu_dev\n    newBinaryArchiveWithDescriptor:'),
+        (b'  if (![ar addComputePipelineFunctionsWithDescriptor:gpu_desc() error:&err]) {', b'  metal_stage("archive-create", "end");\n  MTLComputePipelineDescriptor* d = gpu_desc();\n  metal_stage("archive-add", "begin");\n  bool added = [ar addComputePipelineFunctionsWithDescriptor:d error:&err];\n  metal_stage("archive-add", "end");\n  if (!added) {'),
+        (b'  return [ar serializeToURL:[NSURL fileURLWithPath:@(path)] error:&err];', b'  metal_stage("archive-save", "begin");\n  bool saved = [ar serializeToURL:[NSURL fileURLWithPath:@(path)] error:&err];\n  metal_stage("archive-save", "end");\n  return saved;'),
+        (b'  id<MTLComputePipelineState> pso = [gpu_dev', b'  metal_stage("pipeline", "begin");\n  id<MTLComputePipelineState> pso = [gpu_dev'),
+        (b'  if (!pso && !ar) {', b'  metal_stage("pipeline", "end");\n  if (!pso && !ar) {'),
+        (b'    id<MTLBinaryArchive> ar = [gpu_dev newBinaryArchiveWithDescriptor:ad', b'    metal_stage("archive-load", "begin");\n    id<MTLBinaryArchive> ar = [gpu_dev newBinaryArchiveWithDescriptor:ad'),
+        (b'    gpu_pso = ar ? gpu_pipe(d, ar) : nil;', b'    metal_stage("archive-load", "end");\n    gpu_pso = ar ? gpu_pipe(d, ar) : nil;'),
+    ]
+    original = source
+    for old, new in replacements:
+        if source.count(old) != 1:
+            raise Failure('Metal stage tracing requires exactly one known host API site: ' + old.decode())
+        source = source.replace(old, new, 1)
+    return source, {'status': 'APPLIED', 'originalSHA256': hashlib.sha256(original).hexdigest(), 'transformedSHA256': hashlib.sha256(source).hexdigest(), 'scope': 'Host-only flushed monotonic timestamps around Metal library/function/archive/pipeline APIs. Effective device code unchanged (host sections are preprocessed out).'}
+
+
 def verify_dispatch_contract(text, source, *, solve_row=(4, 0, 1, 0), boundary='solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))'):
     compact = re.sub('\\s+', '', text)
     match = re.search('^\\s*#define\\s+BANGS\\s+(\\d+)', text, re.M)
@@ -49,7 +73,13 @@ def verify_dispatch_contract(text, source, *, solve_row=(4, 0, 1, 0), boundary='
     if index >= len(rows) or rows[index] != tuple(solve_row):
         raise Failure('solve task is not the expected marked GPU function')
     host = re.search('(?:u64|Term)\\s+(\\w+)\\s*=\\s*task_node\\(e,\\s*FID_solve,\\s*WL_CONT,\\s*WL_IDX,\\s*0\\);', text)
-    if not host or not re.search('return\\s+term_tsk\\(FID_solve,\\s*' + re.escape(host.group(1)) + '\\);', text[host.end():host.end() + 1000]):
+    direct = bool(host and re.search('return\\s+term_tsk\\(FID_solve,\\s*' + re.escape(host.group(1)) + '\\);', text[host.end():host.end() + 1000]))
+    segmented = bool(host and re.search(r'return\s+metal_done\(s,\s*term_tsk\(FID_solve,\s*' + re.escape(host.group(1)) + r'\)\);', text[host.end():host.end() + 1000]))
+    if segmented:
+        segment_contract = ['staticboolmetal_done(THRMetalState*s,Termresult){s->ret=result;returntrue;}', '#defineWL_CASE(F)FARboolmetal_##F(Enve,THRMetalState*s){', '#defineWL_JMP(F){fid=(F);returnfalse;}', 'caseFID_solve:done=metal_FID_solve(e,&s);break;', 'if(done){returns.ret;}']
+        if any(marker not in compact for marker in segment_contract):
+            raise Failure('Segment dispatcher does not preserve the marked task return contract')
+    if not direct and not segmented:
         raise Failure('solve host task must have zero pending arguments and return directly')
     required = ['typedefstruct{u8ar,resw,bangs,nofk;}Fid;', '#definefid_bangs(x)FID_T[x].bangs', 'e.mem[loc+ar+1]=((u64)idx<<32)|rem;', 'work_loop(e,io_stk,t,!BANGS&&pool_size==1)', 'if((u32)H[tl+1]!=0)', 'cube_run(H,false);', 'if(io_gpu&&fid_bangs((u32)term_aux(t)))', 'cube_run(H,true);', 'if(gpu==1&&BANGS!=0&&why!=NULL){err_fail(why);}', 'MTLCreateSystemDefaultDevice()', 'gpu_pass(H);', '[gpu_encdispatchThreadgroupsWithIndirectBuffer:gpu_bufindirectBufferOffset:H_GROUPS*8+at*12threadsPerThreadgroup:MTLSizeMake(CUBE_T,1,1)]', '[ccommit];', '[cwaitUntilCompleted];', 'if([cerror]){gpu_fail([cerror]);}']
     if any((marker not in compact for marker in required)):
@@ -77,6 +107,8 @@ class Experiment:
         launcher = Path(__file__).with_suffix('.sh')
         if launcher.is_file():
             self.guard_files[str(launcher.resolve())] = sha(launcher)
+        segments = Path(__file__).with_name('metal_segments.py').resolve()
+        self.guard_files[str(segments)] = sha(segments)
         self.report['measurementLogicSHA256'] = dict(self.guard_files)
         self.source_files = None
 
@@ -117,6 +149,9 @@ class Experiment:
                     cleanup_error = error
                     row['cleanupError'] = repr(error)
                 row['wallSeconds'] = time.monotonic() - begin
+                events = re.findall(r'^\[metal-stage\] ([a-z-]+) (begin|end) ([0-9.]+)$', (self.out / (label + '.stderr')).read_text(errors='replace'), re.M)
+                if events:
+                    row['metalStageEvents'] = [{'stage': stage, 'event': event, 'monotonicSeconds': float(stamp)} for stage, event, stamp in events]
                 for stream in ('stdout', 'stderr'):
                     row[stream + 'SHA256'] = sha(self.out / (label + '.' + stream))
                 self.save()
@@ -232,6 +267,7 @@ class Experiment:
         return (self.summaries(label, count, ticks), elapsed)
 
     def run(self):
+        self.report['limits']['smokeTicks'] = self.args.smoke_ticks
         lock = None
         try:
             lock = open('/tmp/bendvy-parity-heavy.lock', 'a')
@@ -252,7 +288,8 @@ class Experiment:
             cfile = self.out / 'generated.c'
             self.guard()
             self.execute('emit-c', [bend, str(source), '-o', str(cfile)], 300)
-            self.report['metalCodeMode'] = 'metal-noinline-spins' if self.args.metal_noinline_spins else 'standard'
+            mode = 'metal-noinline-spins' if self.args.metal_noinline_spins else 'standard'
+            self.report['metalCodeMode'] = mode
             if self.args.metal_noinline_spins:
                 original = cfile.read_bytes()
                 raw = self.out / 'generated.original.c'
@@ -261,9 +298,25 @@ class Experiment:
                 self.report['metalCodeTransform'] = {'status': 'REQUESTED', 'originalSHA256': sha(raw), 'originalPath': str(raw)}
                 self.save()
                 transformed, metadata = transform_metal_spins(original)
-                self.report['metalCodeMode'] = 'metal-noinline-spins'
+                self.report['metalCodeMode'] = mode
                 self.report['metalCodeTransform'] = metadata
                 cfile.write_bytes(transformed)
+                self.save()
+            if self.args.metal_segment_functions:
+                before_segments = self.out / 'generated.pre-segments.c'
+                before_segments.write_bytes(cfile.read_bytes())
+                self.guard_files[str(before_segments)] = sha(before_segments)
+                segmented, metadata = transform_metal_segments(cfile.read_bytes())
+                cfile.write_bytes(segmented)
+                self.report['metalSegmentFunctions'] = metadata
+                self.save()
+            if self.args.metal_stage_trace:
+                before_trace = self.out / 'generated.pre-trace.c'
+                before_trace.write_bytes(cfile.read_bytes())
+                self.guard_files[str(before_trace)] = sha(before_trace)
+                traced, metadata = transform_metal_trace(cfile.read_bytes())
+                cfile.write_bytes(traced)
+                self.report['metalStageTrace'] = metadata
                 self.save()
             self.guard_files[str(cfile)] = sha(cfile)
             self.report['artifacts'] = {'generatedCSHA256': sha(cfile)}
@@ -282,7 +335,7 @@ class Experiment:
             self.report['artifacts']['binarySHA256'] = sha(binary)
             self.save()
             self.guard()
-            cpu, cpu_seconds = self.run_case('smoke-cpu', 'off', 2, 60)
+            cpu, cpu_seconds = self.run_case('smoke-cpu', 'off', 2, self.args.smoke_ticks)
             self.report['smokeCpu'] = {'status': 'PASS', 'wallSeconds': cpu_seconds, 'summariesExcludingWallMs': cpu}
             self.save()
             # Keep Metal compilation short; retain the CPU smoke if it times out.
@@ -293,7 +346,7 @@ class Experiment:
             self.guard_files[str(sidecar)] = sha(sidecar)
             self.report['artifacts']['gpuSidecarSHA256'] = sha(sidecar)
             self.save()
-            gpu, _ = self.run_case('smoke-gpu', 'on', 2, 60)
+            gpu, _ = self.run_case('smoke-gpu', 'on', 2, self.args.smoke_ticks)
             self.parity(cpu, gpu, 'Smoke CPU/GPU')
             self.report['dispatch']['status'] = 'VERIFIED'
             self.report['dispatch']['gpuSmokeCompleted'] = True
@@ -362,7 +415,10 @@ def parser():
     p.add_argument('--profile', choices=['fresh', 'advanced', 'both'], default='both')
     p.add_argument('--threads', type=int, default=min(8, os.cpu_count() or 1))
     p.add_argument('--repetitions', type=int, default=3)
+    p.add_argument('--smoke-ticks', type=int, default=60, help='Smoke horizon (1..60); lower values qualify only shorter diagnostics')
     p.add_argument('--run-seconds', type=int, default=180)
+    p.add_argument('--metal-segment-functions', action='store_true', help='Experimental device segment dispatcher with shared lane state')
+    p.add_argument('--metal-stage-trace', action='store_true', help='Trace host Metal compiler stages with flushed monotonic timestamps')
     p.add_argument('--metal-noinline-spins', action='store_true', help='Experimental candidate-specific Metal-only noinline boundaries; disabled by default')
     p.add_argument('--metal-build-seconds', type=int, default=120)
     p.add_argument('--total-seconds', type=int, default=900)
@@ -372,7 +428,7 @@ def parser():
 def main():
     p = parser()
     a = p.parse_args()
-    if not (1 <= a.count <= 10000 and 1 <= a.ticks <= 37000 and (0 <= a.seed <= 4294967295) and (1 <= a.threads <= 128) and (1 <= a.repetitions <= 10) and (1 <= a.run_seconds <= 180) and (1 <= a.metal_build_seconds <= 120) and (1 <= a.total_seconds <= 1800)):
+    if not (1 <= a.smoke_ticks <= 60 and 1 <= a.count <= 10000 and 1 <= a.ticks <= 37000 and (0 <= a.seed <= 4294967295) and (1 <= a.threads <= 128) and (1 <= a.repetitions <= 10) and (1 <= a.run_seconds <= 180) and (1 <= a.metal_build_seconds <= 120) and (1 <= a.total_seconds <= 1800)):
         p.error('Workload or timeout outside documented bounds')
     repo = Path(__file__).resolve().parents[2]
     if a.output is None:

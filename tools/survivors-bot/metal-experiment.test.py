@@ -11,26 +11,70 @@ class Tests(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self.tmp.name)
+        self.root = Path(self.tmp.name).resolve()
         (self.root / 'examples/survivors').mkdir(parents=True)
         (self.root / 'examples/survivors/offline-gpu.bend').write_text('fake source')
         (self.root / 'bendhub-dependencies.json').write_text('{}')
         self.compiler = self.root / 'bend'
-        self.compiler.write_text('#!' + sys.executable + "\nimport os,sys\nfrom pathlib import Path\np=Path(sys.argv[sys.argv.index('-o')+1])\nif p.suffix=='.c':p.write_text('#define BANGS 1\\n')\nelse:\n if os.environ.get('FAKE_BUILD_FAIL')=='1':sys.exit(9)\n p.write_text(" + repr('#!' + sys.executable + "\nimport json,os,sys,time\nif '--gpu-build' in sys.argv:\n if os.environ.get('FAKE_METAL_TIMEOUT')=='1':time.sleep(10)\n if os.environ.get('FAKE_METAL_FAIL')=='1':sys.exit(8)\n if os.environ.get('FAKE_MISSING_SIDECAR')!='1':Path = __import__('pathlib').Path;Path(sys.argv[0]+'.gpu').write_text('fake metal library')\n sys.exit(0)\nif os.environ.get('FAKE_FAIL')=='1':sys.exit(7)\nif os.environ.get('FAKE_TIMEOUT')=='1':time.sleep(10)\nassert sys.argv[1]=='+RTS' and sys.argv[-1]=='-RTS'\ngpu=sys.argv[sys.argv.index('--gpu')+1]=='on'\nfor i in range(int(os.environ['NIGHTFALL_BATCH_COUNT'])):\n profile=os.environ['NIGHTFALL_BATCH_PROFILE'];profile=('advanced' if i%2 else 'fresh') if profile=='both' else profile\n ticks=int(os.environ['NIGHTFALL_BATCH_TICKS'])\n print(json.dumps(dict(type='summary',backend='native',status='completed',index=i,seed=(int(os.environ['NIGHTFALL_BATCH_SEED'])+i)%4294967296,profile=profile,requestedTicks=ticks,tick=ticks,phase=0,outcome='bounded-observation',wallMs=None,policy='bend-resource-memory-v1',hp=1 if gpu and os.environ.get('FAKE_DIFF')=='1' else 0,level=1,xp=0,xpNeed=1,kills=0,gold=0,choices=0,xpPiles=0,uncollectedBaseXp=0)))\n") + ')\n p.chmod(0o755)\n')
+        self.compiler.write_text('#!' + sys.executable + "\nimport os,sys\nfrom pathlib import Path\np=Path(sys.argv[sys.argv.index('-o')+1])\nif p.suffix=='.c':p.write_text('#define BANGS 1\\n')\nelse:\n if os.environ.get('FAKE_BUILD_FAIL')=='1':sys.exit(9)\n p.write_text(" + repr('#!' + sys.executable + "\nimport json,os,sys,time\nif '--gpu-build' in sys.argv:\n if os.environ.get('FAKE_TRACE')=='1':print('[metal-stage] library begin 123.25',file=sys.stderr,flush=True)\n if os.environ.get('FAKE_METAL_TIMEOUT')=='1':time.sleep(10)\n if os.environ.get('FAKE_METAL_FAIL')=='1':sys.exit(8)\n if os.environ.get('FAKE_MISSING_SIDECAR')!='1':Path = __import__('pathlib').Path;Path(sys.argv[0]+'.gpu').write_text('fake metal library')\n sys.exit(0)\nif os.environ.get('FAKE_FAIL')=='1':sys.exit(7)\nif os.environ.get('FAKE_TIMEOUT')=='1':time.sleep(10)\nassert sys.argv[1]=='+RTS' and sys.argv[-1]=='-RTS'\ngpu=sys.argv[sys.argv.index('--gpu')+1]=='on'\nfor i in range(int(os.environ['NIGHTFALL_BATCH_COUNT'])):\n profile=os.environ['NIGHTFALL_BATCH_PROFILE'];profile=('advanced' if i%2 else 'fresh') if profile=='both' else profile\n ticks=int(os.environ['NIGHTFALL_BATCH_TICKS'])\n print(json.dumps(dict(type='summary',backend='native',status='completed',index=i,seed=(int(os.environ['NIGHTFALL_BATCH_SEED'])+i)%4294967296,profile=profile,requestedTicks=ticks,tick=ticks,phase=0,outcome='bounded-observation',wallMs=None,policy='bend-resource-memory-v1',hp=1 if gpu and os.environ.get('FAKE_DIFF')=='1' else 0,level=1,xp=0,xpNeed=1,kills=0,gold=0,choices=0,xpPiles=0,uncollectedBaseXp=0)))\n") + ')\n p.chmod(0o755)\n')
         self.compiler.chmod(493)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_fake(self, metal_seconds=2, noinline=False, **env):
+    def run_fake(self, metal_seconds=2, noinline=False, smoke_ticks=60, **env):
         args = metal.parser().parse_args(['--output', str(self.root / 'output'), '--count', '3', '--ticks', '12', '--repetitions', '3', '--run-seconds', '1', '--total-seconds', '30', '--metal-build-seconds', str(metal_seconds)])
         args.metal_noinline_spins = noinline
+        args.smoke_ticks = smoke_ticks
         exp = metal.Experiment(args, self.root)
         exp.env['CC'] = str(self.compiler)
         with patch.dict(os.environ, env), patch.object(exp, 'preflight', return_value=str(self.compiler)), patch.object(metal, 'verify_dispatch_contract', return_value={'status': 'VERIFIED', 'method': 'fake-contract'}):
             exp.env.update(env)
             code = exp.run()
         return (code, json.loads((self.root / 'output/report.json').read_text()))
+
+    def test_stage_trace_preserves_device_source_and_rejects_unknown_layout(self):
+        runtime = Path(__file__).parent / 'fixtures/metal-host-2.0.38.c'
+        source = runtime.read_bytes()
+        traced, metadata = metal.transform_metal_trace(source)
+        self.assertEqual(metadata['status'], 'APPLIED')
+        self.assertIn(b'fflush(stderr);', traced)
+        self.assertIn(b'metal_stage("archive-add", "begin");', traced)
+        self.assertEqual(source.split(b'static MTLComputePipelineDescriptor* gpu_desc')[0], traced.split(b'static void metal_stage')[0])
+        with self.assertRaises(metal.Failure):
+            metal.transform_metal_trace(source.replace(b'newLibraryWithSource:', b'unknownLibraryAPI:'))
+        with self.assertRaises(metal.Failure):
+            metal.transform_metal_trace(source + source)
+
+    def test_segment_extraction_preserves_host_and_terminal_protocol(self):
+        bank = ', '.join([f'r{i}' for i in range(86)] + ['rp'])
+        header = '#define WL_BANK Term ' + bank + ';\n#define WL_ROOM(N,D) return 0;\n\n// A host self-jump is a tail call: as a loop, clang hoists constants badly.\n#if !DEVICE\n#endif\n'
+        begin = 'static Term work_loop(Env e, DEV Term* sp, Term t, u32 seq) {\n'
+        body = '// Segments\n' + ''.join(f'  WL_CASE(FID_case_{i})\n    WL_OPEN\n    return 0;\n  }}}}\n' for i in range(1073))
+        trailer = '#if DEVICE\n  default: {\n    err_post(e.mem, ERR_FIDS);\n    return 0;\n  }\n  }\n  }\n}\n#endif'
+        source = (header + begin + body + trailer).encode()
+        transformed, metadata = metal.transform_metal_segments(source)
+        self.assertEqual(metadata['segmentCount'], 1073)
+        self.assertIn(b'#else\n' + (begin + body + trailer).encode() + b'\n#endif', transformed)
+        self.assertIn(b'return metal_done(s, 0);', transformed)
+        self.assertIn(b'#define WL_SPUN } return false;', transformed)
+        self.assertIn(b'#define r85 (s->v85)', transformed)
+        self.assertIn(b'#undef r85', transformed)
+        self.assertNotIn(b'#undef WL_#', transformed)
+        for invalid in [source.replace(b'FID_case_0', b'FID_case_1'), source.replace(b'#define WL_BANK', b'#define UNKNOWN_BANK'), source.replace(b'// Segments\n', b'// Segments\n#if SOMETHING\n')]:
+            with self.assertRaises(ValueError):
+                metal.transform_metal_segments(invalid)
+
+    def test_short_smoke_is_explicit_and_recorded(self):
+        code, report = self.run_fake(smoke_ticks=1)
+        self.assertEqual(code, 0)
+        self.assertEqual(report['limits']['smokeTicks'], 1)
+        self.assertTrue(all(row['requestedTicks'] == 1 for row in report['smokeCpu']['summariesExcludingWallMs']))
+        self.assertEqual(metal.parser().parse_args([]).smoke_ticks, 60)
+        for horizon in ['0', '61']:
+            with patch.object(sys, 'argv', ['metal-experiment.py', '--smoke-ticks', horizon]):
+                with self.assertRaises(SystemExit):
+                    metal.main()
 
     def test_success_and_alternating_order(self):
         code, r = self.run_fake()
@@ -65,10 +109,11 @@ class Tests(unittest.TestCase):
         self.assertNotIn('semanticParity', r)
 
     def test_metal_timeout_retains_successful_native_artifact(self):
-        code, r = self.run_fake(metal_seconds=1, FAKE_METAL_TIMEOUT='1')
+        code, r = self.run_fake(metal_seconds=1, FAKE_METAL_TIMEOUT='1', FAKE_TRACE='1')
         self.assertEqual(code, 1)
         self.assertEqual(r['commands'][-1]['label'], 'metal-build')
         self.assertTrue(r['commands'][-1]['timedOut'])
+        self.assertEqual(r['commands'][-1]['metalStageEvents'], [{'stage': 'library', 'event': 'begin', 'monotonicSeconds': 123.25}])
         native = next(row for row in r['commands'] if row['label'] == 'native-build')
         self.assertEqual(native['status'], 'PASS')
         self.assertEqual(r['smokeCpu']['status'], 'PASS')
@@ -169,6 +214,16 @@ class Tests(unittest.TestCase):
         c = '#define BANGS 1\n#define FID_solve 1\ntypedef struct { u8 ar, resw, bangs, nofk; } Fid;\n#define fid_bangs(x) FID_T[x].bangs\nCONSTV Fid FID_T[] = {{0,0,0,1},{4,0,1,0}};\nu64 task = task_node(e, FID_solve, WL_CONT, WL_IDX, 0); return term_tsk(FID_solve, task);\n' + 'e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;\nwork_loop(e, io_stk, t, !BANGS && pool_size == 1)\nif ((u32)H[tl + 1] != 0) cube_run(H, false);\nif (io_gpu && fid_bangs((u32)term_aux(t))) cube_run(H, true);\nif (gpu == 1 && BANGS != 0 && why != NULL) { err_fail(why); }\nMTLCreateSystemDefaultDevice(); gpu_pass(H);\n[gpu_enc dispatchThreadgroupsWithIndirectBuffer:gpu_buf indirectBufferOffset:H_GROUPS * 8 + at * 12 threadsPerThreadgroup:MTLSizeMake(CUBE_T, 1, 1)];\n[c commit]; [c waitUntilCompleted]; if ([c error]) { gpu_fail([c error]); }\n'
         source = 'solve!(P.JobContext{ticks,seed,profile},Scheduler.build(count,index,stride))'
         self.assertEqual(metal.verify_dispatch_contract(c, source)['status'], 'VERIFIED')
+        segmented = c.replace('return term_tsk(FID_solve, task);', 'return metal_done(s, term_tsk(FID_solve, task));') + '\n' + '\n'.join([
+            'static bool metal_done(THR MetalState* s, Term result) { s->ret = result; return true; }',
+            '#define WL_CASE(F) FAR bool metal_##F(Env e, THR MetalState* s) {',
+            '#define WL_JMP(F) { fid = (F); return false; }',
+            'case FID_solve: done = metal_FID_solve(e, &s); break;',
+            'if (done) { return s.ret; }',
+        ])
+        self.assertEqual(metal.verify_dispatch_contract(segmented, source)['status'], 'VERIFIED')
+        with self.assertRaises(metal.Failure):
+            metal.verify_dispatch_contract(segmented.replace('return s.ret;', 'return 0;'), source)
         probe_c = c.replace('{4,0,1,0}', '{2,0,1,0}')
         with self.assertRaises(metal.Failure):
             metal.verify_dispatch_contract(probe_c, source)

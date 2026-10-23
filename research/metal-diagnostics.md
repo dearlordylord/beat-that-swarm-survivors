@@ -1,6 +1,6 @@
 # Bounded Metal diagnostics
 
-The full game timed out during Metal compilation after 1200 seconds on Apple M2 Max, macOS 27.0, Apple clang 21 and Bend 2.0.38. No GPU execution or speedup has been established. Retain the original report; do not increase that timeout.
+The full game timed out during Metal compilation after 1200 seconds on Apple M2 Max, macOS 27.0, Apple clang 21 and Bend 2.0.38. That original run established no GPU execution or speedup; the later [segment experiment](metal-game-boundary.md#completed-paired-m2-max-experiment) now qualifies short full-game-code execution, with much worse GPU performance. Retain the original report; do not increase that timeout.
 
 From the `bendvy-ecs-examples` root on the Mac:
 
@@ -38,4 +38,4 @@ Run `run-20261023T162720Z-11890` completed both controls on Bend 2.0.38 / Apple 
 
 These are single process wall times including startup, not repeated steady-state kernel benchmarks. GPU was slower on these tiny workloads; no game speedup follows. The runner reports 39 and 51 FID definitions respectively (the earlier manual counts were 37 and 49); generated C byte sizes match the local controls.
 
-The basic Metal path and these raw column operations work on this host. The full-game compilation failure therefore needs investigation in the larger generated program; size alone is not established as the cause. The [current candidate](metal-game-boundary.md) moves reachable frame/result formatting outside the game GPU boundary and measures C reduction and CPU parity before a bounded host build. Full-game GPU correctness and performance remain unqualified. The original report is preserved under `../bend-games/research/metal-diagnostics-20261023/host-small-probes-pass.json`.
+The basic Metal path and these raw column operations work on this host. The full-game compilation failure therefore needs investigation in the larger generated program; size alone is not established as the cause. The [current candidate](metal-game-boundary.md) moves reachable frame/result formatting outside the game GPU boundary and measures C reduction and CPU parity before a bounded host build. Later segment functions allowed short full-game-code GPU execution and paired timing; complete runs and full-state GPU equivalence remain unqualified. The original report is preserved under `../bend-games/research/metal-diagnostics-20261023/host-small-probes-pass.json`.

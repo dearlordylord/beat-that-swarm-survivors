@@ -76,4 +76,6 @@ bash tools/survivors-bot/native-batch.sh --execution bend --count 100 --ticks 18
 
 The default process mode remains available. See [batch options and timing semantics](tools/survivors-bot/README.md#native-offline-batches) and the [parallelism experiment](research/bend-parallel-bots.md).
 
-The small arithmetic and published-column Metal controls pass on M2 Max. The [current full-game GPU candidate](research/metal-game-boundary.md) removes presentation work from its GPU closure; `bash tools/survivors-bot/metal-experiment.sh --metal-noinline-spins` tests the optional compiler-hint candidate with a 120-second Metal compilation cap. Full-game GPU correctness and performance await that host run.
+The small arithmetic and published-column Metal controls pass on M2 Max. The [full-game-code Metal experiment](research/metal-game-boundary.md#completed-paired-m2-max-experiment) now builds within 120 seconds using optional generated-runtime segment functions and seven noinline helpers. Two five-tick worlds match CPU summaries across three paired repetitions, but GPU is about 561 times slower on that tiny workload. Complete-run GPU correctness and useful acceleration remain unqualified.
+
+For ordinary gameplay, run `./examples/survivors/run.command` from this repository root. It rebuilds the current sources and opens the native CPU game. Metal tools are research-only; use CPU for practical bot runs.
