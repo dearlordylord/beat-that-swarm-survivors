@@ -69,6 +69,22 @@ Ignored `examples/survivors/dist/bot-batches/<batch-id>/` contains `manifest.jso
 
 Further decision points already have game APIs but are not classifier candidates yet: reroll/skip/banish need phase and resource predicates; camp purchases need unlocks, prices and remaining gold; hero/Arcana/stage selection needs an explicit allowed loadout list. Each addition should expose concrete current legal alternatives and consequences, rather than accept free-form commands.
 
+## Native offline batches
+
+The free headless controller also has a Bend-to-C entry. From the repository root:
+
+```sh
+bash tools/survivors-bot/native-batch.sh --count 100 --ticks 1800 --workers 2 --seed 100 --profile both
+```
+
+It rebuilds current sources and runs native processes without Node, graphics, HTTP or classifier calls. Each process owns its own world. `--threads` defaults to one Bend runtime thread per process, so multiple processes do not each reserve the full host CPU count. `--ticks` is the actual simulation horizon; upgrade choices do not consume that horizon. Death and reaching the horizon are distinct outcomes. A bounded safety-fuel failure exits nonzero.
+
+The controller reads typed game state. `advance_quiet` shares the ordinary combat and progression implementation but omits per-tick frame serialization. XP is physically collected; the controller retains a resource objective and uses bounded routes and upgrade preferences. Native F32 arithmetic and route tie ordering may differ from the JavaScript controller; this is not a promise of identical cross-backend run traces. Behavioral parity fixtures check the supported operations separately.
+
+`--output-dir DIR` selects persistent receipts; the default is under ignored `examples/survivors/dist/native-batches/`. Worker JSONL, stderr, source/binary hashes, manifest and completion counts survive worker failure. Each completed summary is flushed with a stderr progress message before the next run. `--no-build` explicitly reuses the existing binary. The shell returns nonzero if any worker fails. The native batch wrapper has no simulation wall timeout; use a bounded external process supervisor for automated campaigns.
+
+Compilation and runtime are separate costs. Backend speed and native scaling need actual measurements; merely compiling to C does not establish a speedup. The browser and optional visible classifier bridge keep their existing Node tools.
+
 ## Checks and evidence
 
 ```sh

@@ -1,0 +1,221 @@
+{
+  "status": "delivered native controller and game-step fixes; functional validation passed",
+  "dependency": "bendvy-ecs-core@0.1.0.1 via BendHub",
+  "changes": [
+    "Native Bend/C free controller and parallel batch launcher, no Node runtime required.",
+    "Typed per-movement state without JSON frame; ordinary advance/advance_live serialize only the final frame.",
+    "Spawn cadence/admission checked before dormant monster preparation.",
+    "Compressed full-U32 Patricia component index; opaque values, first duplicate and missing fallback retained.",
+    "XP objective memory, three representative retries, bounded routes, chest/retreat reservation and precomputed risk grid."
+  ],
+  "native100": {
+    "scope": "100 native headless runs; current workspace XP cost tuning retained; no classifier or rendering. Early game only, not a full-run difficulty study.",
+    "configuration": {
+      "seeds": "100..199",
+      "ticks": 1800,
+      "profiles": "50 fresh, 50 advanced",
+      "workers": 8,
+      "threadsPerWorker": 1
+    },
+    "completed": 100,
+    "failures": 0,
+    "wallSeconds": 231.54,
+    "aggregateSimulatedSeconds": 2999.633333333333,
+    "profiles": {
+      "fresh": {
+        "count": 50,
+        "outcomes": {
+          "bounded-observation": 49,
+          "terminal": 1
+        },
+        "median": {
+          "wallMs": 16534.5,
+          "hp": 62.0,
+          "level": 3.0,
+          "kills": 436.0,
+          "xp": 108.0,
+          "xpPiles": 254.0,
+          "uncollectedBaseXp": 532.0
+        }
+      },
+      "advanced": {
+        "count": 50,
+        "outcomes": {
+          "bounded-observation": 50
+        },
+        "median": {
+          "wallMs": 16682.0,
+          "hp": 187.0,
+          "level": 4.0,
+          "kills": 454.5,
+          "xp": 148.5,
+          "xpPiles": 205.5,
+          "uncollectedBaseXp": 411.0
+        }
+      }
+    },
+    "binarySHA256": "d3979ce30e9850adda6824a78476aef04b5ce5c96f9d80e03c5f7f504a0f9464",
+    "timingLimits": "Ordinary diagnostic cohort, not a statistical speedup qualification. Old JS cohort used 2 workers and a different controller/backend.",
+    "terminalRuns": [
+      {
+        "type": "summary",
+        "backend": "native",
+        "policy": "bend-resource-memory-v1",
+        "index": 60,
+        "seed": 160,
+        "profile": "fresh",
+        "status": "completed",
+        "tick": 1778,
+        "requestedTicks": 1800,
+        "outcome": "terminal",
+        "phase": 3,
+        "hp": 0,
+        "level": 3,
+        "xp": 128,
+        "xpNeed": 214,
+        "kills": 444,
+        "gold": 275,
+        "choices": 2,
+        "xpPiles": 251,
+        "uncollectedBaseXp": 524,
+        "wallMs": 15130
+      }
+    ]
+  },
+  "javascript100": {
+    "completed": 100,
+    "failed": 0,
+    "wallSeconds": 1814.312,
+    "workers": 2,
+    "ticks": 1800,
+    "networkRequests": 0,
+    "limit": "Frozen pre-fix bundle; concurrent profiling/compilation, not isolated speed qualification."
+  },
+  "diagnostics": {
+    "javascriptSplit": "Fresh seed100 first600ticks: 95% advance including packet construction, 2% action/mechanics observation, 2% other controller work.",
+    "nativeGprof": "Instrumented first draft: 26.7% term_drop,14.52% closure application; tail calls prevent assigning shared runtime overhead to engine versus policy.",
+    "stepSingleRun": "Same JS seed100 horizon1800 final frame hash matched: 31727.99ms before,24362.88ms after initial step fixes. One pair, preliminary only; before Patricia compression.",
+    "finalJavascriptStepSingleRun": {
+      "beforeMs": 31727.987603,
+      "afterMs": 26005.074485,
+      "simulatedSeconds": 30,
+      "seed": 100,
+      "deterministicSummary": "All fields except runId and wallMs match, including final frame SHA256",
+      "limit": "One pair, not a statistical speedup qualification. Earlier intermediate sample24362.88ms retained separately."
+    }
+  },
+  "correctness": [
+    "Behavioral parity: 864 upgrade choices, steering, bounded routing, XP identities/lifetime, damage/stuck, reserved goals and off-arena clusters.",
+    "3600 risk cells compared with reference and mutable/frozen representations.",
+    "Three existing empty/singleton index laws and two priority laws: kernel verdict PASS. These are not a proof of whole-game or whole-planner equivalence.",
+    "1300 quiet/normal state/frame/queue comparisons with authoritative component checks.",
+    "98304 dormant cases and 13 authoritative world scenarios.",
+    "Final native seeds100/101 reach1200 ticks despite upgrade choices; deterministic summaries match between one and two workers.",
+    "Native wrapper validates arguments, missing results, worker failures and interruption."
+  ],
+  "limits": [
+    "Native F32 arithmetic and sorted frontier ties may change trajectories relative to the JS Float64/heap controller.",
+    "100-run evidence uses the existing workspace XP-cost change, excluded from this commit; clean published source is validated separately.",
+    "No native-versus-JS speedup ratio, FPS claim or late-game balance conclusion inferred."
+  ],
+  "finalValidation": {
+    "status": "PASS",
+    "publicSource": "Clean staged snapshot, without unrelated XP cost/UI changes",
+    "backend": "Linux arm64 native C, Bend2.0.37, clang19 -O3; macOS hardware not run",
+    "checks": [
+      "Native clean-source seeds100/101 reach1200 ticks and exercise upgrade choices.",
+      "Real native interruption with NODE=/nonexistent: first summary observed while wrapper alive; TERM during second run exits143 and preserves exactly one completed summary.",
+      "Wrapper failure/missing-summary/argument/thread tests pass.",
+      "Clean dependency audit:34Bendmodules, published Hub dependency, no source-checkout imports.",
+      "Independent cached-source review:19ownedfiles,9otherdirtyfiles unchanged, XP tuning excluded."
+    ],
+    "cleanBinarySHA256": "e2cc4f57622ee0260e4cb6f5be9690bc0e281e28492963fab9e52d9a88c50586",
+    "cleanSourceNativeSummaries": [
+      {
+        "type": "summary",
+        "backend": "native",
+        "policy": "bend-resource-memory-v1",
+        "index": 0,
+        "seed": 100,
+        "profile": "fresh",
+        "status": "completed",
+        "tick": 1200,
+        "requestedTicks": 1200,
+        "outcome": "bounded-observation",
+        "phase": 0,
+        "hp": 70,
+        "level": 2,
+        "xp": 88,
+        "xpNeed": 103,
+        "kills": 259,
+        "gold": 162,
+        "choices": 1,
+        "xpPiles": 214,
+        "uncollectedBaseXp": 428,
+        "wallMs": 6761
+      },
+      {
+        "type": "summary",
+        "backend": "native",
+        "policy": "bend-resource-memory-v1",
+        "index": 1,
+        "seed": 101,
+        "profile": "advanced",
+        "status": "completed",
+        "tick": 1200,
+        "requestedTicks": 1200,
+        "outcome": "bounded-observation",
+        "phase": 0,
+        "hp": 187,
+        "level": 5,
+        "xp": 63,
+        "xpNeed": 117,
+        "kills": 311,
+        "gold": 336,
+        "choices": 4,
+        "xpPiles": 161,
+        "uncollectedBaseXp": 322,
+        "wallMs": 6803
+      }
+    ],
+    "interruptionReceipt": {
+      "status": "PASS",
+      "wrapperExit": 143,
+      "completedRecordsPreserved": 1,
+      "first": {
+        "type": "summary",
+        "backend": "native",
+        "policy": "bend-resource-memory-v1",
+        "index": 0,
+        "seed": 100,
+        "profile": "fresh",
+        "status": "completed",
+        "tick": 1800,
+        "requestedTicks": 1800,
+        "outcome": "bounded-observation",
+        "phase": 0,
+        "hp": 70,
+        "level": 2,
+        "xp": 90,
+        "xpNeed": 103,
+        "kills": 322,
+        "gold": 170,
+        "choices": 1,
+        "xpPiles": 256,
+        "uncollectedBaseXp": 546,
+        "wallMs": 9270
+      }
+    }
+  },
+  "publishedBendSourceSHA256": {
+    "examples/survivors/body-index.bend": "bef8f6a1ca81ff9815742ed111b60eef243403bf9b6963436eff71bd6ac1fdca",
+    "examples/survivors/body-index/PROOF.bend": "59a41d7052bd976a1f530b0eadc2ed38bb51e5a782996dca86e672c74f1e01e7",
+    "examples/survivors/game.bend": "366aa0235e16813d798912473f465f6cba2fafa568636a939784c5383d7ac56f",
+    "examples/survivors/offline-batch.bend": "ba5576ee5fbd17bee7c18598bbeb7fd6b751b5de2cd2f4e43343e749706ee309",
+    "examples/survivors/offline-policy.bend": "e90ad779283d279ac81cab35e9fb740a26af8fac2eacc77fd1b54f3dc1ab5053",
+    "examples/survivors/offline-policy/LAWS.bend": "57c2f0f4e6b67328463e9921357e83d2d6c96414f0306bea5dfed011301fbaf3",
+    "examples/survivors/offline-policy/PROOF.bend": "9111d0e59a61e3c1bfdfd461a1a049216450e1a16d0f7fefb92c4ff7f02ae5e8",
+    "examples/survivors/offline-policy/primitives.bend": "8bd3a8cc9d7e1a33d25a2178255658330e2b039eaa4b593f04b22f2b48d884c9",
+    "examples/survivors/offline-policy/risk-grid.bend": "e8bb55ddb37f37b3b8b201a12d91570eee732053f38bb99d39b9ffe9ee356d37"
+  }
+}
