@@ -1,0 +1,64 @@
+{
+  "status": "adopted by explicit user request; performance remains preliminary",
+  "dependency": "bendvy-ecs-core@0.1.0.1 via BendHub",
+  "changes": [
+    "Build one immutable full-U32 Body index per lifecycle tick; preserve first duplicate and missing fallback.",
+    "Gate shot preparation on firing eligibility; preserve unowned Thorn retaliation."
+  ],
+  "sourceSHA256": {
+    "examples/survivors/game.bend": "9cd35e20f2811e88f9b237b46b322d91daa0f80ea1818daa39b2b56d6f69d6b0",
+    "examples/survivors/body-index.bend": "be50efc39a28bbfe1f7770c0aa7b456ef159dfa493616993de7a1d152e4b3fd8",
+    "examples/survivors/body-index/LAWS.bend": "4aa475e7d0dbb6c26d23fd6ed92ad175f3806764b0cc8ddc020f28c4f75724e1",
+    "examples/survivors/body-index/PROOF.bend": "703c75bf8531c93b34ed9893b6fc1d7a016ae335a3691dbcca7beb45c6c5b01c",
+    "examples/survivors/body-index/behavior.test.mjs": "cc9a1d9f7c44da7ec6fe08234c88ceda46336d4c8888e24e33c4767857f9374c",
+    "examples/survivors/body-index/shot-spawn.test.mjs": "44a9f2c0dd68a06a5ac7ef46ffba37cb4ea8f655475916f15949a7518e5c4e6f"
+  },
+  "historicalPerformance": {
+    "unit": "batch seconds; 10 seeds, 1200 ticks, 2 workers, no classifier; compilation excluded",
+    "combinedCandidate": [
+      118.940018,
+      99.960436
+    ],
+    "reference": [
+      159.467491,
+      156.733264,
+      248.519158
+    ],
+    "qualification": "Not accepted: reference noise exceeded guaranteed improvement.",
+    "prospectiveSequence": [
+      {
+        "reference": 170.071587
+      },
+      {
+        "candidate": 111.948148
+      },
+      {
+        "reference": 149.552497
+      }
+    ],
+    "prospectiveStop": "12.8395% reference drift exceeded 10% limit; fourth packet not run.",
+    "acceptedPerformanceKeeps": 0,
+    "claim": "No statistically established speedup; no macOS or native FPS speed claim."
+  },
+  "historicalNativeFull": {
+    "outerGate": "480-second timeout, unqualified",
+    "laterInnerResult": "PASS at tick 36419; separate semantic evidence, not a bounded-gate pass"
+  },
+  "integrationChecks": {
+    "status": "passed",
+    "scope": "Current working tree including pre-existing XP cost and UI tuning; these unrelated changes are preserved but excluded from adoption commit. Exact clean candidate source matches previously validated archived candidate.",
+    "passed": [
+      "Bend source check",
+      "BendHub dependency audit: 28 modules, no source checkout imports",
+      "Body-index full-U32, duplicate, fallback, opaque field and shuffled oracle",
+      "55585 shot-spawn and 55585 scheduled-shot differential cases against pre-adoption source with matching XP tuning",
+      "13 actual-world Body/Vitals/Motion differential cases",
+      "Three universal helper laws, kernel verdict ALL PROOFS CHECK",
+      "examples/survivors/check.sh: complete functional suite",
+      "tools/survivors-bot/check.sh: 60 tests, actions and real-engine integration",
+      "examples/survivors/check-native.sh: launcher, profile, UI and native application build on Linux arm64; no window opened"
+    ],
+    "sourceReview": "All six candidate source hashes match archived review; nine unrelated files unchanged and XP tuning preserved.",
+    "runtimeArtifacts": "Browser game and bot-actions JavaScript rebuilt locally; generated artifacts not committed."
+  }
+}

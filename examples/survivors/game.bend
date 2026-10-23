@@ -4,6 +4,7 @@ import encounters.bend as E
 import actors.bend as A
 import spawn-policy.bend as S
 import persistent-xp.bend as X
+import body-index.bend as BI
 import bendvy-ecs-core@0.1.0.1/world.bend as W
 import bendvy-ecs-core@0.1.0.1/column.bend as Col
 import bendvy-ecs-core@0.1.0.1/component.bend as C
@@ -402,12 +403,26 @@ def projectile_amount(+base: U32,+level: U32,+passives: List<&2,U32>,+arcana: U3
   U32.min(8,(1 + at(passives,4) + level / 3 + Bool.to_u32(U32.is_eq(arcana,3)) + Bool.to_u32(U32.is_eq(base,21)) : U32))
 def volley_slot(+base: U32,+slot: U32,+amount: U32,+tick: U32,+cooldown: U32) -> Bool:
   U32.is_lt(choose_id(rotates_pool(base),((slot + 8 - (tick / cooldown * amount) % 8) % 8 : U32),slot),amount)
+def scheduled_shot_owned(owned: Bool,+base: U32,+slot: U32,+level: U32,+passives: List<&2,U32>,+tick: U32,+meta: U32,+arcana: U32,+character: U32) -> Bool:
+  match owned:
+    case False{}: False{}
+    case True{}: Bool.and(volley_slot(base,slot,projectile_amount(base,level,passives,arcana),tick,cooldown_for(base,passives,meta,arcana,character)),U32.is_eq((tick % cooldown_for(base,passives,meta,arcana,character) : U32),1))
 def scheduled_shot(+base: U32,+slot: U32,+level: U32,+passives: List<&2,U32>,+tick: U32,+meta: U32,+arcana: U32,+character: U32) -> Bool:
-  Bool.and(U32.is_lt(0,level),Bool.and(volley_slot(base,slot,projectile_amount(base,level,passives,arcana),tick,cooldown_for(base,passives,meta,arcana,character)),U32.is_eq((tick % cooldown_for(base,passives,meta,arcana,character) : U32),1)))
+  scheduled_shot_owned(U32.is_lt(0,level),base,slot,level,passives,tick,meta,arcana,character)
+# Resolve the complete firing predicate before preparing a projectile. Most
+# unowned/unscheduled slots stay dormant and need neither aim nor materialization.
+def shot_spawn_ready(fire: Bool,+seed: U32,+base: U32,+slot: U32,+level: U32,args: Args) -> EntityRow:
+  match fire args:
+    case False{} _: dormant_entity(0.0,0.0,seed)
+    case True{} Args{Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,+weapons,+passives,_,_,_,+arcana,+meta,_,_,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+dx,+dy,_,_}:
+      shot_spawn_aim(True{},seed,effective_weapon(base,level,slot),slot,level,Run{0,tick,px,py,0,0,0,0,0,0,0,character,weapons,passives,0,0,0,arcana,meta,0,0,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},dx,dy,nearest(bodies,px,py,Aim{(px + 180.0 : F32),py,0,10000000.0}))
 def shot_spawn(+seed: U32,+args: Args) -> EntityRow:
   match args:
-    case Args{Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,+weapons,+passives,+invuln,_,_,+arcana,+meta,_,_,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+dx,+dy,+snapshots,+hits}:
-      shot_spawn_aim(Bool.or(scheduled_shot(((seed - 512) / 8 : U32),((seed - 512) % 8 : U32),at(weapons,((seed - 512) / 8 : U32)),passives,tick,meta,arcana,character),Bool.and(U32.is_eq(arcana,4),Bool.and(U32.is_eq(((seed - 512) / 8 : U32),19),Bool.and(U32.is_eq(((seed - 512) % 8 : U32),0),Bool.and(U32.is_lt(30,invuln),U32.is_eq((tick % 12 : U32),0)))))),seed,effective_weapon(((seed - 512) / 8 : U32),at(weapons,((seed - 512) / 8 : U32)),((seed - 512) % 8 : U32)),((seed - 512) % 8 : U32),at(weapons,((seed - 512) / 8 : U32)),Run{0,tick,px,py,0,0,0,0,0,0,0,character,weapons,passives,0,0,0,arcana,meta,0,0,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},dx,dy,nearest(bodies,px,py,Aim{(px + 180.0 : F32),py,0,10000000.0}))
+    case Args{Run{_,+tick,_,_,_,_,_,_,_,_,_,+character,+weapons,+passives,+invuln,_,_,+arcana,+meta,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}:
+      +base = ((seed - 512) / 8 : U32)
+      +slot = ((seed - 512) % 8 : U32)
+      +level = at(weapons,base)
+      shot_spawn_ready(Bool.or(scheduled_shot(base,slot,level,passives,tick,meta,arcana,character),Bool.and(U32.is_eq(arcana,4),Bool.and(U32.is_eq(base,19),Bool.and(U32.is_eq(slot,0),Bool.and(U32.is_lt(30,invuln),U32.is_eq((tick % 12 : U32),0)))))),seed,base,slot,level,args)
 def shot_surviving(alive: Bool,+x: F32,+y: F32,+id: U32,+damage: U32,+age: U32,+seed: U32,+radius: F32,+vx: F32,+vy: F32,+life: U32,+pierce: U32,+visited: List<&2,U32>) -> EntityRow:
   match alive:
     case True{}: EntityRow{Row{Body{x,y,1,id,damage,damage,age,seed,radius},0,0,0,0,0,0,0},Motion{vx,vy,life,pierce,visited,0,0}}
@@ -675,11 +690,26 @@ def planned_body_match(rows: List<&2,EntityRow>,found: Bool,+seed: U32,+fallback
     case Con{EntityRow{Row{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+id,+radius},_,_,_,_,_,_,_},_},rest} False{}: planned_body_match(rest,U32.is_eq(id,seed),seed,fallback,Body{x,y,kind,variant,hp,maxHp,age,id,radius})
 def planned_body(rows: List<&2,EntityRow>,+seed: U32,+fallback: Body) -> Body:
   planned_body_match(rows,False{},seed,fallback,fallback)
-def loot_observed(~H: Type,~ops: LootOps<H>,+rows: List<&2,EntityRow>,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Unit):
+# Construct once per lifecycle tick. Insertion order matches the original scan,
+# retaining the first occurrence of a seed and every opaque Body field.
+def body_seed(body: Body) -> U32:
+  match body:
+    case Body{_,_,_,_,_,_,_,seed,_}: seed
+def body_index_rows(rows: List<&2,EntityRow>,index: BI.Index<Body>) -> BI.Index<Body>:
+  match rows:
+    case []: index
+    case EntityRow{Row{+body,_,_,_,_,_,_,_},_} <> rest: body_index_rows(rest,BI.insert(~Body,index,body_seed(body),body))
+def body_index(rows: List<&2,EntityRow>) -> BI.Index<Body>: body_index_rows(rows,BI.Empty{})
+def indexed_body(index: BI.Index<Body>,seed: U32,fallback: Body) -> Body:
+  BI.get(~Body,index,seed,fallback)
+def loot_observed_body(~H: Type,~ops: LootOps<H>,index: BI.Index<Body>,+body: Body,ctx: H) -> H & (T.Outcome<Error> & Unit):
+  match body:
+    case Body{_,_,_,_,_,_,_,+seed,_}: (Cap.set(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx,indexed_body(index,seed,body)),(T.Success{},Unit{}))
+def loot_observed(~H: Type,~ops: LootOps<H>,+index: BI.Index<Body>,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}}): (Cap.set(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx,planned_body(rows,seed,Body{x,y,kind,variant,hp,maxHp,age,seed,radius})),(T.Success{},Unit{}))
+    case (ctx,C.Found{+body}): loot_observed_body(~H,~ops,index,body,ctx)
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
-def loot_system(~H: Type,~ops: LootOps<H>,rows: List<&2,EntityRow>,ctx: H) -> H & (T.Outcome<Error> & Unit): loot_observed(~H,~ops,rows,Cap.get(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx))
+def loot_system(~H: Type,~ops: LootOps<H>,index: BI.Index<Body>,ctx: H) -> H & (T.Outcome<Error> & Unit): loot_observed(~H,~ops,index,Cap.get(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx))
 def loot_plan() -> Q.Plan<Schema,Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family())},selected_pool}
 
 # All collision inputs are frozen once per tick; no pass sees partly updated shots.
@@ -733,7 +763,7 @@ def args_tick(args: Args) -> U32:
   match args:
     case Args{Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}: tick
 def xp_lifecycle(+projectiles: List<&2,EntityRow>,+rows: List<&2,EntityRow>,world: World()) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
-  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~List<&2,EntityRow>,~Error,~Unit,~loot_plan(),~loot_system,rows,world))
+  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~BI.Index<Body>,~Error,~Unit,~loot_plan(),~loot_system,body_index(rows),world))
 def combat_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
     case Q.Executed{world,T.Success{},+rows}: xp_lifecycle(projectiles,xp_route_rows(rows,args_tick(args)),world)
