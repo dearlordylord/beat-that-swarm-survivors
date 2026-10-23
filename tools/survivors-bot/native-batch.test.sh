@@ -6,18 +6,18 @@ fixture=$(mktemp -d "${TMPDIR:-/tmp}/nightfall-native-batch-test-XXXXXX")
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/repo/tools/survivors-bot" "$fixture/repo/examples/survivors"
 cp "$repo/tools/survivors-bot/native-batch.sh" "$fixture/repo/tools/survivors-bot/"
-touch "$fixture/repo/examples/survivors/offline-batch.bend"
+touch "$fixture/repo/examples/survivors/offline-batch.bend" "$fixture/repo/examples/survivors/offline-parallel.bend"
 cat > "$fixture/compiler" <<'COMPILER'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $1 == "$FIXTURE/repo/examples/survivors/offline-batch.bend" && $2 == -o ]]
+[[ $1 == "$FIXTURE/repo/examples/survivors/${EXPECT_ENTRY:-offline-batch.bend}" && $2 == -o ]]
 [[ ${FAIL_BUILD:-0} == 0 ]] || exit 42
 echo build >> "$FIXTURE/builds"
 cat > "$3" <<'BINARY'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${EMPTY_WORKER:-0} != 1 ]] || exit 0
-[[ $1 == --threads && $2 == 1 ]]
+[[ $1 == --threads && $2 == ${EXPECT_THREADS:-1} ]]
 for ((n=0; n<NIGHTFALL_BATCH_COUNT; n++)); do
   index=$((NIGHTFALL_BATCH_INDEX + n * NIGHTFALL_BATCH_STRIDE))
   seed=$(((NIGHTFALL_BATCH_SEED + index) % 4294967296))
@@ -53,7 +53,7 @@ diff -u "$fixture/expected" "$fixture/actual"
 bash "$runner" --no-build --count 1 --ticks 1 --seed 0 --profile advanced > "$fixture/reuse"
 [[ $(cat "$fixture/reuse") == '0 0 advanced 1' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
-for invalid in '--count 0' '--count -1' '--seed 4294967296' '--seed 01' '--ticks 0' '--workers 257' '--threads 0' '--threads 129' '--profile invalid' '--bogus'; do
+for invalid in '--count 0' '--count -1' '--seed 4294967296' '--seed 01' '--ticks 0' '--workers 257' '--threads 0' '--threads 129' '--profile invalid' '--execution invalid' '--execution bend --workers 2' '--execution bend --count 1 --workers 2' '--bogus'; do
   if bash "$runner" $invalid > /dev/null 2>&1; then echo "Accepted invalid: $invalid" >&2; exit 1; fi
 done
 if FAIL_BUILD=1 bash "$runner" --count 1 > "$fixture/failed" 2>/dev/null; then exit 1; fi
@@ -68,4 +68,18 @@ if EMPTY_WORKER=1 bash "$runner" --no-build --count 1 --output-dir "$fixture/emp
 signal_status=0
 SIGNAL_WRAPPER=1 bash "$runner" --no-build --count 1 --output-dir "$fixture/interrupted" > /dev/null 2>/dev/null || signal_status=$?
 [[ $signal_status == 143 && -s "$fixture/interrupted/worker-0.jsonl" && -s "$fixture/interrupted/manifest.json" ]]
+# Native Bend mode has a separate entry/artifact and one runtime pool.
+if bash "$runner" --execution bend --no-build --count 1 > /dev/null 2>/dev/null; then echo 'Reused process binary for Bend mode' >&2; exit 1; fi
+EXPECT_ENTRY=offline-parallel.bend EXPECT_THREADS=4 bash "$runner" --execution bend --count 5 --seed 4294967294 --ticks 17 --threads 4 --output-dir "$fixture/bend" > "$fixture/bend-actual"
+diff -u "$fixture/expected" "$fixture/bend-actual"
+[[ -x "$fixture/repo/examples/survivors/dist/nightfall-batch" && -x "$fixture/repo/examples/survivors/dist/nightfall-parallel-batch" ]]
+[[ $(wc -l < "$fixture/builds") == 2 ]]
+[[ $(cat "$fixture/bend/manifest.json") == *'"execution":"bend"'* ]]
+[[ $(cat "$fixture/bend/manifest.json") == *'"workers":1,"threadsPerWorker":4'* ]]
+[[ ! -e "$fixture/bend/worker-1.jsonl" ]]
+EXPECT_THREADS=4 bash "$runner" --execution bend --no-build --count 1 --threads 4 > "$fixture/bend-reuse"
+[[ $(wc -l < "$fixture/builds") == 2 ]]
+bash "$runner" --execution processes --no-build --count 1 --output-dir "$fixture/processes" > /dev/null
+[[ $(cat "$fixture/processes/manifest.json") == *'"execution":"processes"'* ]]
+if NIGHTFALL_BATCH_EXECUTION=bend NIGHTFALL_BATCH_WORKERS=2 bash "$runner" --no-build --count 1 > /dev/null 2>&1; then exit 1; fi
 echo 'NATIVE BATCH WRAPPER PASS'

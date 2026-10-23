@@ -8,7 +8,7 @@ check_dir="$(mktemp -d "${TMPDIR:-/tmp}/nightfall-native-check-XXXXXX")"
 trap 'rm -rf "$check_dir"; example_cleanup_lock' EXIT
 # This test uses fake Bend in an isolated checkout and does not build game code.
 example_timeout 30 bash "$app_dir/native-launcher.test.sh"
-for source in native-profile-test native-test; do
+for source in native-profile-test native-test offline-parallel-test; do
   if [[ ! -f "$app_dir/$source.bend" ]]; then
     echo "Missing required native test: $source.bend" >&2
     exit 1

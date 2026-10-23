@@ -11,10 +11,12 @@ parser.add_argument("--count", type=int, default=2)
 parser.add_argument("--ticks", type=int, default=1200)
 parser.add_argument("--seed", type=int, default=100)
 parser.add_argument("--require-choices", action="store_true")
+parser.add_argument("--execution", choices=("processes", "bend"), default="processes")
+parser.add_argument("--replay-execution", choices=("processes", "bend"))
 args = parser.parse_args()
 
 
-def summaries(path):
+def summaries(path, execution):
     rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     rows.sort(key=lambda row: row["index"])
     assert len(rows) == args.count, ("summary count", len(rows), args.count)
@@ -28,15 +30,18 @@ def summaries(path):
         else:
             assert row["outcome"] == "terminal" and row["phase"] in (3, 4), row
             assert row["tick"] <= args.ticks, row
-        assert isinstance(row["wallMs"], int) and row["wallMs"] >= 0, row
+        if execution == "bend":
+            assert row["wallMs"] is None, row
+        else:
+            assert type(row["wallMs"]) is int and row["wallMs"] >= 0, row
         if args.require_choices:
             assert row["choices"] > 0, ("exercise menu transitions before horizon", row)
     return rows
 
 
-first = summaries(args.first)
+first = summaries(args.first, args.execution)
 if args.replay:
-    replay = summaries(args.replay)
+    replay = summaries(args.replay, args.replay_execution or args.execution)
     assert [{k: v for k, v in row.items() if k != "wallMs"} for row in first] == [
         {k: v for k, v in row.items() if k != "wallMs"} for row in replay
     ], "native seeded replay diverged"

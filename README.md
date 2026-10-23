@@ -67,3 +67,11 @@ bash examples/survivors/check-native-full.sh
 ## License
 
 Application source is available under **MIT OR Apache-2.0**; see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Original content and procedural graphics accompany the examples. Game titles mentioned in research identify their respective games; no assets from those games are included.
+
+Native bot batches can also use Bend's explicit fork-join scheduler inside one process:
+
+```sh
+bash tools/survivors-bot/native-batch.sh --execution bend --count 100 --ticks 1800 --threads 8
+```
+
+The default process mode remains available. See [batch options and timing semantics](tools/survivors-bot/README.md#native-offline-batches) and the [parallelism experiment](research/bend-parallel-bots.md).

@@ -77,13 +77,42 @@ The free headless controller also has a Bend-to-C entry. From the repository roo
 bash tools/survivors-bot/native-batch.sh --count 100 --ticks 1800 --workers 2 --seed 100 --profile both
 ```
 
-It rebuilds current sources and runs native processes without Node, graphics, HTTP or classifier calls. Each process owns its own world. `--threads` defaults to one Bend runtime thread per process, so multiple processes do not each reserve the full host CPU count. `--ticks` is the actual simulation horizon; upgrade choices do not consume that horizon. Death and reaching the horizon are distinct outcomes. A bounded safety-fuel failure exits nonzero.
+It rebuilds current sources and runs native Bend without Node, graphics, HTTP or classifier calls. `--execution processes` is the default: each process owns its own world. `--threads` defaults to one Bend runtime thread per process, so multiple processes do not each reserve the full host CPU count. `--ticks` is the actual simulation horizon; upgrade choices do not consume that horizon. Death and reaching the horizon are distinct outcomes. A bounded safety-fuel failure exits nonzero.
+
+To let Bend schedule independent runs inside one process instead, use:
+
+```sh
+bash tools/survivors-bot/native-batch.sh --execution bend --count 100 --ticks 1800 --workers 1 --threads 8 --seed 100 --profile both
+```
+
+Bend execution compiles `offline-parallel.bend` to `dist/nightfall-parallel-batch`; process execution keeps `offline-batch.bend` and `dist/nightfall-batch`. These are separate artifacts, including when using `--no-build`. Bend execution requires one worker (the default); an explicit or environment-supplied worker count above one is rejected. `--threads` selects its Bend runtime pool. The entry forks independent pure runs and joins the batch before printing summaries, so this mode has no live per-run progress or individual timers: `wallMs` is `null`. Measure elapsed time around the whole batch; do not interpret that as one game's time. Increasing threads is a scheduling request, not a measured scaling guarantee.
 
 The controller reads typed game state. `advance_quiet` shares the ordinary combat and progression implementation but omits per-tick frame serialization. XP is physically collected; the controller retains a resource objective and uses bounded routes and upgrade preferences. Native F32 arithmetic and route tie ordering may differ from the JavaScript controller; this is not a promise of identical cross-backend run traces. Behavioral parity fixtures check the supported operations separately.
 
-`--output-dir DIR` selects persistent receipts; the default is under ignored `examples/survivors/dist/native-batches/`. Worker JSONL, stderr, source/binary hashes, manifest and completion counts survive worker failure. Each completed summary is flushed with a stderr progress message before the next run. `--no-build` explicitly reuses the existing binary. The shell returns nonzero if any worker fails. The native batch wrapper has no simulation wall timeout; use a bounded external process supervisor for automated campaigns.
+`--output-dir DIR` selects persistent receipts; the default is under ignored `examples/survivors/dist/native-batches/`. Worker JSONL, stderr, source/binary hashes, manifest and completion counts survive worker failure. In process mode, each completed summary is flushed with a stderr progress message before the next run. Bend mode emits only after its joined batch completes. `manifest.json` records the selected execution mode. `--no-build` explicitly reuses the existing binary. The shell returns nonzero if any worker fails. The native batch wrapper has no simulation wall timeout; use a bounded external process supervisor for automated campaigns.
 
 Compilation and runtime are separate costs. Backend speed and native scaling need actual measurements; merely compiling to C does not establish a speedup. The browser and optional visible classifier bridge keep their existing Node tools.
+
+For a bounded Linux comparison of already-built binaries (Python is only the measurement supervisor):
+
+```sh
+flock /tmp/bendvy-parity-heavy.lock python3 -B tools/survivors-bot/compare-native-parallel.py \
+  --serial-binary examples/survivors/dist/nightfall-batch \
+  --parallel-binary examples/survivors/dist/nightfall-parallel-batch \
+  --output-dir /tmp/nightfall-parallel-comparison
+```
+
+This fixes eight seeds, 1200 ticks, three paired repetitions and CPU budgets 1/2/4/8. Each pair compares B native processes with one B-thread Bend process on the same CPUs. It rejects any difference in gameplay summary fields and retains raw records and completion receipts. It has a 360-second cell cap and 1800-second overall cap. It requires Linux `taskset`; the game launcher itself supports macOS. Use a fresh output directory and budgets supported by the host. These short runs do not establish late-game scaling.
+
+Development checks for the new path:
+
+```sh
+bash tools/survivors-bot/native-batch.test.sh
+python3 -B tools/survivors-bot/compare-native-parallel_test.py
+bend examples/survivors/parallel/PROOF.bend --verdict
+```
+
+The failure/fuel fixture `offline-parallel-test.bend` is included in `examples/survivors/check-native.sh`.
 
 ## Checks and evidence
 

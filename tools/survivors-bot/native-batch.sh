@@ -9,15 +9,16 @@ seed=${NIGHTFALL_BATCH_SEED:-12345}
 profile=${NIGHTFALL_BATCH_PROFILE:-both}
 workers=${NIGHTFALL_BATCH_WORKERS:-1}
 threads=${NIGHTFALL_BATCH_THREADS:-1}
+execution=${NIGHTFALL_BATCH_EXECUTION:-processes}
 build=1
 output_dir=${NIGHTFALL_BATCH_OUTPUT_DIR:-}
-usage() { echo 'native-batch.sh [--count N] [--ticks N] [--seed U32] [--profile fresh|advanced|both] [--workers N] [--threads N] [--no-build] [--output-dir PATH]'; }
+usage() { echo 'native-batch.sh [--count N] [--ticks N] [--seed U32] [--profile fresh|advanced|both] [--execution processes|bend] [--workers N] [--threads N] [--no-build] [--output-dir PATH]'; }
 while (($#)); do
   case "$1" in
     --help) usage; exit 0 ;;
     --output-dir) [[ $# -ge 2 ]] || exit 2; output_dir=$2; shift 2 ;;
     --no-build) build=0; shift ;;
-    --count|--ticks|--seed|--profile|--workers|--threads)
+    --count|--ticks|--seed|--profile|--workers|--threads|--execution)
       [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       key=${1#--}; printf -v "$key" '%s' "$2"; shift 2 ;;
     *) usage >&2; exit 2 ;;
@@ -29,7 +30,18 @@ for key in count ticks seed workers threads; do
 done
 ((count > 0 && count <= 10000 && ticks > 0 && ticks <= 37000 && workers > 0 && workers <= 256 && threads > 0 && threads <= 128)) || { echo 'Invalid bounds: count 1..10000; ticks 1..37000; workers 1..256; threads 1..128' >&2; exit 2; }
 [[ $profile == fresh || $profile == advanced || $profile == both ]] || { echo 'Invalid profile' >&2; exit 2; }
+[[ $execution == processes || $execution == bend ]] || { echo 'Invalid execution (expected processes or bend)' >&2; exit 2; }
+if [[ $execution == bend && $workers != 1 ]]; then
+  echo 'Bend execution requires --workers 1; use --threads for its runtime pool.' >&2
+  exit 2
+fi
 ((workers <= count)) || workers=$count
+entry=offline-batch.bend
+binary_name=nightfall-batch
+if [[ $execution == bend ]]; then
+  entry=offline-parallel.bend
+  binary_name=nightfall-parallel-batch
+fi
 app_dir="$PWD/examples/survivors"
 mkdir -p "$app_dir/dist"
 staging=$(mktemp -d "$app_dir/dist/.native-batch-XXXXXX")
@@ -37,7 +49,7 @@ pids=()
 output_dir=${output_dir:-$app_dir/dist/native-batches/$(date -u +%Y%m%dT%H%M%SZ)-$$}
 mkdir -p "$output_dir"
 output_dir=$(cd "$output_dir" && pwd)
-printf '{"backend":"native","count":%s,"ticks":%s,"seed":%s,"profile":"%s","workers":%s,"threadsPerWorker":%s,"buildOnLaunch":%s}\n' "$count" "$ticks" "$seed" "$profile" "$workers" "$threads" "$build" > "$output_dir/manifest.json"
+printf '{"backend":"native","execution":"%s","count":%s,"ticks":%s,"seed":%s,"profile":"%s","workers":%s,"threadsPerWorker":%s,"buildOnLaunch":%s}\n' "$execution" "$count" "$ticks" "$seed" "$profile" "$workers" "$threads" "$build" > "$output_dir/manifest.json"
 echo "Native batch receipts: $output_dir" >&2
 find "$app_dir" -path "$app_dir/dist" -prune -o -type f -name '*.bend' -print | LC_ALL=C sort > "$output_dir/source-files.txt"
 if command -v sha256sum >/dev/null 2>&1; then
@@ -65,23 +77,25 @@ if [[ ${BENDVY_EXAMPLE_LOCK_HELD:-0} != 1 ]]; then
 fi
 if ((build)); then
   echo 'Compiling native Bend batch runner…' >&2
-  "${BEND:-bend}" "$app_dir/offline-batch.bend" -o "$staging/nightfall-batch" >&2
-  chmod +x "$staging/nightfall-batch"
-  mv -f "$staging/nightfall-batch" "$app_dir/dist/nightfall-batch"
+  "${BEND:-bend}" "$app_dir/$entry" -o "$staging/$binary_name" >&2
+  chmod +x "$staging/$binary_name"
+  mv -f "$staging/$binary_name" "$app_dir/dist/$binary_name"
 fi
-[[ -x "$app_dir/dist/nightfall-batch" ]] || { echo 'Missing native binary; run without --no-build first.' >&2; exit 1; }
+[[ -x "$app_dir/dist/$binary_name" ]] || { echo 'Missing native binary; run without --no-build first.' >&2; exit 1; }
 if command -v sha256sum >/dev/null 2>&1; then
-  sha256sum "$app_dir/dist/nightfall-batch" > "$output_dir/binary-sha256.txt"
+  sha256sum "$app_dir/dist/$binary_name" > "$output_dir/binary-sha256.txt"
 elif command -v shasum >/dev/null 2>&1; then
-  shasum -a 256 "$app_dir/dist/nightfall-batch" > "$output_dir/binary-sha256.txt"
+  shasum -a 256 "$app_dir/dist/$binary_name" > "$output_dir/binary-sha256.txt"
 fi
+# Process mode distributes worlds across processes. Bend mode sends every world
+# to one process; its Bend entry forks pure runs onto the runtime thread pool.
 # Each process owns an independent game world. Global index controls seed/profile;
 # round-robin assignment remains deterministic across worker counts.
 for ((worker=0; worker<workers; worker++)); do
   jobs=$(((count - 1 - worker) / workers + 1))
   NIGHTFALL_BATCH_COUNT=$jobs NIGHTFALL_BATCH_TICKS=$ticks NIGHTFALL_BATCH_SEED=$seed \
   NIGHTFALL_BATCH_PROFILE=$profile NIGHTFALL_BATCH_INDEX=$worker NIGHTFALL_BATCH_STRIDE=$workers \
-    "$app_dir/dist/nightfall-batch" --threads "$threads" >"$output_dir/worker-$worker.jsonl" 2>"$output_dir/worker-$worker.stderr" &
+    "$app_dir/dist/$binary_name" --threads "$threads" >"$output_dir/worker-$worker.jsonl" 2>"$output_dir/worker-$worker.stderr" &
   pids+=("$!")
 done
 status=0
