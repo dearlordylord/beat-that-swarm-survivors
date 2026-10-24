@@ -7,7 +7,11 @@ The active toolchain and CI now use Bend 2.0.38, the latest official release che
 - Native runtime flags now belong inside `+RTS … -RTS`. Native batch, replay and measurement launchers have been updated. Controlled experiments clear `BENDRTS` so ambient settings cannot change the declared run. The launchers' own user-facing `--threads` option is unchanged.
 - Generated JavaScript constructors use their declaring-module names. Adapters and fixtures now use those tags directly, including exact cross-module comparisons. Imported function export keys use `module:function` rather than the old dot separator.
 
-The Metal experiment now requires 2.0.38 and checks its actual generated runtime: lowercase `FID_solve`, the four-field `Fid` table, a zero-pending marked task, forced GPU routing, indirect Metal dispatch, command-buffer completion and error propagation. It does not accept the old three-field runtime layout. Actual macOS compilation and Metal execution still require the user's host run.
+The Metal experiment validates the emitted runtime through
+[metal-experiment.py](../tools/survivors-bot/metal-experiment.py).
+Runtime-layout assertions belong to that executable checker; this note does not
+maintain a second copy. Actual macOS compilation and Metal execution require
+the separately recorded host run.
 
 The Linux installation was updated using `bend update`; `bend version` reports `bend 2.0.38`. The old versioned 2.0.37 installation was preserved. CI downloads the official Linux x64 release archive and verifies SHA256 `f19d088b079c9e1a8834ecd153b7d58c11a5f8f9ab1bdb78dbc96a6bf49aaa81`.
 

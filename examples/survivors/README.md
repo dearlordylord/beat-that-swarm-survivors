@@ -4,13 +4,23 @@ A Vampire Survivors clone built as a Bendvy ECS example. See [setup](../../READM
 
 ## ECS
 
-`game.bend` owns the affine world and runs queries with declared component access: projectile updates write geometry and motion; enemy movement writes geometry and reads motion; combat reads geometry and writes health/status; lifecycle applies entity transitions. `projectile.bend` and `encounters.bend` implement weapon motion, enemies and hazards.
+The schema, affine world ownership and checked system contracts are defined in
+[`game.bend`](game.bend). Immutable role definitions belong to
+[`entity-role.bend`](entity-role.bend), with [kernel laws](entity-role/LAWS.bend);
+query membership has [its own policy](movement-membership.bend) and
+[laws](movement-selection/LAWS.bend). Those sources define the implementation;
+this guide does not duplicate their component layouts or dispatch rules.
 
-The pool layout is defined in [`pools.bend`](pools.bend): 512 enemy/relic slots, 512 shared player-projectile slots, 32 hostile-projectile slots and 400 XP piles (1456 entities total). Ordinary enemy admission reaches 300; Curse and run modifiers can raise it to 500. XP leaves enemy slots immediately and requires physical collection. Overflow accumulates in one marked red pile, preserving its identity and position until pickup. Visual size grows with XP up to radius 8 at 100 XP; further XP still accumulates.
+The authoritative pool layout and admission limits are in [`pools.bend`](pools.bend).
+See [pool sources and proof boundaries](pools/README.md) for allocation, pickup
+and lifecycle implementation. Weapon behavior belongs to
+[`projectile.bend`](projectile.bend), and pickup appearance belongs to
+[`loot-visual.bend`](loot-visual.bend).
 
-Player shots carry their owning weapon and logical spread slot in Motion. A once-per-tick allocator shares free slots across equipped weapons, preserves live shots and applies per-weapon live budgets of 40–70; persistent fields retain their logical-slot limits. Volley amounts and firing cadence are unchanged. See [pool behavior](pools/README.md).
-
-Pool capacity is not a frame-rate result. The example makes no claim of whole-game formal proof or GPU/parallel-runtime performance qualification. See [balance](BALANCE.md), [current pool/frame measurements](../../research/shared-projectile-pool.md) and the verified [offscreen birth invariant](spawn-policy/README.md) for narrower results and limits.
+The example makes no claim of whole-game formal proof or GPU/parallel-runtime
+performance qualification. See [measurement evidence](../../research/shared-projectile-pool.md)
+and the [offscreen birth invariant](spawn-policy/README.md) for narrower results
+and limits.
 
 ## Native launch
 
@@ -28,11 +38,11 @@ Profiles are stored at `~/Library/Application Support/Nightfall Survivors/nightf
 
 At camp: arrows select, Left/Right change category, Enter equips or buys, Space starts, M opens permanent upgrades, and C opens the collection and recipes. In a run: WASD/arrows move, attacks are automatic, Esc pauses, and V toggles sound. XP and chests require pickup.
 
-M opens the pause map: player, stage relic, chests and the current camera footprint. Esc or M resumes. The arena is 14,400 × 14,400 world units; relics are 3,600 units from the central start. Enemy movement and knockback keep the complete sprite inside the arena.
+M opens the pause map: player, stage relic, chests and the current camera footprint. Esc or M resumes. Arena bounds are defined in [`arena.bend`](arena.bend), and relic placement in [`game.bend`](game.bend).
 
 Rewards pause combat: 1/2/3 choose, R rerolls, K skips, B banishes. Esc defers a reward; E reopens it. Queued rewards open in order. From pause, Q returns to camp and banks collected gold once.
 
-Standard and Inverse reach dawn after ten simulated minutes, then spawn a lethal Reaper; reaching dawn earns completion credit when the run ends. Endless has no Reaper. The five-minute Trial accelerates waves and disables permanent upgrades.
+Run-mode timing and finale rules are defined in [`game.bend`](game.bend); progression awards are defined in [`menu-progression.bend`](menu-progression.bend).
 
 ## Browser menu
 
@@ -44,7 +54,7 @@ The Lunar Stone menu uses Moon Seal controls, with Start at the top and in a res
 
 [Browser demo](https://survivors.dearlordylord.com). Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
 
-For browser builds and local play, use Node.js 22.23.4+ and install the pinned Astro build dependencies once:
+For browser builds and local play, use the Node.js version supported by [web/package.json](web/package.json) and install the pinned Astro build dependencies once:
 
 ```sh
 npm ci --prefix examples/survivors/web
@@ -88,7 +98,10 @@ Do not publish by manually copying an old `dist/web`. This procedure guarantees 
 
 ## Music
 
-Adaptive chip-metal uses a shared Bend score and danger assessment: nearby enemies, enemy types, hostile shots and player health change the arrangement at bar boundaries. The latest target replaces older observations; changes never queue. Native synthesizes stereo PCM in Bend, while the browser renders those notes through Web Audio. See [music](music/README.md) for timing and validation scope.
+Adaptive chip-metal shares its Bend score and danger assessment through
+[`music.bend`](music.bend). Native synthesizes stereo PCM in Bend, while the
+browser renders the shared notes through Web Audio. Scheduling policy and
+validation scope are linked from the [music guide](music/README.md).
 
 ## Multiplayer exploration
 
@@ -96,7 +109,7 @@ The game currently remains single-player. The [multiplayer work map](../../resea
 
 ## Checks
 
-Checks require Node.js 20+, Bend, a C compiler and platform audio/window development libraries. Linux uses flock when available; other hosts use a temporary lock directory. Remove stale locks only after confirming no checks are running:
+Checks require Node.js, Bend, a C compiler and platform audio/window development libraries. Linux uses flock when available; other hosts use a temporary lock directory. Remove stale locks only after confirming no checks are running:
 
 ```sh
 bash examples/survivors/check-native.sh
@@ -105,7 +118,15 @@ bash examples/survivors/check-native-full.sh
 bash examples/survivors/check-quiet-boundary.sh
 ```
 
-An optional one-minute fresh-profile kiting observation reports survival, damage, progression and enemy density without requiring survival as a pass condition:
+The ordinary suite includes [capability controls](capability-controls.test.py)
+and same-schema state comparisons. Comparing a replay from the former component
+schema requires the explicit [migration verifier](../../tools/survivors-bot/ecs_migration_compare.py);
+its receipt lists the representation changes excluded from gameplay equality.
+For same-schema comparisons, the [exact replay verifier](../../tools/survivors-bot/replay_compare.py)
+accepts the explicit layout and compares actual metadata without migration
+exclusions; see its `--help`.
+
+An optional fresh-profile kiting observation reports survival, damage, progression and enemy density without requiring survival as a pass condition:
 
 ```sh
 bash examples/survivors/check-native-pacing.sh
@@ -115,7 +136,7 @@ This diagnostic initializes the fresh native UI loadout and uses input-only cont
 
 `check-quiet-boundary.sh` uses the Bend JavaScript backend for a development-only comparison of complete authoritative state across frame-producing and quiet bot initialization, reward choices and natural runs. Native bot execution uses Bend/C.
 
-`check-native-draw.sh` compares every pixel of 29 scenes against an independent display-list oracle, including fractional geometry, sprite layering, fonts and health bars.
+`check-native-draw.sh` compares every pixel of its scenes against an independent display-list oracle, including fractional geometry, sprite layering, fonts and health bars.
 
 `check-native.sh` checks the launcher, native profile, real UI event flow and exact Bend-rendered frame captures, then compiles the windowed application. `check-native-full.sh` drives a full native run using public gameplay inputs. Native `run.command` does not require Node.js or the test helpers. The native application was qualified with Clang 19.1.7 on Linux arm64; set `CC` to select your compiler. macOS compilation uses the local Apple toolchain.
 
@@ -135,7 +156,7 @@ bash examples/survivors/check.sh
 bash examples/survivors/check-full.sh
 ```
 
-The ordinary suite covers catalogs, saves, projectiles, recipes, public commands, artifacts and unlocks. The full-run controller checks ten-minute completion, a boss, chest and evolution using maximum purchased upgrades and Arcana 9. This qualifies one advanced build, not fresh-profile win rates or every build. See [VALIDATION.md](VALIDATION.md) for executed checks and witness results.
+The ordinary suite covers catalogs, saves, projectiles, recipes, public commands, artifacts and unlocks. The [full-run controller](native-full-run.bend) defines its input fixture and success condition. Its witness qualifies that build; it does not establish fresh-profile win rates or every build. See [VALIDATION.md](VALIDATION.md) for dated witness results and the [ECS refactor receipt](../../research/ecs-refactor-results.json) for this source snapshot’s checks and measurement limits.
 
 Browser checks reuse an already installed Playwright; they never install packages:
 

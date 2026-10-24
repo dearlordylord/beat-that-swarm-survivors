@@ -7,7 +7,7 @@ Playable examples of [Bendvy](https://github.com/dearlordylord/bendvy), consumin
 A Vampire Survivors clone demonstrating Bendvy ECS queries, combat and entity lifecycles.
 [Browser demo](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site) · [Source and usage](examples/survivors/README.md)
 
-Install **Bend 2.0.38** and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
+Install the Bend version declared in [bendhub-dependencies.json](bendhub-dependencies.json) and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
 
 ```sh
 git clone https://github.com/dearlordylord/bendvy-ecs-examples.git
@@ -25,12 +25,9 @@ The [native replay report](research/native-step-results.md) documents the qualif
 
 ## BendHub dependency
 
-Application imports use the published package directly:
-
-```bend
-import bendvy-ecs-core@0.1.0.1/world.bend as W
-import bendvy-ecs-core@0.1.0.1/compose.bend as Q
-```
+Application imports pin the published package directly; see the imports in
+[`game.bend`](examples/survivors/game.bend) and the audited
+[`bendhub-dependencies.json`](bendhub-dependencies.json).
 
 The compiler downloads the public package on first use and validates its content. No Bendvy checkout, copied ECS tree or local path alias is required. [bendhub-dependencies.json](bendhub-dependencies.json) records the audited package version, content hash and manifest hash; it is repository metadata, not a compiler-native lockfile.
 
@@ -42,7 +39,7 @@ This audits all example imports and verifies the public registry binding. Every 
 
 ## Development checks
 
-Node.js 20+ is used only for development checks and the optional browser frontend. Native Linux builds additionally need Clang, X11 development headers and ALSA development headers. Clang 19 is the qualified Linux compiler; use `CC=clang-19` where necessary.
+Node.js is used only for development checks and optional browser tooling; its supported versions are declared in the [browser package](examples/survivors/web/package.json) and [bot package](tools/survivors-bot/package.json). Native Linux builds additionally need Clang, X11 development headers and ALSA development headers. Qualified compiler versions are recorded in [validation evidence](examples/survivors/VALIDATION.md); `CC` selects the compiler.
 
 ```sh
 python3 scripts/check-dependencies.py --registry

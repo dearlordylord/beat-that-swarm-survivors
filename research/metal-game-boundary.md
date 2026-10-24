@@ -4,7 +4,11 @@ The M2 Max Metal path passes arithmetic and published Hub column controls, while
 
 ## Change
 
-Game initialization, seed/configuration/mode/unlock application and reward choice/promotion share their existing state transitions through a finish callback. Presentation APIs retain their frame-producing callbacks; native bot initialization and choices use quiet callbacks throughout. Movement already used quiet advancement.
+The implemented presentation boundary belongs to
+[game.bend](../examples/survivors/game.bend) and the
+[native batch entry](../examples/survivors/offline-batch.bend).
+The experiment sought to reduce the device compilation closure while retaining
+the same simulation transitions; it did not propose a second gameplay engine.
 
 Parallel jobs return 15 detached U32 summary fields. The host converts these fields to the original JSON schema after joining. Profile names are parsed on the host and jobs receive a numeric mode. Safety-fuel failure is a separate result variant; actual game failure text remains a String, with its CLI prefix added on the host. Policy goal tie-breaks also legitimately retain strings.
 
@@ -28,11 +32,18 @@ From the examples repository root on the Mac:
 bash tools/survivors-bot/metal-experiment.sh --metal-noinline-spins --metal-segment-functions --metal-stage-trace --smoke-ticks 1 --count 2 --ticks 5
 ```
 
-The successful short-horizon command also selects segment functions and records its lowered smoke/measurement horizons. The original `--metal-noinline-spins` mode by itself did not pass the build cap. This opt-in diagnostic replaces only seven generated helper definition prefixes (`spin_416`, `511`, `382`, `429`, `451`, `526`, `531`) from INLINE to the runtime's existing DFAR qualifier. In this Darwin/Metal experiment DFAR becomes device noinline and expands back to INLINE for CPU computations. The runtime uses the same device qualifier for CUDA too, but this launcher accepts only Darwin arm64/Apple clang and performs no CUDA experiment. It preserves all helper bodies, FIDs, math settings and scheduling, records both C hashes and retains the original C. Every expected definition and macro branch must match exactly, otherwise the command stops.
+The successful short-horizon command records its selected mode and lowered
+smoke/measurement horizons. The original noinline mode alone did not pass the
+build cap. Its exact transformation, platform checks and source guards belong to
+[metal-experiment.py](../tools/survivors-bot/metal-experiment.py); this report does
+not duplicate helper identifiers or macro behavior.
 
 A source audit found short helpers with large transitive INLINE graphs, suggesting excessive optimizer expansion; no actual Metal IR or causal compiler-time result has been measured. Added calls may affect GPU resource use or speed. This combined feasibility candidate does not isolate the effect of formatting removal from the noinline hint. Omit the flag to test the standard candidate; there is no automatic retry after a timeout.
 
-The supervisor first compiles current C and checks two native CPU smoke jobs. Metal compilation is limited to 120 seconds (also the maximum), and the CPU result survives a Metal timeout. The default complete budget is 900 seconds. On successful compilation it forces GPU execution, checks exact CPU/GPU smoke parity and runs three alternating pairs of eight 120-tick jobs. Reports retain C size, function count, hashes, commands and stage durations. Preserve the final report even on failure; another timeout requires a different candidate, not a larger timeout.
+The [experiment supervisor](../tools/survivors-bot/metal-experiment.py) defines
+stage order, budgets, parity gates and report retention. Preserve its final
+report even on failure; a timeout requires a distinct candidate rather than an
+unrecorded budget increase.
 
 ## Qualification result
 
@@ -54,7 +65,11 @@ The optional `--metal-stage-trace` preserves pre-trace C and records both hashes
 
 The seven-helper variant with `--metal-optimize-size` (`run-20261023T183222Z-58434`) spent 93.485011 s in library creation and again timed out at archive population within the same 120 s cap. The all-spin noinline variant (`run-20261023T183552Z-62539`) changed the remaining helper prefixes too: all 760 helpers use device noinline, of which 36 already did. It spent 107.757159 s in library creation and timed out at archive population. Neither establishes GPU correctness or a compilation benefit. Reports are archived as `host-size-seven-noinline-timeout.json` and `host-all-noinline-timeout.json`.
 
-`--metal-segment-functions` is a separate candidate-specific runtime diagnostic. It extracts the device work-loop switch's 1073 textual segments (971 active device cases, with CPU-only guards retained) into direct FAR/noinline functions, sharing an explicit lane state with the 87 registers, stack pointer, result count, sequence flags, next FID and poll counter. A terminal return is distinct from a request to dispatch another segment. Stack-room errors, polling errors and self loops preserve those paths. The default native branch remains the original runtime; `BEND_SEGMENT_CPU_CHECK` selects the same extracted dispatcher on CPU solely for qualification.
+`--metal-segment-functions` selects the candidate-specific
+[mechanical extractor](../tools/survivors-bot/metal_segments.py). Its state layout,
+transition rewrites and qualification mode belong to that executable source.
+The experiment sought a smaller optimizer-visible boundary while preserving
+runtime behavior; compilation success alone does not establish that preservation.
 
 The extracted dispatcher passed eighteen native summary comparisons across six scenarios: 1/60/120/1200 ticks, fresh/advanced profiles, wrapped seeds and 1/2/4/8 threads. The 1200-tick cases include actual reward choices. Original versus transformed default native preprocessing is byte-identical with `BEND_METAL=0`. These checks qualify the extraction on CPU; they are neither GPU nor full-authoritative-state equivalence. Source review separately found no semantic blocker. Evidence: `host-segments-native-summary-parity.json`, `host-segments-native-preprocessor.json`, plus the [review and extraction contract](metal-compiler-options.md).
 
@@ -64,7 +79,10 @@ The all-spin/noinline plus segment-functions run `run-20261023T184231Z-68124` em
 
 Reusing that exact binary and GPU sidecar, `reuse-segments-20261023T184717Z` completed one fresh world at seed 100 on forced Metal at horizons 0, 1 and 5. All emitted summary fields matched CPU exactly. GPU process times were 11.235 s, 5.686 s and 16.290 s; CPU process times were 0.206 s, 0.046 s and 0.046 s respectively. These are individual observations with startup/cache effects, **not** repeated timing medians. The 0-tick case checks initialization; the 1/5-tick cases run actual full-game code. This establishes short-horizon execution, not reward-choice coverage, full-run completion, or complete state equivalence. GPU performance is much worse than CPU for these tiny jobs. Report and replay script: `host-segments-short-gpu-parity.json` and `reuse-segment-probe.py`.
 
-`--smoke-ticks` can explicitly lower the smoke horizon from its unchanged 60-tick default to 1..60 ticks. A smaller successful run qualifies only its recorded horizon. This permits bounded feasibility/performance comparisons without changing gameplay or silently relabeling the failed 60-tick smoke.
+Smoke-horizon validation belongs to
+[metal-experiment.py](../tools/survivors-bot/metal-experiment.py).
+A smaller successful run qualifies only its recorded horizon; it must not be
+relabelled as qualification of the earlier failed longer smoke.
 
 ## Completed paired M2 Max experiment
 

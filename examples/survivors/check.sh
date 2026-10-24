@@ -2,8 +2,16 @@
 set -euo pipefail
 source "$(dirname -- "$0")/../common.sh"
 cd "$example_repo"
+example_timeout 60 bash -c 'ulimit -t 10; exec "$@"' bend-role-proof "$BEND" examples/survivors/entity-role/PROOF.bend --verdict
+example_timeout 60 bash -c 'ulimit -t 10; exec "$@"' bend-movement-proof "$BEND" examples/survivors/movement-selection/PROOF.bend --verdict
+example_timeout 60 python3 -B examples/survivors/capability-controls.test.py
+example_timeout 30 python3 -B tools/survivors-bot/ecs_migration_compare_test.py
+example_timeout 30 python3 -B tools/survivors-bot/replay_compare_test.py
+example_timeout 30 python3 -B tools/survivors-bot/replay_measure_test.py
 example_node examples/survivors/spawn-lifecycle.test.mjs
 example_node examples/survivors/live-quiet.test.mjs
+example_node examples/survivors/pickup-component.test.mjs
+example_timeout 180 "${example_cpu[@]}" "$NODE" examples/survivors/movement-selection.test.mjs
 example_node examples/survivors/spawn-policy.test.mjs
 example_node examples/survivors/arena.test.mjs
 example_node examples/survivors/music.test.mjs

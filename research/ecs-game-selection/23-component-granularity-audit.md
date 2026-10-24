@@ -35,7 +35,12 @@ This narrows Magicka's argument from â€œfour statuses mean four ECS componentsâ€
 
 ## Bendvy-specific consequence
 
-The project contract makes this granularity choice concrete but does not establish a mandatory style. The [ordinary App reference](../../../bendvy/docs/reference/ordinary-app.md) says component-query `Args` and `Out` are `Data`, while component payloads may be affine `Type` values through owner-preserving bindings and `Data` projections. The [ordinary query builder](../../../bendvy/src/ecs/ordinary-query-builder.bend) defines `optional` as a read-only selection that keeps rows where the component is absent; the [query implementation](../../../bendvy/src/ecs/query.bend) keeps structural commands deferred until an explicit barrier. Finite-valued typed component state is already an implemented Bendvy capability ([#47 report](../../../bendvy/docs/reports/component-state-completion.md)).
+The implemented binding, optional-selection and structural-change contracts
+belong to the [ordinary App reference](../../../bendvy/docs/reference/ordinary-app.md),
+[query builder](../../../bendvy/src/ecs/ordinary-query-builder.bend),
+[query implementation](../../../bendvy/src/ecs/query.bend) and
+[component-state report](../../../bendvy/docs/reports/component-state-completion.md).
+Those API rules are not copied here; the design must be checked against them.
 
 So an always-present actor/status payload updated as data may be simpler on the current standard route than repeated optional writable-marker changes. Conversely, independent component families still make sense when their membership and ownership are valuable; they entail the corresponding command/barrier boundary. This affects the *cost and shape* of a slice, not whether flags/enums qualify as ECS. Do not silently claim optional-write filtering, automatic parallel execution, or free atomicity across later structural barriers.
 

@@ -93,6 +93,8 @@ def main():
     parser.add_argument("--fixtures", required=True, type=Path,
                         help="Frozen fixture manifest, or JSON array of absolute trace paths")
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--layout", type=Path,
+                        help="Optional sparse ECS layout for exact same-schema comparison")
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--max-seconds", type=int, required=True,
@@ -100,6 +102,18 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.rounds <= 100 or not 1 <= args.timeout <= 3600 or not 1 <= args.max_seconds <= 28800:
         parser.error("rounds 1..100, timeout 1..3600, max-seconds 1..28800 required")
+    layout = None
+    layout_path = None
+    layout_sha = None
+    if args.layout:
+        from ecs_migration_compare import validate_layout
+        layout_path = args.layout.resolve(strict=True)
+        layout_sha = file_sha(layout_path)
+        # Use the oracle's strict JSON hooks so duplicate layout keys fail closed.
+        from replay_compare import _pairs, _constant
+        layout = validate_layout(json.loads(layout_path.read_text(), object_pairs_hook=_pairs, parse_constant=_constant))
+        if file_sha(layout_path) != layout_sha:
+            parser.error("Layout changed while being read")
     document = json.loads(args.fixtures.read_text())
     expected = {}
     if isinstance(document, dict):
@@ -119,9 +133,13 @@ def main():
     reference, candidate = args.reference.resolve(strict=True), args.candidate.resolve(strict=True)
     args.output.mkdir(parents=True, exist_ok=False)
     evaluators = [Path(__file__).resolve(), Path(__file__).with_name("replay_compare.py").resolve(), args.fixtures.resolve()]
+    if layout_path is not None:
+        evaluators.extend([layout_path, Path(__file__).with_name("ecs_migration_compare.py").resolve()])
     bindings = {"reference": file_sha(reference), "candidate": file_sha(candidate),
                 "evaluators": {str(path): file_sha(path) for path in evaluators},
                 "fixtures": {str(path): file_sha(path) for path in fixtures}}
+    if layout_path is not None and bindings["evaluators"][str(layout_path)] != layout_sha:
+        parser.error("Layout changed before cohort binding")
     write_json(args.output / "plan.json", {"bindings": bindings, "rounds": args.rounds,
                "timeoutSeconds": args.timeout, "maxSeconds": args.max_seconds, "runtimeThreads": 1,
                "cpuAffinity": sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None,
@@ -157,7 +175,7 @@ def main():
                     outputs[role] = args.output / f"{prefix}-{role}.jsonl"
                     pair[role] = run_sample(binary, fixture, outputs[role], min(args.timeout, deadline - time.monotonic()))
                     guard()
-                pair["oracle"] = compare(outputs["reference"], outputs["candidate"], trace=fixture)
+                pair["oracle"] = compare(outputs["reference"], outputs["candidate"], trace=fixture, layout=layout)
                 if str(fixture) in expected and pair["oracle"]["semanticSha256"] != expected[str(fixture)]:
                     raise RuntimeError("Replay differs from frozen recorder observations")
                 pairs.append(pair)

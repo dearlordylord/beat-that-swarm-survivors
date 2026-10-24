@@ -4,11 +4,20 @@ The new opt-in `--execution bend` mode executes independent Survivors worlds in 
 
 ## Implementation
 
-The original `offline-batch.bend` sequences an IO loop. Increasing its runtime thread count does not create parallel jobs. `offline-parallel.bend` instead runs each simulation as a pure function returning a detached result. Each leaf creates and owns its affine ECS world. A balanced plan forks independent branches through `l r = map_parallel(...) map_parallel(...)`; output is emitted in stable index order after joining.
+The process and Bend entries are
+[offline-batch.bend](../examples/survivors/offline-batch.bend) and
+[offline-parallel.bend](../examples/survivors/offline-parallel.bend), with the
+[scheduler](../examples/survivors/parallel/scheduler.bend) owning plan construction
+and parallel traversal. Their algorithms, record layouts and argument defaults
+are not duplicated here.
 
-Only small immutable job parameters are shared. The simulation reuses the original start, movement, upgrade, phase gates and quiet game step. There is no Node bot runtime, classifier call, per-tick frame serialization or GPU execution. New per-job `wallMs` values are `null`: there is no individual IO clock inside the pure jobs. Batch elapsed time is measured externally. Output is buffered until the batch completes.
-
-The installed Bend 2.0.37 guide documents a binary fork-join scheduler without task migration. We also inspected `emit_fork`, `task_deal`, `pool_rows` and `pool_open` in the compiler source reference at `a950fd683c0d76f09794078e6174fe98a1492876`. That reference is older than the installed compiler, so actual emitted 2.0.37 C was inspected separately: the production map creates a two-child join task, with a separate branch argument for each child. Independent jobs have no shared World owner.
+The design separates independent simulation owners from detached batch results.
+Batch time and individual-job time are different measurements; a pure job does
+not gain an individual IO clock merely by executing inside a parallel batch.
+The scheduler/compiler source reference inspected was
+`a950fd683c0d76f09794078e6174fe98a1492876`, older than the installed compiler.
+Actual emitted C was inspected separately; neither inspection alone establishes
+scaling or game equivalence.
 
 ## Prototype and correctness
 
