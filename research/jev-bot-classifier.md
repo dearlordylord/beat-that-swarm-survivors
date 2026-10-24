@@ -49,7 +49,10 @@ Conceptual standalone composition (proposal; not executed/typechecked here): rea
 
 Suggested input: run ID, monotonically increasing decision sequence, simulation tick, hero/stage/mode, HP ratio, current loadout with ranks, passive/Arcana effects, evolution prerequisites and missing ingredients, reward type, exact legal options with stable IDs and human-readable mechanics, and a compact danger summary. Include the objective explicitly (survive to dawn, not maximize immediate damage).
 
-The existing `Game.packet` serializes a JSON frame exposing HP/max HP, time, level, equipment, mode, offers `{kind,id,level}`, and bodies. Numerical IDs alone are insufficient: use `content.mjs` / `native-content.bend` descriptions to explain actual candidate effects. Do not send every entity when nearest-threat, enemy-count, projectile-pressure, free-space and recent-damage summaries suffice. These game interface observations were supplied by the coordinating agent; the classifier-side source inspection above is independent. Game primary entry points: [game.bend](../examples/survivors/game.bend), `choose_raw` line 720, seeded `started` line 798, `start` line 800 and public `choose` line 884.
+The actual game protocol belongs to [game.bend](../examples/survivors/game.bend)
+and the [typed bot facade](../examples/survivors/bot-actions.bend). The classifier
+needs semantic candidate descriptions and compact relevant observations; raw
+numeric identifiers alone are not an adequate advisory interface.
 
 Make `criteria` only the current legal upgrade candidates, e.g. `offer_0`, `offer_1`, `offer_2`, with substantive descriptions. Put current build and mechanics in the state, not vague labels such as “good option.” Ask which legal option best supports the stated survival objective. If only one candidate is legal, choose locally. Whether selecting the returned label or applying another explicit policy, record that policy before comparing outcomes.
 
@@ -82,7 +85,7 @@ That report records **44 live code-review probability requests, zero retries**, 
 
 1. Offline fixtures first: two/three legal offers, one offer, invalid label, stale reward, timeout, missing key and provider failure. Confirm no illegal transition and deterministic fallback; mocked answers test plumbing only.
 2. Small bounded categorical smoke test on authored upgrade snapshots. Record input/prompt identity, model alias, returned label/probabilities, latency, usage, failures and fallback rate. Keep exact action histories for replay. Mutable `jev-latest` is not immutable weights identity.
-3. Compare existing heuristic and classifier-assisted upgrades on matched initial conditions. Current game hardcodes seed `12345`; `G.start` argument two is packed persistent upgrades, **not a random seed**. Current evaluation can only claim fixed-seed comparisons. A proper multi-seed API is separate future work.
+3. Compare existing heuristic and classifier-assisted upgrades on matched initial conditions. Use the actual seed API in [game.bend](../examples/survivors/game.bend) and retain the selected seeds with each receipt. The original investigation did not establish multi-seed evaluation.
 4. Predeclare survival time, reach-dawn rate, kills, damage taken, upgrade/evolution completion, legal-action rate, request failures, wall-clock wait separately from virtual game time, and call/token budgets. Use the same deterministic movement and profile on both sides. Include fresh and intermediate legal profiles, rather than only a maximally upgraded ceiling profile, when feasible; do not interpret repeated identical deterministic baseline runs as independent map diversity.
 5. Retain the integration only if it improves the chosen gameplay outcome with acceptable waiting and bounded spend. No success claim follows from a plausible-looking choice or high returned confidence alone. Macroplanning is a separate follow-up experiment.
 

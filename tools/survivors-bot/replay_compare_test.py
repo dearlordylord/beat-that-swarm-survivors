@@ -84,4 +84,85 @@ class CompareTest(unittest.TestCase):
             self.a.write_text(text);self.b.write_text(text)
             with self.assertRaises(R.ReplayError):R.compare(self.a,self.b)
 
+class SparseCompareTest(unittest.TestCase):
+    def setUp(self):
+        # Synthetic schema fixtures qualify the comparator, not actual gameplay.
+        import ecs_migration_compare_test as S
+        self.schema = S
+        self.directory = tempfile.TemporaryDirectory(); self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.a = self.root / "baseline.jsonl"; self.b = self.root / "candidate.jsonl"
+        self.layout = dict(S.LAYOUT)
+
+    def write(self, left, right):
+        for path, rows in ((self.a, left), (self.b, right)):
+            path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    def compare(self):
+        return R.compare(self.a, self.b, layout=self.layout)
+
+    def test_exact_sparse_mode_accepts_complete_identical_observations(self):
+        left = self.schema.replay(True); right = copy.deepcopy(left)
+        right[-1]["wallMs"] = 999
+        self.write(left, right)
+        result = self.compare()
+        self.assertEqual(result["comparison"], "exact-sparse-ecs")
+        self.assertEqual(result["layout"], self.layout)
+        self.assertEqual(result["checkpoints"], 2)
+        self.assertNotIn("exclusions", result)
+
+    def test_actual_valid_new_stamps_and_clock_are_never_projected_away(self):
+        changes = [lambda p: p["metadata"]["clock"].__setitem__(0, [0, 101])]
+        for family, offset in (("bodies", 0), ("vitals", 0), ("statuses", 0),
+                               ("trajectories", 2), ("roles", 0), ("pickups", 5)):
+            changes.append(lambda p, family=family, offset=offset:
+                           p["components"][family][offset].__setitem__(2, [[0, 2], [0, 90]]))
+        for mutate in changes:
+            left = self.schema.replay(True); right = copy.deepcopy(left)
+            mutate(right[2]["payload"])
+            # A valid standalone snapshot can still differ from the reference.
+            self.schema.M.validate_payload(right[2]["payload"], 1, self.layout, True)
+            self.write(left, right)
+            with self.assertRaises(R.ReplayError): self.compare()
+
+    def test_identically_malformed_sparse_payloads_fail_closed(self):
+        changes = [lambda p: p["components"].pop("statuses"),
+                   lambda p: p["components"].__setitem__("unknown", []),
+                   lambda p: p.__setitem__("unknown", []),
+                   lambda p: p["metadata"].__setitem__("unknown", 1),
+                   lambda p: p["components"]["statuses"][5].__setitem__(1, [0, 0]),
+                   lambda p: p["components"]["trajectories"][2].__setitem__(1, None),
+                   lambda p: p["components"]["pickups"][5].__setitem__(1, None),
+                   lambda p: p["components"]["roles"][0].__setitem__(1, "XpSlot"),
+                   lambda p: p["components"]["poolCandidates"].pop()]
+        for mutate in changes:
+            rows = self.schema.replay(True); mutate(rows[2]["payload"])
+            self.write(rows, rows)
+            with self.assertRaises(R.ReplayError): self.compare()
+        rows = self.schema.replay(True); rows[0]["unknown"] = 1
+        self.write(rows, rows)
+        with self.assertRaises(R.ReplayError): self.compare()
+
+    def test_valid_fallback_roster_difference_is_still_exactly_compared(self):
+        left = self.schema.replay(True); right = copy.deepcopy(left)
+        for key in ("movementCandidates", "projectileCandidates", "poolCandidates"):
+            right[2]["payload"]["components"][key] = None
+        self.schema.M.validate_payload(right[2]["payload"], 1, self.layout, True)
+        self.write(left, right)
+        with self.assertRaises(R.ReplayError): self.compare()
+
+    def test_layout_cli_and_legacy_default_remain_distinct(self):
+        import subprocess
+        import sys
+        rows = self.schema.replay(True); self.write(rows, rows)
+        layout = self.root / "layout.json"; layout.write_text(json.dumps(self.layout))
+        receipt = self.root / "receipt.json"
+        command = [sys.executable, str(Path(__file__).with_name("replay_compare.py")),
+                   str(self.a), str(self.b), "--receipt", str(receipt)]
+        result = subprocess.run(command + ["--layout", str(layout)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(json.loads(receipt.read_text())["layoutSha256"], R.file_sha(layout))
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+
 if __name__ == "__main__":unittest.main()

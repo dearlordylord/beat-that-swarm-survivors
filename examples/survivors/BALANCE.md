@@ -1,68 +1,28 @@
-# Actor-free balance — 24 October 2026
+# Balance intent
 
-The map has no rescue wisps or ward towers. Their historical damage and rewards must not be included when judging the starter weapon or progression. This tuning retains ordinary admission of 96→300 enemies (up to 500 with modifiers), offscreen births, persistent physical XP pickup, existing weapon damage and the Reaper finale.
+Early physical XP should give the player a usable build before enemies become
+hard to kill. Later progression should preserve meaningful choices without
+repeated interruptions. Movement, build choices and encounter pressure should
+matter throughout a run. This is a tuning goal, not numerical parity with
+Vampire Survivors.
 
-| Parameter | Before | Current |
-| --- | --- | --- |
-| First level | 100 XP | 20 XP |
-| Following threshold, previous level L | `2*(100+3L+L²/3)` | `40+6L+L²/3` |
-| Enemy HP scaling, tick t and minute m | `100+t/60+4m²` percent | `100+t/180+4m²` percent |
-| Ordinary movement multiplier | 1.25→1.85 | 1.10→1.70 |
-| Base contact damage before armor | 9 | 6 |
-| Protection after a hit | 30 ticks | 45 ticks |
+Authoritative tuning lives in [game.bend](game.bend), [encounters.bend](encounters.bend)
+and [projectile.bend](projectile.bend). Allocation and admission limits live in
+[pools.bend](pools.bend). Do not copy their values or formulas into this document.
 
-Early real XP should produce a usable build before enemies become hard to kill. Later costs still grow quadratically; time/crowd contact pressure and the finale remain. Arcana 0 keeps its existing +35% damage/−30% maximum-health tradeoff. No automatic XP, hidden support damage or new healing was added.
+The map excludes rescue wisps and ward towers. Their historical damage and
+rewards must not be used to judge the current starter weapon or progression.
 
-Fresh deterministic observations and validation are recorded in VALIDATION.md. Bot observations are diagnostics, not human difficulty or win-rate measurements.
+Reproducible diagnostics, source bindings and complete-run observations are
+recorded in [VALIDATION.md](VALIDATION.md). Earlier actor-assisted or differently
+tuned runs qualify only their recorded source versions. Bot observations do not
+establish human difficulty, enjoyable balance or fresh-profile win rates.
 
-# Historical tuning and observations
+## Further evaluation
 
-Everything below describes earlier source revisions, including actor-assisted runs. It does not qualify the actor-free balance above.
-
-# Current pool revision
-
-The current [pool scheme](pools/README.md) uses 400 physical XP piles and a shared 512-slot projectile pool. Ordinary enemy admission reaches 300 and modified admission 500. Weapon cadence and volley amounts are unchanged; more volleys can remain alive together. The observations below describe earlier pool configurations; current validation is recorded in [VALIDATION.md](VALIDATION.md).
-
----
-
-# Automatic choices and slower XP follow-up
-
-New level and treasure choices automatically pause combat and open their panels. Esc explicitly defers a choice; E reopens it. Consuming a reward promotes and opens the next queued reward. No reward is spent automatically.
-
-XP awards and bonus arithmetic remain unchanged. The opening threshold stays at 100 XP. Subsequent thresholds double to `2 * (100 + 3 * L + L * L / 3)`, so later levels require twice the XP without introducing extra rounding loss into XP bonuses. This is a tuning change, not a measured claim about final-run level count. API integration still exercises seven natural choices; its child cap is 60 seconds (internal 58-second budget), because the progression it waits for is intentionally slower.
-
-The observations below predate this follow-up; the level-41/42-choice full run does not qualify the revised XP economy.
-
----
-
-# Horde pressure and progression revision
-
-The ECS world reserves **512 enemy/loot slots**, 192 player projectile slots, 32 hostile projectile slots and 12 independent actors: **1004 entities**, including 256 dedicated persistent XP piles. The opening admits 96 enemy slots; the budget grows to 240 at two minutes and reaches 512 before six minutes. These are capacity and admission limits, not a claim that every slot is a living visible enemy. A slot may also hold loot or await its next refill. Dormant enemies retry every six ticks. XP leaves enemy slots immediately and persists in its own pool until physical pickup. At capacity, new XP merges into the nearest existing pile while preserving base XP value. Gold and healing retain their two-second collection rule. Chests remain on the ground until collected.
-
-Enemies spawn beyond a common player-centered 1024-by-1024 world rectangle, with additional space for their complete sprites and HP bars plus a same-tick movement reserve. Only arena sides that fit are used; outward coordinates are never clamped into view. The same admission gate covers scheduled bosses and the Reaper, and the six-tick spawn cadence distributes ordinary arrivals across all four directions. Seeds and simulation ticks determine position, so the same inputs remain reproducible. Enemy movement starts at 1.25 times its role speed and rises to 1.85 times at ten minutes. Slow tanks remain slow; fast flankers and chargers demand movement. Health grows with time plus a quadratic minute term (11 times base at ten minutes, before stage/curse). Crowd and elapsed-time contact pressure still apply after armor, with half-second contact protection. These changes increase enemy throughput and late resistance together rather than relying on the finale to create all danger.
-
-Ordinary XP loot now grants two to six XP based on enemy category, rather than `2 + 2 * variant`. That previous formula awarded very large progression rewards merely for encountering a high-numbered enemy type. Level one needs 100 XP; subsequent thresholds follow `100 + 3 * L + L * L / 3` using the previous level when a level is earned. The first draft retained a 12-XP opening threshold and naturally produced nine upgrades in ten seconds (171 kills), so the opening threshold was increased substantially while retaining the modest linear term to preserve late build access. Later upgrades therefore require accelerating investment. The desired play experience is dozens of meaningful build choices across a run, with fewer consecutive interruptions; exact achieved level counts require current-revision input-only witnesses and playtesting. There is no claim of measured parity with Vampire Survivors.
-
-The native frontend can defer reward selection while the real arena continues through `advance_live`. The active offer remains stable, and each later paid level or collected chest queues its reward kind. Choosing, skipping or banishing resolves one reward and generates the next offer from the current inventory, preventing queued offers from downgrading a weapon. Multiple chests and a simultaneous level retain separate rewards. Terminal outcomes override pending choices. The legacy `advance` entry retains its paused choice behavior for existing consumers.
-
-Standard, Inverse and Trial do not stop automatically at their time limit. Dawn summons the separate, control-resistant Reaper; death after reaching the limit yields completed-run phase 4, while death before it yields phase 3. Endless retains continuing ordinary waves. The Reaper's special health and lethal contact are a finale mechanic, not the balancing mechanism for ordinary enemies.
-
-Eight rescue wisps and four ward sentinels share the ECS world. Each owns its health, age, activation phase and cooldown. Wisps activate on approach and move toward the central refuge while fleeing enemies; rescue pays once. Wards activate on approach and periodically submit damage/slow pulses through the existing collision plans. Both can be damaged independently.
-
-The current Hub-distributed build passes the full ordinary suite with the 100-XP opening. A fresh, input-only loot-chasing controller earned its first upgrade at tick 296 (4.93 seconds), made two level choices and reached level 3 before dying at tick 511 (8.52 seconds), with 124 kills. The same controller under the earlier 12-XP opening reached level 10 with nine choices by ten seconds. These observations demonstrate fewer early interruptions and actual threat to this moving novice policy; they do not establish a universal fresh win rate or viability for every build. Ward and rescue interactions are part of the real map, so aggregate kills are not a measurement of the starter weapon alone.
-
-A second, native input-only controller matches the fresh UI initializer: character 0, `P.meta(P.fresh())`, stage 0 / arcana 0, and `P.weapon_mask(P.fresh())`. It uses nearest-enemy and local-crowd repulsion, a consistent tangent and edge avoidance, choosing legal defensive offers. It survived all 3,600 ticks (60 seconds), ending at 70 HP, level 4 and 187 kills, after three choices. Its first reward arrived at tick 540 (9 seconds); first damage at tick 162 (2.7 seconds), with four observed HP drops and minimum HP 32. Peak observed living enemies was 163. This establishes one fresh escape strategy past the loot-chaser's early defeat; it does not establish general beginner fairness, all-build viability or a win. The two policies differ in movement and upgrade selection, and the earlier JS smoke does not apply fresh unlock filtering, so this is not an isolated causal comparison. `./examples/survivors/check-native-pacing.sh` reproduces the bounded diagnostic; receipt `/tmp/nightfall-native-pacing.log`.
-
-The unchanged maximum-meta native complete-run controller also passes against the current frozen balance. It reached dawn at tick 36,000 alive with 187 HP, level 41 and 4,905 kills, then died to the real Reaper at tick 36,713 (10:11.88): completed phase 4, zero HP, level 41, 4,924 kills, 2,161 gold and 42 upgrade decisions. Existing assertions additionally require observed boss/chest/level events and at least one evolved weapon; none were weakened. Levels at successive minute boundaries were 12, 23, 24, 25, 29, 30, 32, 34, 39 and 41. This demonstrates one advanced defensive build can complete the current run with substantially fewer choices than the historical level-185 / 188-decision witness. It does not establish parity across builds, fresh completion rates or native frame performance. `./examples/survivors/check-native-full.sh` reproduces the same bounded consumer; current receipt `/tmp/nightfall-paced-native-full.log` completed within its unchanged 900-second runtime limit.
-
-The injected-clock capacity fixture admitted 511 living enemies and retained 511 at tick 21,672 after twelve admission ticks and sixty moving ticks. One of the 512 enemy/loot slots is reserved for the stage relic. This is functional capacity evidence, not a fresh survival witness or a framerate claim. Queue boundary regressions pass for reroll, skip, banish, simultaneous chest/level rewards and death while holding a choice. Current receipts are `/tmp/nightfall-paced-hub-build.log` and `/tmp/nightfall-paced-hub-check.log`; those temporary paths describe this development session rather than shipped artifacts.
-
-The focused balance regressions check actual opening ECS density, escalating contact pressure, progression thresholds, offscreen spawn admission at arena edges, four-direction arrivals and independent actor lifecycle. Finale boundary checks inject only the clock and then use actual ECS advancement; they establish boundary behavior, not whole-run survival. Previous full-run receipts describe the previous balance and are historical evidence only.
-
-## Follow-up balance laboratory
-
-The existing methodology is in Hapsland's `hapsland-research/PRODUCT-RESEARCH-ADVISORY-2026-10-02-game-balance.md`; its implemented offline laboratory is `hapsland/prototypes/canonical-defense/lab/README.md`. These sources were inspected, not rerun or imported into this game. The useful pattern is a deterministic consumer of the actual game transition, with fixed initial resources, declared actions, a vector of observations and separately held-out cases. A correctness proof or a finite successful controller does not establish enjoyable balance.
-
-After the native delivery, compare at least three movement policies (stationary, novice loot-chasing, deliberate kiting) and focused versus mixed weapon choices. Keep fresh and fully purchased profiles separate. Record survival time, health/contact pressure by minute, visible enemy density, kills, level/evolution timing and gold; record rescue/ward choices as interventions. Compare baseline, wisp route, ward route and both to isolate actor interactions. Hold out an arena and one policy from tuning. The current game starts from a fixed deterministic seed; claims about random seeds require an explicit seedable entry first. Native playtesting should separately assess readability, fairness and whether losses explain how to improve. No repeated parameter-search campaign has been run for this revision.
-
-A historical input-only native witness passed with maximum legal meta upgrades, Agatha and Living Tree on the Graveyard. The Bend controller reached tick 36,000 alive at 372 health, then actually died during the Reaper hunt at tick 36,661: completed phase 4, zero health, level 185, 6,405 kills and 188 upgrade decisions. This belongs to the previous 192-slot schedule and does not qualify the current revision. It does not establish fresh-profile win rates or equivalent difficulty across every build. The run compiled with the reviewed Clang 19 toolchain and used the shared runner lock and existing 900-second complete-run limit; receipt `/tmp/nightfall-native-full-v1.log` includes source hashes.
+Compare movement policies and focused versus mixed builds while keeping fresh
+and purchased profiles separate. Observe survival, contact pressure, enemy
+density, progression, evolution timing and rewards. Hold out scenarios from
+tuning; assess readability, fairness and useful feedback separately through
+human playtesting. A correctness proof or a successful controller cannot replace
+that evaluation.

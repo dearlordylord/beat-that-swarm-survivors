@@ -1,0 +1,244 @@
+{
+  "status": "PASS",
+  "baseCommit": "c8427d027bfbe80fa1c33a240dedf7f39daf0ab7",
+  "branch": "survivors-ecs-selection",
+  "sourceSnapshot": "dirty worktree; hashes identify the checked source before commit",
+  "sourceSha256": {
+    "README.md": "e9d8d554db4bb831607c5cc49a13c9b151870097b37bc648517bdda0c3079527",
+    "examples/survivors/BALANCE.md": "b26c647500e425e9ab1eb5aedebcabea7ce68e73ba97b4a93689483d1d6bc270",
+    "examples/survivors/GAME_SPEC.md": "aa25ea4f95cb3739ad2ad9a65e53e37b7e6aad00cfd33bd577ec61158f5f8c88",
+    "examples/survivors/README.md": "a068181d5a3e911d3af3d8a7cac68624c39153502a206cf275b6dc47cfaa62f4",
+    "examples/survivors/REFERENCE_SCOPE.md": "1a78eaf2faec48d6c2c235fe93ee895ca3c1fbdde057f72f92f4eb89d6f40ba4",
+    "examples/survivors/VALIDATION.md": "11df46e6f1c0e05c57ce40197e18c2e6a9b47d22dc66813b1d3fbcbb7ff1c6c7",
+    "examples/survivors/capability-controls.test.py": "26dbcc10139c6594a898140a2188db3e7aa3af699c817fd8e9d5247b25f5aa30",
+    "examples/survivors/check-native-full.sh": "ce0cd2c557196bafe15890f79d44623b97037f2dbd1392dbd1326a486dfd6b90",
+    "examples/survivors/check.sh": "c7b72369851d9d6e412cd6a2d00faf87a38b7a888250f17273b19d7dc5d5888c",
+    "examples/survivors/entity-role.bend": "aebf2b7facca71049bef15fade307666b79698b238285fe2836a65de97b6b614",
+    "examples/survivors/entity-role/LAWS.bend": "1f5503a21dc66d728741dcf469b7751ef1e08409348b338ba78b5f8f5fdcf2eb",
+    "examples/survivors/entity-role/PROOF.bend": "d1af738080ae18a62d0c45f993c5f51c5b2733eca74e1a3ef3a3a1a8aac46e3d",
+    "examples/survivors/game.bend": "cf178b07151870ef11299a6c2a319ead2ad483167a94c748a88655c970cfe7ec",
+    "examples/survivors/menu-progression/README.md": "4cdd0cd81a4f3c6fb3272a6874b53a57814c947c49ff0d0a7077635676e1a504",
+    "examples/survivors/movement-membership.bend": "f95b8888b5a005b8112f4630f893b5af79b608bf14ea8432a8816ca2854d9b0d",
+    "examples/survivors/movement-selection.test.mjs": "27e1e6c5e8283d39226826df7da69065425863f758f3a4e6da5327d530ad4cbf",
+    "examples/survivors/movement-selection/LAWS.bend": "ebf8922bde1f3aa72b7a8ede4c778390b9a0f02ca38d917e14132f7bb7da8b14",
+    "examples/survivors/movement-selection/PROOF.bend": "8c91cecd457ed495d51c876e74cbc03a4dde7222e077649c7d66bff9a0260bc9",
+    "examples/survivors/music/README.md": "09106d35b9a441214b89d775b26c396114b91efe812327e441024146ddd29f6d",
+    "examples/survivors/native-full-controller-test.bend": "50386e6fe1bde6273c485ccc6a894f2a38bf7ab1c227e90e5c701eee919c635b",
+    "examples/survivors/native-full-run.bend": "60ad6da8e10d856d0f203ca246517fc96501c5cdf1a3591a21a2dbfac6e7925c",
+    "examples/survivors/native-replay-observe.bend": "432d57c75706348020dc614af62ce84bd9c61f272abe3b63e404aa43a7782775",
+    "examples/survivors/parallel/README.md": "34723528847ebc7880b6f0607523571656f3e9d25b3fc7506e8a1597074dded2",
+    "examples/survivors/pickup-component.test.mjs": "29a94d90d4c135fe374c393b704d57939d15fd589df06d858ba390d71dcc62f4",
+    "examples/survivors/pools/README.md": "f61ee2dc06e952a3e71dc7fc41c6660420ce436560b16f9538364207997c497e",
+    "examples/survivors/projectile-pool/README.md": "6c9f16ac659048b0aa50f0fc90737c1949560baffb1c25800a3f66e8135f61e4",
+    "examples/survivors/quiet-boundary-test.bend": "5f460012503862b1bc12c18bfe123791f060996194ac489989ba1a45cda6d334",
+    "examples/survivors/quiet-step.test.mjs": "f1b4ff3d764e152c27eb143759b40e7afb34fde155f3931d09c207742730c5e9",
+    "examples/survivors/spawn-lifecycle.test.mjs": "992162c9e2be985e95bfce87f772a26fc5936437633d6878fd45b367edc1b0d3",
+    "examples/survivors/spawn-policy/README.md": "f02b9f87699d25ebbcb9306e16c09055fd4eeb645136d94589ccaa0e177f9d5f",
+    "research/bend-2.0.38-upgrade.md": "9437db314a4a626a2db55c3e231d233fac7736bd018ac10c70d9d39f23e683b0",
+    "research/bend-parallel-bots.md": "756c44d3083fcfd7ba496c7a9018a28fe2bb9f7827bc53a313d325c2a335178e",
+    "research/core-native-step-options.md": "7b82d317a04d6317cd27a69970dd507ee582ad085452fc1e63bb01178dadaac7",
+    "research/ecs-game-selection/12-cross-entity-access-audit.md": "16c7b2b91260bcb8623a5287982d5734cc849863627301e448a6e2e14fb9b7af",
+    "research/ecs-game-selection/18-api-audit-review.md": "866f8a8a2a158b63d11108acf880187f21e11fc000000391ddd563e29291a551",
+    "research/ecs-game-selection/23-component-granularity-audit.md": "be33cea83b2bd7bc40f899e8d953d10a1e7a9a797539157dd7d9bdcad3ddc703",
+    "research/ecs-game-selection/25-host-interface-audit.md": "6a749a54b5bdf044bd0c8a74ce0945b13626e7d98054266757c95b4b3fee180e",
+    "research/jev-bot-classifier.md": "b1a697765da2d59c3814b0976b6de0d0acff3825e36eaee798b26909692c06d2",
+    "research/mechanics-improvement-loop.md": "040d4dc472c5788528782b24431c12fc11f4ffdc5936780026e8b52c22411675",
+    "research/menu-start-flow.md": "064b27b9e70944778361ca8aed6a69cf18c77a2d6eebc0e00d93d085dfee2fd1",
+    "research/metal-compiler-options.md": "0e28911c5f680d56fb4a80aeeec3d1077d6502fa2a3b9053fa2339e59817bc88",
+    "research/metal-diagnostics.md": "82a4a0b8aa52297349e9245e88dcec9a2ec0056273e4af254eb79818c8eb1371",
+    "research/metal-game-boundary.md": "94fb7487467f06b13d1d2b9b9d68a22f23cd6d9a0a8cc102d76a73d7b9d75e87",
+    "research/native-step-hotspots.md": "d863cfc2b00db1be6acee009860291b1cc58ac08da04e60e6e83e83a59ee17e5",
+    "research/native-step-methodology.md": "3837239de992d3e660bb440af6c2652cbd1bf44834a3f22faffcaf6d4ba866f5",
+    "research/native-step-results.md": "13f60248b3a0fa1c553d04bbff7a52f3bc02f1c05f47732647c03c0079876aeb",
+    "research/shared-projectile-pool.md": "6e1eb52ad507147205c9234782d58c77482adbe9587c33281c596538f4b0ae66",
+    "research/vampire-survivors-entity-limits.md": "da581a414f69f81a9a1d31c15b542fbc7e76240e1f1436c1fd4ff1c732848bf8",
+    "research/wasm-native-runtime.md": "a650365de87296b9f87ad148f488b5e6cf981cfce415ab491377894aa5755171",
+    "tools/survivors-bot/README.md": "abbe11f14704e12d52ea2deb6678bcd604a06ac958e950e8445068ed241bf6ce",
+    "tools/survivors-bot/VALIDATION.md": "8d2d5713bbbb94f1b32787c24227ffe3901b10b3149818dbd87d2fad8bbe338a",
+    "tools/survivors-bot/ecs_migration_compare.py": "caf927066d502d00874caec45399512eab11b67e019a42d6b96465c6ab008cce",
+    "tools/survivors-bot/ecs_migration_compare_test.py": "8a01ab1bc07387f5ac2b833680459719baadf88b9ddf099e69f30e7b07b3e0d8",
+    "tools/survivors-bot/measure-native-step.py": "4dcb6c518127b0d0703eb002e32fa2f68e977578cd001b0a6be6862af9f5eeac",
+    "tools/survivors-bot/replay_compare.py": "a63ee5aa18c078f89f4975eea2c80410fea079be898c5ee46045de1f6ef1e103",
+    "tools/survivors-bot/replay_compare_test.py": "bb9ead0fe74eef6ef3363b1f5b6f207ee4bfdf7a3e1f330e2047fd75b3b2ca8a",
+    "tools/survivors-bot/replay_measure_test.py": "f149c37613dd9fbc782451d6f245320ece757293a6ab8473dd81c51f43d33c76"
+  },
+  "environment": {
+    "compiler": "Bend 2.0.38",
+    "nativeCompiler": "Debian Clang 19.1.7 (3~deb12u1)",
+    "measurementCOptimization": "-O2",
+    "qualificationCOptimization": "Bend default -O3",
+    "platform": "Linux aarch64",
+    "dependencyManifestSha256": "a4746d8f8047dfb40f71545908f0df9d1b19bc33adb9e29eaa12b6998529d27a"
+  },
+  "checks": {
+    "dependencyAudit": "PASS",
+    "ordinaryGameplay": "PASS",
+    "quietBoundary": "PASS",
+    "nativeSuiteAndApplicationBuild": "PASS",
+    "kernelRoleAndMovementLaws": "PASS",
+    "wellTypedMutantsRejected": "PASS",
+    "capabilityNegativeControls": "PASS",
+    "pythonUnitTests": 32,
+    "nativeControllerDecisionTests": 23,
+    "naturalFullRun": "PASS native full run tick=36907 phase=4 hp=0 level=20 kills=1202 gold=665 decisions=25 boss=1 chest=1 seenLevel=1 evolved=1 weapons=[0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] passives=[1,0,0,0,0,0,0,1,0,0,0,2,0,0,0,0,0,0]"
+  },
+  "migrationComparisons": [
+    {
+      "status": "passed",
+      "comparison": "explicit-ecs-schema-migration",
+      "fixture": "seed101-profile0-warm600-end1800",
+      "checkpoints": 11,
+      "semanticSha256": "44a8acb75fcc1b3931e97473e8f997227301e30654627ddc66985eccdb45c139",
+      "baselineSha256": "1021aaba8c1f953fc66779fb696941d9b8b2ea233f05a4b36fdde08e1585747b",
+      "candidateSha256": "f0bdd29e996b558407eed42b7ceb5b706af715e07499099e7ad556e530d2e7b1",
+      "traceSha256": "326f5e1160cacde4c873fddc3fba02d3ef40cb6c3a1727210375658727d3de28",
+      "layout": {
+        "enemyCount": 512,
+        "relicSeed": 511,
+        "playerStart": 512,
+        "hostileStart": 1024,
+        "xpStart": 1056,
+        "totalCount": 1456
+      },
+      "scope": "Bit-exact Run, frame bodies, offers, snapshots, pending rewards, authoritative Body payloads, enemy/relic Vitals and all logical Motion payloads; non-clock World metadata exact.",
+      "exclusions": [
+        "Cross-schema absolute World clock and component lifecycle stamps are not compared; each observation is validated against its own clock.",
+        "Removed non-enemy Vitals payloads are excluded. Enemy and relic Vitals remain bit-exact.",
+        "Added Role, Trajectory, Status, Pickup and routing metadata have no old physical counterpart; their composition, logical coherence and issued-handle membership are independently validated.",
+        "Only declared outer record timing fields and replay-summary timing/digest records are excluded from gameplay equality."
+      ],
+      "layoutSha256": "b17038c5e6c09b7f0dfe0d08f758848facd9b95d4cba4711c27d4a7caad3cfbc"
+    },
+    {
+      "status": "passed",
+      "comparison": "explicit-ecs-schema-migration",
+      "fixture": "seed101-profile1-warm600-end1800",
+      "checkpoints": 12,
+      "semanticSha256": "5a943fb0dbe9c65a4b318633dd29bebd0a9060a0b5767773067160d91c3fe1e5",
+      "baselineSha256": "22b8210d404953c17034a369cecf4787c3f61ee0686f73caab07b4aea8445185",
+      "candidateSha256": "fa221df13d7a6ea9757ff2cd33bb1ad29dfd0da1874616e8f7dbfc21cb616685",
+      "traceSha256": "fb8460129df694072ceda69076641d40b769d747a76a0f94fcf6b02b0ef16b4c",
+      "layout": {
+        "enemyCount": 512,
+        "relicSeed": 511,
+        "playerStart": 512,
+        "hostileStart": 1024,
+        "xpStart": 1056,
+        "totalCount": 1456
+      },
+      "scope": "Bit-exact Run, frame bodies, offers, snapshots, pending rewards, authoritative Body payloads, enemy/relic Vitals and all logical Motion payloads; non-clock World metadata exact.",
+      "exclusions": [
+        "Cross-schema absolute World clock and component lifecycle stamps are not compared; each observation is validated against its own clock.",
+        "Removed non-enemy Vitals payloads are excluded. Enemy and relic Vitals remain bit-exact.",
+        "Added Role, Trajectory, Status, Pickup and routing metadata have no old physical counterpart; their composition, logical coherence and issued-handle membership are independently validated.",
+        "Only declared outer record timing fields and replay-summary timing/digest records are excluded from gameplay equality."
+      ],
+      "layoutSha256": "b17038c5e6c09b7f0dfe0d08f758848facd9b95d4cba4711c27d4a7caad3cfbc"
+    }
+  ],
+  "performanceObservation": {
+    "status": "PASS",
+    "claimLimit": "Finite current-host observations only. No significance, whole-game scaling or universal acceleration qualification.",
+    "simulation": {
+      "0": {
+        "referenceMedianMsPerAction": 5.711666666666667,
+        "candidateMedianMsPerAction": 4.754166666666666,
+        "medianCandidateOverReference": 0.7973445143256463
+      },
+      "1": {
+        "referenceMedianMsPerAction": 5.492934330839568,
+        "candidateMedianMsPerAction": 4.706566916043225,
+        "medianCandidateOverReference": 0.8808338518979465
+      }
+    },
+    "batch": {
+      "referenceMedianJobsPerSecond": 0.1483607918853071,
+      "candidateMedianJobsPerSecond": 0.16303771430399167,
+      "medianCandidateOverReferenceWall": 0.909978360029516
+    },
+    "replayPairs": 6,
+    "batchPairs": 3,
+    "allGameplayOraclesPassed": true
+  },
+  "performanceContract": {
+    "rounds": 3,
+    "simulationProfiles": [
+      0,
+      1
+    ],
+    "simulationMetric": "native replay windowMs / windowActions; includes final full-state completion fold; excludes startup, warmup, policy and serialization",
+    "batchMetric": "completed native bot jobs / process wall seconds; includes startup, policy and reporting",
+    "batchCount": 4,
+    "batchTicks": 1200,
+    "batchProfiles": "both",
+    "seed": 100,
+    "runtimeThreads": 1,
+    "cpuAffinity": [
+      0
+    ],
+    "order": "AB/BA alternating by round and profile",
+    "maximumSeconds": 600,
+    "bindings": {
+      "/tmp/survivors-ecs-selection-checks/observe-ecs-performance.py": "8e97e7637a239ba3bc28092472769def4758ff62d486655a2b0a37698ed85455",
+      "/workspace/formal-proofs/bendvy-ecs-selection/tools/survivors-bot/measure-native-step.py": "d79929e1d001fab43357ca83e13a95d21b6b18527aa67b2512e6ad979a3baa09",
+      "/workspace/formal-proofs/bendvy-ecs-selection/tools/survivors-bot/ecs_migration_compare.py": "caf927066d502d00874caec45399512eab11b67e019a42d6b96465c6ab008cce",
+      "/workspace/formal-proofs/bendvy-ecs-selection/tools/survivors-bot/replay_compare.py": "a1d5c95243d0bd8c2a74a06b99a14714be71456ebbaa6706a96f1856dc729647",
+      "/workspace/formal-proofs/bendvy-ecs-selection/tools/survivors-bot/compare-native-parallel.py": "a1a813022d511a1d69367f9abb21e2faf7f63f737e633c7521c9d2ec6f0f949d",
+      "/tmp/survivors-ecs-selection-checks/reference-replay": "0b4062c071b24422d9048a769de344ba79cd6a1806a6f4f10d8f4d33bf465d22",
+      "/tmp/survivors-ecs-selection-checks/ecs-replay": "cdfccf0b94aa6cd8b2f34dccb6911277637c2a8a652e6356350f6f6ccc17d667",
+      "/tmp/survivors-ecs-selection-checks/reference-batch": "320cd509c1b8019aac35a960b5e5151cb3cf1a760eb7ff4b57a7f59487dcd146",
+      "/tmp/survivors-ecs-selection-checks/ecs-batch": "5bc2c440e1ca1d917df3de2e8e5bbb38ff933f991ce65724963c2b9101e5fb7a",
+      "/tmp/survivors-ecs-selection-checks/migration-layout.json": "b17038c5e6c09b7f0dfe0d08f758848facd9b95d4cba4711c27d4a7caad3cfbc",
+      "/tmp/survivors-ecs-selection-checks/ecs-profile-0.trace": "326f5e1160cacde4c873fddc3fba02d3ef40cb6c3a1727210375658727d3de28",
+      "/tmp/survivors-ecs-selection-checks/ecs-profile-1.trace": "fb8460129df694072ceda69076641d40b769d747a76a0f94fcf6b02b0ef16b4c"
+    },
+    "claimLimit": "Finite current-host observations only. No significance, whole-game scaling or universal acceleration qualification."
+  },
+  "finalNativeCodeIdentity": {
+    "status": "PASS",
+    "currentGameSha256": "cf178b07151870ef11299a6c2a319ead2ad483167a94c748a88655c970cfe7ec",
+    "measuredGameSha256": "bbe00901e850970cb3310b351bdfb7586c67c3110b2c3b3aa6c2a258326087bd",
+    "scope": "Generated native C programs are byte-identical after extracting reroll_seed; same compiler settings and measured binaries remain applicable.",
+    "programs": [
+      {
+        "measured": "ecs-replay.c",
+        "current": "post-helper-replay.c",
+        "sha256": "1413609480dd8033980c6a6d965919aedc3cc1582d77c55ff52fed0fdd892e40"
+      },
+      {
+        "measured": "ecs-batch.c",
+        "current": "post-helper-offline-batch.c",
+        "sha256": "69857b5104dde89ea82b92171a78274fd240e9a4db637e70c2a605ba2220ab0c"
+      }
+    ]
+  },
+  "historicalEvaluatorClosure": "performance-observation/evaluator-source contains the measured tool versions; later exact-schema flags were separately tested",
+  "localEvidenceRoot": "/tmp/survivors-ecs-selection-checks",
+  "evidenceSha256": {
+    "ordinary.log": "37f7a00d7ff7931ee42514c9dd5c966184c694a5784d8a0f98828ae148d709ff",
+    "final-reroll-checks.log": "ce80b5a2116fc4cea3eb422bbec20e09ffda40afd8a38227bbf4181a9b35cffc",
+    "quiet-boundary-final.log": "aafe205e4e8d8d9c3f2e815eb6523038e5fd31cbd61b5fcf4c5470c72c9b2bf2",
+    "native-suite.log": "4d2794f8c62c8c4fce7a5f479e04accefcc83527e31dffcd159b9491ba867e35",
+    "role-movement-verdict.log": "f8112e97acc37ad4c5d88e93fadd4403fe4b1b372f3a5a00ddc6c1d797bf853d",
+    "entity-role-verdict.log": "f8112e97acc37ad4c5d88e93fadd4403fe4b1b372f3a5a00ddc6c1d797bf853d",
+    "final-python-tests.log": "0bcc8c1c490730c4e1547bb45fcb7cbfda8db5056b341de876f2173b6cdfa943",
+    "full-native-run-final.log": "8f9043c6a72fe576c9cc1d010b0a96be838aadad161cbfd70a3e32a2e822172f",
+    "final-reroll-authority-controls/receipt.json": "8c175924134fe44fa2aa2f17b5a74269ca47c73902ff3309d87f9d3c57436fc6",
+    "entity-role-mutants.json": "5e14b23e85d165242fc9c77d8c8d8366f06cc2960b95cec7b00b85bdf2331ac9",
+    "membership-mutants.json": "89e9ef835db88fca44a7a1ea941e30892b625273c75b73aabe88aacea641c353",
+    "exact-sparse-self.json": "a009b559effab89dde1c1cf759db9dbe6d98b44ecfc02a417818fa7f2ef16177",
+    "exact-measure-entry/terminal.json": "a0e325291f60c5422bd8714a700f33fde2baede43f1b4552258adbada0cbdca6",
+    "performance-observation/plan.json": "3a32dafdd96248e87a6ce2c45cf9e1c0b3826b81855f5963379eb71adf70c0b7",
+    "performance-observation/summary.json": "2a0faeb0029b708ec5d033e09c20d62436ffbdc9579a70596df6744e6b085064",
+    "post-helper-native-code-identity.json": "d98652861189de10c81f65035beeb4967f29e1b64e0e5b9c863042e329e74dae",
+    "performance-observation/pairs.jsonl": "15d8b22125a70547e3ede6004cfb518ccfc235143209a784aef6a69c6b171754",
+    "performance-observation/batch-pairs.jsonl": "ad83e7bfaff7913671494fa85b54fc01d0353ca610188bf3b4aed51aabf813cd"
+  },
+  "limits": [
+    "Kernel proofs cover role and movement membership laws, not the entire game.",
+    "Cross-schema equality exclusions are explicit in migrationComparisons; same-schema comparisons retain physical stamps and routing metadata.",
+    "Raw structural component writers must invalidate routing caches.",
+    "Finite host measurements do not establish FPS, scaling or universal acceleration.",
+    "No package pin change, core library change, publication or merge into master."
+  ]
+}

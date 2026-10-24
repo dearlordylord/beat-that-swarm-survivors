@@ -8,29 +8,39 @@
 
 Есть две существенные оговорки. Во-первых, стандартный hierarchy helper умеет взять root, пройти descendants, а затем запустить обычную component query по ним как по текущим строкам. Это специальный tree traversal с заранее заданным root, не generic source-row → outgoing-target join. Во-вторых, report 12 слишком широко описывает совместный доступ к entity component и ресурсу: публичный `recognized-query-declaration` уже даёт `write + resource_write + pair`, а `recognized-app-component.add` регистрирует этот callback через обычный App runner. Это узкий canonical surface для component writes и целого owned resource; custom Ops и разнесение по фазам для такой комбинации не нужны. Отдельный selected-resource-field factory остаётся самостоятельным путём, и это не доказывает удобство любых произвольных query/resource комбинаций.
 
-## Проверка спорных утверждений
+## Основания и пределы проверки
 
-| Утверждение report 12 | Итог | Основание |
-|---|---|---|
-| Стандартный component writer адресует текущую строку. | **Подтверждено.** | Обычные `read`/`write` привязывают grant к query frame; `compose.get/set` передают `Frame.handle` в `Cmp.tx_get/tx_set`. Setter не принимает target handle. [ordinary declarations](../../../bendvy/src/ecs/ordinary-query-declaration.bend#L132-L160), [compose row operations](../../../bendvy/src/ecs/compose.bend#L52-L77). В component App callback параметры — `Ops(H)`, `Args`, opaque `H`; отдельного target аргумента нет. [ordinary App component](../../../bendvy/src/ecs/ordinary-app-component.bend#L66-L75) |
-| Relation query может показать outgoing target, но relation row read-only. | **Подтверждено.** | `Value.Target`/`Sources` и `Row{entity,cells,component}` содержат detached handles; `invoke` выдаёт только `Cap.ValueRead<Row>`. [relation row and values](../../../bendvy/src/ecs/relation-query.bend#L23-L30), [callback grant](../../../bendvy/src/ecs/relation-query.bend#L92-L95). Gameplay relation provider содержит inverse, relate и unrelate, но не grant на component target; ordinary reader получает фиксированный `target`. [provider grants](../../../bendvy/src/ecs/relation-providers.bend#L11-L18), [fixed-target reader](../../../bendvy/src/ecs/ordinary-app-relation-system.bend#L21-L25). |
-| В стандартном API нет прямого generic outgoing-target → target-component join/write внутри одного row callback. | **Подтверждено с оговоркой.** | У relation row нет setter или доступа к target-компоненту; `ordinary-app-relation` предоставляет inverse для известного target и очередь structural relate/unrelate с явным barrier. [inverse and barrier](../../../bendvy/src/ecs/ordinary-app-relation.bend#L134-L145), [relation operations](../../../bendvy/src/ecs/ordinary-app-relation.bend#L165-L182). Однако hierarchy API принимает root, строит descendant handle list и вызывает объявленную query по этим handles; потомки становятся текущими строками query. Это штатный специальный путь для дерева, но не join произвольной relation для каждой исходной строки. [descendant query contract](../../../bendvy/src/ecs/ordinary-app-hierarchy-query.bend#L45-L58). Поэтому categorical «стандартный API никогда не пишет в связанные entities» было бы неверно; точная граница — нет общей атомарной outgoing relation target query внутри исходной строки. |
-| Component query + resource требует custom Ops/declaration либо разных фаз в ordinary App. | **Широкая формулировка опровергнута; выбранный-field подслучай остаётся отдельным.** | `recognized-query-declaration` документирует закрытый App carrier и конструкторы `write`, `resource_write`, `pair`; комментарий к `resource_write` прямо предписывает pair с component declaration. Он отдельно предупреждает, что этот surface не включает все combinators и произвольные selectors. [recognized declaration scope](../../../bendvy/src/ecs/recognized-query-declaration.bend#L13-L23), [resource write and pair](../../../bendvy/src/ecs/recognized-query-declaration.bend#L56-L78). `recognized-app-component.add` вызывает recognized runner для этого carrier; examples README описывает его как поддержанный путь ordinary scheduling, а Sparse consumer реально объявляет `Cap.Write<Position>` + `Cap.ValueWrite<MotionLedger>` и добавляет его через `Component.add`. [App add](../../../bendvy/src/ecs/recognized-app-component.bend#L66-L75), [recognized runner transaction](../../../bendvy/src/ecs/recognized-system.bend#L42-L48), [public API route](../../../bendvy/examples/README.md#L40-L55), [Sparse pair](../../../bendvy/test-fixtures/connected-performance/sparse-motion64/consumer/s-perf/canonical-api-v1/sparse-runtime-v1/motion.bend#L33-L44), [Sparse App registration](../../../bendvy/test-fixtures/connected-performance/sparse-motion64/consumer/s-perf/canonical-api-v1/sparse-runtime-v1/motion-driver.bend#L72-L76). Это source-level подтверждение регистрации, не новый runtime check. Оно покрывает текущий component write плюс owned whole-resource read/write в одной декларации; оно не подтверждает произвольный `read`/`optional`/custom-selector + selected-field состав. |
-| Lower-level query может менять entity component и ресурс в одной транзакции. | **Подтверждено по API и consumer source.** | `query.each_rw_read` callback получает current-row component getter/setter и resource getter/setter; обход держит единый `Tx`, а finish откатывает journaled writes на failure. [query contract](../../../bendvy/src/ecs/query.bend#L83-L89), [transaction finish](../../../bendvy/src/ecs/transaction.bend#L71-L95). `user-simulation` использует этот runner для retry-сценария и связывает Position, Dt, event и spawn command; README отделяет это от рекомендуемого ordinary registration. [retry body/runner](../../../bendvy/examples/user-simulation/simulation.bend#L141-L168), [consumer scope](../../../bendvy/examples/user-simulation/README.md#L8-L13). |
-| Arena digest mismatch означает, что текущая игра сломана. | **Такого вывода делать нельзя; caveat report 12 сформулирован верно.** | `CHECKS.md` записывает для `game.bend` digest `d53f…`; read-only hash текущего файла равен `45e8845e68489094dd2707d45ee437f07325646ed28fbfc82f955432bddd5730`. Значит сохранённые конечные checks не аттестуют точные текущие байты `game.bend`; mismatch сам по себе не свидетельствует о поломке или неисполняемости текущего source. [recorded digest](../../../bendvy/examples/arena/CHECKS.md#L39-L48), [target plan](../../../bendvy/examples/arena/game.bend#L103-L144), [row application](../../../bendvy/examples/arena/game.bend#L169-L215). |
+Подтверждён узкий вывод: обычный row writer не является универсальным
+outgoing-target join. Специальный hierarchy traversal не следует скрывать этим
+обобщением. Широкая претензия о невозможности component + global resource через
+ordinary App была исправлена; Sparse является source-level контрпримером.
 
-## Два потребителя как контроль границ
+Определения и тела consumers остаются в источниках:
 
-`scheduled-health` использует обычную `Component.add`, query declaration `pair(write Health, read HealthDecay)` и callback, который читает decay и ставит Health текущей строки. Это подтверждает зрелость same-entity route, но не target joins. [query registration](../../../bendvy/examples/scheduled-health/registration.bend#L29-L40), [body](../../../bendvy/examples/scheduled-health/system.bend#L26-L57), [documented scenario](../../../bendvy/examples/scheduled-health/README.md#L1-L4)
+- [ordinary declarations](../../../bendvy/src/ecs/ordinary-query-declaration.bend),
+  [Compose](../../../bendvy/src/ecs/compose.bend),
+  [recognized declaration](../../../bendvy/src/ecs/recognized-query-declaration.bend).
+- [Relation query](../../../bendvy/src/ecs/relation-query.bend),
+  [relation App](../../../bendvy/src/ecs/ordinary-app-relation.bend),
+  [hierarchy query](../../../bendvy/src/ecs/ordinary-app-hierarchy-query.bend).
+- [Scheduled health](../../../bendvy/examples/scheduled-health/README.md),
+  [user simulation](../../../bendvy/examples/user-simulation/README.md),
+  [Sparse](../../../bendvy/test-fixtures/connected-performance/sparse-motion64/README.md).
 
-`user-simulation` — контрпример к слишком широкой претензии о ресурсах: lower-level traversal уже сочетает текущие component writes с resource setter внутри одного callback/Tx. Это не опровергает разницу между этим API и общим ordinary query builder. [movement](../../../bendvy/examples/user-simulation/simulation.bend#L86-L106), [retry](../../../bendvy/examples/user-simulation/simulation.bend#L141-L168)
+Аудит не хранит копию сигнатур, алгоритмов регистрации или call graph.
+Прочитанный arena source имел SHA-256
+`45e8845e68489094dd2707d45ee437f07325646ed28fbfc82f955432bddd5730`,
+отличавшийся от опубликованного digest в
+[CHECKS.md](../../../bendvy/examples/arena/CHECKS.md).
+Несовпадение ограничивает свежесть receipt и само по себе не доказывает поломку.
 
-`Sparse` — дополнительный ordinary App consumer, который особенно важен для исправления report 12: текущую Position и общий MotionLedger он меняет из одной recognized declaration, зарегистрированной посредством `Component.add`. Исходник и docs это показывают, но данный аудит его не запускал. [declaration](../../../bendvy/test-fixtures/connected-performance/sparse-motion64/consumer/s-perf/canonical-api-v1/sparse-runtime-v1/motion.bend#L41-L68), [registration](../../../bendvy/test-fixtures/connected-performance/sparse-motion64/consumer/s-perf/canonical-api-v1/sparse-runtime-v1/motion-driver.bend#L72-L76)
+## Уточнение отчёта
 
-## Что исправить в report 12
-
-1. В [таблице API](12-cross-entity-access-audit.md#L19) и шаге 4 алгоритма (стр. 33) ограничить resource caveat именно произвольными/selected-field композициями. Добавить: recognized canonical `write + resource_write + pair` уже поддержан ordinary App и показан Sparse consumer; он не требует custom adapter/фаз для component write вместе с whole-resource write.
-2. В [итоговом выводе](12-cross-entity-access-audit.md#L7), [описании relation row](12-cross-entity-access-audit.md#L18), [уточнении relation API](12-cross-entity-access-audit.md#L22) и [критерии](12-cross-entity-access-audit.md#L59) сохранить вывод о generic outgoing relation join, но упомянуть hierarchy descendant query как специализированное исключение: оно выбирает handles traversal-ом и запускает обычную query по ним как по current rows.
-3. §53 про arena оставить по смыслу: hash mismatch ограничивает свежесть проверки текущих исходников, но не является доказательством ошибки исполнения.
+[Report 12](12-cross-entity-access-audit.md) должен сохранять узкую границу:
+supported component + whole-resource composition не является пробелом,
+hierarchy traversal является специальным исключением, а generic outgoing-target
+join и поздний structural barrier требуют отдельного рассмотрения.
+Несовпадение digest ограничивает свидетельство исполнения, а не доказывает
+неисполнимость исходника.
 
 **Ограничения аудита:** не запускались компилятор, тесты, fixture или игра. Поэтому здесь подтверждены контракты по типам, реализациям и описанию consumers; не подтверждаются заново их актуальная компиляция, runtime результат или производительность. Raw/custom Ops и произвольные query adapters допускают более широкое поведение, поэтому вывод об отсутствии относится к стандартным закрытым surface, а не к абсолютной выразимости языка.

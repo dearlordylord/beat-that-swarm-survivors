@@ -10,15 +10,11 @@ It imports only Base, so the menu does not load the simulation or renderer.
 localStorage. It does not calculate gameplay prices, thresholds, eligibility,
 loadout validity or rewards. The supplied catalog is generated from Bend.
 
-The value transport keeps integer/rational values exact with decimal limbs when
-Bend's immediate Nat representation would overflow. It preserves finite JSON
-numbers, including small fractional saved survival values and counters above
-the F32 exact-integer range. Non-finite host values become null. The host codec
-converts exact returned ratios to JavaScript numbers; it does not decide any
-game rule. Generic numeric coercion accepts ordinary decimal strings in saved
-numeric fields; malformed values normalize to zero or their field default.
-Historical coercion of hexadecimal/exponent strings is not a supported save
-format. Ordinary JSON numeric exponent notation is supported by the transport.
+The generic value codec belongs to [progression.mjs](../progression.mjs) and
+[menu-progression.bend](../menu-progression.bend). Numeric transport and save
+normalization must preserve the distinction between representing values and
+deciding game rules; their exact coercion behavior belongs to the sources and
+[contract checks](contract.test.mjs).
 
 Run from the repository root:
 
@@ -26,12 +22,12 @@ Run from the repository root:
 BEND=bend bash examples/survivors/menu-progression/test.sh
 ```
 
-The four laws establish only that rejected upgrade/unlock decisions return no
+The [laws](LAWS.bend) establish only that rejected upgrade/unlock decisions return no
 replacement profile, already-recorded signatures leave the whole profile
 unchanged, and arcana availability follows membership in the supplied catalog.
 They do not prove successful-purchase debit arithmetic, decimal arithmetic,
-catalog provenance, or permanent deduplication: the existing history retains
-100 run signatures. The proof gate uses the independent `--verdict` checker.
+catalog provenance, or permanent deduplication beyond the history retained by
+the implementation. The proof gate uses the independent `--verdict` checker.
 Three deliberate implementation mutants must fail at their corresponding law.
 A duplicate-reward mutant is detected through the actual emitted transition.
 Its unrestricted symbolic proof mutation exceeded the 10 CPU-second budget,

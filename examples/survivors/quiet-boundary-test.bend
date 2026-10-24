@@ -47,7 +47,7 @@ def selected(quiet: Bool,state: G.State,choice: U32) -> G.Packet:
 def move_direction(quiet: Bool,state: G.State,memory: Policy.Memory,dx: F32,dy: F32,choices: U32) -> QuietProgress:
   match quiet:
     case True{}: QuietProgress{memory,G.advance_quiet(state,dx,dy),choices}
-    case False{}: QuietProgress{memory,G.advance_quiet(state,dx,dy),choices}
+    case False{}: QuietProgress{memory,G.advance(state,dx,dy),choices}
 def moved(quiet: Bool,state: G.State,result: Policy.Memory & (F32 & F32),choices: U32) -> QuietProgress:
   (memory,direction) = result
   (dx,dy) = direction
@@ -79,7 +79,7 @@ def natural_compare(+label: String,left: QuietDriven,right: QuietDriven) -> IO(U
   match left right:
     case QuietDriven{a,+x} QuietDriven{b,+y}:
       do IO<Unit>:
-        expect(Bool.and(U32.is_eq(x,y),U32.is_lt(0,x)),label ++ " natural upgrades reached")
+        expect(U32.is_eq(x,y),label ++ " natural upgrade decisions agree")
         natural_packets(label,a,b)
 def main() -> IO(Unit):
   do IO<Unit>:

@@ -8,6 +8,8 @@ import spawn-lifecycle.bend as SL
 import persistent-xp.bend as X
 import body-index.bend as BI
 import pools.bend as PL
+import movement-membership.bend as MM
+import entity-role.bend as Role
 import projectile-pool.bend as SP
 import loot-visual.bend as LV
 import bendvy-ecs-core@0.1.0.1/world.bend as W
@@ -20,53 +22,139 @@ import bendvy-ecs-core@0.1.0.1/capabilities.bend as Cap
 
 type Schema is Data: Schema{}
 # Frame kinds: enemy0, player shot1, XP2, gold3, heal4, chest5, hostile shot7.
-# Dormant8 never renders. Body health values are frame observations; Vitals owns enemy health.
+# Dormant8 never renders. Health and XP payload fields are presentation views;
+# Vitals and Pickup are their independent authoritative components.
 type Body is Data: Body{x: F32,y: F32,kind: U32,variant: U32,hp: U32,maxHp: U32,age: U32,seed: U32,radius: F32}
 type Vitals is Data: Vitals{health: U32,maximum: U32}
 type VitalToken is Data: VitalToken{}
 type Token is Data: Token{}
+# Motion is detached compatibility transport for pure helpers and snapshots.
+# Authoritative storage separates projectile trajectory from enemy status.
 type Motion is Data: Motion{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<&2,U32>,slow: U32,burn: U32,ownerBase: U32,logicalSlot: U32}
-type MotionToken is Data: MotionToken{}
-type BodyRest is Type: BodyRest{vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Motion>}
-type VitalRest is Type: VitalRest{bodies: Col.Column<Schema,Body>,motions: Col.Column<Schema,Motion>}
-type MotionRest is Type: MotionRest{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>}
-type Store is Type: Store{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Motion>}
+type Trajectory is Data: Trajectory{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<&2,U32>,ownerBase: U32,logicalSlot: U32}
+type Status is Data: Status{slow: U32,burn: U32}
+type Pickup is Data: Pickup{amount: U32,generation: U32,variant: U32,active: Bool}
+type PickupToken is Data: PickupToken{}
+type TrajectoryToken is Data: TrajectoryToken{}
+type StatusToken is Data: StatusToken{}
+type RoleToken is Data: RoleToken{}
+# Derived routing metadata contains only issued identities, never gameplay data.
+type MovementRoster is Data:
+  MovementUnprepared{}
+  MovementPrepared{handles: List<&2,W.Handle<Schema>>}
+type CandidateRoster is Data:
+  CandidatesUnprepared{}
+  CandidatesPrepared{projectiles: List<&2,W.Handle<Schema>>,pool: List<&2,W.Handle<Schema>>}
+type BodyRest is Type: BodyRest{vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster}
+type VitalRest is Type: VitalRest{bodies: Col.Column<Schema,Body>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster}
+type TrajectoryRest is Type: TrajectoryRest{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster}
+type StatusRest is Type: StatusRest{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Trajectory>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster}
+type RoleRest is Type: RoleRest{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,movement: MovementRoster,candidates: CandidateRoster}
+type Store is Type: Store{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster}
 def take(store: Store) -> BodyRest & Col.Column<Schema,Body>:
   match store:
-    case Store{bodies,vitals,motions}: (BodyRest{vitals,motions},bodies)
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}: (BodyRest{vitals,motions,statuses,pickups,roles,movement,candidates},bodies)
 def put(rest: BodyRest,bodies: Col.Column<Schema,Body>) -> Store:
   match rest:
-    case BodyRest{vitals,motions}: Store{bodies,vitals,motions}
-def project(body: Body) -> Body & Body:
-  match body:
+    case BodyRest{vitals,motions,statuses,pickups,roles,movement,candidates}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}
+def project(value: Body) -> Body & Body:
+  match value:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: (Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Body{x,y,kind,variant,hp,maxHp,age,seed,radius})
 def family() -> C.Family<Schema,Store,BodyRest,Body,Body,Token,take,put,project>: C.Family{"body"}
-def empty(unit: Unit) -> Store: Store{Col.empty_indexed(~Schema,~Body),Col.empty_indexed(~Schema,~Vitals),Col.empty_indexed(~Schema,~Motion)}
-def World() -> Type: W.World<Schema,Store,Unit,Unit>
 def take_vitals(store: Store) -> VitalRest & Col.Column<Schema,Vitals>:
   match store:
-    case Store{bodies,vitals,motions}: (VitalRest{bodies,motions},vitals)
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}: (VitalRest{bodies,motions,statuses,pickups,roles,movement,candidates},vitals)
 def put_vitals(rest: VitalRest,vitals: Col.Column<Schema,Vitals>) -> Store:
   match rest:
-    case VitalRest{bodies,motions}: Store{bodies,vitals,motions}
-def project_vitals(vitals: Vitals) -> Vitals & Vitals:
-  match vitals:
+    case VitalRest{bodies,motions,statuses,pickups,roles,movement,candidates}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}
+def project_vitals(value: Vitals) -> Vitals & Vitals:
+  match value:
     case Vitals{+health,+maximum}: (Vitals{health,maximum},Vitals{health,maximum})
 def vital_family() -> C.Family<Schema,Store,VitalRest,Vitals,Vitals,VitalToken,take_vitals,put_vitals,project_vitals>: C.Family{"vitals"}
-def take_motion(store: Store) -> MotionRest & Col.Column<Schema,Motion>:
+def take_trajectory(store: Store) -> TrajectoryRest & Col.Column<Schema,Trajectory>:
   match store:
-    case Store{bodies,vitals,motions}: (MotionRest{bodies,vitals},motions)
-def put_motion(rest: MotionRest,motions: Col.Column<Schema,Motion>) -> Store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}: (TrajectoryRest{bodies,vitals,statuses,pickups,roles,movement,candidates},motions)
+def put_trajectory(rest: TrajectoryRest,motions: Col.Column<Schema,Trajectory>) -> Store:
   match rest:
-    case MotionRest{bodies,vitals}: Store{bodies,vitals,motions}
-def project_motion(motion: Motion) -> Motion & Motion:
-  match motion:
-    case Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}: (Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot})
-def motion_family() -> C.Family<Schema,Store,MotionRest,Motion,Motion,MotionToken,take_motion,put_motion,project_motion>: C.Family{"motion"}
+    case TrajectoryRest{bodies,vitals,statuses,pickups,roles,movement,candidates}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}
+def project_trajectory(value: Trajectory) -> Trajectory & Trajectory:
+  match value:
+    case Trajectory{+vx,+vy,+life,+pierce,+visited,+ownerBase,+logicalSlot}: (Trajectory{vx,vy,life,pierce,visited,ownerBase,logicalSlot},Trajectory{vx,vy,life,pierce,visited,ownerBase,logicalSlot})
+def trajectory_family() -> C.Family<Schema,Store,TrajectoryRest,Trajectory,Trajectory,TrajectoryToken,take_trajectory,put_trajectory,project_trajectory>: C.Family{"trajectory"}
+def take_status(store: Store) -> StatusRest & Col.Column<Schema,Status>:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}: (StatusRest{bodies,vitals,motions,pickups,roles,movement,candidates},statuses)
+def put_status(rest: StatusRest,statuses: Col.Column<Schema,Status>) -> Store:
+  match rest:
+    case StatusRest{bodies,vitals,motions,pickups,roles,movement,candidates}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}
+def project_status(value: Status) -> Status & Status:
+  match value:
+    case Status{+slow,+burn}: (Status{slow,burn},Status{slow,burn})
+def status_family() -> C.Family<Schema,Store,StatusRest,Status,Status,StatusToken,take_status,put_status,project_status>: C.Family{"status"}
+type PickupRest is Type: PickupRest{bodies: Col.Column<Schema,Body>,vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster}
+def take_pickup(store: Store) -> PickupRest & Col.Column<Schema,Pickup>:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}: (PickupRest{bodies,vitals,motions,statuses,roles,movement,candidates},pickups)
+def put_pickup(rest: PickupRest,pickups: Col.Column<Schema,Pickup>) -> Store:
+  match rest:
+    case PickupRest{bodies,vitals,motions,statuses,roles,movement,candidates}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}
+def project_pickup(value: Pickup) -> Pickup & Pickup:
+  match value:
+    case Pickup{+amount,+generation,+variant,+active}: (Pickup{amount,generation,variant,active},Pickup{amount,generation,variant,active})
+def pickup_family() -> C.Family<Schema,Store,PickupRest,Pickup,Pickup,PickupToken,take_pickup,put_pickup,project_pickup>: C.Family{"pickup"}
+def take_role(store: Store) -> RoleRest & Col.Column<Schema,Role.Role>:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}: (RoleRest{bodies,vitals,motions,statuses,pickups,movement,candidates},roles)
+def put_role(rest: RoleRest,roles: Col.Column<Schema,Role.Role>) -> Store:
+  match rest:
+    case RoleRest{bodies,vitals,motions,statuses,pickups,movement,candidates}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates}
+def project_role(value: Role.Role) -> Role.Role & Role.Role:
+  match value:
+    case Role.EnemySlot{}: (Role.EnemySlot{},Role.EnemySlot{})
+    case Role.RelicSlot{}: (Role.RelicSlot{},Role.RelicSlot{})
+    case Role.PlayerProjectileSlot{}: (Role.PlayerProjectileSlot{},Role.PlayerProjectileSlot{})
+    case Role.HostileProjectileSlot{}: (Role.HostileProjectileSlot{},Role.HostileProjectileSlot{})
+    case Role.XpSlot{}: (Role.XpSlot{},Role.XpSlot{})
+    case Role.OutsideSlot{}: (Role.OutsideSlot{},Role.OutsideSlot{})
+def role_family() -> C.Family<Schema,Store,RoleRest,Role.Role,Role.Role,RoleToken,take_role,put_role,project_role>: C.Family{"role"}
+def project_motion(value: Motion) -> Motion & Motion:
+  match value:
+    case Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+ownerBase,+logicalSlot}: (Motion{vx,vy,life,pierce,visited,slow,burn,ownerBase,logicalSlot},Motion{vx,vy,life,pierce,visited,slow,burn,ownerBase,logicalSlot})
 def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0,0,0}
+def empty_trajectory() -> Trajectory: Trajectory{0.0,0.0,0,0,[],0,0}
+def empty_status() -> Status: Status{0,0}
+def trajectory_of(motion: Motion) -> Trajectory:
+  match motion:
+    case Motion{vx,vy,life,pierce,visited,_,_,owner,slot}: Trajectory{vx,vy,life,pierce,visited,owner,slot}
+def status_of(motion: Motion) -> Status:
+  match motion:
+    case Motion{_,_,_,_,_,slow,burn,_,_}: Status{slow,burn}
+def logical_motion(trajectory: Trajectory,status: Status) -> Motion:
+  match trajectory status:
+    case Trajectory{vx,vy,life,pierce,visited,owner,slot} Status{slow,burn}: Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}
+# Geometry/frame transport is reconstructed from Pickup before XP behavior.
+# Stored Body copies never decide the amount, generation, marker or occupancy.
+def pickup_from_body(body: Body) -> Pickup:
+  match body:
+    case Body{_,_,kind,variant,amount,generation,_,_,_}: Pickup{amount,generation,variant,U32.is_eq(kind,2)}
+def pickup_body(body: Body,pickup: Pickup) -> Body:
+  match body pickup:
+    case Body{x,y,_,_,_,_,age,seed,radius} Pickup{amount,generation,variant,active}: Body{x,y,Bool.pick(U32,active,2,8),variant,amount,generation,age,seed,radius}
+def empty(unit: Unit) -> Store: Store{Col.empty_indexed(~Schema,~Body),Col.empty_indexed(~Schema,~Vitals),Col.empty_indexed(~Schema,~Trajectory),Col.empty_indexed(~Schema,~Status),Col.empty_indexed(~Schema,~Pickup),Col.empty_indexed(~Schema,~Role.Role),MovementUnprepared{},CandidatesUnprepared{}}
+def World() -> Type: W.World<Schema,Store,Unit,Unit>
+# Trusted setup writers invalidate routing. The ordinary checked traversal is
+# retained until a fresh snapshot is prepared; lifecycle refreshes active rows.
+def invalidate_routing_store(store: Store) -> Store & Unit:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,_,_}: (Store{bodies,vitals,motions,statuses,pickups,roles,MovementUnprepared{},CandidatesUnprepared{}},Unit{})
+def routing_world(result: World() & Unit) -> World():
+  match result:
+    case (world,_): world
+def invalidate_movement_roster(world: World()) -> World():
+  routing_world(W.with_store(~Schema,~Store,~Unit,~Unit,~Unit,invalidate_routing_store,world))
 def populate_result(result: C.Replacement<World(),Body>) -> World():
   match result:
-    case C.Replaced{world,_}: world
+    case C.Replaced{world,_}: invalidate_movement_roster(world)
     case C.ReplaceRejected{world,_,_}: world
 def populate_body(world: World(),handle: W.Handle<Schema>,body: Body) -> World():
   populate_result(C.structural_replace(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,family(),world,handle,Some{body}))
@@ -74,16 +162,43 @@ def vital_populated(result: C.Replacement<World(),Vitals>) -> World():
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
-def populate_shared(world: World(),+handle: W.Handle<Schema>,body: Body) -> World():
-  match body:
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}:
-      vital_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,vital_family(),populate_body(world,handle,Body{x,y,kind,variant,hp,maxHp,age,seed,radius}),handle,Some{Vitals{hp,maxHp}}))
-def motion_populated(result: C.Replacement<World(),Motion>) -> World():
+def status_populated(result: C.Replacement<World(),Status>) -> World():
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
-def populate_all(world: World(),+handle: W.Handle<Schema>,body: Body) -> World():
-  motion_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,motion_family(),populate_shared(world,handle,body),handle,Some{empty_motion()}))
+def trajectory_populated(result: C.Replacement<World(),Trajectory>) -> World():
+  match result:
+    case C.Replaced{world,_}: world
+    case C.ReplaceRejected{world,_,_}: world
+def role_populated(result: C.Replacement<World(),Role.Role>) -> World():
+  match result:
+    case C.Replaced{world,_}: world
+    case C.ReplaceRejected{world,_,_}: world
+def populate_enemy(world: World(),+handle: W.Handle<Schema>,body: Body) -> World():
+  match body:
+    case Body{_,_,_,_,hp,maxHp,_,_,_}: status_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~StatusRest,~Status,~Status,~StatusToken,~take_status,~put_status,~project_status,status_family(),vital_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,vital_family(),world,handle,Some{Vitals{hp,maxHp}})),handle,Some{empty_status()}))
+def populate_projectile(world: World(),handle: W.Handle<Schema>) -> World():
+  trajectory_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~TrajectoryRest,~Trajectory,~Trajectory,~TrajectoryToken,~take_trajectory,~put_trajectory,~project_trajectory,trajectory_family(),world,handle,Some{empty_trajectory()}))
+def pickup_populated(result: C.Replacement<World(),Pickup>) -> World():
+  match result:
+    case C.Replaced{world,_}: world
+    case C.ReplaceRejected{world,_,_}: world
+def populate_pickup(world: World(),handle: W.Handle<Schema>,body: Body) -> World():
+  pickup_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~PickupRest,~Pickup,~Pickup,~PickupToken,~take_pickup,~put_pickup,~project_pickup,pickup_family(),world,handle,Some{pickup_from_body(body)}))
+def populate_components(role: Role.Role,world: World(),handle: W.Handle<Schema>,body: Body) -> World():
+  match role:
+    case Role.EnemySlot{}: populate_enemy(world,handle,body)
+    case Role.RelicSlot{}: populate_enemy(world,handle,body)
+    case Role.PlayerProjectileSlot{}: populate_projectile(world,handle)
+    case Role.HostileProjectileSlot{}: populate_projectile(world,handle)
+    case Role.XpSlot{}: populate_pickup(world,handle,body)
+    case _: world
+def initial_role(body: Body) -> Role.Role:
+  match body:
+    case Body{_,_,_,_,_,_,_,seed,_}: Role.assigned(seed)
+def populate_shared(world: World(),+handle: W.Handle<Schema>,+body: Body) -> World():
+  populate_components(initial_role(body),role_populated(C.structural_replace(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,role_family(),populate_body(world,handle,body),handle,Some{initial_role(body)})),handle,body)
+def populate_all(world: World(),handle: W.Handle<Schema>,body: Body) -> World(): populate_shared(world,handle,body)
 def populate(world: World(),handle: W.Handle<Schema>,body: Body) -> World(): populate_all(world,handle,body)
 def spawn_finish(result: T.Tx<World(),Unit> & W.Reservation<Schema>) -> World():
   match result:
@@ -92,8 +207,9 @@ def spawn_finish(result: T.Tx<World(),Unit> & W.Reservation<Schema>) -> World():
 def spawn(world: World(),body: Body) -> World():
   spawn_finish(Cmd.tx_spawn(~Schema,~Store,~Unit,~Unit,~Body,~populate,T.begin(~World(),~Unit,world),body))
 # Enemy slots recycle independently of the persistent XP pool.
-# Kind2 hp is exact baseXP; maxHp is the pile generation tick, not health.
-# Weapons and progression are immutable run data; every entity update uses Q.each.
+# Detached kind2 Body transports baseXP/generation for frame and pure helpers;
+# the live Pickup component supplies those values before behavior executes.
+# Weapons and progression are immutable run data; entity updates use checked queries.
 type Run is Data: Run{phase: U32,tick: U32,px: F32,py: F32,hp: U32,maxHp: U32,xp: U32,xpNeed: U32,level: U32,kills: U32,gold: U32,character: U32,weapons: List<&2,U32>,passives: List<&2,U32>,invuln: U32,seed: U32,stage: U32,arcana: U32,meta: U32,revivals: U32,bosses: U32,mode: U32,rerolls: U32,banishes: U32,skips: U32,bannedWeapons: U32,bannedPassives: U32,enemyKinds: List<&2,U32>,relicCollected: U32}
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
 type Snapshot is Data: Snapshot{body: Body,motion: Motion}
@@ -152,6 +268,48 @@ def boot_pool(remaining: Nat,+slot: U32,world: World()) -> World():
   match remaining:
     case 0n: world
     case 1n+rest: boot_pool(rest,(slot + 1 : U32),spawn(world,initial_body(slot)))
+# Bootstrap/setup snapshots use real allocator-visible handles and checked Role.
+# Only allocation interprets numeric ranges; systems select immutable composition.
+# Lifecycle later refreshes active membership during its existing traversal.
+def movement_roster_store(handles: List<&2,W.Handle<Schema>>,store: Store) -> Store & Unit:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,_,candidates}: (Store{bodies,vitals,motions,statuses,pickups,roles,MovementPrepared{handles},candidates},Unit{})
+def movement_roster_save(world: World(),handles: List<&2,W.Handle<Schema>>) -> World():
+  routing_world(W.with_store(~Schema,~Store,~Unit,~Unit,~Unit,movement_roster_store(handles),world))
+def movement_roster_keep(selected: Bool,handle: W.Handle<Schema>,reversed: List<&2,W.Handle<Schema>>) -> List<&2,W.Handle<Schema>>:
+  match selected:
+    case True{}: handle <> reversed
+    case False{}: reversed
+def role_active(role: Role.Role,body: Body) -> Bool:
+  match body:
+    case Body{_,_,kind,_,_,_,_,_,_}: MM.active_role(role,kind)
+type RoutingCapture is Data: RoutingCapture{projectiles: List<&2,W.Handle<Schema>>,pool: List<&2,W.Handle<Schema>>,active: List<&2,W.Handle<Schema>>}
+def routing_capture_store(capture: RoutingCapture,store: Store) -> Store & Unit:
+  match capture store:
+    case RoutingCapture{projectiles,pool,active} Store{bodies,vitals,motions,statuses,pickups,roles,_,_}: (Store{bodies,vitals,motions,statuses,pickups,roles,MovementPrepared{List.reverse(&2,W.Handle<Schema>,active)},CandidatesPrepared{List.reverse(&2,W.Handle<Schema>,projectiles),List.reverse(&2,W.Handle<Schema>,pool)}},Unit{})
+def routing_capture_keep(+role: Role.Role,+handle: W.Handle<Schema>,active: Bool,capture: RoutingCapture) -> RoutingCapture:
+  match capture:
+    case RoutingCapture{projectiles,pool,movement}: RoutingCapture{movement_roster_keep(Role.projectile(role),handle,projectiles),movement_roster_keep(Role.pool(role),handle,pool),movement_roster_keep(active,handle,movement)}
+def routing_capture_body_active(role: Role.Role,result: C.Access<Body>) -> Bool:
+  match result:
+    case C.Found{body}: role_active(role,body)
+    case _: False{}
+def routing_capture_body(+role: Role.Role,handle: W.Handle<Schema>,capture: RoutingCapture,result: World() & C.Access<Body>) -> World() & RoutingCapture:
+  match result:
+    case (world,body): (world,routing_capture_keep(role,handle,routing_capture_body_active(role,body),capture))
+def routing_capture_role(+handle: W.Handle<Schema>,capture: RoutingCapture,result: World() & C.Access<Role.Role>) -> World() & RoutingCapture:
+  match result:
+    case (world,C.Found{role}): routing_capture_body(role,handle,capture,C.get(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,family(),world,handle))
+    case (world,_): (world,capture)
+def routing_capture_collect(handles: List<&2,W.Handle<Schema>>,state: World() & RoutingCapture) -> World():
+  match handles state:
+    case [] Tuple{world,capture}: routing_world(W.with_store(~Schema,~Store,~Unit,~Unit,~Unit,routing_capture_store(capture),world))
+    case Con{+handle,rest} Tuple{world,capture}: routing_capture_collect(rest,routing_capture_role(handle,capture,C.get(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,role_family(),world,handle)))
+def routing_capture_visible(result: World() & List<&2,W.Handle<Schema>>) -> World():
+  match result:
+    case (world,handles): routing_capture_collect(handles,(world,RoutingCapture{[],[],[]}))
+def prepare_movement_roster(world: World()) -> World():
+  routing_capture_visible(W.handles(~Schema,~Store,~Unit,~Unit,world))
 def body_json(body: Body) -> String:
   match body:
     case Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maxHp) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ "]"
@@ -269,7 +427,7 @@ def carried_shot_plan(carrier: ArgsCarrier) -> SP.Plan:
     case _: empty_shot_plan()
 type Row is Data: Row{body: Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
 type Error is Data: MissingBody{}
-type Ops<-H: Type> is Type: Ops{body: Cap.Read<H,Body>,vitals: Cap.Write<H,Vitals,Vitals>,motion: Cap.Write<H,Motion,Motion>}
+type Ops<-H: Type> is Type: Ops{body: Cap.Read<H,Body>,vitals: Cap.Write<H,Vitals,Vitals>,status: Cap.Write<H,Status,Status>}
 def OpsType(H: Type) -> Type: Ops<H>
 def body_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Body>:
   match ops:
@@ -277,9 +435,9 @@ def body_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Body>:
 def vital_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Vitals,Vitals>:
   match ops:
     case Ops{_,vitals,_}: vitals
-def motion_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Motion,Motion>:
+def status_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Status,Status>:
   match ops:
-    case Ops{_,_,motion}: motion
+    case Ops{_,_,status}: status
 def loot_collected(found: Bool,+body: Body,+kind: U32,+amount: U32) -> Row:
   match found body:
     case False{} body: Row{body,0,0,0,0,0,0,0}
@@ -680,37 +838,62 @@ def entity_update(body: Body,motion: Motion,+args: Args) -> EntityRow: entity_up
 # Each pass has an independently checked access contract. Read capabilities cannot write.
 def missing_row() -> EntityRow: EntityRow{Row{Body{0.0,0.0,8,0,0,0,0,0,0.0},0,0,0,0,0,0,0},empty_motion()}
 def Frame() -> Type: Q.Frame<Schema,Store,Unit,Unit>
-def selected_kind(+mode: U32,+kind: U32,+seed: U32) -> Bool:
-  Bool.or(Bool.and(U32.is_eq(mode,0),Bool.or(PL.is_player_shot(seed),PL.is_hostile(seed))),Bool.or(Bool.and(U32.is_eq(mode,2),PL.is_xp(seed)),Bool.and(PL.is_enemy_pool(seed),Bool.or(U32.is_eq(mode,2),Bool.and(U32.is_eq(mode,1),U32.is_eq(kind,0))))))
-def selected_observed(+mode: U32,result: Frame() & C.Access<Body>) -> Frame() & Bool:
+def selected_kind(mode: U32,kind: U32,seed: U32) -> Bool: MM.selected_kind(mode,kind,seed)
+def selected_role(mode: U32,role: Role.Role) -> Bool:
+  match mode:
+    case 0: Role.projectile(role)
+    case 1: Role.enemy(role)
+    case 2: Role.pool(role)
+    case _: False{}
+def selected_role_observed(mode: U32,result: Frame() & C.Access<Role.Role>) -> Frame() & Bool:
   match result:
-    case (frame,C.Found{Body{_,_,+kind,_,_,_,_,+seed,_}}): (frame,selected_kind(mode,kind,seed))
+    case (frame,C.Found{role}): (frame,selected_role(mode,role))
     case (frame,_): (frame,False{})
-def selected_projectile(frame: Frame()) -> Frame() & Bool: selected_observed(0,Q.get(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family(),frame))
-def selected_enemy(frame: Frame()) -> Frame() & Bool: selected_observed(1,Q.get(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family(),frame))
-def selected_pool(frame: Frame()) -> Frame() & Bool: selected_observed(2,Q.get(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family(),frame))
+def selected_enemy_body(result: Frame() & C.Access<Body>) -> Frame() & Bool:
+  match result:
+    case (frame,C.Found{Body{_,_,kind,_,_,_,_,_,_}}): (frame,U32.is_eq(kind,0))
+    case (frame,_): (frame,False{})
+def selected_enemy_admitted(result: Frame() & Bool) -> Frame() & Bool:
+  match result:
+    case (frame,True{}): selected_enemy_body(Q.get(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family(),frame))
+    case (frame,False{}): (frame,False{})
+def selected_projectile(frame: Frame()) -> Frame() & Bool: selected_role_observed(0,Q.get(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,~role_family(),frame))
+def selected_enemy(frame: Frame()) -> Frame() & Bool: selected_enemy_admitted(selected_role_observed(1,Q.get(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,~role_family(),frame)))
+def selected_pool(frame: Frame()) -> Frame() & Bool: selected_role_observed(2,Q.get(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,~role_family(),frame))
 
-# Projectile pass owns positions and trajectories, with no access to entity health.
-type ProjectileOps<-H: Type> is Type: ProjectileOps{body: Cap.Write<H,Body,Body>,motion: Cap.Write<H,Motion,Motion>}
+# Projectile updates own geometry and trajectory, with no health/status grant.
+type ProjectileOps<-H: Type> is Type: ProjectileOps{body: Cap.Write<H,Body,Body>,trajectory: Cap.Write<H,Trajectory,Trajectory>,role: Cap.Read<H,Role.Role>}
 def ProjectileOpsType(H: Type) -> Type: ProjectileOps<H>
 def projectile_body_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Body,Body>:
   match ops:
-    case ProjectileOps{body,_}: body
-def projectile_motion_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Motion,Motion>:
+    case ProjectileOps{body,_,_}: body
+def projectile_trajectory_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Trajectory,Trajectory>:
   match ops:
-    case ProjectileOps{_,motion}: motion
+    case ProjectileOps{_,trajectory,_}: trajectory
+def projectile_role_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Read<H,Role.Role>:
+  match ops:
+    case ProjectileOps{_,_,role}: role
 def projectile_write(~H: Type,~ops: ProjectileOps<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
-    case EntityRow{Row{+body,+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}: (Cap.set(~H,~Motion,~Motion,~projectile_motion_cap(~H,ops),Cap.set(~H,~Body,~Body,~projectile_body_cap(~H,ops),ctx,body),motion),(T.Success{},EntityRow{Row{body,hit,xp,gold,heal,chest,killed,0},motion}))
-def projectile_motion_observed(~H: Type,~ops: ProjectileOps<H>,+args: Args,+plan: SP.Plan,body: Body,result: H & C.Access<Motion>) -> H & (T.Outcome<Error> & EntityRow):
+    case EntityRow{Row{+body,+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}: (Cap.set(~H,~Trajectory,~Trajectory,~projectile_trajectory_cap(~H,ops),Cap.set(~H,~Body,~Body,~projectile_body_cap(~H,ops),ctx,body),trajectory_of(motion)),(T.Success{},EntityRow{Row{body,hit,xp,gold,heal,chest,killed,0},motion}))
+def projectile_update_role(role: Role.Role,body: Body,trajectory: Trajectory,args: Args,plan: SP.Plan) -> EntityRow:
+  match role:
+    case Role.PlayerProjectileSlot{}: shot_step_planned(body,logical_motion(trajectory,empty_status()),args,plan)
+    case Role.HostileProjectileSlot{}: hostile_step(body,logical_motion(trajectory,empty_status()),args)
+    case _: missing_row()
+def projectile_trajectory_observed(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,+args: Args,+plan: SP.Plan,body: Body,result: H & C.Access<Trajectory>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{motion}): projectile_write(~H,~ops,ctx,entity_update_planned(body,motion,args,plan))
+    case (ctx,C.Found{trajectory}): projectile_write(~H,~ops,ctx,projectile_update_role(role,body,trajectory,args,plan))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def projectile_body_observed(~H: Type,~ops: ProjectileOps<H>,+args: Args,+plan: SP.Plan,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & EntityRow):
+def projectile_body_observed(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,+args: Args,+plan: SP.Plan,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{body}): projectile_motion_observed(~H,~ops,args,plan,body,Cap.get(~H,~Motion,~Motion,~projectile_motion_cap(~H,ops),ctx))
+    case (ctx,C.Found{body}): projectile_trajectory_observed(~H,~ops,role,args,plan,body,Cap.get(~H,~Trajectory,~Trajectory,~projectile_trajectory_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def projectile_system_planned(~H: Type,~ops: ProjectileOps<H>,args: Args,plan: SP.Plan,ctx: H) -> H & (T.Outcome<Error> & EntityRow): projectile_body_observed(~H,~ops,args,plan,Cap.get(~H,~Body,~Body,~projectile_body_cap(~H,ops),ctx))
+def projectile_role_observed(~H: Type,~ops: ProjectileOps<H>,args: Args,plan: SP.Plan,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
+  match result:
+    case (ctx,C.Found{role}): projectile_body_observed(~H,~ops,role,args,plan,Cap.get(~H,~Body,~Body,~projectile_body_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+def projectile_system_planned(~H: Type,~ops: ProjectileOps<H>,args: Args,plan: SP.Plan,ctx: H) -> H & (T.Outcome<Error> & EntityRow): projectile_role_observed(~H,~ops,args,plan,Cap.read(~H,~Role.Role,~projectile_role_cap(~H,ops),ctx))
 def open_projectile_carrier(carrier: ArgsCarrier) -> Args & SP.Plan:
   match carrier:
     case ArgsShots{args,plan}: (args,plan)
@@ -720,69 +903,144 @@ def projectile_carrier_opened(~H: Type,~ops: ProjectileOps<H>,opened: Args & SP.
   match opened:
     case (args,plan): projectile_system_planned(~H,~ops,args,plan,ctx)
 def carried_projectile_system(~H: Type,~ops: ProjectileOps<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & EntityRow): projectile_carrier_opened(~H,~ops,open_projectile_carrier(carrier),ctx)
-def projectile_plan() -> Q.Plan<Schema,Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_projectile}
+def projectile_plan() -> Q.Plan<Schema,Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~TrajectoryRest,~Trajectory,~Trajectory,~TrajectoryToken,~take_trajectory,~put_trajectory,~project_trajectory,~trajectory_family()),Q.read_family(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,~role_family())},selected_projectile}
 
 # Movement reads status and writes geometry. It has no health writer or status writer.
-type MoveOps<-H: Type> is Type: MoveOps{body: Cap.Write<H,Body,Body>,motion: Cap.Read<H,Motion>}
+type MoveOps<-H: Type> is Type: MoveOps{body: Cap.Write<H,Body,Body>,status: Cap.Read<H,Status>}
 def MoveOpsType(H: Type) -> Type: MoveOps<H>
 def move_body_cap(~H: Type,ops: MoveOps<H>) -> Cap.Write<H,Body,Body>:
   match ops:
     case MoveOps{body,_}: body
-def move_motion_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Motion>:
+def move_status_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Status>:
   match ops:
-    case MoveOps{_,motion}: motion
+    case MoveOps{_,status}: status
 def moved_intent(body: Body,intent: E.Intent,+factor: F32) -> Body:
   match body intent:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} E.Intent{+vx,+vy,_}: Body{A.constrain((x + vx * factor : F32),radius),A.constrain((y + vy * factor : F32),radius),kind,variant,hp,maxHp,(age + 1 : U32),seed,radius}
 def move_body(body: Body,motion: Motion,args: Args) -> Body:
   match body motion args:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Motion{_,_,_,_,_,+slow,_,_,_} Args{Run{_,+tick,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,+mode,_,_,_,_,_,+enemyKinds,+relicCollected},_,_,_,_,+hits}: moved_intent(Body{x,y,kind,variant,hp,maxHp,age,seed,radius},E.intent(variant,age,x,y,px,py),(E.choose_float(U32.is_eq(variant,30),1.0,slow_factor(slow)) * (1.10 + F32.min(0.60,(U32.to_f32(tick) / 60000.0 : F32)) + F32.min(4.0,(U32.to_f32(age) / 120.0 : F32)) * U32.to_f32(Bool.to_u32(U32.is_eq(variant,30)))) : F32))
-def move_motion_observed(~H: Type,~ops: MoveOps<H>,+args: Args,body: Body,result: H & C.Access<Motion>) -> H & (T.Outcome<Error> & Unit):
+def move_status_observed(~H: Type,~ops: MoveOps<H>,+args: Args,body: Body,result: H & C.Access<Status>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{motion}): (Cap.set(~H,~Body,~Body,~move_body_cap(~H,ops),ctx,move_body(body,motion,args)),(T.Success{},Unit{}))
+    case (ctx,C.Found{status}): (Cap.set(~H,~Body,~Body,~move_body_cap(~H,ops),ctx,move_body(body,logical_motion(empty_trajectory(),status),args)),(T.Success{},Unit{}))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
 def move_body_observed(~H: Type,~ops: MoveOps<H>,+args: Args,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{body}): move_motion_observed(~H,~ops,args,body,Cap.read(~H,~Motion,~move_motion_cap(~H,ops),ctx))
+    case (ctx,C.Found{body}): move_status_observed(~H,~ops,args,body,Cap.read(~H,~Status,~move_status_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
 def move_system(~H: Type,~ops: MoveOps<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & Unit): move_body_observed(~H,~ops,args,Cap.get(~H,~Body,~Body,~move_body_cap(~H,ops),ctx))
 def carried_move_system(~H: Type,~ops: MoveOps<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & Unit): move_system(~H,~ops,carried_args(carrier),ctx)
-def move_plan() -> Q.Plan<Schema,Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.read_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_enemy}
+def move_plan() -> Q.Plan<Schema,Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.read_family(~Schema,~Store,~Unit,~Unit,~StatusRest,~Status,~Status,~StatusToken,~take_status,~put_status,~project_status,~status_family())},selected_enemy}
 
-# Combat only observes geometry. Independent health/status columns own its decisions.
+def movement_roster_read(store: Store) -> Store & MovementRoster:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates}: (Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates},movement)
+def movement_scoped(args: Args,world: World(),roster: MovementRoster) -> Q.Executed<World(),Q.Error<Error>,Unit>:
+  match roster:
+    case MovementUnprepared{}: Q.each(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~ArgsCarrier,~Error,~Unit,~move_plan(),~carried_move_system,ArgsHeld{args},world)
+    case MovementPrepared{handles}: Q.reserved(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~ArgsCarrier,~Error,~Unit,~move_plan(),~carried_move_system,ArgsHeld{args},None{},(world,handles))
+def movement_roster_opened(args: Args,result: World() & MovementRoster) -> Q.Executed<World(),Q.Error<Error>,Unit>:
+  match result:
+    case (world,roster): movement_scoped(args,world,roster)
+def execute_movement(world: World(),args: Args) -> Q.Executed<World(),Q.Error<Error>,Unit>:
+  movement_roster_opened(args,W.with_store(~Schema,~Store,~Unit,~Unit,~MovementRoster,movement_roster_read,world))
+
+# Enemy bodies receive only health/status writers; pickup bodies receive only a
+# Body reader. The facade dispatches narrow grants inside the same transaction
+# and allocator-visible row order, so any failure still rolls back the whole pass.
+type EnemyArgs is Data: EnemyArgs{role: Role.Role,args: Args}
 def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
     case EntityRow{Row{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
-      (Cap.set(~H,~Motion,~Motion,~motion_cap(~H,ops),Cap.set(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx,Vitals{hp,maxHp}),motion),(T.Success{},EntityRow{Row{Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}))
-def observed_motion(~H: Type,~ops: Ops<H>,+args: Args,body: Body,result: H & C.Access<Motion>) -> H & (T.Outcome<Error> & EntityRow):
+      (Cap.set(~H,~Status,~Status,~status_cap(~H,ops),Cap.set(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx,Vitals{hp,maxHp}),status_of(motion)),(T.Success{},EntityRow{Row{Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}))
+def enemy_update_role(role: Role.Role,body: Body,status: Status,args: Args) -> EntityRow:
+  match role:
+    case Role.RelicSlot{}: relic_entity(args)
+    case _: normal_regular_entity(body,logical_motion(empty_trajectory(),status),args)
+def observed_status(~H: Type,~ops: Ops<H>,role: Role.Role,args: Args,body: Body,result: H & C.Access<Status>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{motion}): write_row(~H,~ops,ctx,normal_entity(body,motion,args))
+    case (ctx,C.Found{status}): write_row(~H,~ops,ctx,enemy_update_role(role,body,status,args))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def observed_vitals(~H: Type,~ops: Ops<H>,+args: Args,body: Body,result: H & C.Access<Vitals>) -> H & (T.Outcome<Error> & EntityRow):
+def observed_vitals(~H: Type,~ops: Ops<H>,role: Role.Role,args: Args,body: Body,result: H & C.Access<Vitals>) -> H & (T.Outcome<Error> & EntityRow):
   match body result:
-    case Body{+x,+y,+kind,+variant,_,_,+age,+seed,+radius} Tuple{ctx,C.Found{Vitals{+health,+maximum}}}: observed_motion(~H,~ops,args,Body{x,y,kind,variant,health,maximum,age,seed,radius},Cap.get(~H,~Motion,~Motion,~motion_cap(~H,ops),ctx))
+    case Body{+x,+y,+kind,+variant,_,_,+age,+seed,+radius} Tuple{ctx,C.Found{Vitals{+health,+maximum}}}: observed_status(~H,~ops,role,args,Body{x,y,kind,variant,health,maximum,age,seed,radius},Cap.get(~H,~Status,~Status,~status_cap(~H,ops),ctx))
     case _ Tuple{ctx,_}: (ctx,(T.Failure{MissingBody{}},missing_row()))
-def observed_pool_selected(~H: Type,~ops: Ops<H>,xp: Bool,+args: Args,+body: Body,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
-  match xp:
-    case True{}: write_row(~H,~ops,ctx,xp_entity(body,args))
-    case False{}: observed_vitals(~H,~ops,args,body,Cap.get(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx))
-def observed_pool(~H: Type,~ops: Ops<H>,+args: Args,+body: Body,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
-  match body:
-    case Body{_,_,_,_,_,_,_,+seed,_}: observed_pool_selected(~H,~ops,U32.is_le(PL.xp_start(),seed),args,body,ctx)
-def observed(~H: Type,~ops: Ops<H>,+args: Args,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & EntityRow):
+def observed_enemy(~H: Type,~ops: Ops<H>,role: Role.Role,args: Args,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{body}): observed_pool(~H,~ops,args,body,ctx)
+    case (ctx,C.Found{body}): observed_vitals(~H,~ops,role,args,body,Cap.get(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def body_system(~H: Type,~ops: Ops<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): observed(~H,~ops,args,Cap.read(~H,~Body,~body_cap(~H,ops),ctx))
-def carried_body_system(~H: Type,~ops: Ops<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & EntityRow): body_system(~H,~ops,carried_args(carrier),ctx)
-def plan() -> Q.Plan<Schema,Store,Unit,Unit,OpsType>: Q.Plan{Ops{Q.read_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,~vital_family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_pool}
-
-# The final lifecycle pass applies spawn/death/drop observations and owns only Body.
-type LootOps<-H: Type> is Type: LootOps{body: Cap.Write<H,Body,Body>}
-def LootOpsType(H: Type) -> Type: LootOps<H>
-def loot_body_cap(~H: Type,ops: LootOps<H>) -> Cap.Write<H,Body,Body>:
+def enemy_system(~H: Type,~ops: Ops<H>,call: EnemyArgs,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
+  match call:
+    case EnemyArgs{role,args}: observed_enemy(~H,~ops,role,args,Cap.read(~H,~Body,~body_cap(~H,ops),ctx))
+type PickupOps<-H: Type> is Type: PickupOps{body: Cap.Read<H,Body>,pickup: Cap.Read<H,Pickup>}
+def PickupOpsType(H: Type) -> Type: PickupOps<H>
+def pickup_body_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Body>:
   match ops:
-    case LootOps{body}: body
+    case PickupOps{body,_}: body
+def pickup_payload_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Pickup>:
+  match ops:
+    case PickupOps{_,pickup}: pickup
+def pickup_payload_observed(~H: Type,args: Args,body: Body,result: H & C.Access<Pickup>) -> H & (T.Outcome<Error> & EntityRow):
+  match result:
+    case (ctx,C.Found{pickup}): (ctx,(T.Success{},xp_entity(pickup_body(body,pickup),args)))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+def pickup_observed(~H: Type,~ops: PickupOps<H>,args: Args,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & EntityRow):
+  match result:
+    case (ctx,C.Found{body}): pickup_payload_observed(~H,args,body,Cap.read(~H,~Pickup,~pickup_payload_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+def pickup_system(~H: Type,~ops: PickupOps<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): pickup_observed(~H,~ops,args,Cap.read(~H,~Body,~pickup_body_cap(~H,ops),ctx))
+type PoolOps<-H: Type> is Type: PoolOps{role: Cap.Read<H,Role.Role>,enemy: Ops<H>,pickup: PickupOps<H>}
+def PoolOpsType(H: Type) -> Type: PoolOps<H>
+def pool_role_cap(~H: Type,ops: PoolOps<H>) -> Cap.Read<H,Role.Role>:
+  match ops:
+    case PoolOps{role,_,_}: role
+def pool_enemy_caps(~H: Type,ops: PoolOps<H>) -> Ops<H>:
+  match ops:
+    case PoolOps{_,enemy,_}: enemy
+def pool_pickup_caps(~H: Type,ops: PoolOps<H>) -> PickupOps<H>:
+  match ops:
+    case PoolOps{_,_,pickup}: pickup
+def pool_dispatch(~H: Type,~ops: PoolOps<H>,role: Role.Role,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
+  match role:
+    case Role.XpSlot{}: Cap.invoke(~PickupOpsType,~Args,~(T.Outcome<Error> & EntityRow),~pickup_system,~H,~pool_pickup_caps(~H,ops),args,ctx)
+    case role: Cap.invoke(~OpsType,~EnemyArgs,~(T.Outcome<Error> & EntityRow),~enemy_system,~H,~pool_enemy_caps(~H,ops),EnemyArgs{role,args},ctx)
+def pool_role_observed(~H: Type,~ops: PoolOps<H>,args: Args,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
+  match result:
+    case (ctx,C.Found{role}): pool_dispatch(~H,~ops,role,args,ctx)
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+def body_system(~H: Type,~ops: PoolOps<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): pool_role_observed(~H,~ops,args,Cap.read(~H,~Role.Role,~pool_role_cap(~H,ops),ctx))
+def carried_body_system(~H: Type,~ops: PoolOps<H>,carrier: ArgsCarrier,ctx: H) -> H & (T.Outcome<Error> & EntityRow): body_system(~H,~ops,carried_args(carrier),ctx)
+def plan() -> Q.Plan<Schema,Store,Unit,Unit,PoolOpsType>: Q.Plan{PoolOps{Q.read_family(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,~role_family()),Ops{Q.read_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,~vital_family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~StatusRest,~Status,~Status,~StatusToken,~take_status,~put_status,~project_status,~status_family())},PickupOps{Q.read_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.read_family(~Schema,~Store,~Unit,~Unit,~PickupRest,~Pickup,~Pickup,~PickupToken,~take_pickup,~put_pickup,~project_pickup,~pickup_family())}},selected_pool}
+
+# Lifecycle dispatch keeps enemy geometry and XP payload grants separate while
+# executing both bodies in the original enclosing transaction and row order.
+type LifecycleOps<-H: Type> is Type: LifecycleOps{body: Cap.Write<H,Body,Body>,handle: Cap.ValueRead<H,W.Handle<Schema>>}
+def LifecycleOpsType(H: Type) -> Type: LifecycleOps<H>
+def loot_body_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.Write<H,Body,Body>:
+  match ops:
+    case LifecycleOps{body,_}: body
+def loot_handle_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.ValueRead<H,W.Handle<Schema>>:
+  match ops:
+    case LifecycleOps{_,handle}: handle
+type PickupLifecycleOps<-H: Type> is Type: PickupLifecycleOps{body: Cap.Write<H,Body,Body>,pickup: Cap.Write<H,Pickup,Pickup>}
+def PickupLifecycleOpsType(H: Type) -> Type: PickupLifecycleOps<H>
+def pickup_lifecycle_body_cap(~H: Type,ops: PickupLifecycleOps<H>) -> Cap.Write<H,Body,Body>:
+  match ops:
+    case PickupLifecycleOps{body,_}: body
+def pickup_lifecycle_payload_cap(~H: Type,ops: PickupLifecycleOps<H>) -> Cap.Write<H,Pickup,Pickup>:
+  match ops:
+    case PickupLifecycleOps{_,pickup}: pickup
+type LootOps<-H: Type> is Type: LootOps{role: Cap.Read<H,Role.Role>,enemy: LifecycleOps<H>,pickup: PickupLifecycleOps<H>}
+def LootOpsType(H: Type) -> Type: LootOps<H>
+def loot_role_cap(~H: Type,ops: LootOps<H>) -> Cap.Read<H,Role.Role>:
+  match ops:
+    case LootOps{role,_,_}: role
+def loot_enemy_caps(~H: Type,ops: LootOps<H>) -> LifecycleOps<H>:
+  match ops:
+    case LootOps{_,enemy,_}: enemy
+def loot_pickup_caps(~H: Type,ops: LootOps<H>) -> PickupLifecycleOps<H>:
+  match ops:
+    case LootOps{_,_,pickup}: pickup
 def prefer_body(found: Bool,body: Body,fallback: Body) -> Body:
   match found:
     case True{}: body
@@ -808,20 +1066,58 @@ def body_index_rows(rows: List<&2,EntityRow>,index: BI.Index<Body>) -> BI.Index<
 def body_index(rows: List<&2,EntityRow>) -> BI.Index<Body>: body_index_rows(rows,BI.Empty{})
 def indexed_body(index: BI.Index<Body>,seed: U32,fallback: Body) -> Body:
   BI.get(~Body,index,seed,fallback)
-def loot_observed_body(~H: Type,~ops: LootOps<H>,index: BI.Index<Body>,+body: Body,ctx: H) -> H & (T.Outcome<Error> & Unit):
+type LifecycleCall is Data: LifecycleCall{role: Role.Role,index: BI.Index<Body>}
+def loot_active_handle(~H: Type,result: H & W.Handle<Schema>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match result:
+    case (ctx,handle): (ctx,(T.Success{},Some{handle}))
+def loot_written(~H: Type,~ops: LifecycleOps<H>,active: Bool,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match active:
+    case False{}: (ctx,(T.Success{},None{}))
+    case True{}: loot_active_handle(~H,Cap.value_read(~H,~W.Handle<Schema>,~loot_handle_cap(~H,ops),ctx))
+def loot_write_body(~H: Type,~ops: LifecycleOps<H>,role: Role.Role,+body: Body,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  loot_written(~H,~ops,role_active(role,body),Cap.set(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx,body))
+def loot_observed_body(~H: Type,~ops: LifecycleOps<H>,role: Role.Role,index: BI.Index<Body>,+body: Body,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
   match body:
-    case Body{_,_,_,_,_,_,_,+seed,_}: (Cap.set(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx,indexed_body(index,seed,body)),(T.Success{},Unit{}))
-def loot_observed(~H: Type,~ops: LootOps<H>,+index: BI.Index<Body>,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Unit):
+    case Body{_,_,_,_,_,_,_,+seed,_}: loot_write_body(~H,~ops,role,indexed_body(index,seed,body),ctx)
+def loot_observed(~H: Type,~ops: LifecycleOps<H>,role: Role.Role,index: BI.Index<Body>,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
   match result:
-    case (ctx,C.Found{+body}): loot_observed_body(~H,~ops,index,body,ctx)
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
-def loot_system(~H: Type,~ops: LootOps<H>,index: BI.Index<Body>,ctx: H) -> H & (T.Outcome<Error> & Unit): loot_observed(~H,~ops,index,Cap.get(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx))
-def loot_plan() -> Q.Plan<Schema,Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family())},selected_pool}
+    case (ctx,C.Found{body}): loot_observed_body(~H,~ops,role,index,body,ctx)
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+def enemy_lifecycle(~H: Type,~ops: LifecycleOps<H>,call: LifecycleCall,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match call:
+    case LifecycleCall{role,index}: loot_observed(~H,~ops,role,index,Cap.get(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx))
+def pickup_lifecycle_write(~H: Type,~ops: PickupLifecycleOps<H>,+body: Body,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  (Cap.set(~H,~Pickup,~Pickup,~pickup_lifecycle_payload_cap(~H,ops),Cap.set(~H,~Body,~Body,~pickup_lifecycle_body_cap(~H,ops),ctx,body),pickup_from_body(body)),(T.Success{},None{}))
+def pickup_lifecycle_planned(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Body>,+body: Body,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match body:
+    case Body{_,_,_,_,_,_,_,seed,_}: pickup_lifecycle_write(~H,~ops,indexed_body(index,seed,body),ctx)
+def pickup_lifecycle_payload(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Body>,body: Body,result: H & C.Access<Pickup>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match result:
+    case (ctx,C.Found{pickup}): pickup_lifecycle_planned(~H,~ops,index,pickup_body(body,pickup),ctx)
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+def pickup_lifecycle_observed(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Body>,result: H & C.Access<Body>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match result:
+    case (ctx,C.Found{body}): pickup_lifecycle_payload(~H,~ops,index,body,Cap.get(~H,~Pickup,~Pickup,~pickup_lifecycle_payload_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+def pickup_lifecycle(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Body>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>): pickup_lifecycle_observed(~H,~ops,index,Cap.get(~H,~Body,~Body,~pickup_lifecycle_body_cap(~H,ops),ctx))
+def loot_dispatch(~H: Type,~ops: LootOps<H>,role: Role.Role,index: BI.Index<Body>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match role:
+    case Role.XpSlot{}: Cap.invoke(~PickupLifecycleOpsType,~BI.Index<Body>,~(T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>),~pickup_lifecycle,~H,~loot_pickup_caps(~H,ops),index,ctx)
+    case role: Cap.invoke(~LifecycleOpsType,~LifecycleCall,~(T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>),~enemy_lifecycle,~H,~loot_enemy_caps(~H,ops),LifecycleCall{role,index},ctx)
+def loot_role_observed(~H: Type,~ops: LootOps<H>,index: BI.Index<Body>,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>):
+  match result:
+    case (ctx,C.Found{role}): loot_dispatch(~H,~ops,role,index,ctx)
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+def loot_system(~H: Type,~ops: LootOps<H>,index: BI.Index<Body>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Schema>>): loot_role_observed(~H,~ops,index,Cap.read(~H,~Role.Role,~loot_role_cap(~H,ops),ctx))
+def loot_plan() -> Q.Plan<Schema,Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.read_family(~Schema,~Store,~Unit,~Unit,~RoleRest,~Role.Role,~Role.Role,~RoleToken,~take_role,~put_role,~project_role,~role_family()),LifecycleOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.handle_read(~Schema,~Store,~Unit,~Unit)},PickupLifecycleOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~PickupRest,~Pickup,~Pickup,~PickupToken,~take_pickup,~put_pickup,~project_pickup,~pickup_family())}},selected_pool}
 
-# All collision inputs are frozen once per tick; no pass sees partly updated shots.
-def lifecycle_done(+rows: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,Unit>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
+def movement_roster_outputs(rows: List<&2,Maybe<&2,W.Handle<Schema>>>) -> List<&2,W.Handle<Schema>>:
+  MM.outputs(~W.Handle<Schema>,rows)
+# Publish membership only after the Body transaction succeeds. Failed traversal
+# rolls back Body and retains the old roster; no partial output becomes a roster.
+def lifecycle_done(+rows: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,Maybe<&2,W.Handle<Schema>>>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},_}: Q.Executed{world,T.Success{},rows}
+    case Q.Executed{world,T.Success{},handles}: Q.Executed{movement_roster_save(world,movement_roster_outputs(handles)),T.Success{},rows}
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 # Batch XP routing: preserve exact drops while free, then one stable accumulator.
 # Existing accumulator identity/coordinates/generation survive every merge.
@@ -900,21 +1196,41 @@ def xp_route_args(rows: List<&2,EntityRow>,args: Args) -> List<&2,EntityRow>:
 def args_tick(args: Args) -> U32:
   match args:
     case Args{Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}: tick
+# The trusted schema adapter narrows only enumeration; capabilities, selector,
+# transaction finish, rollback and mixed allocator order remain the public query's.
+def candidate_roster_read(store: Store) -> Store & CandidateRoster:
+  match store:
+    case Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates}: (Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates},candidates)
+def candidate_roster_handles(projectile: Bool,roster: CandidateRoster) -> Maybe<&2,List<&2,W.Handle<Schema>>>:
+  match projectile roster:
+    case _ CandidatesUnprepared{}: None{}
+    case True{} CandidatesPrepared{projectiles,_}: Some{projectiles}
+    case False{} CandidatesPrepared{_,pool}: Some{pool}
+def candidate_query_ready(~Ops: Type -> Type,~A: Data,~Out: Data,~plan: Q.Plan<Schema,Store,Unit,Unit,Ops>,~body: @-H: Type -> @-caps: Ops(H) -> A -> H -> H & (T.Outcome<Error> & Out),args: A,world: World(),handles: Maybe<&2,List<&2,W.Handle<Schema>>>) -> Q.Executed<World(),Q.Error<Error>,Out>:
+  match handles:
+    case None{}: Q.each(~Schema,~Store,~Unit,~Unit,~Ops,~A,~Error,~Out,~plan,~body,args,world)
+    case Some{handles}: Q.reserved(~Schema,~Store,~Unit,~Unit,~Ops,~A,~Error,~Out,~plan,~body,args,None{},(world,handles))
+def candidate_query_opened(~Ops: Type -> Type,~A: Data,~Out: Data,~plan: Q.Plan<Schema,Store,Unit,Unit,Ops>,~body: @-H: Type -> @-caps: Ops(H) -> A -> H -> H & (T.Outcome<Error> & Out),projectile: Bool,args: A,result: World() & CandidateRoster) -> Q.Executed<World(),Q.Error<Error>,Out>:
+  match result:
+    case (world,roster): candidate_query_ready(~Ops,~A,~Out,~plan,~body,args,world,candidate_roster_handles(projectile,roster))
+def candidate_query(~Ops: Type -> Type,~A: Data,~Out: Data,~plan: Q.Plan<Schema,Store,Unit,Unit,Ops>,~body: @-H: Type -> @-caps: Ops(H) -> A -> H -> H & (T.Outcome<Error> & Out),projectile: Bool,args: A,world: World()) -> Q.Executed<World(),Q.Error<Error>,Out>:
+  candidate_query_opened(~Ops,~A,~Out,~plan,~body,projectile,args,W.with_store(~Schema,~Store,~Unit,~Unit,~CandidateRoster,candidate_roster_read,world))
+
 def xp_lifecycle(+projectiles: List<&2,EntityRow>,+rows: List<&2,EntityRow>,world: World()) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
-  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~BI.Index<Body>,~Error,~Unit,~loot_plan(),~loot_system,body_index(rows),world))
+  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),candidate_query(~LootOpsType,~BI.Index<Body>,~Maybe<&2,W.Handle<Schema>>,~loot_plan(),~loot_system,False{},body_index(rows),world))
 def combat_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
     case Q.Executed{world,T.Success{},+rows}: xp_lifecycle(projectiles,xp_route_args(rows,args),world)
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def movement_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,Unit>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},_}: combat_done(args,projectiles,Q.each(~Schema,~Store,~Unit,~Unit,~OpsType,~ArgsCarrier,~Error,~EntityRow,~plan(),~carried_body_system,ArgsHeld{args},world))
+    case Q.Executed{world,T.Success{},_}: combat_done(args,projectiles,candidate_query(~PoolOpsType,~ArgsCarrier,~EntityRow,~plan(),~carried_body_system,False{},ArgsHeld{args},world))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def projectile_done(+args: Args,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},rows}: movement_done(args,rows,Q.each(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~ArgsCarrier,~Error,~Unit,~move_plan(),~carried_move_system,ArgsHeld{args},world))
+    case Q.Executed{world,T.Success{},rows}: movement_done(args,rows,execute_movement(world,args))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
-def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,EntityRow>: projectile_done(args,Q.each(~Schema,~Store,~Unit,~Unit,~ProjectileOpsType,~ArgsCarrier,~Error,~EntityRow,~projectile_plan(),~carried_projectile_system,ArgsShots{args,prepare_shot_plan(args)},world))
+def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,EntityRow>: projectile_done(args,candidate_query(~ProjectileOpsType,~ArgsCarrier,~EntityRow,~projectile_plan(),~carried_projectile_system,True{},ArgsShots{args,prepare_shot_plan(args)},world))
 
 def owned(rows: List<&2,U32>) -> U32:
   match rows:
@@ -1071,7 +1387,7 @@ def executed(+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> 
 def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet: advance_raw_with(~packet,state,dx,dy)
 def started_with(~emit: State -> Packet,+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
   match created:
-    case W.Created{_,world}: emit(State{W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world)),Run{0,0,A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
+    case W.Created{_,world}: emit(State{prepare_movement_roster(W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{0,0,A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
     case W.CreateRejected{_,_}: Failed{"World creation refused"}
 def started(character: U32,meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet: started_with(~packet,character,meta,created)
 def start_with(~emit: State -> Packet,character: U32,meta: U32) -> Packet: started_with(~emit,U32.min(character,7),meta,W.create(~Schema,~Store,~Unit,~Unit,~empty,W.factory(),Unit{}))
@@ -1103,10 +1419,11 @@ def configure_unlocks_with(~emit: State -> Packet,state: State,+unlockedMask: U3
     case state: emit(state)
 
 def configure_unlocks(state: State,mask: U32) -> Packet: configure_unlocks_with(~packet,state,mask)
+def reroll_seed(seed: U32) -> U32: (seed + 41 : U32)
 def reroll(state: State) -> Packet:
   match state:
     case State{world,Run{1,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,0,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{1,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,0,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
-    case State{world,Run{1,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,_,+snapshots,pending}: packet(State{world,Run{1,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,(seed + 41 : U32),stage,arcana,meta,revivals,bosses,mode,dec(rerolls),banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,filter_offers(make_offers((seed + 41 : U32),weapons,passives),bannedWeapons,bannedPassives),snapshots,pending})
+    case State{world,Run{1,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,_,+snapshots,pending}: packet(State{world,Run{1,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,reroll_seed(seed),stage,arcana,meta,revivals,bosses,mode,dec(rerolls),banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,filter_offers(make_offers(reroll_seed(seed),weapons,passives),bannedWeapons,bannedPassives),snapshots,pending})
     case state: packet(state)
 
 def skip_raw(state: State) -> Packet:

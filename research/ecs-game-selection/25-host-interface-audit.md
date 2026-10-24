@@ -2,54 +2,28 @@
 
 **Scope.** Source-only review of the arena browser adapter, the health browser adapter, the registered `ordinary App` consumer, and current host/observation contracts. No build, compiler, test, browser, or backend was run. This records reusable paths and application-specific seams; it does not propose a broad host bridge or performance claim.
 
-## Finding
+## Source authority
 
-Bendvy already has two useful building blocks, but not one finished game-host interface:
+The inspected sources are the [arena game](../../../bendvy/examples/arena/game.bend),
+[arena browser](../../../bendvy/examples/arena/browser.mjs),
+[scheduled-health application](../../../bendvy/examples/scheduled-health/application.bend),
+[ordinary App reference](../../../bendvy/docs/reference/ordinary-app.md) and
+[ordinary App entry](../../../bendvy/src/ecs/ordinary-app-run.bend).
+Read those sources for their fields and control flow; this audit does not copy
+packet layouts, registration recipes or their call graph.
 
-1. The browser demos compile Bend entry functions to an ECMAScript module, call them from JavaScript, and pass one returned state value from frame to frame. Browser code owns DOM input, clock, JSON parsing, and drawing.
-2. The ordinary App API attaches registered systems once, returns the scheduled App after every run result, and exposes detached typed observations. The scheduled-health consumer demonstrates this path across repeated ticks and keeps the returned App each time.
+## Architectural finding
 
-The gap is the adapter between them. The browser games use direct query orchestration rather than registered ordinary App; the ordinary App example is a JS/Native console simulation rather than an interactive host. A larger clone can compose these pieces in an application-owned Bend entry module, but must define its own input DTO, rendering snapshot, and side-effect handoff. The observation `rendered` strings are explicitly fixture presentation, not a stable wire format.
+A browser or native presentation must retain and thread the returned simulation
+owner, define its input/result boundary and own external effects. Source-level
+access to state is not a ready-made host protocol. In particular, presentation
+snapshots do not establish external-effect rollback, and console backend parity
+does not establish a native GUI.
 
-## What the current browser path actually does
-
-`examples/arena/build.sh` creates `dist/` and calls `example_emit` on `game.bend`; `examples/common.sh` implements that as `bend source -o destination` under the example timeout/lock. The checked-in path contains no `sed`, rewrite step, bundler, or other compiler-output patch. `browser.mjs` assumes the resulting module has a default import exposing `start()` and `advance(...)`. Because this audit did not generate or inspect `dist/game.mjs`, that module shape is a source-level expectation of the checked-in consumer, not a fresh finding about compiler output. ([arena build](../../../bendvy/examples/arena/build.sh#L1-L6), [shared emitter](../../../bendvy/examples/common.sh#L14-L18), [browser entry](../../../bendvy/examples/arena/browser.mjs#L1-L17))
-
-The host reads keyboard state, normalizes the direction, and passes the values into Bend as `dx, dy` on each fixed simulation step. `requestAnimationFrame` supplies elapsed time; the adapter accumulates it, caps a delayed frame, and calls Bend at a 60 Hz step. Pause, restart, focus, blur, visibility changes, error display, and Canvas drawing all remain in JavaScript/HTML. ([input and fixed-step loop](../../../bendvy/examples/arena/browser.mjs#L89-L120), [HTML host](../../../bendvy/examples/arena/index.html#L10-L18))
-
-The Bend side defines `State` with the actual affine `World` plus arena counters and a `Packet` with that next `State` and a manually built JSON string. `start()` creates a World; `advance(state, dx, dy)` consumes the old state and returns the packet for the next step. `packet` builds the render summary by concatenating strings. `Body` is stored as one component family with a numeric `kind`; the state also carries a parallel `bodies` list used by targeting and snapshot formatting. The adapter is therefore a concrete game-specific projection, not a generic `World` serializer or inspector. ([arena state and packet](../../../bendvy/examples/arena/game.bend#L217-L243), [game systems and body mirror](../../../bendvy/examples/arena/game.bend#L251-L296))
-
-The JSON body row is a positional array. In the browser, the trail map uses its `seed` slot as a stable demo key; it is not receiving `W.Handle` from the render packet. A future UI that needs actual entity identity, component variants, interpolation data, or UI-specific labels should define those fields in a typed render DTO and map them deliberately. Avoid coupling a renderer to `Body` field order or `kind` integers. ([row encoder](../../../bendvy/examples/arena/game.bend#L227-L238), [browser row decoding](../../../bendvy/examples/arena/browser.mjs#L18-L26))
-
-The smaller health-decay browser adapter makes the same ownership shape especially clear: Bend returns `Packet{state, frame}`, JavaScript parses the frame and retains the new state. It explicitly clears its local state variable before calling `Demo.step(owned)`, then accepts only the returned owner. Its Bend code manually reads selected components by retained handles and emits a per-entity JSON string. Both browser adapters are useful patterns, while their JSON schemas and state types remain specific to their demo. ([health adapter API](../../../bendvy/examples/health-decay/demo/api.bend#L12-L73), [browser state handoff](../../../bendvy/examples/health-decay/demo/browser.mjs#L8-L65))
-
-Bend’s type-level affine discipline applies within Bend code. The host adapters mirror it by keeping the latest returned `State` or `App` and not reusing an earlier value: the health demo clears its variable before `step`, and the arena documents the intended rule and overwrites its variable with `packet.state`. This audit did not inspect generated JavaScript to determine whether any runtime guard also exists at the module boundary.
-
-## What the ordinary App path already provides
-
-The ordinary App starting path is more reusable for a larger simulation than the browser demo’s direct `Q.each` call. `scheduled-health/main.bend` creates a typed World, queues entities, then calls `Application.start`. The application registers a `write Health + read HealthDecay` query, attaches it once, and recursively passes each returned `Application` into the next `Entry.run`. On `Schedule.Finished`, it reads an App snapshot, formats the selected observation rows, and eventually prints the trace through `IO.print`. Its README says the same six-tick simulation supports JS and Native. It is a real registered-schedule consumer, but not a browser event loop or UI bridge. ([main](../../../bendvy/examples/scheduled-health/main.bend#L12-L29), [registered query](../../../bendvy/examples/scheduled-health/registration.bend#L29-L54), [App handoff and snapshot](../../../bendvy/examples/scheduled-health/application.bend#L42-L70), [consumer README](../../../bendvy/examples/scheduled-health/README.md#L1-L50))
-
-`Entry.run` returns the scheduled App in success, system failure, registration/authority rejection, and missing-provisioning cases. The guide says to feed that returned App into the next run and not recreate the World or registration owners. `Entry.snapshot` provides the current schema, registration, and World observations; `Entry.inspect` can return a detached `Data` projection. The `inspect` callback itself is not restricted to read-only behavior, so the ordinary guide recommends public Inspector projections when the intent is observation. ([ordinary App run contract](../../../bendvy/docs/reference/ordinary-app.md#L121-L152), [run and inspect implementation](../../../bendvy/src/ecs/ordinary-app-run.bend#L100-L126))
-
-The scheduled-health sample initially passes `Unit{}` as system arguments when registering the component system. Ordinary component queries constrain `Args` and `Out` to `Data`; `Entry.run(app)` does not itself accept a new input value. For live controls, the direct browser seam (`advance(state, InputFrame)`) is simpler. On the ordinary route, the source offers an advanced generic `Entry.update_owners` operation; captured-query registrations also provide `Captured.with_arguments`, which replaces repeatable `Data` args while retaining the capture, cursor, and outputs. The generic owner modifier does not validate arbitrary changes or act as an ECS transaction, so an application must write and review its own typed owner update. ([ordinary App argument limits](../../../bendvy/docs/reference/ordinary-app.md#L72-L82), [generic owner update](../../../bendvy/src/ecs/ordinary-app-run.bend#L119-L126), [captured arguments](../../../bendvy/src/ecs/ordinary-app-capture-query.bend#L109-L126))
-
-Another possible ingress design is to represent host intent as a typed command/resource in ECS-owned state. That requires an application-specific route for delivering the command to the retained App/World. `Entry.inspect` technically exposes an arbitrary World projection, but it is not a validated input capability; bypassing the ordinary declared system path through it would be an adapter decision, not an existing host protocol. The current docs mention host services and checked provisioning as ECS application capabilities, but do not define DOM, native-window, or general FFI input semantics. ([SPEC host-services story and current scope](../../../bendvy/docs/SPEC.md#L70-L78), [inspect caveat](../../../bendvy/src/ecs/ordinary-app-run.bend#L111-L117))
-
-## Render observations and host effects
-
-Ordinary App observations are a useful place to create a render projection. The App can return Data rows selected by declared queries and a caller-provided rendering string. But the implementation documents `Observation<Rows>.rendered` as a presentation view that can omit row data and is **not a stable save or wire protocol**; its `Binding` DTO is also called a private fixture view. A larger game should define a dedicated `RenderSnapshot: Data` with only the fields the host needs (for example entity key, position, sprite/appearance key, health bar, and UI counters), obtain it after the schedule run, and version/serialize that DTO in the host adapter it owns. No generic App-to-JSON or App-to-native-renderer contract is established by this API. ([ordinary observation data](../../../bendvy/src/ecs/ordinary-app-observation-data.bend#L10-L30), [App observation contract](../../../bendvy/docs/reference/ordinary-app.md#L146-L152))
-
-Do not perform audio, animation, network, save, or other irreversible host I/O inside an ECS callback and assume the ECS rollback undoes it. The transaction and execution sources explicitly exclude arbitrary callback/host I/O from automatic rollback. Instead, have committed systems publish typed effect intents (or return Data outputs), then let the host process those only after the relevant execution result confirms the corresponding commit. The ordinary typed Data event-family reader is designed to receive unread publications in order; on `Sys.Succeeded` it advances its cursor and synchronizes committed World/family publication. On failure it does not advance the reader position, but the wrapper also expressly does not undo arbitrary callback or host-I/O effects. ([event reader result contract](../../../bendvy/src/ecs/ordinary-app-event-family-reader.bend#L98-L116), [callback IO caveat](../../../bendvy/src/ecs/ordinary-app-execution.bend#L202-L208), [ordinary execution result and prefix commits](../../../bendvy/src/ecs/ordinary-app-run.bend#L100-L107))
-
-There is an important schedule-level caveat: ordinary runs are not all-or-nothing across the entire schedule. Earlier successful systems remain committed when a later system fails, and deferred structural commands remain pending until an explicit barrier. If an effect-reader system successfully drains events and a later system fails, the returned App can contain that committed prefix even though the whole schedule reports failure. A consumer therefore needs an explicit delivery rule: for simple output, place the host-facing reader after failure-prone simulation systems and act on it after `Schedule.Finished`; for more robust delivery, retain effect intents until the host acknowledges them. Neither policy is supplied automatically by the browser demo. ([App schedule barriers and outcomes](../../../bendvy/docs/reference/ordinary-app.md#L123-L144), [run result prefix semantics](../../../bendvy/src/ecs/ordinary-app-run.bend#L100-L107))
-
-The arena packet gives a simpler example of a post-step host boundary: the Bend function applies queued spawns at an explicit barrier, completes its query and packages the resulting frame before returning; only then does JavaScript draw the canvas and update DOM text. That pattern works for presentation because drawing is derived from the latest returned frame. It does not turn canvas output, sound, or network sends into transactional ECS effects. ([barrier before query](../../../bendvy/examples/arena/game.bend#L273-L282), [frame acceptance and rendering](../../../bendvy/examples/arena/browser.mjs#L12-L17), [render](../../../bendvy/examples/arena/browser.mjs#L36-L81))
-
-## Browser and Native are separate host choices
-
-The checked-in browser host is ordinary HTML, keyboard events, Canvas, and a module import; the small health demo says it needs no browser framework or extra package. That describes those minimal examples only. A larger clone could keep input decoding and rendering in a browser host, but no project-level UI dependency or packaging decision is implied here. ([arena HTML](../../../bendvy/examples/arena/index.html#L10-L18), [health browser README](../../../bendvy/examples/health-decay/demo/README.md#L7-L23))
-
-The scheduled-health README documents matching JS and Native simulation runs with textual output. That demonstrates backend execution of the same ECS consumer, not a native window, renderer, input device, or audio host. `SPEC.md` puts the initial application at a reproducible CPU console simulation and excludes porting a renderer, asset pipeline, audio engine, or editor. A future native UI would need its own host shell and data projection; it should not be treated as already shared with the browser Canvas adapter. ([JS/Native example](../../../bendvy/examples/scheduled-health/README.md#L1-L18), [SPEC product scope](../../../bendvy/docs/SPEC.md#L59-L61), [SPEC out of scope](../../../bendvy/docs/SPEC.md#L167-L175))
+A larger consumer can use a compact render DTO and an explicit input adapter.
+Host effect delivery needs a deliberate rule for failures and committed prefixes.
+Those are application design choices whose complexity affects the first slice;
+the inspected sources do not quantify their implementation cost.
 
 ## Practical boundary for a larger clone
 
@@ -65,8 +39,12 @@ The scheduled-health README documents matching JS and Native simulation runs wit
 
 ## Facts, inference, and limits
 
-**Source facts:** the arena and health browser demos compile a Bend source module and import it in browser JavaScript; the host supplies input and draws; Bend returns a new `State` containing the World; the checked-in build script has no output-rewrite command; scheduled-health creates an ordinary App, runs it repeatedly while threading the returned App, observes Data rows and writes console text; App results retain the App on success/failure/refusal/missing; event readers have explicit success/failure cursor rules; rendered observation strings are documented as non-wire presentation; and `SPEC.md` keeps general rendering/audio out of scope.
+The source inspection supports a retained simulation owner and separate host
+presentation. The exact packet schema, serializers, entry signatures and call
+order belong to the linked implementations. A stable render DTO, explicit input
+adapter and committed effect delivery are design proposals, not already-qualified
+host protocols.
 
-**Inferences:** a future larger consumer could put a registered App inside an application-specific packet wrapper and compile an entry module for a browser host; a `RenderSnapshot:Data` is a suitable boundary; external effects should be staged as committed intents; and native UI requires a separate host shell. These are integration designs suggested by current source seams, not existing complete examples.
-
-**Not checked:** generated ESM output, compiler default-export shape, browser/native runtime interoperability for an App containing affine owners, host package needs for a larger game, and any performance or latency implication. No implementation, build, test, browser launch, or benchmark was performed.
+Generated ESM, browser/native runtime interoperability for affine App owners,
+package requirements, performance and latency were not executed or measured.
+This audit performed no build, test or browser launch.

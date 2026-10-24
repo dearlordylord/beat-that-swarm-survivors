@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import G from './dist/game.mjs';
 const nil={$:'Nil'},list=xs=>xs.reduceRight((tail,head)=>({$:'Con',head,tail}),nil);
 const array=xs=>{const a=[];for(;xs.$==='Con';xs=xs.tail)a.push(xs.head);return a;};
-const values=c=>Array.isArray(c.values)?c.values:values(c.state??c.inner);
+const values=c=>Array.isArray(c.values)?c.values:values(c.carrier??c.state??c.inner);
 const outside=(b,px,py)=>Math.abs(b.x-px)>512+3*b.radius+24||Math.abs(b.y-py)>512+3*b.radius+24;
 let checks=0;
 for(const [px,py]of [[G.world_center(),G.world_center()],[20,20],[(G.world_size()-20),(G.world_size()-20)]])for(const seed of [17,23,57])for(const slow of [0,1,90,65626])for(const burn of [0,120])for(const staleArea of [false,true]){
@@ -26,12 +26,14 @@ for(const slow of [90,65626]){
  let p=G.start_seed_quiet(0,0,12345);const old={...G.initial_body(17),x:G.world_center(),y:G.world_center()};
  values(p.state.world.store.bodies)[17].value=old;
  values(p.state.world.store.vitals)[17].value={$:'Vitals',health:0,maximum:0};
- values(p.state.world.store.motions)[17].value={...G.empty_motion(),slow,burn:120};
+ values(p.state.world.store.statuses)[17].value={$:'Status',slow,burn:120};
+ assert.equal(values(p.state.world.store.motions)[17].$,'None','enemy identities do not own projectile trajectory');
  p.state.bodies=list(array(p.state.bodies).map(b=>b.seed===17?old:b));
  p=G.advance_live_quiet(p.state,0,0);
  const born=array(p.state.bodies).find(b=>b.seed===17);
  assert.equal(born.kind,0);assert.ok(outside(born,p.state.run.px,p.state.run.py));
- assert.deepEqual(values(p.state.world.store.motions)[17].value,G.empty_motion(),'actual ECS write clears previous life status');checks++;
+ assert.deepEqual(values(p.state.world.store.statuses)[17].value,G.empty_status(),'actual ECS write clears previous life status');
+ assert.equal(values(p.state.world.store.motions)[17].$,'None','birth does not add projectile trajectory to an enemy');checks++;
 }
 // A boss replacing a living pool slot also starts with clean status.
 {

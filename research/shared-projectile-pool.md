@@ -1,24 +1,14 @@
 # Shared projectiles and persistent XP
 
-Historical measurements below describe commit `166b82b`, before removal of the 12 custom map actors. The current layout has 1,456 entities and no map actors; projectile and XP budgets remain unchanged.
+Historical measurements below describe commit `166b82b`, before removal of
+custom map actors. They do not describe the current allocation layout.
 
-The Survivors ECS example now uses the layout in
-[`pools.bend`](../examples/survivors/pools.bend): 512 enemy/relic identities,
-512 shared player-shot slots, 32 hostile shots, 12 actors and 400 XP piles.
-The enemy spawner admits up to 300 normally and 500 with modifiers. These are
-application budgets, guided by the [reference investigation](vampire-survivors-entity-limits.md).
-
-Player shots carry owner/logical-position metadata separately from physical
-identity. Live budgets are 40–70 per base weapon; persistent effects retain
-logical-position locks. The allocator runs once per tick, never replaces a live
-shot and drops saturated requests without a backlog. Existing volley amount,
-spread, cooldown, evolution, union and familiar rules are preserved.
-
-XP drops retain their positions while slots remain. At overflow one accumulator
-keeps its seed, generation and coordinates until physical pickup. It is always
-red. Ordinary colors use 1/5/10 XP tiers; radius grows to 8 at 100 XP and stays
-there while the amount can grow further. Amounts retain the U32 representation.
-Both renderers use the same Bend policy; visual size does not change pickup radius.
+The authoritative current allocation and admission configuration is in
+[`pools.bend`](../examples/survivors/pools.bend). Assignment rules are in
+[`projectile-pool.bend`](../examples/survivors/projectile-pool.bend), world and XP
+integration in [`game.bend`](../examples/survivors/game.bend), and appearance
+policy in [`loot-visual.bend`](../examples/survivors/loot-visual.bend).
+The budgets were guided by the [reference investigation](vampire-survivors-entity-limits.md).
 
 ## Checks
 

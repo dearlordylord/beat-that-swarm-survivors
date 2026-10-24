@@ -231,14 +231,31 @@ def trace_contract(path):
             "actualEnd": actual, "phase": phase, "actions": count,
             "fixture": f"seed{seed}-profile{profile}-warm{warmup}-end{end}"}
 
-def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes=1024**3, trace=None):
+def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes=1024**3, trace=None, layout=None):
     if minimum_checkpoints < 2:
         raise ReplayError("At least two full-state checkpoints required")
+    # Reuse sparse validation, never its cross-schema projection/exclusions.
+    # Import lazily because the migration validator itself uses this module's
+    # scalar and streaming primitives. Legacy callers keep their original path.
+    validator = None
+    reader = records
+    if layout is not None:
+        import ecs_migration_compare as validator
+        try:
+            validator.validate_layout(layout)
+        except ValueError as error:
+            raise ReplayError(str(error)) from error
+        reader = validator.strict_records
+    def replay_records(path):
+        try:
+            yield from reader(path, max_bytes)
+        except ValueError as error:
+            raise ReplayError(str(error)) from error
     expected = trace_contract(trace) if trace is not None else None
     chain = hashlib.sha256(); seen_start = False; seen_summary = False
     count = 0; fixture = None; last_step = -1; last_tick = -1
     sentinel = object()
-    for position, (left, right) in enumerate(itertools.zip_longest(records(baseline, max_bytes), records(candidate, max_bytes), fillvalue=sentinel), 1):
+    for position, (left, right) in enumerate(itertools.zip_longest(replay_records(baseline), replay_records(candidate), fillvalue=sentinel), 1):
         if left is sentinel or right is sentinel:
             raise ReplayError(f"Record count mismatch at record {position}")
         encoded = json.dumps(semantic(left), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
@@ -266,7 +283,16 @@ def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes
             current_tick = u32(left.get("tick", observed_tick), "checkpoint tick")
             if step <= last_step or current_tick < last_tick:
                 raise ReplayError("Checkpoint order regressed/repeated")
-            validate_payload(left.get("payload"), current_tick)
+            if validator is None:
+                validate_payload(left.get("payload"), current_tick)
+            else:
+                try:
+                    for record in (left, right):
+                        validator.validate_payload(record.get("payload"), current_tick, layout, migrated=True)
+                except ValueError as error:
+                    raise ReplayError(str(error)) from error
+            # encoded above still contains the complete unprojected payload,
+            # including actual clocks, physical stamps, columns and rosters.
             last_step, last_tick = step, current_tick
             count += 1
         elif kind == "summary":
@@ -278,16 +304,27 @@ def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes
         chain.update(len(encoded).to_bytes(8, "big")); chain.update(encoded)
     if not seen_start or not seen_summary:
         raise ReplayError("Incomplete replay: start/summary absent")
-    return {"status": "passed", "fixture": fixture, "checkpoints": count, "semanticSha256": chain.hexdigest(), "baselineSha256": file_sha(baseline), "candidateSha256": file_sha(candidate), "scope": "Exact declared gameplay and all 1456 authoritative component/stamp/world-metadata observations; timing fields excluded only at record root."}
+    result = {"status": "passed", "fixture": fixture, "checkpoints": count, "semanticSha256": chain.hexdigest(), "baselineSha256": file_sha(baseline), "candidateSha256": file_sha(candidate), "scope": "Exact declared gameplay and all 1456 authoritative component/stamp/world-metadata observations; timing fields excluded only at record root."}
+    if layout is not None:
+        result.update(comparison="exact-sparse-ecs", layout=layout,
+                      scope="Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.")
+    return result
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("baseline", type=Path); parser.add_argument("candidate", type=Path)
     parser.add_argument("--trace", type=Path); parser.add_argument("--receipt", type=Path); parser.add_argument("--minimum-checkpoints", type=int, default=2)
+    parser.add_argument("--layout", type=Path, help="Validate the sparse ECS schema against this layout; still compare every actual field exactly")
     args = parser.parse_args()
     try:
-        result = compare(args.baseline, args.candidate, minimum_checkpoints=args.minimum_checkpoints, trace=args.trace)
-    except (ValueError, OSError, TypeError) as error:
+        layout_bytes = args.layout.read_bytes() if args.layout else None
+        layout = json.loads(layout_bytes, object_pairs_hook=_pairs, parse_constant=_constant) if layout_bytes is not None else None
+        if args.layout and layout is None:
+            raise ReplayError("Layout must be an object")
+        result = compare(args.baseline, args.candidate, minimum_checkpoints=args.minimum_checkpoints, trace=args.trace, layout=layout)
+        if layout_bytes is not None:
+            result["layoutSha256"] = hashlib.sha256(layout_bytes).hexdigest()
+    except (ValueError, OSError, TypeError, IndexError, KeyError) as error:
         result = {"status": "failed", "error": str(error)}
     if args.receipt:
         args.receipt.write_text(json.dumps(result, indent=2) + "\n")

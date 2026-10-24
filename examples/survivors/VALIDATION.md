@@ -1,3 +1,10 @@
+# Evidence scope
+
+The dated sections below record observations of their own source snapshots.
+They are not a description of current configuration or a qualification of later
+changes. Current rules and limits belong to [game.bend](game.bend),
+[pools.bend](pools.bend), [arena.bend](arena.bend) and [music.bend](music.bend).
+
 # Ready-to-play menu and explicit unlocks — 24 October 2026
 
 The user selected prototype A. Production now shows a compact run preview, icon/name in all four collapsed choices, all locked entries when a category is open, and a separate price/requirement/Buy inspector. Browsing a locked item cannot purchase or equip it. Start is available at the top and in a persistent lower bar. GitHub source links remain in the header.
@@ -18,7 +25,7 @@ Receipts, source hashes, rejected mutant and WAV sketches: `../../../bend-games/
 
 # Expanded arena and pause map — 24 October 2026
 
-The current world is 14,400×14,400, centered at (7,200,7,200); stage relics lie 3,600 units from the start. Both presentations show a pause map with player/chest/relic/camera markers. M toggles the map and preserves an already-open reward choice. Enemy movement and combat displacement clamp complete sprite envelopes, while the player margin preserves melee reach at corners.
+This revision expanded the arena and added the pause map. Geometry and displacement rules belong to [arena.bend](arena.bend) and [game.bend](game.bend); presentation belongs to the renderer sources.
 
 Fresh emitted gameplay passes the full suite: 42,532 offscreen placements, 3,480 actual live birth transitions, 496 movement/knockback/pull cases plus all 31 corner-reach cases, unchanged XP/projectile/lifecycle/queue/finale checks and seven natural upgrade choices. All five relics were collected by ordinary input at tick 1,144 using the legal purchased-profile fixture, with unlock/persistence/one-time reward assertions preserved. The objective runner now allows 1,800 movement ticks per stage and 90 wall seconds because destinations are farther away; no coordinate or inventory injection was introduced. The revised spawn-policy kernel proof passes.
 
@@ -28,7 +35,7 @@ Bot navigation retains 4,096 cells and a bounded local window; source/emitted-po
 
 # Actor-free balance follow-up — 24 October 2026
 
-The current tuning is described in BALANCE.md. A fresh emitted Game passes the complete gameplay suite, including 42,532 offscreen placements, 148 incarnation-status regressions, actor absence, XP conservation, upgrade queues, horde capacities and actual Reaper deaths. Ordinary smoke reaches tick 600 alive at level 2, with its first choice at tick 450. This does not establish fresh completion or human difficulty.
+The tuning intent is described in [BALANCE.md](BALANCE.md); its values belong to the implementation. A fresh emitted Game passes the complete gameplay suite, including 42,532 offscreen placements, 148 incarnation-status regressions, actor absence, XP conservation, upgrade queues, horde capacities and actual Reaper deaths. Ordinary smoke reaches tick 600 alive at level 2, with its first choice at tick 450. This does not establish fresh completion or human difficulty.
 
 Two unchanged deterministic input-only policies compared the saved actor-free baseline with this candidate: seed 100, character 0, fresh unlock mask, stage/Arcana 0, no permanent purchases or classifier, up to 3,600 simulation ticks. The novice loot-chaser died at tick 591 without a choice before tuning; afterwards it received its first choice at tick 814 and died at tick 1,235, level 2. The simple kiter died at tick 615 before tuning; afterwards it remained alive at tick 3,600 with 56 HP and 78 kills. The kiter collected only 14 XP and earned no level, so its survival is not evidence of build progression. These are two diagnostic policies, not a win-rate estimate or proof of beginner fairness. Contact pressure and eventual death remain possible.
 
@@ -38,7 +45,7 @@ Current diagnostics and source snapshots are archived under `../../../bend-games
 
 # Custom map actors removed — 24 October 2026
 
-The current world has 1,456 identities: 512 enemy/relic slots, 512 player projectiles, 32 hostile projectiles and 400 persistent XP piles. The actor range is empty. Towers and rescue wisps, their automatic damage/slow and XP/gold/healing rewards, and bot goals for them were removed. Player weapon effects remain.
+This revision removed map actors and their automatic effects and rewards. The authoritative allocation layout belongs to [pools.bend](pools.bend).
 
 Fresh emitted gameplay and Chromium checks passed (`/tmp/survivors-no-actors-gameplay.log`, `/tmp/survivors-no-actors-browser.log`). Regressions cover former NPC locations and injected obsolete tower snapshots: no actor bodies, passive rewards, tower damage or slow. The ordinary stationary smoke dies at tick 435; this is not a complete-run or performance claim. Actual Bend-backed bot action and offline-policy parity checks passed, including rejection of removed actor goals. All-U32 pool laws prove the actor range empty.
 
@@ -48,7 +55,7 @@ Evidence: `../../../bend-games/research/no-map-actors-20261024/`. Earlier measur
 
 # Automatic reward panel follow-up
 
-The current local follow-up restores automatic level/treasure panels with combat paused. Esc defers and E reopens; queued choices open in order. XP awards and bonuses are unchanged; the first threshold remains 100 and subsequent thresholds are doubled. Verification below is separate from the previous revision:
+This follow-up changed reward presentation and progression tuning. Their rules belong to [game.bend](game.bend); the verification below describes the tested historical snapshot:
 
 - `/tmp/survivors-auto-gameplay.log`: the emitted gameplay suite passed; seven natural API level-ups reached at tick 1,533. The injected-clock capacity check retained 511 living enemies. The short nearest-loot controller first earned a reward at tick 296 and reached level 2 with one choice before death at tick 511.
 - `/tmp/survivors-auto-browser.log`: desktop/mobile smoke and explicit seeded-XP checks passed for automatic opening, frozen simulation, Esc deferral, E reopening, automatic queued promotion and final choice/resume. The fixture uses real Bend transitions; no production testing hook was added.
@@ -58,7 +65,7 @@ All receipt paths are local development outputs, not committed artifacts. These 
 
 # Previous standalone revision validation — 22 October 2026
 
-The examples now import the published BendHub package rather than a local ECS source tree. See the [root dependency instructions](../../README.md). The current fixed pool contains 748 entities: 512 enemy/loot slots, 192 player shots, 32 hostile shots and 12 independent actors. The first level needs 100 XP and subsequent thresholds use `100 + 3 * L + L * L / 3`, with the previous level as L. XP pacing is slower and the native reward panel is opened explicitly with E; combat continues with pending rewards until the panel opens, and Esc resumes it.
+This historical revision migrated the examples to the published BendHub package. See the [root dependency instructions](../../README.md). Its progression and reward-panel behavior differ from later revisions; the observations below qualify only the recorded sources.
 
 | Current check | Observed evidence | Scope |
 | --- | --- | --- |
@@ -88,7 +95,7 @@ The raw receipt paths identify local development evidence and are not files ship
 
 # Historical native delivery — 22 October 2026
 
-The following evidence belongs to the previous 428-slot native delivery and its earlier XP and reward-panel behavior. It does not qualify the current 748-slot BendHub-based revision, its slower progression, deferred reward selection or current native executable. The authentic complete-run and Linux window witnesses remain historical evidence only.
+The following evidence belongs to an earlier native delivery and its XP and reward-panel behavior. It does not qualify later BendHub-based revisions or their native executables. The authentic complete-run and Linux window witnesses remain historical evidence only.
 
 | Historical requirement | Observed evidence | Status |
 | --- | --- | --- |
@@ -218,8 +225,8 @@ Raw game/browser receipts and captures are retained outside tracked source in
 
 ## Shared projectile pool and XP revision — 2026-10-24
 
-The current layout has 1468 entities, 400 physical XP entries and 512 shared
-player-projectile slots with explicit owner/logical-position metadata.
+This revision changed shared projectile assignment and persistent XP storage.
+Current layout values belong to [pools.bend](pools.bend).
 Configuration, allocation, visual-cap, pickup and spawn small-core kernel checks
 pass. The ordinary suite, 305 allocator cases, 55,585 birth/schedule comparisons,
 actual ECS owner transport, legal 300/500 enemy admission, simultaneous 480-drop

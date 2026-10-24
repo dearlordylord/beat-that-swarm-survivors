@@ -6,32 +6,29 @@ Status: read-only analysis, 2026-10-23. No candidate code, compilation or timing
 
 ## Evidence and scope
 
-The inspected consumer is [game.bend](../examples/survivors/game.bend), particularly lines 501–505, 529–531, 602–609, 619–727 and 779–791. Generated code is [final-native.c](/workspace/formal-proofs/bend-games/research/native-bots-20261022/final-native.c). Historical native sampling and its limitations are recorded in [native-profile-analysis.json](/workspace/formal-proofs/bend-games/research/native-bots-20261022/native-profile-analysis.json).
+The inspected consumer is [game.bend](../examples/survivors/game.bend); historical
+source-specific conclusions belong to the generated artifact and report for that
+snapshot: [final-native.c](/workspace/formal-proofs/bend-games/research/native-bots-20261022/final-native.c)
+and [native-profile-analysis.json](/workspace/formal-proofs/bend-games/research/native-bots-20261022/native-profile-analysis.json).
 
 The first instrumented native profile attributed 26.70% self time to `term_drop`, 14.52% to generic closure application, 6.17% to `span_fade`, 4.52% to reference-count wrappers, and 3.74% to two atomic helpers. These are shared runtime mechanisms, **not a measured game-only breakdown**. Generated preserve-none tail calls make many gprof callers appear spontaneous. The policy subsequently changed and the Patricia index was adopted, so these historical percentages cannot rank the current game-only replay numerically.
 
-## What repeats in each game tick
+## Source authority
 
-`execute` runs projectile, movement, combat and lifecycle queries in that order. Each selector reads Body for every populated entity. The normal game has 1004 populated entities, so these selectors account for **4016 Body reads per tick**. This follows from `selected_projectile`, `selected_enemy`, `selected_pool` and their four `Q.each` callsites, not an extrapolated timing.
-
-Let N be the number of live enemy-kind rows selected for movement. The fixed ordinary pool has 224 projectile/hostile slots, 780 combat/lifecycle slots (512 enemy/relic plus 268 actors/XP), and 524 non-XP combat slots. Consequently the source-level successful access counts are:
-
-| Operation | Reads per tick | Writes per tick |
-|---|---:|---:|
-| Body | 5800 + N | 1004 + N |
-| Motion | 748 + N | 1004 |
-| Vitals | 524 | 780 |
-| Total | 7072 + 2N | 2788 + N |
-
-These counts assume the ordinary fully populated world, successful access, and no early query failure. They include selector reads. They do not count handle enumeration, transaction commits, index construction or rendering. They are useful workload structure, not profiler call counts.
-
-The published [component.get implementation](/tmp/bendvy-ecs-examples-cold-hub/0xf435da9e535b3846d643dad16580e35f/component.bend:62) calls `W.valid`, reconstructs the returned world, then enters `get_world`, splits the family column from Store, projects the payload, restores Store and reconstructs World again. [compose.get](/tmp/bendvy-ecs-examples-cold-hub/0xf435da9e535b3846d643dad16580e35f/compose.bend:49) additionally threads Tx and Frame. In generated C, former `spin_419` at line 38814 of `/tmp/nightfall-native-first.c` explicitly rebuilds a 9-field Store and 17-field World before the validation continuation. Custom-heap allocation and reference counting are relevant even without libc malloc samples.
+The historical query and access hypotheses came from
+[`game.bend`](../examples/survivors/game.bend) and the pinned distribution's
+`compose.bend`, `component.bend`, `world.bend` and `column.bend`. Resolve the
+package through [`bendhub-dependencies.json`](../bendhub-dependencies.json).
+Pool capacities and query structure have changed since inspection; consult
+those sources instead of reusing source-derived counts from this note.
 
 ## Candidate 1: freeze combat-derived stats once per tick
 
-Recommended first consumer patch. Introduce immutable `CombatStats` containing luck rank and exact existing knock/pull coefficients. Derive it from the same frozen `Args.run` once immediately before the combat `Q.each`. Carry it through a private `CombatContext{args,stats}` to cached combat implementations. Keep existing exported Args/Run layouts and helper signatures as wrappers around the same implementation, to avoid breaking external fixtures or adding a second formula source.
-
-Current `enemy_applied_effects` looks up passive 16 twice and passive 10 once for each ordinary enemy reaching its kind-0 arm. `at` visits index+1 list cells, so this is **45 list-cell visits per such enemy** (17 + 17 + 11), even when collision knock is zero. The constructor can perform 28 visits once per tick. Generated C retains both index-16 calls: `spin_36(...16ull)` at lines around 24338 and 24387, so this is not merely duplicated source syntax optimized away by C. Four separate `stat_bonus(arcana,11)` calls also remain in this C region.
+The proposed hypothesis was to share immutable combat-derived values over one
+simulation tick rather than repeat their derivation for each enemy. Its value
+depends on whether saved arithmetic exceeds representation and transport costs.
+The precise arithmetic and reached callback belong to
+[game.bend](../examples/survivors/game.bend), not to a second recipe here.
 
 Safety conditions:
 
@@ -46,7 +43,9 @@ Validation: full helper differential across rank/status/collision combinations, 
 
 A smaller, independent consumer patch. Introduce a local immutable geometry result that computes the common player-distance denominator and slow factor once, then feed the exact original X and Y arithmetic. Do not change control flow or omit zero-valued effects.
 
-The existing source computes `F32.max(1,sqrt(distance2(oldX,oldY,px,py)))` twice and `slow_factor(max(slow,s))` twice in the same arm. Generated C still calls player `distance2` (`spin_120`) at lines 24329 and 24378, then applies sqrt/max twice. `pull_x` and `pull_y` independently compute the same centroid-distance denominator; that pair can later be represented by one `PullVector`, preserving the original component arithmetic.
+The inspected generated C retained repeated distance and slow-factor work.
+Current arithmetic belongs to [`game.bend`](../examples/survivors/game.bend);
+this note does not maintain a parallel expression specification.
 
 Safety conditions:
 
@@ -58,9 +57,10 @@ This candidate may lose to allocation overhead if the generated compiler materia
 
 ## Candidate 3: fuse validation and component read reconstruction in core
 
-Higher-risk core patch, potentially larger native impact. Within the existing `component.get` implementation, consume the world once, validate the same namespace/generation/live state using the same affine allocator owner, then access/project/restore the requested column before constructing the final World. The existing rejected-handle branch must return the original owners and `MissingEntity`, without touching the column. The valid-but-absent branch must remain `ComponentAbsent`.
-
-The goal is eliminating intermediate World/Store construction and corresponding reference-count work, **not eliminating component reads**, caching authority, reordering writes, skipping equal-value writes, or bypassing the capability API. Keep `tx_get` and Q Frame error/cursor behavior unchanged. The source-derived access counts above show why a per-access reduction could matter; the shared-runtime profile does not quantify the achievable saving.
+The proposed core hypothesis was reduced owner reconstruction without changing
+component access authority or observable results. It requires stronger affine
+owner and refusal evidence than the consumer-local candidates. The historical
+patch and qualification are identified in [the core options report](core-native-step-options.md).
 
 Required safeguards:
 

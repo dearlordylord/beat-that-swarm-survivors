@@ -12,7 +12,12 @@ Each replay is checked against the supplied trace header, action count, fixture 
 
 ## State oracle and controls
 
-The observer reads all 1004 authoritative Body, Vitals, and Motion column slots, including component lifecycle stamps. It also records Run, cached body rows, offers, snapshots, pending gameplay commands, allocator state, namespace, clock and scope ticks, event count, deferred-command count, and system registrations. F32 values are compared through their exact U32 bit patterns. Opaque pending ECS commands are refused rather than silently omitted. JSON timing records are explicitly excluded; gameplay fields are not rounded or normalized.
+The historical observer and its exact observation schema are retained with the
+source inventory identified below. Current observation code belongs to
+[native-replay-observe.bend](../examples/survivors/native-replay-observe.bend),
+and strict comparison belongs to [replay_compare.py](../tools/survivors-bot/replay_compare.py).
+The experiment requires complete declared state rather than a selected gameplay
+summary; source-derived slot counts and field inventories are not repeated here.
 
 Eight offline oracle tests cover equal states, authoritative payload and metadata mutations, malformed/incomplete records, numeric trace binding, and timing-record handling. Five subprocess controls exercise completion, child failure, timeout, interruption cleanup, and frozen-input drift. These are harness checks, not independent gameplay proofs.
 
@@ -28,4 +33,4 @@ Measurements use serialized native executions, one runtime thread, fixed paired 
 
 ## Scope of the Args carrier law
 
-`examples/survivors/args-carrier/LAWS.bend` states only that opening `ArgsHeld{args}` returns exactly the supplied `Args`, for every Args value. It does not prove gameplay equivalence, native timing, allocation behavior, or a speed gain. The corresponding proof is definitional roundtrip equality. A Bend source-check exit 0 must be distinguished from a successful kernel verdict: the retained 2.0.35 `--verdict --check-only` attempt used an unsupported CLI combination, and the corrected `--verdict` attempt hit its 10-second CPU limit. Those attempts are not proof passes. Subsequent 2.0.37 checker or kernel results must be reported with their own completed receipt rather than inferred from the law's simplicity.
+[The Args-carrier laws](../examples/survivors/args-carrier/LAWS.bend) define the narrow transport property. It does not prove gameplay equivalence, native timing, allocation behavior, or a speed gain. The corresponding proof is definitional roundtrip equality. A Bend source-check exit 0 must be distinguished from a successful kernel verdict: the retained 2.0.35 `--verdict --check-only` attempt used an unsupported CLI combination, and the corrected `--verdict` attempt hit its 10-second CPU limit. Those attempts are not proof passes. Subsequent 2.0.37 checker or kernel results must be reported with their own completed receipt rather than inferred from the law's simplicity.
