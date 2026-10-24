@@ -34,6 +34,10 @@ Rewards pause combat: 1/2/3 choose, R rerolls, K skips, B banishes. Esc defers a
 
 Standard and Inverse reach dawn after ten simulated minutes, then spawn a lethal Reaper; reaching dawn earns completion credit when the run ends. Endless has no Reaper. The five-minute Trial accelerates waves and disables permanent upgrades.
 
+## Browser menu
+
+The ready-to-play menu keeps Start at the top and in a lower bar. Each setup row shows its current icon and name. Opening a category shows all choices; locked survivors/stages display their price and requirements, and only an explicit Buy action spends gold. Progress-only modes keep their existing unlock rules.
+
 ## Browser launch
 
 [Browser demo](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site). Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.

@@ -9,7 +9,7 @@ staging_dir="$(mktemp -d "$app_dir/dist/.web-XXXXXX")"
 trap 'rm -rf "$staging_dir"; example_cleanup_lock' EXIT
 mkdir -p "$staging_dir/dist"
 example_emit "$app_dir/game.bend" "$staging_dir/dist/game.mjs"
-for asset in index.html style.css browser.mjs renderer.mjs content.mjs audio.mjs progression.mjs; do
+for asset in index.html style.css browser.mjs renderer.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-a.css; do
   cp "$app_dir/$asset" "$staging_dir/$asset"
 done
 cp "$example_repo/LICENSE-MIT" "$example_repo/LICENSE-APACHE" "$staging_dir/"

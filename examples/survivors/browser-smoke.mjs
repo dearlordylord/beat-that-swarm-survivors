@@ -56,12 +56,56 @@ try {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForSelector("#start");
-  assert.equal(await page.locator("[data-character]").count(), 8);
+  assert.equal(await page.locator(".selection-row .selected-choice").count(), 4);
+  assert.equal(await page.locator(".selection-row .selected-choice .pixel-portrait, .selection-row .selected-choice .choice-glyph").count(), 4, "Every collapsed choice has its icon");
+  await page.locator('[data-menu-panel="character"]').click();
+  assert.equal(await page.locator("[data-character]").count(), 8, "Locked survivors are visible alongside unlocked choices");
+  await page.locator('[data-character="1"]').click();
+  assert.equal(await page.locator('[data-buy-kind="character"]').isDisabled(), true, "Fresh player sees the price and requirement without accidental purchase");
+  assert.equal(await page.locator('.a-survivor h2').textContent(), "Mira");
+  assert.equal(await page.locator('text=View unlocks').count(), 0);
+  await page.locator('[data-menu-panel="stage"]').click();
+  assert.equal(await page.locator('[data-stage]').count(), 5, "Locked stages are not hidden behind a second disclosure");
+  await page.locator('[data-menu-panel="stage"]').click();
   await page.locator('[data-tab="collection"]').click();
   assert.equal(await page.locator("[data-collection]").count(), 6);
   await page.locator('[data-collection="evolutions"]').click();
   assert.equal(await page.locator(".collection .card").count(), 24);
   await page.locator('[data-tab="expedition"]').click();
+  // Real UI purchase path in an isolated browser save: inspect first, then buy.
+  const purchasePage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  purchasePage.on("pageerror", e => errors.push(e.message));
+  await purchasePage.goto(`http://127.0.0.1:${server.address().port}/`);
+  await purchasePage.evaluate(async () => {
+    const P = await import('./progression.mjs');
+    const profile = P.loadProfile(); profile.gold = 300; profile.stats.kills = 100; P.saveProfile(profile);
+  });
+  await purchasePage.reload();
+  await purchasePage.locator('[data-menu-panel="character"]').click();
+  await purchasePage.locator('[data-character="1"]').click();
+  assert.equal(await purchasePage.evaluate(async () => (await import('./progression.mjs')).loadProfile().gold), 300, "Inspecting a buyable survivor spends no gold");
+  assert.equal(await purchasePage.locator('.a-survivor h2').textContent(), "Mira", "Inspection does not equip a locked survivor");
+  await purchasePage.locator('[data-buy-kind="character"][data-buy-id="1"]').click();
+  assert.equal(await purchasePage.locator('.a-survivor h2').textContent(), "Corvin");
+  assert.equal(await purchasePage.evaluate(async () => (await import('./progression.mjs')).loadProfile().gold), 50, "Explicit purchase spends exactly the catalog price once");
+  await purchasePage.reload();
+  await purchasePage.locator('[data-menu-panel="character"]').click();
+  assert.equal(await purchasePage.locator('[data-character="1"]').getAttribute('class').then(x => x.includes('locked')), false, "Purchase survives reload");
+  await purchasePage.evaluate(async () => {
+    const P = await import('./progression.mjs'), C = await import('./content.mjs');
+    const item = C.STAGES[1], profile = P.loadProfile(); profile.gold = item.cost + 10;
+    if (item.condition) profile.stats[item.condition.stat] = item.condition.value;
+    P.saveProfile(profile);
+  });
+  await purchasePage.reload();
+  await purchasePage.locator('[data-menu-panel="stage"]').click();
+  await purchasePage.locator('[data-stage="1"]').click();
+  const beforePurchase = await purchasePage.evaluate(async () => (await import('./progression.mjs')).loadProfile().gold);
+  assert.ok(beforePurchase > 10);
+  await purchasePage.locator('[data-buy-kind="stage"][data-buy-id="1"]').click();
+  assert.equal(await purchasePage.evaluate(async () => (await import('./progression.mjs')).loadProfile().gold), 10, "Stage purchase respects its actual price");
+  assert.ok(await purchasePage.evaluate(async () => (await import('./progression.mjs')).loadProfile().stages.includes(1)));
+  await purchasePage.close();
   await page.screenshot({ path: path.join(captureDir, "menu.png"), fullPage: true });
   await page.locator("#start").click();
   await page.waitForFunction(

@@ -15,6 +15,7 @@ import {
 } from "./content.mjs";
 import { Renderer } from "./renderer.mjs";
 import { AudioEngine } from "./audio.mjs";
+import { renderExpedition } from "./expedition-menu.mjs";
 import {
   loadProfile,
   saveProfile,
@@ -48,6 +49,7 @@ let profile = loadProfile(),
   shownPhase = -1,
   toastTimer,
   runId = "";
+let openPanel = null, pendingUnlock = null;
 let loadoutSignature = "";
 let seenWeapons = new Set(),
   seenEvolutions = new Set();
@@ -113,38 +115,7 @@ function menu() {
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
   if (tab === "expedition") {
-    html =
-      `<div class="start-row start-row-top"><p>${CHARACTERS[character].name} · ${STAGES[stage].name}</p><button class="primary" id="start-top">Start run →</button></div>` +
-      '<div class="section-title">I · Choose your fate</div><div class="grid heroes">' +
-      CHARACTERS.map((h) => {
-        let open = isUnlocked(profile, "character", h.id);
-        return `<button class="card ${character === h.id ? "selected" : ""} ${open ? "" : "locked"}" data-character="${h.id}" aria-pressed="${character === h.id}"><div class="hero-head"><div class="portrait" style="--hero:${h.color}"></div><div><h3>${h.name}</h3><small>${h.title}</small></div></div><p>${h.description}</p><small>${open ? WEAPONS[h.weapon].name : `Unlock · ${h.cost} ◈`}</small>${!open && !requirementsMet(profile, h) ? `<small>${h.hint}</small>` : ""}</button>`;
-      }).join("") +
-      '</div><div class="section-title">II · Choose your hunting ground</div><div class="grid">' +
-      STAGES.map((s) =>
-        card(
-          { ...s, icon: ["☾", "▤", "♧", "❄", "♨"][s.id] },
-          `data-stage="${s.id}"`,
-          `<small>${isUnlocked(profile, "stage", s.id) ? (mode === 3 ? "5-minute Trial" : mode === 2 ? "Endless night" : "10 minutes until dawn") : `Unlock · ${s.cost} ◈`}</small>${!requirementsMet(profile, s) ? `<small>${s.hint}</small>` : ""}`,
-          stage === s.id,
-        ),
-      ).join("") +
-      '</div><div class="section-title">III · Arcana — reshape your run</div><div class="grid arcana">' +
-      ARCANA.map((a) =>
-        card(a, `data-arcana="${a.id}"`, "", arcana === a.id),
-      ).join("") +
-      '</div><div class="section-title">IV · Shape the night</div><div class="grid">' +
-      RUN_MODES.map((m) =>
-        card(
-          { ...m, icon: ["☾", "◑", "∞", "⚔"][m.id] },
-          `data-mode="${m.id}"`,
-          isUnlocked(profile, "mode", m.id)
-            ? ""
-            : `<small>Locked · ${m.hint}</small>`,
-          mode === m.id,
-        ),
-      ).join("") +
-      '</div><div class="start-row"><p>Collect experience shards and build a loadout of 6 weapons and 6 relics. A level VIII weapon and its matching relic unlock an evolution from a chest.</p><button class="primary" id="start">Start run →</button></div>';
+    html = renderExpedition({ profile, character, stage, arcana, mode, openPanel, pendingUnlock });
   } else if (tab === "shop") {
     html =
       '<div class="section-title">Power that outlives the night</div><div class="grid shop">' +
@@ -464,41 +435,45 @@ document.addEventListener("click", (event) => {
     if (b.dataset.tab) {
       tab = b.dataset.tab;
       menu();
-    } else if (b.dataset.character !== undefined) {
-      let id = +b.dataset.character;
-      if (
-        isUnlocked(profile, "character", id) ||
-        unlock(profile, "character", id)
-      ) {
-        character = id;
-        saveProfile(profile);
+      $("#menu").scrollTop = 0;
+    } else if (b.dataset.menuPanel !== undefined) {
+      openPanel = openPanel === b.dataset.menuPanel ? null : b.dataset.menuPanel;
+      pendingUnlock = null;
+      menu();
+    } else if (b.dataset.buyKind !== undefined) {
+      const kind = b.dataset.buyKind, id = Number(b.dataset.buyId);
+      const item = (kind === "character" ? CHARACTERS : kind === "stage" ? STAGES : []).find(x => x.id === id);
+      if (!item) return;
+      if (unlock(profile, kind, id)) {
+        if (kind === "character") character = id;
+        else stage = id;
+        pendingUnlock = null;
+        openPanel = null;
+        audio.event("choose");
         menu();
-      } else
-        toast(
-          requirementsMet(profile, CHARACTERS[id])
-            ? "Not enough legacy gold"
-            : CHARACTERS[id].hint,
-        );
-    } else if (b.dataset.stage !== undefined) {
-      let id = +b.dataset.stage;
-      if (isUnlocked(profile, "stage", id) || unlock(profile, "stage", id)) {
-        stage = id;
-        saveProfile(profile);
+      } else toast(requirementsMet(profile, item) ? "Not enough legacy gold" : item.hint);
+    } else if (b.dataset.character !== undefined || b.dataset.stage !== undefined || b.dataset.mode !== undefined) {
+      const kind = b.dataset.character !== undefined ? "character" : b.dataset.stage !== undefined ? "stage" : "mode";
+      const id = Number(b.dataset[kind]);
+      if (isUnlocked(profile, kind, id)) {
+        if (kind === "character") character = id;
+        else if (kind === "stage") stage = id;
+        else mode = id;
+        pendingUnlock = null;
+        openPanel = null;
         menu();
-      } else
-        toast(
-          requirementsMet(profile, STAGES[id])
-            ? "Not enough legacy gold"
-            : STAGES[id].hint,
-        );
-    } else if (b.dataset.mode !== undefined) {
-      const next = +b.dataset.mode;
-      if (isUnlocked(profile, "mode", next)) {
-        mode = next;
+      } else {
+        pendingUnlock = { kind, id };
+        openPanel = kind;
         menu();
-      } else toast(RUN_MODES[next].hint);
+        const details = $("[data-unlock-details]");
+        details?.focus({ preventScroll: true });
+        details?.scrollIntoView({ block: "nearest" });
+      }
     } else if (b.dataset.arcana !== undefined) {
-      arcana = +b.dataset.arcana;
+      arcana = Number(b.dataset.arcana);
+      pendingUnlock = null;
+      openPanel = null;
       menu();
     } else if (b.dataset.upgrade !== undefined) {
       if (buyUpgrade(profile, +b.dataset.upgrade)) {

@@ -1,3 +1,9 @@
+# Ready-to-play menu and explicit unlocks — 24 October 2026
+
+The user selected prototype A. Production now shows a compact run preview, icon/name in all four collapsed choices, all locked entries when a category is open, and a separate price/requirement/Buy inspector. Browsing a locked item cannot purchase or equip it. Start is available at the top and in a persistent lower bar. GitHub source links remain in the header.
+
+Actual Chromium smoke passes fresh-profile disabled purchases, no spend or equipment change on inspection, an explicit 250-gold Corvin purchase (300→50), persistence after reload, and a stage purchase at its actual catalog price leaving 10 gold. Existing desktop/mobile gameplay, map, reward, focus, pause, collection and reload checks pass. The browser save fixtures are isolated; no user profile was edited. No combat/Bend/native changes are part of this menu revision. See ../../research/menu-start-flow.md.
+
 # Adaptive chip-metal audio — 24 October 2026
 
 Music score and threat assessment are shared Bend code. Perception uses player HP, enemy proximity/type, hostile projectiles and lethal Reaper threats. Hosts replace the latest target rather than queuing transitions; arrangement changes at bars with hysteresis and a slower release. Already scheduled playback has a bounded 30 ms browser / 46 ms native structural horizon, not zero latency. See music/README.md.
