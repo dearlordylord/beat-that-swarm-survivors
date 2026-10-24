@@ -5,7 +5,7 @@ const list = (xs) =>
 const empty = list(Array(18).fill(0));
 assert.equal(Game.earned_xp(2, empty, 0, 0), 2, "XP awards retain their original precision");
 assert.equal(Game.earned_xp(6, empty, 0, 0), 6);
-assert.equal(Game.next_xp_need(1), 206, "Subsequent level costs are doubled");
+assert.equal(Game.next_xp_need(1), 46, "Early upgrades remain attainable without map actor rewards");
 assert.equal(Game.active_limit(0), 96);
 assert.equal(Game.active_limit(21600), 300);
 assert.equal(Game.active_limit(100000), 300);
@@ -43,7 +43,7 @@ const accept = (p) => {
 };
 // Advance the ordinary public entry; do not inject frames or bypass ECS.
 let current = accept(Game.start(0, 0));
-assert.equal(current.frame.xpNeed, 100, "First reward retains its original opening cost");
+assert.equal(current.frame.xpNeed, 20, "First reward requires actual collection of 20 XP");
 for (let i = 0; i < 120; i++) {
   if (current.frame.phase === 1 || current.frame.phase === 2)
     current = accept(Game.choose(current.state, 0));

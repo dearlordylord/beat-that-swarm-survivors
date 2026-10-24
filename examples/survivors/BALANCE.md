@@ -1,3 +1,24 @@
+# Actor-free balance — 24 October 2026
+
+The map has no rescue wisps or ward towers. Their historical damage and rewards must not be included when judging the starter weapon or progression. This tuning retains ordinary admission of 96→300 enemies (up to 500 with modifiers), offscreen births, persistent physical XP pickup, existing weapon damage and the Reaper finale.
+
+| Parameter | Before | Current |
+| --- | --- | --- |
+| First level | 100 XP | 20 XP |
+| Following threshold, previous level L | `2*(100+3L+L²/3)` | `40+6L+L²/3` |
+| Enemy HP scaling, tick t and minute m | `100+t/60+4m²` percent | `100+t/180+4m²` percent |
+| Ordinary movement multiplier | 1.25→1.85 | 1.10→1.70 |
+| Base contact damage before armor | 9 | 6 |
+| Protection after a hit | 30 ticks | 45 ticks |
+
+Early real XP should produce a usable build before enemies become hard to kill. Later costs still grow quadratically; time/crowd contact pressure and the finale remain. Arcana 0 keeps its existing +35% damage/−30% maximum-health tradeoff. No automatic XP, hidden support damage or new healing was added.
+
+Fresh deterministic observations and validation are recorded in VALIDATION.md. Bot observations are diagnostics, not human difficulty or win-rate measurements.
+
+# Historical tuning and observations
+
+Everything below describes earlier source revisions, including actor-assisted runs. It does not qualify the actor-free balance above.
+
 # Current pool revision
 
 The current [pool scheme](pools/README.md) uses 400 physical XP piles and a shared 512-slot projectile pool. Ordinary enemy admission reaches 300 and modified admission 500. Weapon cadence and volley amounts are unchanged; more volleys can remain alive together. The observations below describe earlier pool configurations; current validation is recorded in [VALIDATION.md](VALIDATION.md).

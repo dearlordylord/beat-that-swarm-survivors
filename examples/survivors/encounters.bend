@@ -102,7 +102,7 @@ def base_health(v: U32) -> U32:
     case 29: 4200
     case +v: (900 + (v % 20) * 180 : U32)
 def health(v: U32,+tick: U32,stage: U32) -> U32:
-  (base_health(v) * (100 + tick / 60 + (tick / 3600) * (tick / 3600) * 4 + stage * 18) / 100 : U32)
+  (base_health(v) * (100 + tick / 180 + (tick / 3600) * (tick / 3600) * 4 + stage * 18) / 100 : U32)
 def radius(v: U32) -> F32:
   match v:
     case 1: 8.0

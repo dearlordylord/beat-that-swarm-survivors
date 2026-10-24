@@ -1,3 +1,13 @@
+# Actor-free balance follow-up — 24 October 2026
+
+The current tuning is described in BALANCE.md. A fresh emitted Game passes the complete gameplay suite, including 42,532 offscreen placements, 148 incarnation-status regressions, actor absence, XP conservation, upgrade queues, horde capacities and actual Reaper deaths. Ordinary smoke reaches tick 600 alive at level 2, with its first choice at tick 450. This does not establish fresh completion or human difficulty.
+
+Two unchanged deterministic input-only policies compared the saved actor-free baseline with this candidate: seed 100, character 0, fresh unlock mask, stage/Arcana 0, no permanent purchases or classifier, up to 3,600 simulation ticks. The novice loot-chaser died at tick 591 without a choice before tuning; afterwards it received its first choice at tick 814 and died at tick 1,235, level 2. The simple kiter died at tick 615 before tuning; afterwards it remained alive at tick 3,600 with 56 HP and 78 kills. The kiter collected only 14 XP and earned no level, so its survival is not evidence of build progression. These are two diagnostic policies, not a win-rate estimate or proof of beginner fairness. Contact pressure and eventual death remain possible.
+
+Browser menu/input/touch/pause/reward/persistence smoke passed. Native profile/UI/FPS/loot/spawn fixtures and application compilation passed (physical window not opened). The existing input-only native kiter reached tick 3,600 alive, HP 70, 59 kills, one hit event and no level-up; this separately confirms a native survival path, not XP progression. No current complete-run or FPS performance result is claimed.
+
+Current diagnostics and source snapshots are archived under `../../../bend-games/research/actor-free-balance-20261024/`. Earlier observations below qualify earlier source revisions only.
+
 # Custom map actors removed — 24 October 2026
 
 The current world has 1,456 identities: 512 enemy/relic slots, 512 player projectiles, 32 hostile projectiles and 400 persistent XP piles. The actor range is empty. Towers and rescue wisps, their automatic damage/slow and XP/gold/healing rewards, and bot goals for them were removed. Player weapon effects remain.
