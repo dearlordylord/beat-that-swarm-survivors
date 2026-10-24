@@ -5,6 +5,43 @@ They are not a description of current configuration or a qualification of later
 changes. Current rules and limits belong to [game.bend](game.bend),
 [pools.bend](pools.bend), [arena.bend](arena.bend) and [music.bend](music.bend).
 
+# Shared-world browser co-op — 24 October 2026
+
+The co-op implementation and `survivors-remove-legacy` were merged in `ffa35b0`.
+The merge preserves player components through schema adapters and keeps prepared
+query enumeration; no removed fallback functions were restored.
+
+Fresh merged-source qualification passed:
+
+- 159 effect/pickup checks, 948 complete-world solo comparisons and 720 independent
+  weapon-request comparisons, including the reactive unowned-weapon exception.
+- 13 co-op mechanics cases and six delivery/replay cases. The oracle compares all
+  ECS fields, both observations and admission state against accepted-command
+  history; it includes exact agreement with the earlier serializer implementation.
+- The complete canonical `build.sh` plus `check.sh` suite, including capability,
+  movement, spawn, XP/pool, progression, evolution, objective, finale and defeat
+  checks. Published BendHub dependency audit passes.
+- Two narrow pickup-policy kernel proofs and their timed-auto-pickup/always-close
+  mutation controls. Their scope is machine F32 comparison and age/kind independence,
+  not a formal proof of the whole game. Session-policy proof limits are documented
+  in `coop-session-README.md`.
+- Actual Linux ARM64 C builds and execution: `native-test` passes 43 assertions and
+  `NATIVE UI PASS`; `native-loot-test` passes six loot-rendering checks. Native
+  execution covers the real ECS and physical XP level-up. This is not a new macOS
+  device qualification or a native co-op transport test.
+
+Before the cleanup merge, real Iroh browser contexts passed input, nonpausing map,
+guest departure and continued host movement. The corrected serializer sustained
+302 ticks in 5.016 seconds and 1,216 ticks in 20.331 seconds; a Chrome Worker also
+handled a 64,489-character/1,400-body frame. These are bounded observations on one
+host, not full-run, maximum-horde, different-network or cross-backend determinism
+claims. Public deployment is followed by a separate browser smoke.
+
+The original performance diagnosis and the subsequent browser stack failure are
+recorded in `../../research/survivors-coop-step-profile.md`. Gameplay remains Bend;
+Rust/Wasm supplies Iroh bytes, and JavaScript supplies scheduling, input, storage
+and presentation. `COOP.md` documents the initial session and reward rules.
+
 # Ready-to-play menu and explicit unlocks — 24 October 2026
 
 The user selected prototype A. Production now shows a compact run preview, icon/name in all four collapsed choices, all locked entries when a category is open, and a separate price/requirement/Buy inspector. Browsing a locked item cannot purchase or equip it. Start is available at the top and in a persistent lower bar. GitHub source links remain in the header.

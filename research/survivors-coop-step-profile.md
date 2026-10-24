@@ -82,3 +82,25 @@ The original authored-source fingerprint was not captured by the ordinary web
 build, so the original generated-artifact hashes are the precise baseline
 identity. The diagnostic scripts, V8 profiles and generated modules remain under
 `/tmp/bendvy-coop-step-profile` for inspection during this session.
+
+## Browser stack failure and follow-up
+
+The faster core exposed a separate browser failure. A five-second optimized
+probe counted only 98 ticks because its Worker had stopped, rather than because
+its steady simulation rate was 19.6 Hz. The captured stack contained repeated
+`String.take` calls. Both documents were visible; before the exception the Worker
+measured 81 steps in 1,247 ms and 45 observations in 30 ms.
+
+Co-op had removed the closing brace from the complete game JSON with
+`String.take` before appending player fields. That recursion grows with the
+number of characters and exceeded Chrome's Worker stack. `Game.packet_extra`
+now composes fields before the closing brace. The solo packet wrapper supplies
+an empty suffix, preserving its existing representation.
+
+After this change, real Iroh browser checks on this host observed 302 ticks in
+5.016 seconds and 1,216 ticks in 20.331 seconds, without errors. Both players
+moved; the longer run exercised the growing battlefield. A Chrome Worker also
+serialized and parsed 1,400 trusted fixture bodies in a 64,489-character frame.
+These are bounded browser observations, not a full-run or cross-device FPS
+claim. The final legacy-cleanup merge is qualified separately by the release
+checks; the earlier artifact/source identities above remain historical.
