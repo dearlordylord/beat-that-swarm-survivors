@@ -204,3 +204,22 @@
 #app #menu .settings{max-width:680px;padding:20px 28px;background:#251e2a;border:1px solid #76604e;box-shadow:inset 0 0 0 3px #17121d;border-radius:2px}#app #menu .setting{border-color:#51414c;color:#e1d7c9}#app #menu .setting span{color:#ac9fb2}#app #menu input{accent-color:#c8a66c}#app #menu input[type=range]{appearance:none;height:7px;border:1px solid #9d8252;background:#100d17;border-radius:1px;box-shadow:inset 0 2px #07050b}#app #menu input[type=range]::-webkit-slider-thumb{appearance:none;width:19px;height:19px;border:3px double #d7bc83;border-radius:50%;background:#695245}#app #menu input[type=checkbox]{width:20px;height:20px;accent-color:#b99358}#app #menu button:focus-visible,#app #menu input:focus-visible{outline:2px solid #f4d898;outline-offset:4px}#app #menu footer{color:#8e8196}
 #app #overlay .dialog{background:#261b2c;border:1px solid #b49a68;border-radius:3px;box-shadow:inset 0 0 0 3px #100d15,0 30px 80px #0007;color:#e5dbc7}#app #overlay .dialog h2{font-family:Georgia,serif;color:#ead6af}#app #overlay .dialog button{border-radius:2px;border-color:#92734d;background:#372735;color:#e5d3ad}
 @media(max-width:600px){#app #menu .settings{padding:13px 17px}#app #menu .selected-choice{font-size:12px}#app #menu .card h3{font-size:16px}}
+
+/* Focus follows the engraved controls instead of outlining their HTML boxes. */
+#app #menu #tabs button:focus-visible,
+#app #menu .start-button:focus-visible {
+  outline: none;
+}
+#app #menu #tabs button:focus-visible .tab-surface {
+  color: #fff0c6;
+  background: #49303b;
+  box-shadow: inset 0 0 0 2px #e3c78d;
+}
+#app #menu .start-button:focus-visible .cta-surface {
+  border-color: #f4d898;
+  box-shadow: inset 0 0 0 3px #1a111b, inset 0 0 0 5px #d5bb83;
+}
+#app #menu .unlock-inspector:focus {
+  outline: none;
+  border-color: #e3c78d;
+}
