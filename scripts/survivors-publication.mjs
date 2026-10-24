@@ -170,7 +170,7 @@ export async function prepareSite({ repo = defaultRepo, siteCheckout, quiet = fa
     const output = path.join(temporary, 'examples/survivors/dist/web');
     await treeFiles(output); // Reject output links before any Site mutation.
     const dependency = JSON.parse(source.content.get('bendhub-dependencies.json').bytes);
-    const versionOutput = await exec(process.env.BEND || 'bend', ['--version']);
+    const versionOutput = await exec(process.env.BEND || 'bend', ['version']);
     const bendVersion = versionOutput.stdout.match(/\b\d+\.\d+\.\d+\b/)?.[0];
     if (bendVersion !== dependency.bendVersion) throw new Error(`Bend version ${bendVersion || 'unknown'} does not match the source pin ${dependency.bendVersion}.`);
     const version = { schemaVersion: 1, revision: state.revision, branch: state.branch, sourceFingerprint: source.fingerprint, dirty: source.dirty, builtAt: new Date().toISOString() };

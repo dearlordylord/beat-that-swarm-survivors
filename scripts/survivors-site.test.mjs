@@ -29,7 +29,7 @@ async function fixture() {
   await put(site, '.openai/hosting.json', '{"project_id":"fixture","static":{"directory":"dist"}}');
   await put(site, 'dist/index.html', 'previous-site'); await put(site, 'dist/old.mjs', 'old-asset');
   await put(site, 'SOURCE.json', '{"old":true}');
-  const bend = path.join(root, 'bend'); await put(root, 'bend', '#!/bin/sh\necho "bend 2.0.38"\n', 0o755);
+  const bend = path.join(root, 'bend'); await put(root, 'bend', '#!/bin/sh\n[ "$1" = version ] || exit 2\necho "bend 2.0.38"\n', 0o755);
   return { root, repo, site, bend, options: { repo, siteCheckout: site, quiet: true } };
 }
 async function usingFixture(fn) {
