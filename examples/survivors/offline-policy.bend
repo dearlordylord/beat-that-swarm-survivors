@@ -163,7 +163,7 @@ def sort_goals(+rows: List<&2,Goal>,+acc: List<&2,Goal>,+here: Point) -> List<&2
     case []: acc
     case goal <> rest: sort_goals(rest,insert_goal(goal,acc,here),here)
 def cardinals(+px: F32,+py: F32) -> List<&2,Goal>:
-  [Goal{12,0,12,px,F32.max(20.0,(py - 160.0 : F32)),0.1,Point{0.0,0.0}},Goal{13,0,13,F32.min(3580.0,(px + 160.0 : F32)),py,0.1,Point{0.0,0.0}},Goal{14,0,14,px,F32.min(3580.0,(py + 160.0 : F32)),0.1,Point{0.0,0.0}},Goal{15,0,15,F32.max(20.0,(px - 160.0 : F32)),py,0.1,Point{0.0,0.0}}]
+  [Goal{12,0,12,px,F32.max(G.world_margin(),(py - 160.0 : F32)),0.1,Point{0.0,0.0}},Goal{13,0,13,F32.min((G.world_size() - G.world_margin() : F32),(px + 160.0 : F32)),py,0.1,Point{0.0,0.0}},Goal{14,0,14,px,F32.min((G.world_size() - G.world_margin() : F32),(py + 160.0 : F32)),0.1,Point{0.0,0.0}},Goal{15,0,15,F32.max(G.world_margin(),(px - 160.0 : F32)),py,0.1,Point{0.0,0.0}}]
 def only_xp(+rows: List<&2,Goal>) -> List<&2,Goal>:
   match rows:
     case []: []
@@ -323,7 +323,30 @@ def route_grid(+here: Point,+target: Point,+grid: R.Frozen,+budget: U32) -> Rout
       search(U32.to_nat((budget * 9 + 1 : U32)),start,end,target,here,grid,costs,[0 : U32*4096n],[0 : U32*4096n],[Node{start,0.0,heuristic(start,end)}],0,budget)
     ))
   ))
-def route(+here: Point,+target: Point,rows: List<&2,G.Body>,budget: U32) -> Route: route_grid(here,target,R.snapshot(rows),budget)
+def shifted_point(point:Point,+ox:F32,+oy:F32) -> Point:
+  match point:
+    case Point{x,y}: Point{(x - ox : F32),(y - oy : F32)}
+def projected_point(point:Point) -> Point:
+  match point:
+    case Point{x,y}: Point{F32.clamp(x,0.0,3600.0),F32.clamp(y,0.0,3600.0)}
+def world_path(path:List<&2,Point>,+ox:F32,+oy:F32) -> List<&2,Point>:
+  match path:
+    case []: []
+    case Point{x,y} <> rest: Point{(x + ox : F32),(y + oy : F32)} <> world_path(rest,ox,oy)
+def world_route(result:Route,+ox:F32,+oy:F32,remaining:F32) -> Route:
+  match result:
+    case Route{found,path,length,risk,expanded}: Route{found,world_path(path,ox,oy),(length + remaining : F32),risk,expanded}
+def route_window(+here:Point,+target:Point,window:R.RiskWindow,budget:U32) -> Route:
+  match window:
+    case R.RiskWindow{+x,+y,cells}:
+      +localTarget=shifted_point(target,x,y)
+      +projected=projected_point(localTarget)
+      world_route(route_grid(shifted_point(here,x,y),projected,cells,budget),x,y,distance(localTarget,projected))
+def here_window(here:Point,rows:List<&2,G.Body>) -> R.RiskWindow:
+  match here:
+    case Point{x,y}: R.window(rows,x,y,G.world_size(),G.world_margin())
+def route(+here: Point,+target: Point,rows: List<&2,G.Body>,budget: U32) -> Route: route_window(here,target,here_window(here,rows),budget)
+
 type Attempt is Data: Attempt{result: Route,goal: Goal,expanded: U32}
 def insert_near(+goal: Goal,+rows: List<&2,Goal>,+here: Point) -> List<&2,Goal>:
   match rows:
@@ -340,14 +363,14 @@ def sorted_representatives(+rows: List<&2,Goal>,+goal: Goal,+here: Point,+acc: L
       branch(~List<&2,Goal>,relevant,(_ => sorted_representatives(rest,goal,here,insert_near(member,acc,here))),(_ => sorted_representatives(rest,goal,here,acc)))
 def representatives(+observed: List<&2,Goal>,+goal: Goal,+here: Point) -> List<&2,Goal>:
   branch(~List<&2,Goal>,U32.is_eq(goal_kind(goal),2),(_ => sorted_representatives(observed,goal,here,[])),(_ => [goal]))
-def try_representatives(+fuel: Nat,+result: Route,+last: Goal,+reps: List<&2,Goal>,+here: Point,+grid: R.Frozen,+budget: U32,+used: U32) -> Attempt:
+def try_representatives(+fuel: Nat,+result: Route,+last: Goal,+reps: List<&2,Goal>,+here: Point,+grid: R.RiskWindow,+budget: U32,+used: U32) -> Attempt:
   match fuel result reps:
     case _ Route{True{},+path,+length,+risk,+expanded} _: Attempt{Route{True{},path,length,risk,expanded},last,(used + expanded : U32)}
     case 0n Route{False{},_,_,_,+expanded} _: Attempt{Route{False{},[],0.0,0.0,expanded},last,(used + expanded : U32)}
     case _ Route{False{},_,_,_,+expanded} Nil{}: Attempt{Route{False{},[],0.0,0.0,expanded},last,(used + expanded : U32)}
     case 1n+rest Route{False{},_,_,_,+expanded} Con{+next,tail}:
       +spent=(used + expanded : U32)
-      branch(~Attempt,U32.is_lt(spent,budget),(_ => try_representatives(rest,route_grid(here,goal_point(next),grid,(budget - spent : U32)),next,tail,here,grid,budget,spent)),(_ => Attempt{Route{False{},[],0.0,0.0,0},last,spent}))
+      branch(~Attempt,U32.is_lt(spent,budget),(_ => try_representatives(rest,route_window(here,goal_point(next),grid,(budget - spent : U32)),next,tail,here,grid,budget,spent)),(_ => Attempt{Route{False{},[],0.0,0.0,0},last,spent}))
 def choice_score(+choice: Choice) -> F32:
   match choice:
     case Choice{_,_,score}: score
@@ -393,7 +416,7 @@ def add_prepared(+candidate: Maybe<&2,Choice>,+prior: List<&2,Choice>) -> List<&
 def score_attempt(attempt: Attempt,+aggregate: Goal,+speed: F32,+fragile: Bool) -> Maybe<&2,Choice>:
   match attempt:
     case Attempt{result,actual,_}: scored_route(result,actual,goal_reward(aggregate),speed,fragile)
-def candidates(+fuel: Nat,+goals: List<&2,Goal>,+here: Point,+observed: List<&2,Goal>,+grid: R.Frozen,+speed: F32,+fragile: Bool,+stuck: Bool,+current: Maybe<&2,Choice>,+best: Maybe<&2,Choice>,+retained: Maybe<&2,Choice>,+prepared: List<&2,Choice>) -> Plan:
+def candidates(+fuel: Nat,+goals: List<&2,Goal>,+here: Point,+observed: List<&2,Goal>,+grid: R.RiskWindow,+speed: F32,+fragile: Bool,+stuck: Bool,+current: Maybe<&2,Choice>,+best: Maybe<&2,Choice>,+retained: Maybe<&2,Choice>,+prepared: List<&2,Choice>) -> Plan:
   match fuel goals:
     case 0n _: Plan{best,retained,prepared}
     case _ Nil{}: Plan{best,retained,prepared}
@@ -513,7 +536,7 @@ def avoid(+rows: List<&2,G.Body>,+here: Point,+close: Bool,+dx: F32,+dy: F32) ->
 def initial_vector(+target: Maybe<&2,Point>,+px: F32,+py: F32,+nx: F32,+ny: F32,+nd: F32,+radial: F32,+close: Bool) -> F32 & F32:
   match target:
     case Some{Point{tx,ty}}: ((tx - px : F32),(ty - py : F32))
-    case None{}: ((nx / nd * radial * 6.0 + ny / nd * yes(close,12.0,35.0) + (1800.0 - px) * 0.05 : F32),(ny / nd * radial * 6.0 - nx / nd * yes(close,12.0,35.0) + (1800.0 - py) * 0.05 : F32))
+    case None{}: ((nx / nd * radial * 6.0 + ny / nd * yes(close,12.0,35.0) + (G.world_center() - px) * 0.05 : F32),(ny / nd * radial * 6.0 - nx / nd * yes(close,12.0,35.0) + (G.world_center() - py) * 0.05 : F32))
 def steer_enemy(+enemy: G.Body,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>,+px: F32,+py: F32,+here: Point,+close: Bool,+radius: F32) -> F32 & F32:
   match enemy:
     case G.Body{x,y,_,_,_,_,_,_,r}:
@@ -524,8 +547,8 @@ def steer_enemy(+enemy: G.Body,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>,+
       +radial=yes(close,F32.max((0.0 - 30.0 : F32),F32.min(30.0,(desired - nd : F32))),F32.max(0.0,(220.0 - nd : F32)))
       bind(~(F32),~(F32),~(F32 & F32),initial_vector(target,px,py,nx,ny,nd,radial,close),(+dx => +dy =>
         bind(~(F32),~(F32),~(F32 & F32),avoid(rows,here,close,dx,dy),(+dx => +dy =>
-          +dx=(dx + yes(F32.is_lt(px,200.0),1000.0,0.0) - yes(F32.is_lt(3400.0,px),1000.0,0.0) : F32)
-          +dy=(dy + yes(F32.is_lt(py,200.0),1000.0,0.0) - yes(F32.is_lt(3400.0,py),1000.0,0.0) : F32)
+          +dx=(dx + yes(F32.is_lt(px,(G.world_margin() + 180.0 : F32)),1000.0,0.0) - yes(F32.is_lt((G.world_size() - G.world_margin() - 180.0 : F32),px),1000.0,0.0) : F32)
+          +dy=(dy + yes(F32.is_lt(py,(G.world_margin() + 180.0 : F32)),1000.0,0.0) - yes(F32.is_lt((G.world_size() - G.world_margin() - 180.0 : F32),py),1000.0,0.0) : F32)
           +length=F32.max(1.0,hypot(dx,dy))
           ((dx / length : F32),(dy / length : F32))
       ))
@@ -578,7 +601,7 @@ def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,G.Body>) -> Memory & (
       +plan=branch(~Plan,due,(_ =>
           +pool=sort_goals(clusters(observed,[],here),[],here)
           +pool=reserve(current_pool(pool,current_goal(fresh)),reserve(first_non_xp(pool),reserve(first_cardinal(pool),pool)))
-          candidates(8n,pool,here,observed,R.snapshot(bodies),G.speed_bonus(passives,meta,arcana,character),fragile,stuck,fresh,None{},None{},[])
+          candidates(8n,pool,here,observed,here_window(here,bodies),G.speed_bonus(passives,meta,arcana,character),fragile,stuck,fresh,None{},None{},[])
       ),(_ => Plan{fresh,None{},prepared}))
       +chosen=suppress_cardinal(select_retained(plan_best(plan),plan_retained(plan),Bool.or(damaged,stuck)),damaged,fragile)
       +nextPlan=branch(~(U32),due,(_ =>

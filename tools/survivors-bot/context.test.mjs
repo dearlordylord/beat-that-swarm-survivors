@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildUpgradeDecision, resolveCandidate } from './context.mjs';
 const options={runId:'run-a',decisionSeq:3};
-function frame(extra={}) {return {phase:1,tick:1000,px:1800,py:1800,hp:40,maxHp:100,xp:0,xpNeed:30,level:4,kills:25,gold:0,character:0,arcana:4,stage:0,mode:0,weapons:[1,...Array(23).fill(0)],passives:Array(18).fill(0),offers:[{kind:0,id:0,level:2},{kind:1,id:7,level:1},{kind:2,id:0,level:1}],bodies:[[1810,1800,0,0,10,10,0,1,8],[1900,1800,7,0,8,8,0,704,6]],...extra};}
+function frame(extra={}) {return {worldSize:3600,worldMargin:20,phase:1,tick:1000,px:1800,py:1800,hp:40,maxHp:100,xp:0,xpNeed:30,level:4,kills:25,gold:0,character:0,arcana:4,stage:0,mode:0,weapons:[1,...Array(23).fill(0)],passives:Array(18).fill(0),offers:[{kind:0,id:0,level:2},{kind:1,id:7,level:1},{kind:2,id:0,level:1}],bodies:[[1810,1800,0,0,10,10,0,1,8],[1900,1800,7,0,8,8,0,704,6]],...extra};}
 function response(req,index=0){return {runId:req.runId,decisionSeq:req.decisionSeq,candidatesHash:req.candidatesHash,selectedCandidateId:req.candidates[index].id};}
 test('context describes current build, relative health and actual bounded stats',()=>{
  const f=frame(),r=buildUpgradeDecision(f,{...options,history:[{tick:900,hp:80,action:'move'}]});
@@ -108,4 +108,13 @@ test('NoHiddenActorGoal: classifier rejects catalogs containing removed actor ch
   const catalog=[...goals(f),{id:kind,kind,target:{x:1900,y:1800},distance:100,observedTick:f.tick}];
   assert.throws(()=>buildGoalDecision(f,catalog,options),/Invalid, duplicate or expired engine goal/);
  }
+});
+test('goal validation uses the authoritative expanded arena boundary',()=>{
+ const f=frame({worldSize:14400,worldMargin:128,phase:0,px:7200,py:7200}),catalog=goals(f);
+ catalog.push({id:'distant-relic',kind:'approach_relic',target:{x:10800,y:7200},distance:3600,observedTick:f.tick});
+ const r=buildGoalDecision(f,catalog,options);
+ assert.ok(r.candidates.some(c=>c.engineGoalId==='distant-relic'));
+ assert.equal(r.snapshot.facts.worldSize,14400);assert.equal(r.snapshot.facts.worldCenter,7200);
+ catalog.at(-1).target.x=14273;
+ assert.throws(()=>buildGoalDecision(f,catalog,options),/Invalid, duplicate or expired engine goal/);
 });

@@ -1,3 +1,13 @@
+# Expanded arena and pause map — 24 October 2026
+
+The current world is 14,400×14,400, centered at (7,200,7,200); stage relics lie 3,600 units from the start. Both presentations show a pause map with player/chest/relic/camera markers. M toggles the map and preserves an already-open reward choice. Enemy movement and combat displacement clamp complete sprite envelopes, while the player margin preserves melee reach at corners.
+
+Fresh emitted gameplay passes the full suite: 42,532 offscreen placements, 3,480 actual live birth transitions, 496 movement/knockback/pull cases plus all 31 corner-reach cases, unchanged XP/projectile/lifecycle/queue/finale checks and seven natural upgrade choices. All five relics were collected by ordinary input at tick 1,144 using the legal purchased-profile fixture, with unlock/persistence/one-time reward assertions preserved. The objective runner now allows 1,800 movement ticks per stage and 90 wall seconds because destinations are farther away; no coordinate or inventory injection was introduced. The revised spawn-policy kernel proof passes.
+
+Actual Chromium passes map pause/resume, frozen tick, relic marker, reward-panel priority and existing controls/mobile/reload checks. Two renderer-map unit checks pass. Native profile/UI/FPS/loot/lifecycle checks and application compilation pass; native execution covers M pause/resume/reward priority and large-enemy charging/displacement bounds. Native and browser map captures were inspected. No physical macOS window or new FPS benchmark was run.
+
+Bot navigation retains 4,096 cells and a bounded local window; source/emitted-policy checks, 864 offer/route cases, 14,400 risk-grid cell checks and 38 host tests pass. These are correctness checks, not whole-run progression or performance evidence. Receipts and source snapshots: `../../../bend-games/research/expanded-arena-20261024/`. Previous balance observations below refer to earlier world geometry.
+
 # Actor-free balance follow-up — 24 October 2026
 
 The current tuning is described in BALANCE.md. A fresh emitted Game passes the complete gameplay suite, including 42,532 offscreen placements, 148 incarnation-status regressions, actor absence, XP conservation, upgrade queues, horde capacities and actual Reaper deaths. Ordinary smoke reaches tick 600 alive at level 2, with its first choice at tick 450. This does not establish fresh completion or human difficulty.

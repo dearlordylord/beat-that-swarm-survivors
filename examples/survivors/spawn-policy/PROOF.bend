@@ -1,4 +1,5 @@
 import Base
+import ../arena.bend as A
 import ../spawn-policy.bend as S
 import ../spawn-lifecycle.bend as L
 import LAWS.bend as Laws
@@ -41,6 +42,6 @@ def conjunction_implies_right(bounds:Bool,outside:Bool) -> {Bool.or(Bool.not(S.a
     case False{} True{}: {==}
     case False{} False{}: {==}
 def Laws.accepted_newborn_is_outside(M,motion,x,y,px,py,radius):
-  conjunction_implies_right(Bool.and(Bool.and(F32.is_le(20.0,x),F32.is_le(x,3580.0)),Bool.and(F32.is_le(20.0,y),F32.is_le(y,3580.0))),S.outside(x,y,px,py,radius))
+  conjunction_implies_right(Bool.and(Bool.and(F32.is_le(A.spawn_min(),x),F32.is_le(x,A.spawn_max())),Bool.and(F32.is_le(A.spawn_min(),y),F32.is_le(y,A.spawn_max()))),S.outside(x,y,px,py,radius))
 
 def Laws.existing_zero_age_is_not_newborn(T,payload): {==}

@@ -28,6 +28,8 @@ Profiles are stored at `~/Library/Application Support/Nightfall Survivors/nightf
 
 At camp: arrows select, Left/Right change category, Enter equips or buys, Space starts, M opens permanent upgrades, and C opens the collection and recipes. In a run: WASD/arrows move, attacks are automatic, Esc pauses, and V toggles sound. XP and chests require pickup.
 
+M opens the pause map: player, stage relic, chests and the current camera footprint. Esc or M resumes. The arena is 14,400 × 14,400 world units; relics are 3,600 units from the central start. Enemy movement and knockback keep the complete sprite inside the arena.
+
 Rewards pause combat: 1/2/3 choose, R rerolls, K skips, B banishes. Esc defers a reward; E reopens it. Queued rewards open in order. From pause, Q returns to camp and banks collected gold once.
 
 Standard and Inverse reach dawn after ten simulated minutes, then spawn a lethal Reaper; reaching dawn earns completion credit when the run ends. Endless has no Reaper. The five-minute Trial accelerates waves and disables permanent upgrades.

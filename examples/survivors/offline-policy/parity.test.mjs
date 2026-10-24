@@ -13,7 +13,7 @@ const point=(x,y)=>({$:'Point',x,y});
 const none={$:'None'};
 const body=(seed,x,y,kind=2,hp=10,generation=0,radius=12)=>({$:'Body',seed,x,y,kind,variant:0,hp,maxHp:generation,age:0,radius});
 const run=(patch={})=>({$:'Run',phase:0,tick:1,px:900,py:900,hp:100,maxHp:100,xp:0,xpNeed:100,level:1,kills:0,gold:0,character:0,weapons:list(Array(24).fill(0)),passives:list(Array(16).fill(0)),invuln:0,seed:12345,stage:0,arcana:0,meta:0,revivals:0,bosses:0,mode:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0,enemyKinds:list([]),relicCollected:0,...patch});
-const frame=(r,bodies=[],offers=[])=>({...r,weapons:array(r.weapons),passives:array(r.passives),offers,bodies:bodies.map(b=>[b.x,b.y,b.kind,b.variant,b.hp,b.maxHp,b.age,b.seed,b.radius])});
+const frame=(r,bodies=[],offers=[])=>({...r,worldSize:14400,worldMargin:128,weapons:array(r.weapons),passives:array(r.passives),offers,bodies:bodies.map(b=>[b.x,b.y,b.kind,b.variant,b.hp,b.maxHp,b.age,b.seed,b.radius])});
 const catalog=(r,bodies)=>bodies.filter(b=>b.kind===2&&b.hp>0).map(b=>({id:`t${r.tick}:approach_experience:${b.seed}:2:0:${b.age}`,kind:'approach_experience',target:{x:b.x,y:b.y},resource:{baseXp:b.hp,generation:b.maxHp}}));
 const chosen=m=>m.current.$==='Some'?m.current.value.goal:null;
 const step=(m,r,b)=>P.movement(m,r,list(b)).fst;
@@ -128,3 +128,9 @@ native=step(native,run({tick:700,hp:80}),[body(748,1080,900,2,10,502)]);assert.e
 console.log(`Native policy behavioral parity: ${upgrades} offer cases, steering, bounded routes, XP lifetime/generation, hysteresis, damage and stuck replans passed`);
 assert.deepEqual(P.goals_at(list([body(1056,1000,900,10,80),body(1057,1050,900,11,80)]),100),{$:'Nil'},
  'NoHiddenActorGoal: native policy ignores removed map-actor bodies even when alive and inactive');
+for(const [from,to] of [[point(7200,7200),point(10800,7200)],[point(14250,14250),point(14272,14272)],[point(128,128),point(9000,9000)]]) {
+ const actual=P.route(from,to,list([]),150),r=run({px:from.x,py:from.y});
+ const expected=routePath(frame(r),to,{maxExpanded:150});
+ assert.equal(actual.found,expected.reachable,'expanded-world local route reachability');
+ if(actual.found)assert.deepEqual(array(actual.path).map(p=>({x:p.x,y:p.y})),expected.waypoints,'world-space local route points');
+}

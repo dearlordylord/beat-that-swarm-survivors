@@ -14,7 +14,7 @@ This fixes a reproduced defect: spawning was initially offscreen, but combat int
 
 The formal proof covers the small admission/lifecycle core. It does not prove the entire ECS query interpreter, every game callsite, camera rendering, or IEEE floating-point implementation. The exclusion geometry conservatively includes the native raster and supported browser camera; independent tests cover all enemy variants and arena edges. A separate proof attempt importing the complete game exceeded its fixed kernel CPU budget and was archived as unverified, not shipped as a completed proof.
 
-The production connection is additionally checked by native C regressions for old slow/freeze/burn/tower hits and by JavaScript development tests exercising real ECS writes, boss replacement and the age-wrap case. `spawn-policy.test.mjs` checks 42,532 placements and 5,590 actual live birth transitions against the post-step camera.
+The production connection is additionally checked by native C regressions for old slow/freeze/burn/tower hits and by JavaScript development tests exercising real ECS writes, boss replacement and the age-wrap case. `spawn-policy.test.mjs` checks 42,532 placements and 3,480 actual live birth transitions against the post-step camera.
 
 From the repository root, with the matching development proof toolchain installed:
 
@@ -23,3 +23,5 @@ ELAN_TOOLCHAIN=leanprover/lean4:v4.34.0 bend examples/survivors/spawn-policy/PRO
 ```
 
 Game launch itself does not require the proof toolchain. Source-bound receipts and rejected mutants are stored outside the checkout in `../bend-games/research/survivors-fps-spawn-20261023/`.
+
+The current 14,400-unit arena is shared through `arena.bend`. Candidates reserve a 160-unit border for all existing sprite envelopes; movement and combat displacement additionally clamp each enemy using its own envelope. Player bounds retain corner contact reach. `arena.test.mjs` checks 496 movement/displacement cases and all 31 enemy footprints at the player corner. These boundary tests are execution evidence, not an all-game theorem.

@@ -5,7 +5,7 @@ const array=xs=>{const a=[];for(;xs.$==='Con';xs=xs.tail)a.push(xs.head);return 
 const values=c=>Array.isArray(c.values)?c.values:values(c.state??c.inner);
 const outside=(b,px,py)=>Math.abs(b.x-px)>512+3*b.radius+24||Math.abs(b.y-py)>512+3*b.radius+24;
 let checks=0;
-for(const [px,py]of [[1800,1800],[20,20],[3580,3580]])for(const seed of [17,23,57])for(const slow of [0,1,90,65626])for(const burn of [0,120])for(const staleArea of [false,true]){
+for(const [px,py]of [[G.world_center(),G.world_center()],[20,20],[(G.world_size()-20),(G.world_size()-20)]])for(const seed of [17,23,57])for(const slow of [0,1,90,65626])for(const burn of [0,120])for(const staleArea of [false,true]){
  const p=G.start_seed_quiet(0,0,12345),tick=(6-seed%6)%6;
  const run={...p.state.run,tick,px,py,seed:12344+tick};
  const old={...G.initial_body(seed),x:px,y:py};
@@ -23,7 +23,7 @@ for(const [px,py]of [[1800,1800],[20,20],[3580,3580]])for(const seed of [17,23,5
 // Actual ECS integration: only mutate values in a real initialized world,
 // then use the ordinary live step and inspect both authoritative columns.
 for(const slow of [90,65626]){
- let p=G.start_seed_quiet(0,0,12345);const old={...G.initial_body(17),x:1800,y:1800};
+ let p=G.start_seed_quiet(0,0,12345);const old={...G.initial_body(17),x:G.world_center(),y:G.world_center()};
  values(p.state.world.store.bodies)[17].value=old;
  values(p.state.world.store.vitals)[17].value={$:'Vitals',health:0,maximum:0};
  values(p.state.world.store.motions)[17].value={...G.empty_motion(),slow,burn:120};
@@ -36,15 +36,15 @@ for(const slow of [90,65626]){
 // A boss replacing a living pool slot also starts with clean status.
 {
  const p=G.start_seed_quiet(0,0,12345),run={...p.state.run,tick:7200};
- const old={...G.enemy_new(0,1,1800,1800,0,0,0),x:1800,y:1800,age:100};
+ const old={...G.enemy_new(0,1,G.world_center(),G.world_center(),0,0,0),x:G.world_center(),y:G.world_center(),age:100};
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits:nil};
  const born=G.normal_regular_entity(old,{...G.empty_motion(),slow:65626,burn:100},args);
- assert.equal(born.row.body.age,0);assert.ok(outside(born.row.body,1800,1800));assert.deepEqual(born.motion,G.empty_motion());checks++;
+ assert.equal(born.row.body.age,0);assert.ok(outside(born.row.body,G.world_center(),G.world_center()));assert.deepEqual(born.motion,G.empty_motion());checks++;
 }
 // Existing zero-age after a U32 age wrap is not another birth.
 {
  const p=G.start_seed_quiet(0,0,12345),run={...p.state.run,tick:1};
- const old={...G.enemy_new(17,1,1800,1800,0,0,0),x:1800,y:1800,age:0};
+ const old={...G.enemy_new(17,1,G.world_center(),G.world_center(),0,0,0),x:G.world_center(),y:G.world_center(),age:0};
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits:nil};
  const result=G.normal_regular_entity(old,{...G.empty_motion(),slow:90,burn:120},args);
  assert.ok(result.motion.slow>0,'age wrap must retain ordinary status processing');

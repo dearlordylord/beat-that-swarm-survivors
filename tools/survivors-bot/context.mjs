@@ -78,7 +78,7 @@ function hazards(f) {
   const periods=[360,420,240,300,180], pulses=[300,360,180,240,120];
   const i=f.stage??0, x=Math.max(0,Math.trunc(f.px)), y=Math.max(0,Math.trunc(f.py));
   const zones=[x%480<65&&y%480<65,x%640<70&&y%640>150,x%400>240&&y%400>240,(x+y)%700<95,x%520<100&&y%520<160];
-  const cross=Math.abs(f.px-1800)<=90 || Math.abs(f.py-1800)<=90;
+  const cross=Math.abs(f.px-(f.worldSize??14400)/2)<=90 || Math.abs(f.py-(f.worldSize??14400)/2)<=90;
   return { source:'encounters.bend hazard; exact stationary zone and pulse rules, not a damage forecast', enabledAfterTick:600, centralCrossSafe:cross, inHazardZone:zones[i] && !cross, pulsePeriodTicks:periods[i], pulseAtRemainder:pulses[i], ticksUntilNextPulse:(pulses[i]-f.tick%periods[i]+periods[i])%periods[i], rawPulseDamage:2+i, warning:'Invulnerability may suppress damage; invulnerability is not exposed in frame JSON.' };
 }
 
@@ -106,7 +106,7 @@ export function buildUpgradeDecision(frame,{runId,decisionSeq,meta=0,history=[],
   const snapshots=recent.filter((h)=>Number.isFinite(h.hp));
   const recentHealthLoss=snapshots.length?{windowTicks:600,observedNetLoss:Math.max(0,snapshots[0].hp-f.hp),qualification:'Net HP change only; healing and revivals can hide damage. Depends on caller sampling.'}:{windowTicks:600,observedNetLoss:null,qualification:'No recent HP observations supplied.'};
   const snapshot={ objective:f.mode===2?'Survive as long as possible; Endless has no dawn completion.':'Survive until dawn, then survive until the Dawn Reaper makes lethal contact to complete the run. Do not intentionally die before dawn.',
-    facts:{tick:f.tick,seconds:f.tick/60,phase:f.phase,rewardType:f.phase===2?'chest':'level',hp:f.hp,maxHp:f.maxHp,hpFraction:f.hp/Math.max(1,f.maxHp),level:f.level,xp:f.xp,xpNeed:f.xpNeed,kills:f.kills,gold:f.gold,position:{x:f.px,y:f.py},hero:CHARACTERS[f.character],arcana:ARCANA[f.arcana],stage:STAGES[f.stage],mode:RUN_MODES[f.mode],durationTicks,ticksUntilDawn:Math.max(0,durationTicks-f.tick),permanentUpgradeBits:meta,revivalsUsed:f.revivalsUsed??0,revivalsRemaining:Math.max(0,metaRank(meta,9)+rank(f.passives,13)-(f.revivalsUsed??0)),rerolls:f.rerolls,banishes:f.banishes,skips:f.skips},
+    facts:{tick:f.tick,seconds:f.tick/60,phase:f.phase,rewardType:f.phase===2?'chest':'level',hp:f.hp,maxHp:f.maxHp,hpFraction:f.hp/Math.max(1,f.maxHp),level:f.level,xp:f.xp,xpNeed:f.xpNeed,kills:f.kills,gold:f.gold,position:{x:f.px,y:f.py},worldSize:f.worldSize??14400,worldCenter:(f.worldSize??14400)/2,worldMargin:f.worldMargin??128,hero:CHARACTERS[f.character],arcana:ARCANA[f.arcana],stage:STAGES[f.stage],mode:RUN_MODES[f.mode],durationTicks,ticksUntilDawn:Math.max(0,durationTicks-f.tick),permanentUpgradeBits:meta,revivalsUsed:f.revivalsUsed??0,revivalsRemaining:Math.max(0,metaRank(meta,9)+rank(f.passives,13)-(f.revivalsUsed??0)),rerolls:f.rerolls,banishes:f.banishes,skips:f.skips},
     slots:{weaponLimit:6,weaponsOccupied:occupied(f.weapons),weaponsFree:Math.max(0,6-occupied(f.weapons)),passiveLimit:6,passivesOccupied:occupied(f.passives),passivesFree:Math.max(0,6-occupied(f.passives))},
     weapons:f.weapons.flatMap((n,id)=>n>0?[weaponFacts(id,n,f,meta)]:[]),passives:f.passives.flatMap((n,id)=>n>0?[{id,name:PASSIVES[id].name,rank:n,rule:PASSIVES[id].description}]:[]),
     engineMechanics:mechanics, mechanicsPriority:'When provided, engineMechanics.current and candidate.effect.enginePreview are authoritative Bend calculations. JS estimates and catalog descriptions are explanatory fallbacks and may drift; prefer the engine values on disagreement.', currentStats:aggregateStats(f,meta),progression:prerequisites(f),hazards:hazards(f),threats:threats(f),recentHealthLoss,actionHistory:safeCopy(history.slice(-12)),
@@ -136,7 +136,7 @@ function catalogOf(frame, catalog) {
   if (!Array.isArray(catalog)) throw new Error('Require engine goal catalog');
   const ids = new Set();
   for (const g of catalog) {
-    if (!g || typeof g.id !== 'string' || !g.id || ids.has(g.id) || !GOAL_KINDS.has(g.kind) || g.observedTick !== frame.tick || !Number.isFinite(g.distance) || g.distance < 0 || !Number.isFinite(g.target?.x) || !Number.isFinite(g.target?.y) || g.target.x < 20 || g.target.x > 3580 || g.target.y < 20 || g.target.y > 3580) throw new Error('Invalid, duplicate or expired engine goal');
+    if (!g || typeof g.id !== 'string' || !g.id || ids.has(g.id) || !GOAL_KINDS.has(g.kind) || g.observedTick !== frame.tick || !Number.isFinite(g.distance) || g.distance < 0 || !Number.isFinite(g.target?.x) || !Number.isFinite(g.target?.y) || g.target.x < (frame.worldMargin??128) || g.target.x > (frame.worldSize??14400)-(frame.worldMargin??128) || g.target.y < (frame.worldMargin??128) || g.target.y > (frame.worldSize??14400)-(frame.worldMargin??128)) throw new Error('Invalid, duplicate or expired engine goal');
     if(g.kind==='approach_experience') {
       const [seed,kind,variant,age]=g.id.split(':').slice(2).map(Number),r=g.resource;
       if(!r || !Number.isSafeInteger(r.baseXp)||r.baseXp<=0 || !Number.isSafeInteger(r.generation)||r.generation<0 || r.autoClaimTicks!==null || !frame.bodies.some(b=>b[7]===seed&&b[2]===kind&&kind===2&&b[3]===variant&&b[6]===age&&b[4]===r.baseXp&&b[5]===r.generation&&b[0]===g.target.x&&b[1]===g.target.y)) throw new Error('XP goal does not match a current persistent engine pile');
@@ -185,7 +185,7 @@ export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=
       effect.resource={...safeCopy(goal.resource??{}),kind:'experience',seed,variant,ageTicks:age,autoClaimTicks:null,pickupRadius:engineMechanics?.current?.pickupRadius??null,benefit:'Collect experience to progress toward the next upgrade; XP persists until approached.'};
     }
     const route=planner?.candidates?.find(c=>c.goal.id===goal.id);
-    if(route) effect.route=safeCopy({waypoints:route.waypoints,risk:route.risk,etaTicks:route.etaTicks,reward:route.reward,length:route.length,clusterId:route.clusterId,qualification:'Bounded planner estimate from observed positions, not a guarantee against moving threats.'});
+    if(route) effect.route=safeCopy({waypoints:route.waypoints,risk:route.risk,etaTicks:route.etaTicks,reward:route.reward,length:route.length,clusterId:route.clusterId,partial:route.partial??false,qualification:'Bounded local-window route; remaining distance is a straight-line estimate and risk beyond the local segment is unassessed. Not a guarantee against moving threats.'});
     return {id:`goal:${hash([runId,decisionSeq,candidatesHash,observation,goal.id]).slice(0,24)}`,engineGoalId:goal.id,goal:safeCopy(goal),effect,description:JSON.stringify(effect)};
   });
   return {runId,decisionSeq,candidatesHash,observationHash:observation,catalogHash:hash(catalog),kind:'goal',snapshot,candidates};

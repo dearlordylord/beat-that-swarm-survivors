@@ -65,7 +65,7 @@ test('heuristic mode never invokes inference and invalid budgets fail before sim
 });
 
 test('self-field-only builds approach attack reach, retreat from contact and retain projectile avoidance',()=>{
- const frame={px:1800,py:1800,bodies:[[2000,1800,0,0,10,10,0,1,12]]};
+ const frame={worldSize:3600,worldMargin:20,px:1800,py:1800,bodies:[[2000,1800,0,0,10,10,0,1,12]]};
  const close={current:{weaponStats:[{id:4,rank:1,selfFieldRadius:46.125}]}};
  assert.ok(steering(frame,null,close)[0]>0,'Aura-only bot approaches enemies outside actual field reach');
  assert.ok(steering({...frame,bodies:[[1200,1800,0,0,10,10,0,1,12]]},null,close)[0]<0,'Seek the actual far-left enemy rather than a synthetic target');

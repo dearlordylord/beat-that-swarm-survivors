@@ -16,6 +16,7 @@ export function heuristicUpgrade(frame) {
 }
 
 export function steering(frame, target, mechanics = {}) {
+  const worldSize=frame.worldSize??14400,margin=frame.worldMargin??128,center=worldSize/2;
   const enemies = frame.bodies.filter((b) => b[2] === 0 && b[4] > 0);
   const nearest = enemies.reduce((best, b) => Math.hypot(b[0] - frame.px, b[1] - frame.py) < Math.hypot(best[0] - frame.px, best[1] - frame.py) ? b : best, enemies[0] ?? [frame.px + 300, frame.py]);
   const stats=mechanics.current?.weaponStats ?? [];
@@ -23,8 +24,8 @@ export function steering(frame, target, mechanics = {}) {
   const aura=closeOnly ? Math.max(...stats.map(w=>w.selfFieldRadius)) : 0;
   const desired=closeOnly ? Math.max((nearest[8]??12)+26,aura+(nearest[8]??12)-6) : 220;
   const nx = frame.px - nearest[0], ny = frame.py - nearest[1], nd = Math.max(1, Math.hypot(nx, ny));
-  let dx = target ? target.x - frame.px : nx / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 + ny / nd * (closeOnly?12:35) + (1800 - frame.px) * 0.05;
-  let dy = target ? target.y - frame.py : ny / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 - nx / nd * (closeOnly?12:35) + (1800 - frame.py) * 0.05;
+  let dx = target ? target.x - frame.px : nx / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 + ny / nd * (closeOnly?12:35) + (center - frame.px) * 0.05;
+  let dy = target ? target.y - frame.py : ny / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 - nx / nd * (closeOnly?12:35) + (center - frame.py) * 0.05;
   for (const b of frame.bodies) {
     if (![0, 7].includes(b[2])) continue;
     const x = frame.px - b[0], y = frame.py - b[1], d = Math.max(1, Math.hypot(x, y));
@@ -32,8 +33,8 @@ export function steering(frame, target, mechanics = {}) {
     const force=Math.max(0,avoidance-d)*(closeOnly && b[2]===0 ? 12 : 4);
     dx += x / d * force; dy += y / d * force;
   }
-  dx += (frame.px < 200 ? 1000 : 0) - (frame.px > 3400 ? 1000 : 0);
-  dy += (frame.py < 200 ? 1000 : 0) - (frame.py > 3400 ? 1000 : 0);
+  dx += (frame.px < margin+180 ? 1000 : 0) - (frame.px > worldSize-margin-180 ? 1000 : 0);
+  dy += (frame.py < margin+180 ? 1000 : 0) - (frame.py > worldSize-margin-180 ? 1000 : 0);
   const length = Math.max(1, Math.hypot(dx, dy));
   return [dx / length, dy / length];
 }

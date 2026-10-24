@@ -67,7 +67,7 @@ def earned_panel_test(state: N.Native) -> IO(Unit):
 def automatic_test(state: N.Native) -> IO(N.Native):
   do IO<N.Native>:
     state : N.Native <- check(N.new_reward(0,state),o => U32.is_eq(N.ui_paused(ui(o)),2),"new reward opens automatically")
-    state : N.Native <- check(frames(2n,state),o => U32.is_eq(N.ui_paused(ui(o)),2),"automatic reward keeps battlefield paused")
+    state : N.Native <- check(frames(2n,key(109,state)),o => U32.is_eq(N.ui_paused(ui(o)),2),"map key preserves open reward selection")
     return key(27,state)
 def pending_test(state: N.Native) -> IO(N.Native):
   match state:
@@ -130,10 +130,13 @@ def main() -> IO(Unit):
     state : N.Native <- check(key(99,state),o => U32.is_eq(N.ui_screen(ui(o)),3),"collection menu key")
     state : N.Native <- check(key(27,state),o => U32.is_eq(N.ui_screen(ui(o)),0),"escape returns camp")
     state : N.Native <- check(key(32,state),o => U32.is_eq(N.ui_screen(ui(o)),1),"space starts actual ECS game")
-    state : N.Native <- check(frames(10n,key(100,state)),o => F32.is_gt(N.run_px(run(o)),1800.0),"real D input moves player")
+    state : N.Native <- check(frames(10n,key(100,state)),o => F32.is_gt(N.run_px(run(o)),G.world_center()),"real D input moves player")
     state : N.Native <- check(release(100,state),o => U32.is_eq(N.ui_keys(ui(o)),0),"key release clears movement")
     state : N.Native <- check(frames(5n,key(27,state)),+o => Bool.and(U32.is_eq(N.ui_paused(ui(o)),1),U32.is_eq(N.run_tick(run(o)),10)),"pause stops simulation")
     state : N.Native <- check(frames(1n,key(27,state)),+o => Bool.and(U32.is_eq(N.ui_paused(ui(o)),0),U32.is_eq(N.run_tick(run(o)),11)),"resume continues simulation")
+    state : N.Native <- check(frames(2n,key(109,state)),+o => Bool.and(U32.is_eq(N.ui_paused(ui(o)),1),U32.is_eq(N.run_tick(run(o)),11)),"M map stops simulation")
+    state : N.Native <- Capture.view("map.ppm",state)
+    state : N.Native <- check(key(109,state),o => U32.is_eq(N.ui_paused(ui(o)),0),"M closes map")
     state : N.Native <- check(busy(160n,state),o => U32.is_ge(N.run_tick(run(o)),120),"genuine ECS battlefield advanced at least120 ticks")
     state : N.Native <- Capture.view("gameplay.ppm",state)
     state : N.Native <- abandon_test(state)

@@ -137,7 +137,7 @@ function reachLevelup() {
     // This API fixture uses the close-range Wormwood starter. Waiting at the
     // center lets genuinely offscreen enemies enter its aura; orbiting farther
     // than weapon reach can evade forever without earning the tested rewards.
-    const target = loot || [1800, 1800];
+    const target = loot || [Game.world_center(), Game.world_center()];
     const dx = target[0] - frame.px,
       dy = target[1] - frame.py;
     const length = Math.max(1, Math.hypot(dx, dy));

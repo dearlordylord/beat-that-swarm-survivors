@@ -79,8 +79,8 @@ def ready(weapons: List<&2,U32>,+passives: List<&2,U32>,+id: U32) -> Bool:
     case level <> rest: Bool.or(Bool.and(U32.is_eq(level,8),U32.is_lt(0,G.at(passives,G.evolution_passive(id)))),ready(rest,passives,(id + 1 : U32)))
 def pick_target(ready: Bool,+rows: List<&2,G.Body>,+run: G.Run) -> Target:
   match ready:
-    case True{}: chest_target(nearest_kind(rows,5,px(run),py(run),Target{0.0,0.0,100000000.0,False{}}),nearest_kind(rows,2,px(run),py(run),Target{(1800.0 + F32.cos((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),(1800.0 + F32.sin((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),100000000.0,False{}}))
-    case False{}: nearest_kind(rows,2,px(run),py(run),Target{(1800.0 + F32.cos((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),(1800.0 + F32.sin((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),100000000.0,False{}})
+    case True{}: chest_target(nearest_kind(rows,5,px(run),py(run),Target{0.0,0.0,100000000.0,False{}}),nearest_kind(rows,2,px(run),py(run),Target{(G.world_center() + F32.cos((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),(G.world_center() + F32.sin((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),100000000.0,False{}}))
+    case False{}: nearest_kind(rows,2,px(run),py(run),Target{(G.world_center() + F32.cos((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),(G.world_center() + F32.sin((U32.to_f32(tick(run)) / 180.0 : F32)) * 300.0 : F32),100000000.0,False{}})
 def avoid_force(+kind: U32,+distance: F32) -> F32:
   (F32.max(0.0,(140.0 - distance : F32)) * 4.0 * U32.to_f32(Bool.to_u32(Bool.or(U32.is_eq(kind,0),U32.is_eq(kind,7)))) : F32)
 def avoid(rows: List<&2,G.Body>,+px: F32,+py: F32,+dx: F32,+dy: F32) -> Direction:

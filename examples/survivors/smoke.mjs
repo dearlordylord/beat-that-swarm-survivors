@@ -51,8 +51,8 @@ for (let i = 0; i < limit; i++) {
         ((b[0] - frame.px) ** 2 + (b[1] - frame.py) ** 2),
     )[0];
   const target = loot || [
-    1800 + Math.cos(i / 150) * 280,
-    1800 + Math.sin(i / 150) * 280,
+    Game.world_center() + Math.cos(i / 150) * 280,
+    Game.world_center() + Math.sin(i / 150) * 280,
   ];
   let dx = target[0] - frame.px,
     dy = target[1] - frame.py;

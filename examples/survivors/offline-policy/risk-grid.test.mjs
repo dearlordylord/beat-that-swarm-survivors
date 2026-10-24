@@ -19,3 +19,16 @@ for(let i=0;i<3600;i++){
  assert.ok(Math.abs(actual.risk-expected.risk)<0.00001,`risk cell ${i}: ${actual.risk} vs ${expected.risk}`);
 }
 console.log('Native risk grid: all 3600 cells match hostile/contact geometry, dead enemy exclusion, projectile risk, overlapping accumulation, world edges and resource exclusion');
+for(const [px,py,ox,oy] of [[7200,7200,5400,5400],[128,128,128,128],[14272,14272,10672,10672]]) {
+ const threats=[body(1,px+80,py+40),body(2,px-120,py-60,7,1,8),body(3,10,10),body(4,14000,14000,0,0)];
+ const window=R.window(list(threats),px,py,14400,128);
+ assert.equal(window.x,ox);assert.equal(window.y,oy);
+ for(let i=0;i<3600;i++) {
+  const x=ox+(i%60+.5)*60,y=oy+(Math.floor(i/60)+.5)*60;let risk=0,blocked=false;
+  for(const b of threats) {if(!((b.kind===0&&b.hp>0)||b.kind===7))continue;const r=b.radius+(b.kind===7?12:18),reach=r+120,d=Math.hypot(x-b.x,y-b.y);blocked||=d<r+21;risk+=Math.max(0,1-d/reach)*(b.kind===7?8:4);}
+  const actual=R.lookup(window.cells,i);
+  assert.equal(actual.blocked,blocked,`rolling window blocked ${px},${py},${i}`);
+  assert.ok(Math.abs(actual.risk-risk)<0.00001,`rolling window risk ${px},${py},${i}`);
+ }
+}
+console.log('Rolling risk windows:10800 cells match independent world-coordinate geometry at center and both arena edges; storage remains4096cells.');

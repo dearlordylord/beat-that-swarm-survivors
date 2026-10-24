@@ -9,7 +9,7 @@ const identity = (g,tick) => {
   return [g.kind,...p.slice(2,5), Number(p[3])===9?0:tick-Number(p[5])].join(':');
 };
 export function createPlanner(options={}) {
-  return {options:{cell:60,worldSize:3600,maxExpanded:1200,maxCandidates:8,replanTicks:30,...options},objects:{},clusters:[],candidates:[],current:null,lastPlan:-Infinity,lastHp:null,lastPosition:null,stuckSince:null,reason:'initial'};
+  return {options:{cell:60,worldSize:null,maxExpanded:1200,maxCandidates:8,replanTicks:30,...options},objects:{},clusters:[],candidates:[],current:null,lastPlan:-Infinity,lastHp:null,lastPosition:null,stuckSince:null,reason:'initial'};
 }
 class Heap {
   a=[];
@@ -17,30 +17,34 @@ class Heap {
   pop(){const first=this.a[0],v=this.a.pop();if(this.a.length){let i=0;while(i*2+1<this.a.length){let j=i*2+1;if(j+1<this.a.length&&this.a[j+1].f<this.a[j].f)j++;if(this.a[j].f>=v.f)break;this.a[i]=this.a[j];i=j;}this.a[i]=v;}return first;}
 }
 function riskGrid(frame,options){
-  const {cell,worldSize}=options,n=Math.ceil(worldSize/cell),risk=new Float64Array(n*n),blocked=new Uint8Array(n*n);
+  const cell=options.cell,worldSize=options.worldSize??frame.worldSize??14400;
+  const margin=frame.worldMargin??0,span=Math.min(3600,worldSize-2*margin),n=Math.ceil(span/cell);
+  const origin={x:Math.min(worldSize-margin-span,Math.max(margin,Math.floor(Math.max(0,frame.px-span/2)/cell)*cell)),y:Math.min(worldSize-margin-span,Math.max(margin,Math.floor(Math.max(0,frame.py-span/2)/cell)*cell))};
+  const risk=new Float64Array(n*n),blocked=new Uint8Array(n*n);
   for(const b of frame.bodies){
     if(!((b[2]===0&&b[4]>0)||b[2]===7))continue;
     const radius=(b[8]??12)+(b[2]===7?12:18), reach=radius+120;
-    for(let y=Math.max(0,Math.floor((b[1]-reach)/cell));y<=Math.min(n-1,Math.floor((b[1]+reach)/cell));y++)
-      for(let x=Math.max(0,Math.floor((b[0]-reach)/cell));x<=Math.min(n-1,Math.floor((b[0]+reach)/cell));x++){
-        const d=Math.hypot((x+.5)*cell-b[0],(y+.5)*cell-b[1]),i=y*n+x;
+    for(let y=Math.max(0,Math.floor((b[1]-origin.y-reach)/cell));y<=Math.min(n-1,Math.floor((b[1]-origin.y+reach)/cell));y++)
+      for(let x=Math.max(0,Math.floor((b[0]-origin.x-reach)/cell));x<=Math.min(n-1,Math.floor((b[0]-origin.x+reach)/cell));x++){
+        const d=Math.hypot(origin.x+(x+.5)*cell-b[0],origin.y+(y+.5)*cell-b[1]),i=y*n+x;
         // A cell intersecting contact space cannot serve as a safe corridor.
         if(d<radius+cell*.35)blocked[i]=1;
         risk[i]+=Math.max(0,1-d/reach)*(b[2]===7?8:4);
       }
   }
-  return {n,risk,blocked,cell};
+  return {n,risk,blocked,cell,origin,span};
 }
 export function routePath(frame,target,options={},suppliedGrid){
-  const o={cell:60,worldSize:3600,maxExpanded:1200,...options},grid=suppliedGrid??riskGrid(frame,o),{n,cell,risk,blocked}=grid;
-  const index=(p)=>Math.max(0,Math.min(n-1,Math.floor(p.y/cell)))*n+Math.max(0,Math.min(n-1,Math.floor(p.x/cell)));
-  const start=index(position(frame)),end=index(target),cost=new Float64Array(n*n).fill(Infinity),previous=new Int32Array(n*n).fill(-1),closed=new Uint8Array(n*n),heap=new Heap();
+  const o={cell:60,worldSize:frame.worldSize??14400,maxExpanded:1200,...options},grid=suppliedGrid??riskGrid(frame,o),{n,cell,risk,blocked,origin,span}=grid;
+  const projected={x:Math.max(origin.x,Math.min(origin.x+span,target.x)),y:Math.max(origin.y,Math.min(origin.y+span,target.y))};
+  const index=(p)=>Math.max(0,Math.min(n-1,Math.floor((p.y-origin.y)/cell)))*n+Math.max(0,Math.min(n-1,Math.floor((p.x-origin.x)/cell)));
+  const start=index(position(frame)),end=index(projected),cost=new Float64Array(n*n).fill(Infinity),previous=new Int32Array(n*n).fill(-1),closed=new Uint8Array(n*n),heap=new Heap();
   const h=i=>Math.hypot(i%n-end%n,Math.floor(i/n)-Math.floor(end/n));
   if(blocked[end]&&end!==start)return {reachable:false,waypoints:[],length:Infinity,risk:Infinity,expanded:0};
   cost[start]=0;heap.push({i:start,f:h(start)});let expanded=0;
   while(heap.a.length&&expanded<o.maxExpanded){
     const {i}=heap.pop();if(closed[i])continue;closed[i]=1;expanded++;
-    if(i===end){let cursor=i,indices=[];while(cursor!==start){indices.push(cursor);cursor=previous[cursor];}indices.reverse();const waypoints=indices.map(k=>({x:(k%n+.5)*cell,y:(Math.floor(k/n)+.5)*cell}));waypoints.push({...target});let length=0,last=position(frame);for(const point of waypoints){length+=distance(last,point);last=point;}return {reachable:true,waypoints,length,risk:indices.reduce((s,k)=>s+risk[k],0)/Math.max(1,indices.length),expanded};}
+    if(i===end){let cursor=i,indices=[];while(cursor!==start){indices.push(cursor);cursor=previous[cursor];}indices.reverse();const waypoints=indices.map(k=>({x:origin.x+(k%n+.5)*cell,y:origin.y+(Math.floor(k/n)+.5)*cell}));waypoints.push({...projected});let length=0,last=position(frame);for(const point of waypoints){length+=distance(last,point);last=point;}return {reachable:true,waypoints,length:length+distance(projected,target),partial:distance(projected,target)>0,risk:indices.reduce((s,k)=>s+risk[k],0)/Math.max(1,indices.length),expanded};}
     const x=i%n,y=Math.floor(i/n);
     for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]]){
       const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=n||ny>=n)continue;

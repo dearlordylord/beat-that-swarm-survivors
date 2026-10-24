@@ -620,3 +620,17 @@ footer {
   outline: 2px solid var(--gold);
   outline-offset: 4px;
 }
+
+/* Paused map stays readable on small touch screens without covering its actions. */
+.world-map { display: block; width: min(100%, 300px); height: auto; margin: 12px auto; border: 1px solid #76917a; }
+.map-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; font-size: 12px; }
+.map-chest { color: #f5d17b; } .map-relic { color: #a6b6ff; }
+.map-note { font-size: 12px; }
+#map { white-space: nowrap; font-size: 11px; padding: 7px; }
+#dialog:has(.world-map) { margin-top: 3vh; max-height: 94vh; overflow-y: auto; }
+#map { pointer-events: auto; }
+@media (max-width: 700px) {
+  .topline { gap: 8px; }
+  .topline .brand { max-width: 110px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #map { padding: 6px; font-size: 10px; }
+}

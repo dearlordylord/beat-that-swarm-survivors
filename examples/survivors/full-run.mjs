@@ -96,8 +96,8 @@ for (let steps = 0; steps < 37000; steps++) {
   const loot = nearest(f.bodies.filter((b) => b[2] === 2));
   const target = chest ||
     loot || [
-      1800 + Math.cos(f.tick / 180) * 300,
-      1800 + Math.sin(f.tick / 180) * 300,
+      Game.world_center() + Math.cos(f.tick / 180) * 300,
+      Game.world_center() + Math.sin(f.tick / 180) * 300,
     ];
   let dx = target[0] - f.px,
     dy = target[1] - f.py;

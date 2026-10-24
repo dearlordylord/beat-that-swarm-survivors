@@ -96,3 +96,19 @@ test('NoHiddenActorGoal: removed actor intents cannot enter baseline routing',()
  assert.ok(planned.candidates.every(c=>!catalog.includes(c.goal)));
  assert.equal(planned.chosen,null);
 });
+test('expanded arena uses a bounded rolling window without losing remote goal identity',()=>{
+ const f={...frame(),worldSize:14400,worldMargin:128,px:7200,py:7200};
+ const target={x:10800,y:7200},route=routePath(f,target);
+ assert.equal(route.reachable,true);assert.equal(route.partial,true);
+ assert.deepEqual(route.waypoints.at(-1),{x:9000,y:7200});
+ assert.ok(route.waypoints.every(p=>p.x>=5400&&p.x<=9000&&p.y>=5400&&p.y<=9000));
+ assert.ok(route.expanded<=1200);assert.ok(route.length>=3600);
+ assert.deepEqual(target,{x:10800,y:7200},'projection never changes the actual objective');
+});
+test('expanded arena edge window respects the actual far boundary',()=>{
+ const f={...frame(),worldSize:14400,worldMargin:128,px:14250,py:14250};
+ const route=routePath(f,{x:14272,y:14272});
+ assert.equal(route.reachable,true);assert.equal(route.partial,false);
+ assert.deepEqual(route.waypoints.at(-1),{x:14272,y:14272});
+ assert.ok(route.waypoints.every(p=>p.x>=10672&&p.x<=14272&&p.y>=10672&&p.y<=14272));
+});

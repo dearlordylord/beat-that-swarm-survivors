@@ -77,7 +77,18 @@ try {
     Number(await page.locator("#game").getAttribute("data-player-x")) > beforeX,
     "Keyboard input must move the Bend player",
   );
+  await page.keyboard.press("KeyM");
+  await page.locator("#worldmap").waitFor({ state: "visible" });
+  assert.equal(Number(await page.locator("#worldmap").getAttribute("data-world-size")), 14400);
+  assert.equal(await page.locator("#worldmap").getAttribute("data-relic"), "1");
+  const mapTick = await page.locator("#game").getAttribute("data-tick");
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator("#game").getAttribute("data-tick"), mapTick, "Map pauses simulation");
+  await page.screenshot({ path: path.join(captureDir, "map.png") });
+  await page.keyboard.press("KeyM");
+  await page.locator("#worldmap").waitFor({ state: "hidden" });
   await page.locator("#pause").click();
+  await page.locator("#worldmap").waitFor({ state: "visible" });
   assert.equal(await page.locator("#resume").count(), 1);
   assert.equal(await page.evaluate(() => document.activeElement.id), "resume");
   await page.keyboard.press("Shift+Tab");
@@ -117,6 +128,13 @@ export default { ...fixtureGame, start: (...args) => {
   await rewards.waitForTimeout(200);
   assert.equal(await rewards.locator("#game").getAttribute("data-tick"), rewardTick,
     "Automatic reward panel pauses the battlefield without E");
+  const choicesBeforeMapKey = await rewards.locator("[data-choice]").count();
+  await rewards.keyboard.press("KeyM");
+  assert.equal(await rewards.locator("[data-choice]").count(), choicesBeforeMapKey,
+    "M preserves an open reward panel");
+  assert.ok(await rewards.locator("#overlay").isVisible());
+  assert.equal(await rewards.locator("#worldmap").count(), 0);
+  assert.equal(await rewards.locator("#game").getAttribute("data-tick"), rewardTick);
   await rewards.keyboard.press("Escape");
   await rewards.waitForFunction(tick => Number(document.querySelector("#game").dataset.tick) > Number(tick), rewardTick);
   await rewards.keyboard.press("KeyE");

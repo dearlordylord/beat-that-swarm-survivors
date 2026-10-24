@@ -360,7 +360,8 @@ function pause(value) {
     audio.stop();
     $("#overlay").hidden = false;
     $("#dialog").innerHTML =
-      '<div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">A moment of rest</h2><p>The night will wait for your return.</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. Walk over experience shards to collect XP; shards stay on the ground.<br>Collect chests manually; press E to choose a ready reward.<br>Carry up to 6 weapons and 6 relics.</p>';
+      '<div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">Arena map</h2><p>The world is paused · M / Esc to return</p><canvas id="worldmap" class="world-map" width="360" height="360" role="img"></canvas><p class="map-legend"><span>● You</span><span>□ View</span><span class="map-chest">■ Chest</span><span class="map-relic">◆ Stage relic</span></p><p class="map-note">The whole arena · Enemies and XP are not shown</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. Walk over experience shards to collect XP; shards stay on the ground.<br>Collect chests manually; press E to choose a ready reward.<br>Carry up to 6 weapons and 6 relics.</p>';
+    renderer.drawMap($("#worldmap"), frame);
     focusDialog();
   } else {
     $("#overlay").hidden = true;
@@ -525,6 +526,7 @@ document.addEventListener("click", (event) => {
         ? "Choose an ability to banish"
         : "Banish an offer…";
     } else if (b.id === "start" || b.id === "restart") start();
+    else if (b.id === "map") pause(true);
     else if (b.id === "pause" || b.id === "resume") pause();
     else if (b.id === "return") menu();
     else if (b.id === "abandon") {
@@ -547,6 +549,11 @@ document.addEventListener("change", (e) => {
   saveProfile(profile);
 });
 window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyM" && running && !document.activeElement?.matches("input,select,textarea")) {
+    e.preventDefault();
+    if (!e.repeat && !upgradeOpen) pause();
+    return;
+  }
   if (!$("#overlay").hidden && e.code === "Tab") {
     const controls = [
       ...$("#dialog").querySelectorAll(

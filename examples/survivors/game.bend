@@ -1,4 +1,5 @@
 import Base
+import arena.bend as A
 import projectile.bend as P
 import encounters.bend as E
 import spawn-policy.bend as S
@@ -162,8 +163,11 @@ def visible_bodies(rows: List<&2,Body>) -> List<&2,Body>:
     case []: []
     case Body{_,_,8,_,_,_,_,_,_} <> rest: visible_bodies(rest)
     case body <> rest: body <> visible_bodies(rest)
-def relic_x(stage: U32) -> F32: U32.to_f32(at([2400,1800,1200,1800,2400],stage))
-def relic_y(stage: U32) -> F32: U32.to_f32(at([1800,1200,1800,2400,2400],stage))
+def world_size() -> F32: A.size()
+def world_center() -> F32: A.center()
+def world_margin() -> F32: A.player_min()
+def relic_x(stage: U32) -> F32: U32.to_f32(at([10800,7200,3600,7200,10080],stage))
+def relic_y(stage: U32) -> F32: U32.to_f32(at([7200,3600,7200,10800,9360],stage))
 def run_length(mode: U32) -> U32:
   match mode:
     case 3: 18000
@@ -172,7 +176,7 @@ def wave_tick(+mode: U32,tick: U32) -> U32: (tick * (1 + Bool.to_u32(U32.is_eq(m
 def packet(state: State) -> Packet:
   match state:
     case State{world,Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,+pending}:
-      Packet{State{world,Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending},"{\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "]}"}
+      Packet{State{world,Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending},"{\"worldSize\":" ++ F32.show(A.size()) ++ ",\"worldMargin\":" ++ F32.show(A.player_min()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "]}"}
 def meta_max(id: U32) -> U32:
   match id:
     case 3: 3
@@ -271,10 +275,12 @@ def loot_update(body: Body,run: Run) -> Row:
   match body run:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{_,_,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,_,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
       loot_collected(Bool.or(close(x,y,px,py,pickup_radius(passives,meta,arcana,character)),Bool.and(Bool.or(U32.is_eq(kind,3),U32.is_eq(kind,4)),U32.is_le(120,age))),Body{x,y,kind,variant,hp,maxHp,(age + 1 : U32),seed,radius},kind,Bool.pick(U32,U32.is_eq(kind,2),hp,(2 + U32.min(4,(variant / 4 : U32)) : U32)))
-def enemy_result(+hp: U32,+x: F32,+y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
+def enemy_result_at(+hp: U32,+x: F32,+y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
   match hp:
     case 0: Row{Body{x,y,loot_kind(seed,variant),variant,0,maxHp,0,seed,6.0},0,0,0,0,0,1,0}
     case +hp: Row{Body{x,y,0,variant,hp,maxHp,age,seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0}
+def enemy_result(+hp: U32,x: F32,y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
+  enemy_result_at(hp,A.constrain(x,radius),A.constrain(y,radius),variant,maxHp,age,seed,radius,px,py)
 def enemy_update(body: Body,run: Run) -> Row:
   match body run:
     case Body{+x,+y,_,+variant,+hp,+maxHp,+age,+seed,+radius} Run{_,_,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,+enemyKinds,+relicCollected}: Row{Body{x,y,0,variant,hp,maxHp,age,seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0}
@@ -524,7 +530,7 @@ def ballistic(id: U32) -> Bool:
 def reflected(enabled: Bool,shot: P.Shot) -> P.Shot:
   match enabled shot:
     case False{} shot: shot
-    case True{} P.Shot{+x,+y,+vx,+vy,+radius,+life,+pierce}: P.Shot{F32.clamp(x,20.0,3580.0),F32.clamp(y,20.0,3580.0),(vx * E.choose_float(Bool.or(F32.is_lt(x,20.0),F32.is_lt(3580.0,x)),(0.0 - 1.0 : F32),1.0) : F32),(vy * E.choose_float(Bool.or(F32.is_lt(y,20.0),F32.is_lt(3580.0,y)),(0.0 - 1.0 : F32),1.0) : F32),radius,life,pierce}
+    case True{} P.Shot{+x,+y,+vx,+vy,+radius,+life,+pierce}: P.Shot{F32.clamp(x,20.0,(A.size() - 20.0 : F32)),F32.clamp(y,20.0,(A.size() - 20.0 : F32)),(vx * E.choose_float(Bool.or(F32.is_lt(x,20.0),F32.is_lt((A.size() - 20.0 : F32),x)),(0.0 - 1.0 : F32),1.0) : F32),(vy * E.choose_float(Bool.or(F32.is_lt(y,20.0),F32.is_lt((A.size() - 20.0 : F32),y)),(0.0 - 1.0 : F32),1.0) : F32),radius,life,pierce}
 def shot_step_aim(body: Body,motion: Motion,args: Args,aim: Aim) -> EntityRow:
   match body motion args aim:
     case Body{+x,+y,_,+id,+damage,_,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,_,_,_,_} Args{Run{_,+tick,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,+arcana,_,_,_,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,_,_,+snapshots,+hits} Aim{+tx,+ty,_,_}:
@@ -712,7 +718,7 @@ def move_motion_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Motion>:
     case MoveOps{_,motion}: motion
 def moved_intent(body: Body,intent: E.Intent,+factor: F32) -> Body:
   match body intent:
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} E.Intent{+vx,+vy,_}: Body{(x + vx * factor : F32),(y + vy * factor : F32),kind,variant,hp,maxHp,(age + 1 : U32),seed,radius}
+    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} E.Intent{+vx,+vy,_}: Body{A.constrain((x + vx * factor : F32),radius),A.constrain((y + vy * factor : F32),radius),kind,variant,hp,maxHp,(age + 1 : U32),seed,radius}
 def move_body(body: Body,motion: Motion,args: Args) -> Body:
   match body motion args:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Motion{_,_,_,_,_,+slow,_,_,_} Args{Run{_,+tick,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,+mode,_,_,_,_,_,+enemyKinds,+relicCollected},_,_,_,_,+hits}: moved_intent(Body{x,y,kind,variant,hp,maxHp,age,seed,radius},E.intent(variant,age,x,y,px,py),(E.choose_float(U32.is_eq(variant,30),1.0,slow_factor(slow)) * (1.10 + F32.min(0.60,(U32.to_f32(tick) / 60000.0 : F32)) + F32.min(4.0,(U32.to_f32(age) / 120.0 : F32)) * U32.to_f32(Bool.to_u32(U32.is_eq(variant,30)))) : F32))
@@ -1041,7 +1047,7 @@ def executed_with(~emit: State -> Packet,+run: Run,result: Q.Executed<World(),Q.
 def advance_raw_with(~emit: State -> Packet,state: State,+dx: F32,+dy: F32) -> Packet:
   match state:
     case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+snapshot,_,+snapshots,pending}:
-      executed_with(~emit,Run{0,(tick + 1 : U32),F32.clamp((px + dx * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),20.0,3580.0),F32.clamp((py + dy * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),20.0,3580.0),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
+      executed_with(~emit,Run{0,(tick + 1 : U32),F32.clamp((px + dx * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),F32.clamp((py + dy * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
     case state: emit(state)
 def finish_run(world: World(),run: Run,+bodies: List<&2,Body>,+offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: finish_run_with(~packet,world,run,bodies,offers,snapshots,pending)
 def finish_values(world: World(),run: Run,+bodies: List<&2,Body>,+totalXp: U32,+health: U32,+wasHit: U32,+chest: U32,+killed: U32,+coins: U32,+bossKills: U32,+snapshots: List<&2,Snapshot>,+relicEvent: U32) -> Packet: finish_values_with(~packet,world,run,bodies,totalXp,health,wasHit,chest,killed,coins,bossKills,snapshots,relicEvent)
@@ -1050,7 +1056,7 @@ def executed(+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> 
 def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet: advance_raw_with(~packet,state,dx,dy)
 def started_with(~emit: State -> Packet,+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
   match created:
-    case W.Created{_,world}: emit(State{W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world)),Run{0,0,1800.0,1800.0,(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
+    case W.Created{_,world}: emit(State{W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world)),Run{0,0,A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
     case W.CreateRejected{_,_}: Failed{"World creation refused"}
 def started(character: U32,meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet: started_with(~packet,character,meta,created)
 def start_with(~emit: State -> Packet,character: U32,meta: U32) -> Packet: started_with(~emit,U32.min(character,7),meta,W.create(~Schema,~Store,~Unit,~Unit,~empty,W.factory(),Unit{}))

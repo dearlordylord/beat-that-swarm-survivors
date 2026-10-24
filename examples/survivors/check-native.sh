@@ -19,7 +19,7 @@ for source in native-profile-test native-test offline-parallel-test native-fps-t
 done
 capture_dir="${NIGHTFALL_CAPTURE_DIR:-$app_dir/dist/native-captures}"
 mkdir -p "$capture_dir"
-for frame in menu gameplay upgrade; do
+for frame in menu gameplay upgrade map; do
   cp "$check_dir/native-test-data/$frame.ppm" "$capture_dir/$frame.ppm"
 done
 cp "$check_dir/native-loot-test-data/experience-piles.ppm" "$capture_dir/experience-piles.ppm"

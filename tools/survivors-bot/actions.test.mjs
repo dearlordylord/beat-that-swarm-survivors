@@ -27,14 +27,18 @@ const verify = ({frame, actions, mechanics}) => {
     assert.equal(action.safety, "unassessed");
     assert.ok(Number.isFinite(action.distance));
     assert.ok(Math.abs(action.distance - Math.hypot(action.target.x - frame.px, action.target.y - frame.py)) < 0.01);
-    if (action.kind.startsWith("move_")) continue;
+    if (action.kind.startsWith("move_")) {
+      assert.ok(action.target.x >= frame.worldMargin && action.target.x <= frame.worldSize-frame.worldMargin &&
+        action.target.y >= frame.worldMargin && action.target.y <= frame.worldSize-frame.worldMargin,
+        "Cardinal actions use the actual legal arena bounds");
+      continue;
+    }
     const kind = {approach_experience: 2, approach_chest: 5, approach_relic: 9}[action.kind];
     assert.ok(frame.bodies.some(b => b[2] === kind && b[0] === action.target.x && b[1] === action.target.y &&
-      action.id === `t${frame.tick}:${action.kind}:${b[7]}:${b[2]}:${b[3]}:${b[6]}` &&
-      (kind < 10 || (b[3] === 0 && b[4] > 0))), "Every entity goal matches the real engine snapshot");
+      action.id === `t${frame.tick}:${action.kind}:${b[7]}:${b[2]}:${b[3]}:${b[6]}`), "Every entity goal matches the real engine snapshot");
   }
   for (const body of frame.bodies) {
-    const actionable = (body[2] === 2 && body[4] > 0) || body[2] === 5 || body[2] === 9 || ([10,11].includes(body[2]) && body[3] === 0 && body[4] > 0);
+    const actionable = (body[2] === 2 && body[4] > 0) || body[2] === 5 || body[2] === 9;
     if (actionable) assert.ok(actions.some(a => a.target.x === body[0] && a.target.y === body[1] && a.id.includes(`:${body[7]}:${body[2]}:${body[3]}:${body[6]}`)));
   }
 };

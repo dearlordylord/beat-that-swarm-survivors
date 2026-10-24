@@ -146,6 +146,45 @@ export class Renderer {
   xy(x, y) {
     return [x - this.camera.x, y - this.camera.y];
   }
+  worldSize() {
+    return Number(this.frame?.worldSize) || Game.world_size();
+  }
+  drawMap(canvas, frame) {
+    const c = canvas.getContext("2d"), size = canvas.width, pad = 12,
+      span = size - pad * 2, world = Number(frame.worldSize) || Game.world_size(),
+      scale = span / world, point = (x, y) => [pad + x * scale, pad + y * scale];
+    c.fillStyle = "#121c20"; c.fillRect(0, 0, size, size);
+    c.strokeStyle = "#334139"; c.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const at = pad + span * i / 4;
+      c.beginPath(); c.moveTo(at, pad); c.lineTo(at, size - pad); c.stroke();
+      c.beginPath(); c.moveTo(pad, at); c.lineTo(size - pad, at); c.stroke();
+    }
+    const [px, py] = point(frame.px, frame.py),
+      left = Math.max(0, frame.px - this.width / 2),
+      top = Math.max(0, frame.py - this.height / 2),
+      right = Math.min(world, frame.px + this.width / 2),
+      bottom = Math.min(world, frame.py + this.height / 2),
+      [viewX, viewY] = point(left, top);
+    c.strokeStyle = "#b8c9ca";
+    c.strokeRect(viewX, viewY, (right - left) * scale, (bottom - top) * scale);
+    let chests = 0;
+    for (const body of frame.bodies || []) {
+      if (body[2] !== 5) continue;
+      const [x, y] = point(body[0], body[1]);
+      c.fillStyle = "#f5d17b"; c.fillRect(x - 3, y - 3, 6, 6); chests++;
+    }
+    const hasRelic = !frame.relicCollected && Number.isFinite(frame.relicX) && Number.isFinite(frame.relicY);
+    if (hasRelic) {
+      const [x, y] = point(frame.relicX, frame.relicY);
+      c.fillStyle = "#a6b6ff"; c.beginPath(); c.moveTo(x, y - 5);
+      c.lineTo(x + 4, y); c.lineTo(x, y + 5); c.lineTo(x - 4, y); c.closePath(); c.fill();
+    }
+    c.fillStyle = "#ffffff"; c.beginPath(); c.arc(px, py, 3, 0, TAU); c.fill();
+    canvas.dataset.chests = chests; canvas.dataset.relic = hasRelic ? "1" : "0";
+    canvas.dataset.worldSize = world;
+    canvas.setAttribute("aria-label", `Arena map. You at ${Math.round(frame.px)}, ${Math.round(frame.py)}. ${chests} chests. ${hasRelic ? "Stage relic marked." : "Stage relic collected."} Enemies are not shown.`);
+  }
   ground() {
     const c = this.ctx,
       th = this.theme,
@@ -185,14 +224,14 @@ export class Renderer {
     const [a, b] = this.xy(0, 0);
     c.strokeStyle = this.theme[2];
     c.lineWidth = 12;
-    c.strokeRect(a, b, 3600, 3600);
+    c.strokeRect(a, b, this.worldSize(), this.worldSize());
     c.lineWidth = 1;
   }
   boundary() {
     const c = this.ctx,
       [left, top] = this.xy(0, 0),
-      right = left + 3600,
-      bottom = top + 3600;
+      right = left + this.worldSize(),
+      bottom = top + this.worldSize();
     c.save();
     c.fillStyle = "#070c13";
     if (left > 0) c.fillRect(0, 0, left, this.height);
@@ -218,7 +257,7 @@ export class Renderer {
         c.lineTo(end, position);
       }
       c.stroke();
-      for (let along = Math.floor(start / 28) * 28; along < end; along += 28) {
+      for (let along = Math.floor(Math.max(-30, start) / 28) * 28; along < Math.min(end, (vertical ? this.height : this.width) + 30); along += 28) {
         if (along < -30 || along > (vertical ? this.height : this.width) + 30)
           continue;
         const x = vertical ? position : along,
@@ -268,10 +307,11 @@ export class Renderer {
     c.translate(-this.camera.x, -this.camera.y);
     c.beginPath();
     // Leave the permanent central escape cross clear in all five arenas.
-    c.rect(0, 0, 1710, 1710);
-    c.rect(1890, 0, 1710, 1710);
-    c.rect(0, 1890, 1710, 1710);
-    c.rect(1890, 1890, 1710, 1710);
+    const center = this.worldSize() / 2, low = center - 90, high = center + 90;
+    c.rect(0, 0, low, low);
+    c.rect(high, 0, low, low);
+    c.rect(0, high, low, low);
+    c.rect(high, high, low, low);
     c.clip();
     c.fillStyle = ["#c48e73", "#a28be2", "#b0cf69", "#8bcfe7", "#ee8757"][
       stage
@@ -281,12 +321,16 @@ export class Renderer {
     c.globalAlpha = until >= 0 ? 0.09 + progress * 0.17 : 0.32;
     c.setLineDash(until >= 0 ? [7, 7] : []);
     if (stage === 3) {
-      for (let sum = 0; sum < 7500; sum += 700) {
+      const left = Math.max(0, this.camera.x - 100),
+        right = Math.min(this.worldSize(), this.camera.x + this.width + 100),
+        top = Math.max(0, this.camera.y - 100),
+        bottom = Math.min(this.worldSize(), this.camera.y + this.height + 100);
+      for (let sum = Math.floor((left + top) / 700) * 700; sum < right + bottom; sum += 700) {
         c.beginPath();
-        c.moveTo(-4000, sum + 4000);
-        c.lineTo(4000, sum - 4000);
-        c.lineTo(4000, sum + 95 - 4000);
-        c.lineTo(-4000, sum + 95 + 4000);
+        c.moveTo(left, sum - left);
+        c.lineTo(right, sum - right);
+        c.lineTo(right, sum + 95 - right);
+        c.lineTo(left, sum + 95 - left);
         c.closePath();
         c.fill();
         c.stroke();
@@ -296,8 +340,8 @@ export class Renderer {
       const offset = stage === 2 ? 240 : 0;
       const width = [65, 70, 160, 95, 100][stage];
       const height = [65, 490, 160, 95, 160][stage];
-      for (let yy = 0; yy < 3600; yy += size)
-        for (let xx = 0; xx < 3600; xx += size) {
+      for (let yy = Math.max(0, Math.floor((this.camera.y - size) / size) * size); yy < Math.min(this.worldSize(), this.camera.y + this.height); yy += size)
+        for (let xx = Math.max(0, Math.floor((this.camera.x - size) / size) * size); xx < Math.min(this.worldSize(), this.camera.x + this.width); xx += size) {
           const x = xx + offset,
             y = yy + (stage === 1 ? 150 : offset);
           if (

@@ -1,4 +1,5 @@
 import Base
+import arena.bend as A
 
 # All velocities are world units per 60 Hz tick. No host AI is required.
 type Intent is Data: Intent{vx: F32,vy: F32,fire: Bool}
@@ -159,7 +160,7 @@ def intent(v: U32,+age: U32,+x: F32,+y: F32,+px: F32,+py: F32) -> Intent:
     case _: final_boss(((age / 240) % 3 : U32),age,x,y,px,py)
 
 # Hazards have stationary readable zones and global, sparse pulse times.
-# The central 180-unit cross is always safe; player spawn is (1800,1800).
+# The central 180-unit cross is always safe; player spawn is the shared arena center.
 # Call every tick. Damage is a single integer pulse, never damage per frame.
 def hazard_zone(stage: U32,+tick: U32,+x: F32,+y: F32) -> Bool:
   match stage:
@@ -169,4 +170,4 @@ def hazard_zone(stage: U32,+tick: U32,+x: F32,+y: F32) -> Bool:
     case 3: Bool.and(U32.is_eq((tick % 300 : U32),240),U32.is_lt(((F32.to_u32(x) + F32.to_u32(y)) % 700 : U32),95))
     case _: Bool.and(U32.is_eq((tick % 180 : U32),120),Bool.and(U32.is_lt((F32.to_u32(x) % 520 : U32),100),U32.is_lt((F32.to_u32(y) % 520 : U32),160)))
 def hazard(+stage: U32,+tick: U32,+x: F32,+y: F32) -> U32:
-  (Bool.to_u32(Bool.and(U32.is_lt(600,tick),Bool.and(F32.is_lt(90.0,F32.abs((x - 1800.0 : F32))),Bool.and(F32.is_lt(90.0,F32.abs((y - 1800.0 : F32))),hazard_zone(stage,tick,x,y))))) * (2 + stage) : U32)
+  (Bool.to_u32(Bool.and(U32.is_lt(600,tick),Bool.and(F32.is_lt(90.0,F32.abs((x - A.center() : F32))),Bool.and(F32.is_lt(90.0,F32.abs((y - A.center() : F32))),hazard_zone(stage,tick,x,y))))) * (2 + stage) : U32)

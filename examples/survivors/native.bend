@@ -370,10 +370,51 @@ def modal(phase: U32,+run: G.Run,offers: List<&2,G.Offer>,paused: U32,tail: List
     case end p:
       D.text(end_title(end),56.0,76.0,2.0,15584891,D.text("LEVEL " ++ U32.show(run_level(run)) ++ "   KILLS " ++ U32.show(run_kills(run)),56.0,132.0,1.0,15196103,D.text("GOLD EARNED " ++ U32.show(run_gold(run)),56.0,164.0,2.0,15584891,D.text("ENTER RETURN TO CAMP",56.0,310.0,1.0,15196103,D.rect(28.0,52.0,456.0,296.0,724763,tail)))))
 
+# Pause map uses world coordinates; only persistent objectives get markers.
+def map_coord(value: F32,origin: F32) -> F32:
+  (origin + F32.clamp(value,0.0,G.world_size()) * 224.0 / G.world_size() : F32)
+def map_marker(kind: U32,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match kind:
+    case 5: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,16768903,tail)
+    case 9: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,13948927,tail)
+    case _: tail
+def map_markers(rows: List<&2,G.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match rows:
+    case []: tail
+    case G.Body{x,y,kind,_,_,_,_,_,_} <> rest: map_marker(kind,x,y,map_markers(rest,tail))
+def map_view(+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  +left = F32.max(0.0,(run_px(run) - V.native_center_x() / V.native_scale() : F32))
+  +top = F32.max(0.0,(run_py(run) - V.native_center_y() / V.native_scale() : F32))
+  +right = F32.min(G.world_size(),(run_px(run) + (512.0 - V.native_center_x()) / V.native_scale() : F32))
+  +bottom = F32.min(G.world_size(),(run_py(run) + (384.0 - V.native_center_y()) / V.native_scale() : F32))
+  border(map_coord(left,48.0),map_coord(top,96.0),((right - left) * 224.0 / G.world_size() : F32),((bottom - top) * 224.0 / G.world_size() : F32),7985384,tail)
+def pause_map(+run: G.Run,rows: List<&2,G.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  D.text("PAUSED / MAP",48.0,68.0,2.0,15584891,
+  D.text("YOU",298.0,112.0,1.0,15584891,
+  D.text("CHEST",298.0,140.0,1.0,16768903,
+  D.text("RELIC",298.0,168.0,1.0,13948927,
+  D.text("CAMERA",298.0,196.0,1.0,7985384,
+  D.text("ESC / M RESUME",298.0,236.0,1.0,15196103,
+  D.text("E READY REWARD",298.0,258.0,1.0,15196103,
+  D.text("Q END RUN",298.0,280.0,1.0,15196103,
+  D.rect((map_coord(run_px(run),48.0) - 2.0 : F32),(map_coord(run_py(run),96.0) - 2.0 : F32),5.0,5.0,15584891,
+  map_markers(rows,map_view(run,border(48.0,96.0,224.0,224.0,4020038,
+  D.rect(48.0,96.0,224.0,224.0,1186082,D.rect(28.0,52.0,456.0,296.0,724763,tail))))))))))))))
+def map_phase(phase: U32,+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match phase:
+    case 0: pause_map(run,rows,tail)
+    case 1: pause_map(run,rows,tail)
+    case 2: pause_map(run,rows,tail)
+    case phase: modal(phase,run,offers,paused,tail)
+def world_modal(+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match paused:
+    case 1: map_phase(run_phase(run),run,rows,offers,1,tail)
+    case p: modal(run_phase(run),run,offers,p,tail)
+
 # Hazard floor is sampled into small world-aligned cells. The very same
 # encounter predicate supplies the marked zones, including its refuge exclusion.
 def ground_hazard(+stage: U32,+x: F32,+y: F32) -> Bool:
-  Bool.and(Bool.and(F32.is_lt(90.0,F32.abs((x - 1800.0 : F32))),F32.is_lt(90.0,F32.abs((y - 1800.0 : F32)))),E.hazard_zone(stage,G.at([300,360,180,240,120],stage),x,y))
+  Bool.and(Bool.and(F32.is_lt(90.0,F32.abs((x - G.world_center() : F32))),F32.is_lt(90.0,F32.abs((y - G.world_center() : F32)))),E.hazard_zone(stage,G.at([300,360,180,240,120],stage),x,y))
 def ground_color(outside: Bool,hazard: Bool,warning: Bool,checker: U32) -> U32:
   match outside hazard warning:
     case True{} _ _: 1713957
@@ -389,10 +430,10 @@ def ground(fuel: Nat,+index: U32,+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D
       +wx = ((x - 248.0) / 0.65 + run_px(run) : F32)
       +wy = ((y - 202.0) / 0.65 + run_py(run) : F32)
       +period = G.at([360,420,240,300,180],run_stage(run))
-      color = ground_color(Bool.or(Bool.or(F32.is_lt(wx,0.0),F32.is_lt(wy,0.0)),Bool.or(F32.is_lt(3600.0,wx),F32.is_lt(3600.0,wy))),ground_hazard(run_stage(run),wx,wy),U32.is_le((period - 120 : U32),(run_tick(run) % period : U32)),((F32.to_u32(F32.abs(wx)) / 64 + F32.to_u32(F32.abs(wy)) / 64) % 2 : U32))
+      color = ground_color(Bool.or(Bool.or(F32.is_lt(wx,0.0),F32.is_lt(wy,0.0)),Bool.or(F32.is_lt(G.world_size(),wx),F32.is_lt(G.world_size(),wy))),ground_hazard(run_stage(run),wx,wy),U32.is_le((period - 120 : U32),(run_tick(run) % period : U32)),((F32.to_u32(F32.abs(wx)) / 64 + F32.to_u32(F32.abs(wy)) / 64) % 2 : U32))
       D.rect(x,y,16.0,16.0,color,ground(k,(index + 1 : U32),run,tail))
-def gameplay_rows(+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
-  hud(run,modal(run_phase(run),run,offers,ui_paused(ui),
+def gameplay_rows(+run: G.Run,+rows: List<&2,G.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
+  hud(run,world_modal(run,rows,offers,ui_paused(ui),
   Art.player(256.0,210.0,ui_character(ui),run_invuln(run),
   bodies(rows,run_px(run),run_py(run),ground(768n,0,run,[])))))
 
@@ -537,8 +578,17 @@ def offer_action(paused: U32,action: U32,state: Native) -> Native:
     case 2 2 Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.banish(s,0)),set_paused(ui,0),profile})
     case p a state: state
 
+def map_toggle(paused: U32,game: G.Packet,+ui: Ui,profile: P.Profile) -> Native:
+  match paused:
+    case 2: Native{game,ui,profile}
+    case p: Native{game,set_keys(set_paused(ui,Bool.to_u32(U32.is_eq(p,0))),0),profile}
+def map_key(state: Native) -> Native:
+  match state:
+    case Native{game,+ui,profile}: map_toggle(ui_paused(ui),game,ui,profile)
+
 def game_key(code: U32,state: Native) -> Native:
   match code state:
+    case 109 state: map_key(state)
     case 27 Native{game,+ui,profile}: Native{game,set_keys(set_paused(ui,Bool.to_u32(U32.is_eq(ui_paused(ui),0))),0),profile}
     case 32 Native{game,+ui,profile}: Native{game,set_keys(set_paused(ui,Bool.to_u32(U32.is_eq(ui_paused(ui),0))),0),profile}
     case 49 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),0,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})

@@ -137,6 +137,8 @@ console.log(JSON.stringify({ test: "no independent map actors, rescue rewards or
 // An evolved-control build must not permanently freeze or displace the Reaper.
 const immuneRun = accept(Game.start(0, 0)).state.run;
 immuneRun.tick = 36010;
+// This fixture deliberately places its target left of the synthetic Reaper.
+immuneRun.px = 1800; immuneRun.py = 1800;
 const reaperBody = {
   $: "Body",
   x: 2000,

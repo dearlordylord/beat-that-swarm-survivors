@@ -275,7 +275,7 @@ test("unlock gates use persisted stats and each stage relic opens its designated
   );
   for (const relic of STAGE_RELICS) {
     assert.ok(STAGES[relic.id] && WEAPONS[relic.weapon]);
-    assert.ok(relic.x > 20 && relic.x < 3580 && relic.y > 20 && relic.y < 3580);
+    assert.ok(relic.x > 20 && relic.x < 14380 && relic.y > 20 && relic.y < 14380);
     const gate = WEAPON_UNLOCKS.find((item) => item.stageRelic === relic.id);
     assert.equal(gate.id, relic.weapon);
     assert.ok(gate.hint.includes(relic.name));

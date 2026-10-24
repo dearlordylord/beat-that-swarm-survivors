@@ -1,8 +1,8 @@
 import Base
 import ../game.bend as G
 
-# Per-plan spatial risk accumulation: same 60px/3600px geometry as the JS
-# planner, with single-owner arrays and localized hostile influence rectangles.
+# Per-plan spatial risk accumulation: a 60px/3600px local window matching
+# the JS planner, with single-owner arrays and localized hostile influence rectangles.
 # The final 496 padding cells are never addressed by a valid planner cell.
 type Grid is Type: Grid{risk: Array<F32>,blocked: Array<U32>}
 type Cell is Data: Cell{blocked: Bool,risk: F32}
@@ -110,3 +110,17 @@ def is_blocked(cell: Cell) -> Bool:
 def risk(cell: Cell) -> F32:
   match cell:
     case Cell{_,risk}: risk
+
+# Bounded rolling world window: storage stays4096 cells regardless arena size.
+type RiskWindow is Data: RiskWindow{x:F32,y:F32,cells:Frozen}
+def window_origin(position:F32,+worldSize:F32,+margin:F32) -> F32:
+  F32.clamp((U32.to_f32(F32.to_u32((F32.max(0.0,(position - 1800.0 : F32)) / 60.0 : F32))) * 60.0 : F32),margin,(worldSize - margin - 3600.0 : F32))
+def window_rows(rows:List<&2,G.Body>,grid:Grid,+ox:F32,+oy:F32) -> Grid:
+  match rows:
+    case []: grid
+    case G.Body{+x,+y,+kind,_,hp,_,_,_,radius} <> rest:
+      window_rows(rest,add_active(Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),U32.is_eq(kind,7)),grid,(x - ox : F32),(y - oy : F32),kind,radius),ox,oy)
+def window_at(rows:List<&2,G.Body>,+ox:F32,+oy:F32) -> RiskWindow:
+  RiskWindow{ox,oy,freeze(window_rows(rows,empty(),ox,oy))}
+def window(rows:List<&2,G.Body>,px:F32,py:F32,+worldSize:F32,+margin:F32) -> RiskWindow:
+  window_at(rows,window_origin(px,worldSize,margin),window_origin(py,worldSize,margin))

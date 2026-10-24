@@ -2237,8 +2237,8 @@ export const STAGE_RELICS = [
     description:
       "Find this relic in Forgotten Graveyard to unlock Funeral Lash for future runs.",
     weapon: 12,
-    x: 2400,
-    y: 1800,
+    x: 10800,
+    y: 7200,
   },
   {
     id: 1,
@@ -2246,8 +2246,8 @@ export const STAGE_RELICS = [
     description:
       "Find this relic in Midnight Library to unlock Light Thread for future runs.",
     weapon: 18,
-    x: 1800,
-    y: 1200,
+    x: 7200,
+    y: 3600,
   },
   {
     id: 2,
@@ -2255,8 +2255,8 @@ export const STAGE_RELICS = [
     description:
       "Find this relic in Wisp Marsh to unlock Bee Swarm for future runs.",
     weapon: 16,
-    x: 1200,
-    y: 1800,
+    x: 3600,
+    y: 7200,
   },
   {
     id: 3,
@@ -2264,8 +2264,8 @@ export const STAGE_RELICS = [
     description:
       "Find this relic in Frozen Pass to unlock Storm Mine for future runs.",
     weapon: 22,
-    x: 1800,
-    y: 2400,
+    x: 7200,
+    y: 10800,
   },
   {
     id: 4,
@@ -2273,7 +2273,7 @@ export const STAGE_RELICS = [
     description:
       "Find this relic in Infernal Maw to unlock Star Fragment for future runs.",
     weapon: 17,
-    x: 2400,
-    y: 2400,
+    x: 10080,
+    y: 9360,
   },
 ];

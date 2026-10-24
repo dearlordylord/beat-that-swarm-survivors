@@ -46,7 +46,7 @@ def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,bodies: List<&2,G.Bod
   match active:
     case False{}: "[]"
     case True{}:
-      "[" ++ goal(tick,px,py,"move_north",px,F32.max(20.0,(py - 160.0 : F32)),"north") ++ "," ++ goal(tick,px,py,"move_east",F32.min(3580.0,(px + 160.0 : F32)),py,"east") ++ "," ++ goal(tick,px,py,"move_south",px,F32.min(3580.0,(py + 160.0 : F32)),"south") ++ "," ++ goal(tick,px,py,"move_west",F32.max(20.0,(px - 160.0 : F32)),py,"west") ++ entity_goals(bodies,tick,px,py) ++ "]"
+      "[" ++ goal(tick,px,py,"move_north",px,F32.max(G.world_margin(),(py - 160.0 : F32)),"north") ++ "," ++ goal(tick,px,py,"move_east",F32.min((G.world_size() - G.world_margin() : F32),(px + 160.0 : F32)),py,"east") ++ "," ++ goal(tick,px,py,"move_south",px,F32.min((G.world_size() - G.world_margin() : F32),(py + 160.0 : F32)),"south") ++ "," ++ goal(tick,px,py,"move_west",F32.max(G.world_margin(),(px - 160.0 : F32)),py,"west") ++ entity_goals(bodies,tick,px,py) ++ "]"
 
 def catalog(run: G.Run,bodies: List<&2,G.Body>) -> String:
   match run:

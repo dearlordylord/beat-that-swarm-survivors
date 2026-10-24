@@ -10,7 +10,7 @@ const admit = Game["spawn-policy:admission"];
 const accepted = (x, y, px, py, radius) => admit(x, y, px, py, radius).$ === "Admit";
 assert.equal(typeof choose, "function", "Game must import the actual spawn policy");
 let checked = 0;
-const positions = [20, 20.125, 684, 1800, 2916, 3579.875, 3580];
+const positions = [20, 20.125, 684, 7200, 13716, 14379.875, 14380];
 for (let variant = 0; variant < 31; variant++) {
   const radius = Game["encounters:radius"](variant);
   assert.ok(radius > 0 && radius <= 42, `footprint premise for variant ${variant}`);
@@ -20,7 +20,7 @@ for (let variant = 0; variant < 31; variant++) {
         const point = choose(seed, tick, px, py, radius);
         const context = JSON.stringify({ variant, px, py, seed, tick, point });
         assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y), context);
-        assert.ok(point.x >= 20 && point.x <= 3580 && point.y >= 20 && point.y <= 3580, context);
+        assert.ok(point.x >= 160 && point.x <= 14240 && point.y >= 160 && point.y <= 14240, context);
         // Independent geometry oracle, covering a viewport as large as either
         // renderer supports and the entire sprite/shadow/health-bar envelope.
         const extent = 3 * radius + 24;
@@ -47,7 +47,7 @@ for (let variant = 0; variant < 31; variant++) {
 }
 // Admission fails closed independently of candidate selection, including exact
 // touching boundaries, arena violations and nonfinite positions.
-for (const [x, y] of [[1800, 1800], [2336, 1800], [1264, 1800], [1800, 2336], [1800, 1264], [19, 1800], [3581, 1800], [1800, 19], [1800, 3581], [NaN, 1800], [Infinity, 1800]])
+for (const [x, y] of [[1800, 1800], [2336, 1800], [1264, 1800], [1800, 2336], [1800, 1264], [159, 1800], [14241, 1800], [1800, 159], [1800, 14241], [NaN, 1800], [Infinity, 1800]])
   assert.equal(accepted(x, y, 1800, 1800, 0), false, `reject ${x},${y}`);
 assert.equal(accepted(2336.25, 1800, 1800, 1800, 0), true);
 assert.equal(accepted(1263.75, 1800, 1800, 1800, 0), true);
@@ -88,7 +88,7 @@ const bodyList = value => {
   return result;
 };
 let liveSpawns=0;
-for(const [px,py] of [[20,20],[20,3580],[1800,1800],[3580,20],[3580,3580]])
+for(const [px,py] of [[128,128],[128,14272],[7200,7200],[14272,128],[14272,14272]])
   for(const startTick of [0,21600,35994]) {
     let packet=Game.start_seed(0,0,12345);
     packet.state.run={...packet.state.run,px,py,tick:startTick};

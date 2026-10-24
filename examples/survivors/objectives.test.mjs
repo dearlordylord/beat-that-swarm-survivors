@@ -36,7 +36,7 @@ globalThis.localStorage = {
   removeItem: (key) => storage.delete(key),
 };
 const started = performance.now();
-const deadline = started + 28_000;
+const deadline = started + 88_000;
 let current;
 function accept(packet) {
   assert.equal(packet.$, "Packet", packet.error || "Expected owned packet");
@@ -113,8 +113,8 @@ try {
       resolveChoice();
       const frame = current.frame;
       assert.ok(
-        frame.tick < 600,
-        `Stage ${relic.id} relic not reached within 600 normal input ticks`,
+        frame.tick < 1800,
+        `Stage ${relic.id} relic not reached within 1800 normal input ticks`,
       );
       seenRelic ||= frame.bodies.some(
         (body) => body[2] === 9 && body[3] === relic.id,
