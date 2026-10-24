@@ -96,7 +96,7 @@ def goals_at(+rows: List<&2,G.Body>,+tick: U32) -> List<&2,Goal>:
     case []: []
     case G.Body{+x,+y,+kind,+variant,+hp,+generation,+age,+seed,+radius} <> rest:
       +tail=goals_at(rest,tick)
-      +eligible=Bool.or(Bool.and(U32.is_eq(kind,2),U32.is_lt(0,hp)),Bool.or(U32.is_eq(kind,5),Bool.or(U32.is_eq(kind,9),Bool.and(Bool.and(U32.is_eq(variant,0),U32.is_lt(0,hp)),Bool.or(U32.is_eq(kind,10),U32.is_eq(kind,11))))))
+      +eligible=Bool.or(Bool.and(U32.is_eq(kind,2),U32.is_lt(0,hp)),Bool.or(U32.is_eq(kind,5),U32.is_eq(kind,9)))
       branch(~(List<&2,Goal>),eligible,(_ =>
           +value=yes(U32.is_eq(kind,2),U32.to_f32(G.xp_amount(G.Body{x,y,kind,variant,hp,generation,age,seed,radius})),yes(U32.is_eq(kind,5),14.0,yes(U32.is_eq(kind,9),9.0,5.0)))
           Goal{seed,stable_generation(kind,generation,tick,age),kind,x,y,value,Point{floor_cell(x),floor_cell(y)}} <> tail
@@ -138,8 +138,6 @@ def goal_name(kind: U32) -> String:
     case 2: "approach_experience"
     case 5: "approach_chest"
     case 9: "approach_relic"
-    case 10: "approach_wisp"
-    case 11: "approach_ward"
     case 12: "move_north"
     case 13: "move_east"
     case 14: "move_south"

@@ -358,7 +358,7 @@ def modal(phase: U32,+run: G.Run,offers: List<&2,G.Offer>,paused: U32,tail: List
   match phase paused:
     case 0 0: tail
     case 0 p:
-      D.text("PAUSED",72.0,76.0,3.0,15584891,D.text("ESC RESUME  Q END EXPEDITION",56.0,116.0,1.0,15196103,D.text("COLLECT XP GEMS / TAKE CHESTS",56.0,134.0,1.0,7985384,D.text("GUIDE WISPS HOME / ACTIVATE WARDS",56.0,146.0,1.0,7985384,loadout(run_weapons(run),0,56.0,162.0,0,loadout(run_passives(run),0,280.0,162.0,1,D.rect(28.0,52.0,456.0,296.0,724763,tail)))))))
+      D.text("PAUSED",72.0,76.0,3.0,15584891,D.text("ESC RESUME  Q END EXPEDITION",56.0,116.0,1.0,15196103,D.text("COLLECT XP GEMS / TAKE CHESTS",56.0,134.0,1.0,7985384,D.text("ATTACKS ARE AUTOMATIC",56.0,146.0,1.0,7985384,loadout(run_weapons(run),0,56.0,162.0,0,loadout(run_passives(run),0,280.0,162.0,1,D.rect(28.0,52.0,456.0,296.0,724763,tail)))))))
     case 1 0: tail
     case 1 1: D.text("PAUSED - ESC RESUME / E UPGRADE",74.0,180.0,1.0,15584891,D.rect(28.0,156.0,456.0,56.0,724763,tail))
     case 1 p:
@@ -391,25 +391,10 @@ def ground(fuel: Nat,+index: U32,+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D
       +period = G.at([360,420,240,300,180],run_stage(run))
       color = ground_color(Bool.or(Bool.or(F32.is_lt(wx,0.0),F32.is_lt(wy,0.0)),Bool.or(F32.is_lt(3600.0,wx),F32.is_lt(3600.0,wy))),ground_hazard(run_stage(run),wx,wy),U32.is_le((period - 120 : U32),(run_tick(run) % period : U32)),((F32.to_u32(F32.abs(wx)) / 64 + F32.to_u32(F32.abs(wy)) / 64) % 2 : U32))
       D.rect(x,y,16.0,16.0,color,ground(k,(index + 1 : U32),run,tail))
-def refuge(+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  +x = ((1800.0 - run_px(run)) * 0.65 + 256.0 : F32)
-  +y = ((1800.0 - run_py(run)) * 0.65 + 210.0 : F32)
-  border((x - 26.0 : F32),(y - 26.0 : F32),52.0,52.0,2655053,D.text("REFUGE",(x - 18.0 : F32),(y + 29.0 : F32),1.0,7985384,tail))
-
-def pulse_ring(active: Bool,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  match active:
-    case True{}: Art.ring(x,y,78.0,7985384,tail)
-    case False{}: tail
-def ward_pulses(rows: List<&2,G.Snapshot>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  match rows:
-    case []: tail
-    case G.Snapshot{G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},G.Motion{vx,vy,+life,pierce,visited,slow,burn,_,_}} <> rest:
-      pulse_ring(Bool.and(Bool.and(U32.is_eq(kind,11),U32.is_eq(variant,1)),Bool.and(U32.is_lt(0,hp),Bool.and(U32.is_le(82,life),U32.is_le(life,90)))),((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),ward_pulses(rest,px,py,tail))
-
 def gameplay_rows(+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
   hud(run,modal(run_phase(run),run,offers,ui_paused(ui),
   Art.player(256.0,210.0,ui_character(ui),run_invuln(run),
-  bodies(rows,run_px(run),run_py(run),ward_pulses(snapshots,run_px(run),run_py(run),refuge(run,ground(768n,0,run,[])))))))
+  bodies(rows,run_px(run),run_py(run),ground(768n,0,run,[])))))
 
 def scene_screen(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image:
   match screen:

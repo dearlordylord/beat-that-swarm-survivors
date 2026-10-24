@@ -81,8 +81,8 @@ console.log('Lifecycle lookup first-match/fallback and persistent XP across life
 const mixedGeometry=list([
  body(XP_START,2,2000,100,100,1),
  {...body(2,0,10,110,100),variant:21,age:55},
- body(G.pool_actor_start(),10,80,100,100),
- body(G.pool_actor_start()+8,11,160,100,100),
+ body(1,3,80,100,100),
+ body(6,4,160,100,100),
  body(G.pool_player_start(),1,50,100,100),
  body(G.pool_hostile_start(),7,8,100,100),
  body(3,0,12,120,100),
@@ -101,7 +101,7 @@ assert.deepEqual(G.plan_hits(frozenShots,mixedGeometry),G.plan_hits(frozenShots,
 assert.equal(array(G.plan_hits(frozenShots,enemyGeometry)).length,1);
 const combatArgs=G.combat_args(run,mixedGeometry,0,0,frozenShots);
 assert.deepEqual(combatArgs.bodies,enemyGeometry);
-assert.deepEqual(combatArgs.snapshots,frozenShots,'Full projectile/actor snapshots remain available');
+assert.deepEqual(combatArgs.snapshots,frozenShots,'Full projectile snapshots remain available');
 assert.deepEqual(combatArgs.hits,G.plan_hits(frozenShots,mixedGeometry));
 console.log('Enemy-only target geometry matches full mixed ECS observations and preserves frozen snapshots');
 // A single dense frame can fill the empty pool and overflow before any old pile exists.

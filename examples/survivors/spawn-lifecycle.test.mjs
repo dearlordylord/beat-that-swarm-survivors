@@ -5,12 +5,12 @@ const array=xs=>{const a=[];for(;xs.$==='Con';xs=xs.tail)a.push(xs.head);return 
 const values=c=>Array.isArray(c.values)?c.values:values(c.state??c.inner);
 const outside=(b,px,py)=>Math.abs(b.x-px)>512+3*b.radius+24||Math.abs(b.y-py)>512+3*b.radius+24;
 let checks=0;
-for(const [px,py]of [[1800,1800],[20,20],[3580,3580]])for(const seed of [17,23,57])for(const slow of [0,1,90,65626])for(const burn of [0,120])for(const ward of [false,true]){
+for(const [px,py]of [[1800,1800],[20,20],[3580,3580]])for(const seed of [17,23,57])for(const slow of [0,1,90,65626])for(const burn of [0,120])for(const staleArea of [false,true]){
  const p=G.start_seed_quiet(0,0,12345),tick=(6-seed%6)%6;
  const run={...p.state.run,tick,px,py,seed:12344+tick};
  const old={...G.initial_body(seed),x:px,y:py};
  const motion={...G.empty_motion(),vx:42,vy:13,life:17,pierce:23,visited:list([8,9]),slow,burn};
- const hits=ward?list([{$:'HitPlan',shot:G.pool_actor_start()+8,weapon:10,damage:24,x:px,y:py,radius:120,area:{$:'True'},targets:nil}]):nil;
+ const hits=staleArea?list([{$:'HitPlan',shot:G.pool_player_start(),weapon:10,damage:24,x:px,y:py,radius:120,area:{$:'True'},targets:nil}]):nil;
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits};
  const candidate=G.update(old,run).body;
  assert.equal(candidate.kind,0,'fixture really admits a fresh enemy');
@@ -50,4 +50,4 @@ for(const slow of [90,65626]){
  assert.ok(result.motion.slow>0,'age wrap must retain ordinary status processing');
  assert.ok(result.motion.burn>0);checks++;
 }
-console.log(`PASS spawn lifecycle: ${checks} slow/freeze/burn/tower cases, actual ECS writes and boss replacement`);
+console.log(`PASS spawn lifecycle: ${checks} slow/freeze/burn/stale-area cases, actual ECS writes and boss replacement`);

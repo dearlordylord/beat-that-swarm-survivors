@@ -40,10 +40,6 @@ def entity_goals(rows: List<&2,G.Body>,+tick: U32,+px: F32,+py: F32) -> String:
       "," ++ entity_goal(tick,px,py,G.Body{x,y,5,variant,hp,maxHp,age,seed,radius},"approach_chest") ++ entity_goals(rest,tick,px,py)
     case G.Body{+x,+y,9,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
       "," ++ entity_goal(tick,px,py,G.Body{x,y,9,variant,hp,maxHp,age,seed,radius},"approach_relic") ++ entity_goals(rest,tick,px,py)
-    case G.Body{+x,+y,10,0,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      maybe_entity(U32.is_lt(0,hp),tick,px,py,G.Body{x,y,10,0,hp,maxHp,age,seed,radius},"approach_wisp",entity_goals(rest,tick,px,py))
-    case G.Body{+x,+y,11,0,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      maybe_entity(U32.is_lt(0,hp),tick,px,py,G.Body{x,y,11,0,hp,maxHp,age,seed,radius},"approach_ward",entity_goals(rest,tick,px,py))
     case _ <> rest: entity_goals(rest,tick,px,py)
 
 def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,bodies: List<&2,G.Body>) -> String:

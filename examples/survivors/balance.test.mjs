@@ -110,84 +110,30 @@ assert.ok(
   !endless.frame.bodies.some((b) => b[3] === 30),
   "Endless never summons Dawn Reaper",
 );
-// Independent actors use the same ECS world and survive across query passes.
-let actors = accept(Game.advance(accept(Game.start(0, 0)).state, 0, 0));
-assert.equal(actors.frame.bodies.filter((b) => b[2] === 10).length, 8);
-assert.equal(actors.frame.bodies.filter((b) => b[2] === 11).length, 4);
-const ward = actors.frame.bodies.find((b) => b[2] === 11);
-actors.state.run.px = ward[0];
-actors.state.run.py = ward[1];
-actors = accept(Game.advance(actors.state, 0, 0));
-const activated = actors.frame.bodies.find((b) => b[7] === ward[7]);
-assert.equal(
-  activated[3],
-  1,
-  "Nearby player activates a persistent independent ward",
-);
-assert.equal(activated[4], 160, "Ward health belongs to its own Vitals");
-const wisp = actors.frame.bodies.find((b) => b[2] === 10);
-actors.state.run.px = wisp[0];
-actors.state.run.py = wisp[1];
-actors = accept(Game.advance(actors.state, 0, 0));
-const fleeing = actors.frame.bodies.find((b) => b[7] === wisp[7]);
-assert.equal(fleeing[3], 1, "Wisp enters active rescue state");
-assert.ok(
-  Math.hypot(fleeing[0] - wisp[0], fleeing[1] - wisp[1]) > 0,
-  "Wisp moves independently",
-);
-const pulse = list([
-  {
-    $: "Snapshot",
-    body: {
-      $: "Body",
-      x: 100,
-      y: 100,
-      kind: 11,
-      variant: 1,
-      hp: 160,
-      maxHp: 160,
-      age: 90,
-      seed: Game.pool_actor_start() + 8,
-      radius: 12,
-    },
-    motion: {
-      ...Game.empty_motion(),
-      vx: 0,
-      vy: 0,
-      life: 0,
-      pierce: 0,
-      visited: list([]),
-      slow: 0,
-      burn: 0,
-    },
-  },
-]);
-const wardCollision = Game.collisions(
-  Game.plan_hits(pulse, list([])),
-  100,
-  100,
-  12,
-  0,
-);
-assert.equal(
-  wardCollision.damage,
-  24,
-  "Ward pulse enters ordinary enemy hit plan",
-);
-assert.equal(
-  wardCollision.slow,
-  90,
-  "Ward pulse applies existing ECS slow status",
-);
-console.log(
-  JSON.stringify({
-    test: "independent ECS actors",
-    wisps: 8,
-    wards: 4,
-    wardDamage: wardCollision.damage,
-    slow: wardCollision.slow,
-  }),
-);
+// Former map-actor locations cannot activate AoE damage or grant rescue rewards.
+let actorFree = accept(Game.start(0, 0));
+actorFree.state.run.weapons = list(Array(24).fill(0));
+for (const [px, py] of [[1960, 1800], [2012, 1890], [1800, 1800]]) {
+  actorFree.state.run = { ...actorFree.state.run, px, py };
+  for (let tick = 0; tick < 4; tick++) {
+    actorFree = accept(Game.advance(actorFree.state, 0, 0));
+    assert.ok(actorFree.frame.bodies.every(body => body[2] !== 10 && body[2] !== 11),
+      "Map wisps and wards never spawn");
+    assert.equal(actorFree.frame.xp, 0, "Former rescue locations grant no XP");
+    assert.equal(actorFree.frame.gold, 0, "Former rescue locations grant no gold");
+    assert.equal(actorFree.frame.kills, 0, "No independent map AoE kills enemies");
+  }
+}
+const obsoleteWard = list([{
+  $: "Snapshot",
+  body: { $: "Body", x: 100, y: 100, kind: 11, variant: 1,
+    hp: 160, maxHp: 160, age: 90, seed: Game.pool_xp_start(), radius: 12 },
+  motion: Game.empty_motion(),
+}]);
+const obsoleteCollision = Game.collisions(Game.plan_hits(obsoleteWard, list([])), 100, 100, 12, 0);
+assert.equal(obsoleteCollision.damage, 0, "Removed ward snapshots cannot create AoE damage");
+assert.equal(obsoleteCollision.slow, 0, "Removed ward snapshots cannot create slow status");
+console.log(JSON.stringify({ test: "no independent map actors, rescue rewards or ward AoE", passed: true }));
 // An evolved-control build must not permanently freeze or displace the Reaper.
 const immuneRun = accept(Game.start(0, 0)).state.run;
 immuneRun.tick = 36010;

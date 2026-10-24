@@ -1,3 +1,11 @@
+# Custom map actors removed — 24 October 2026
+
+The current world has 1,456 identities: 512 enemy/relic slots, 512 player projectiles, 32 hostile projectiles and 400 persistent XP piles. The actor range is empty. Towers and rescue wisps, their automatic damage/slow and XP/gold/healing rewards, and bot goals for them were removed. Player weapon effects remain.
+
+Fresh emitted gameplay and Chromium checks passed (`/tmp/survivors-no-actors-gameplay.log`, `/tmp/survivors-no-actors-browser.log`). Regressions cover former NPC locations and injected obsolete tower snapshots: no actor bodies, passive rewards, tower damage or slow. The ordinary stationary smoke dies at tick 435; this is not a complete-run or performance claim. Actual Bend-backed bot action and offline-policy parity checks passed, including rejection of removed actor goals. All-U32 pool laws prove the actor range empty.
+
+Evidence: `../../../bend-games/research/no-map-actors-20261024/`. Earlier measurements below describe earlier source versions and do not qualify the actor-free game.
+
 # Automatic reward panel follow-up
 
 The current local follow-up restores automatic level/treasure panels with combat paused. Esc defers and E reopens; queued choices open in order. XP awards and bonuses are unchanged; the first threshold remains 100 and subsequent thresholds are doubled. Verification below is separate from the previous revision:

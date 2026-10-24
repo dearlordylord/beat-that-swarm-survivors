@@ -26,8 +26,8 @@ assert.equal(G.pool_xp_count(), 400);
 assert.equal(G.pool_enemy_count(), 512);
 assert.equal(G.pool_relic_seed(), 511);
 assert.equal(G.pool_hostile_start() - playerStart, playerCount);
-assert.equal(G.pool_actor_start() - G.pool_hostile_start(), 32);
-assert.equal(G.pool_xp_start() - G.pool_actor_start(), 12);
+assert.equal(G.pool_xp_start() - G.pool_hostile_start(), 32, "No map actor slots remain between hostile and XP pools");
+assert.equal(G.pool_total(), 1456);
 assert.equal(G.pool_total(), G.pool_xp_start() + G.pool_xp_count());
 
 const first = spawn(args(run));

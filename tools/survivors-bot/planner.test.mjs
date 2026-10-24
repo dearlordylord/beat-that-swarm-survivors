@@ -90,3 +90,9 @@ test('XP backlog reserves bounded routes for reachable chest and retreat alterna
  assert.ok(p.candidates.some(c=>c.goal.kind==='move_west'));
  assert.ok(p.candidates.length<=8);assert.ok(p.search.expanded<=1200);
 });
+test('NoHiddenActorGoal: removed actor intents cannot enter baseline routing',()=>{
+ const catalog=['approach_wisp','approach_ward','activate_ward'].map((kind,i)=>({id:`removed${i}`,kind,target:{x:150,y:210},distance:60}));
+ const planned=planMovement(createPlanner(),frame(),catalog);
+ assert.ok(planned.candidates.every(c=>!catalog.includes(c.goal)));
+ assert.equal(planned.chosen,null);
+});

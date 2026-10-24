@@ -162,30 +162,6 @@ def reaper(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> Lis
   r14 = box(x,y,scale,(0.0 - 11.0 : F32),(0.0 - 15.0 : F32),3.0,4.0,16741501,r13)
   box(x,y,scale,(0.0 - 4.0 : F32),13.0,8.0,3.0,6827336,r14)
 
-def wisp(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  r0 = box(x,y,scale,(0.0 - 2.0 : F32),(0.0 - 10.0 : F32),4.0,3.0,color,tail)
-  r1 = box(x,y,scale,(0.0 - 5.0 : F32),(0.0 - 7.0 : F32),3.0,3.0,color,r0)
-  r2 = box(x,y,scale,2.0,(0.0 - 7.0 : F32),3.0,3.0,color,r1)
-  r3 = box(x,y,scale,(0.0 - 8.0 : F32),(0.0 - 4.0 : F32),3.0,7.0,color,r2)
-  r4 = box(x,y,scale,5.0,(0.0 - 4.0 : F32),3.0,7.0,color,r3)
-  r5 = box(x,y,scale,(0.0 - 5.0 : F32),3.0,3.0,3.0,color,r4)
-  r6 = box(x,y,scale,2.0,3.0,3.0,3.0,color,r5)
-  r7 = box(x,y,scale,(0.0 - 2.0 : F32),6.0,4.0,3.0,color,r6)
-  r8 = box(x,y,scale,(0.0 - 2.0 : F32),(0.0 - 3.0 : F32),4.0,5.0,16052433,r7)
-  box(x,y,scale,(0.0 - 1.0 : F32),10.0,2.0,3.0,color,r8)
-
-def ward(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  r0 = box(x,y,scale,(0.0 - 11.0 : F32),8.0,22.0,5.0,593433,tail)
-  r1 = box(x,y,scale,(0.0 - 9.0 : F32),9.0,18.0,3.0,6650747,r0)
-  r2 = box(x,y,scale,(0.0 - 6.0 : F32),1.0,12.0,8.0,593433,r1)
-  r3 = box(x,y,scale,(0.0 - 4.0 : F32),2.0,8.0,7.0,color,r2)
-  r4 = box(x,y,scale,(0.0 - 8.0 : F32),(0.0 - 11.0 : F32),16.0,11.0,593433,r3)
-  r5 = box(x,y,scale,(0.0 - 6.0 : F32),(0.0 - 9.0 : F32),12.0,7.0,color,r4)
-  r6 = box(x,y,scale,(0.0 - 1.0 : F32),(0.0 - 10.0 : F32),2.0,9.0,16052433,r5)
-  r7 = box(x,y,scale,(0.0 - 4.0 : F32),(0.0 - 7.0 : F32),8.0,2.0,16052433,r6)
-  r8 = box(x,y,scale,(0.0 - 10.0 : F32),(0.0 - 3.0 : F32),4.0,3.0,6650747,r7)
-  box(x,y,scale,6.0,(0.0 - 3.0 : F32),4.0,3.0,6650747,r8)
-
 def hero(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   r0 = box(x,y,scale,(0.0 - 8.0 : F32),(0.0 - 6.0 : F32),16.0,19.0,593433,tail)
   r1 = box(x,y,scale,(0.0 - 11.0 : F32),6.0,22.0,7.0,593433,r0)
@@ -297,16 +273,6 @@ def projectile(variant: U32,+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.
     case 22: area(x,y,r,color,tail)
     case _: spark(x,y,F32.min(r,9.0),color,tail)
 
-def actor_shape(kind: U32,x: F32,y: F32,color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  match kind:
-    case 10: wisp(x,y,0.7,color,tail)
-    case _: ward(x,y,0.9,color,tail)
-
-def actor(phase: U32,+kind: U32,+x: F32,+y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  match phase:
-    case 2: tail
-    case +phase: actor_shape(kind,x,y,tint(U32.is_eq(phase,1),7985384,5930121),tail)
-
 def hero_color(character: U32) -> U32:
   match character:
     case 0: 12343408
@@ -340,8 +306,6 @@ def sprite(kind: U32,+variant: U32,+x: F32,+y: F32,+radius: F32,+color: U32,tail
     case 7: spark(x,y,F32.max(3.0,radius),16741501,ring(x,y,(radius + 2.0 : F32),593433,tail))
     case 8: tail
     case 9: relic(x,y,0.9,15584891,tail)
-    case 10: actor(variant,kind,x,y,tail)
-    case 11: actor(variant,kind,x,y,tail)
     case _: tail
 
 # Always visible for living enemies, including full health. The dark track and

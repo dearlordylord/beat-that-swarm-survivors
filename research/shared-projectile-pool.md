@@ -1,5 +1,7 @@
 # Shared projectiles and persistent XP
 
+Historical measurements below describe commit `166b82b`, before removal of the 12 custom map actors. The current layout has 1,456 entities and no map actors; projectile and XP budgets remain unchanged.
+
 The Survivors ECS example now uses the layout in
 [`pools.bend`](../examples/survivors/pools.bend): 512 enemy/relic identities,
 512 shared player-shot slots, 32 hostile shots, 12 actors and 400 XP piles.

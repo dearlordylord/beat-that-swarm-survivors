@@ -75,7 +75,9 @@ export function advisePlanner(memory,goalId){
   if(!candidate)return false;
   memory.current=candidate;memory.reason='advisory';return true;
 }
+const availableGoalKinds=new Set(['move_north','move_east','move_south','move_west','approach_experience','approach_chest','approach_relic']);
 export function planMovement(memory,frame,catalog,mechanics={}){
+  catalog=catalog.filter(goal=>availableGoalKinds.has(goal.kind));
   observe(memory,frame,catalog,mechanics);
   const here=position(frame),current=memory.current;
   const currentGoal=current&&catalog.find(g=>identity(g,frame.tick)===current.identity);

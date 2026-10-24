@@ -58,9 +58,9 @@ function goals(f) {
 }
 test('goal requests use actual engine intents, informative warnings and snapshot threat geometry',()=>{
  const f=frame({phase:0}),catalog=goals(f);
- catalog.push({id:'wisp',kind:'approach_wisp',target:{x:1900,y:1800},distance:100,observedTick:f.tick,executable:false});
+ catalog.push({id:'chest',kind:'approach_chest',target:{x:1900,y:1800},distance:100,observedTick:f.tick,executable:false});
  const r=buildGoalDecision(f,catalog,options);assert.equal(r.kind,'goal');assert.equal(r.candidates.length,5);assert.equal(r.snapshot.facts.phase,0);
- assert.match(r.snapshot.goalExecution.loot,/persist until collected/);assert.match(r.candidates[4].description,/strictly below 100/);assert.match(r.candidates[4].description,/only if/);assert.equal(r.candidates[4].effect.safety,'unassessed');
+ assert.match(r.snapshot.goalExecution.loot,/persist until collected/);assert.match(r.candidates[4].description,/real chest/);assert.equal(r.candidates[4].effect.safety,'unassessed');
  assert.equal(resolveGoalCandidate(r,response(r,4),f,catalog,options),catalog[4]);
 });
 test('goal choices omit no-ops, cap targets by actual nearest geometry, retain cardinals',()=>{
@@ -100,4 +100,12 @@ test('persistent XP alternatives include old distant piles and explicit route fa
  const planner={reason:'periodic',memory:{objects:{pile:{}}},clusters:[],candidates:catalog.map(goal=>({goal,waypoints:[goal.target],risk:2,etaTicks:40,reward:15,length:100,score:999}))};
  const planned=buildGoalDecision(f,catalog,{...options,planner});
  assert.equal(planned.candidates[0].effect.route.length,100);assert.equal(planned.candidates[0].effect.route.score,undefined);
+});
+test('NoHiddenActorGoal: classifier rejects catalogs containing removed actor choices',()=>{
+ const f=frame({phase:0});
+ assert.equal(buildGoalDecision(f,goals(f),options).candidates.length,4);
+ for(const kind of ['approach_wisp','approach_ward','activate_ward']) {
+  const catalog=[...goals(f),{id:kind,kind,target:{x:1900,y:1800},distance:100,observedTick:f.tick}];
+  assert.throws(()=>buildGoalDecision(f,catalog,options),/Invalid, duplicate or expired engine goal/);
+ }
 });

@@ -28,7 +28,7 @@ const verify = ({frame, actions, mechanics}) => {
     assert.ok(Number.isFinite(action.distance));
     assert.ok(Math.abs(action.distance - Math.hypot(action.target.x - frame.px, action.target.y - frame.py)) < 0.01);
     if (action.kind.startsWith("move_")) continue;
-    const kind = {approach_experience: 2, approach_chest: 5, approach_relic: 9, approach_wisp: 10, approach_ward: 11}[action.kind];
+    const kind = {approach_experience: 2, approach_chest: 5, approach_relic: 9}[action.kind];
     assert.ok(frame.bodies.some(b => b[2] === kind && b[0] === action.target.x && b[1] === action.target.y &&
       action.id === `t${frame.tick}:${action.kind}:${b[7]}:${b[2]}:${b[3]}:${b[6]}` &&
       (kind < 10 || (b[3] === 0 && b[4] > 0))), "Every entity goal matches the real engine snapshot");
@@ -70,8 +70,7 @@ current = accept(Bot.advance(current.state, 1, 0));
 assert.equal(current.frame.tick, 1, "Observation returns the actual affine world for further ECS advancement");
 verify(current);
 assert.ok(current.actions.every(a => !oldIds.has(a.id)), "Snapshot-scoped candidate IDs expire on advancement");
-assert.equal(current.actions.filter(a => a.kind === "approach_wisp").length, 8);
-assert.equal(current.actions.filter(a => a.kind === "approach_ward").length, 4);
+assert.ok(current.actions.every(a => !["approach_wisp","approach_ward","activate_ward"].includes(a.kind)), "NoHiddenActorGoal: normal world exposes no removed map-actor action");
 assert.equal(current.actions.filter(a => a.kind === "approach_relic").length, 1);
 for (let i = 0; i < 12; i++) {
   current = accept(Bot.advance_live(current.state, 0, -1));
@@ -86,13 +85,14 @@ assert.ok(advanced.mechanics.current.weaponStats.find(w => w.id === 4).selfField
 // Pure serialization boundary tests only: no mutated gameplay state or simulated run.
 const list = xs => xs.reduceRight((tail, head) => ({$: "Con", head, tail}), {$: "Nil"});
 const body = (kind, variant, hp, seed) => ({$: "Body", x: 100, y: 200, kind, variant, hp, maxHp: hp, age: 7, seed, radius: 12});
-const fixture = list([body(5, 20, 0, 1), body(10, 1, 80, 2), body(11, 0, 0, 3), body(8, 0, 0, 4), body(2, 4, 12, 748), {...body(2, 4, 18, 749), age: 2000}]);
+const fixture = list([body(5, 20, 0, 1), body(10, 0, 80, 2), body(11, 0, 80, 3), body(8, 0, 0, 4), body(2, 4, 12, 748), {...body(2, 4, 18, 749), age: 2000}]);
 const goals = JSON.parse(Bot.catalog_live(true, 12, 100, 100, fixture));
 assert.equal(goals.length, 7);
+assert.ok(goals.every(g=>!["approach_wisp","approach_ward","activate_ward"].includes(g.kind)), "NoHiddenActorGoal: even injected living actor bodies are not offered");
 assert.ok(goals.some(g=>g.resource?.baseXp===18 && g.resource.autoClaimTicks===null), "Old XP piles remain actionable until approached");
 assert.equal(goals.at(-1).kind, "approach_experience");
 assert.equal(goals.at(-3).kind, "approach_chest");
 
 assert.equal(goals.at(-3).id, "t12:approach_chest:1:5:20:7");
 assert.deepEqual(JSON.parse(Bot.catalog_live(false, 12, 100, 100, fixture)), []);
-console.log("BOT ACTIONS PASS: real affine world observation, fresh/advanced presets, engine-backed goals, snapshot expiry, empty-menu operations, pure inactive/dead actor exclusion");
+console.log("BOT ACTIONS PASS: real affine world observation, fresh/advanced presets, engine-backed goals, snapshot expiry, empty-menu operations, removed map-actor goal exclusion");

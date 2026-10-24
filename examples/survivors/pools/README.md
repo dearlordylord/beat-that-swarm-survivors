@@ -7,8 +7,14 @@
 | Enemies and relic | 512 | 511 enemy identities and one stage relic |
 | Player projectiles | 512 | Shared by equipped weapons |
 | Hostile projectiles | 32 | Admission grows through the run |
-| World actors | 12 | Eight wisps and four wards |
+| World actors | 0 | Removed; no reserved identities |
 | Experience | 400 | Physical pickups with one overflow accumulator |
+
+The total allocation is 1456 entities. The former actor interval is empty:
+`actor_start() == actor_end() == xp_start() == 1056`. XP now occupies
+1056..1455 immediately after hostile shots; no twelve-slot placeholder remains.
+The compatibility `actor_count()` returns zero and `is_actor(seed)` is false
+for every U32 seed, as pinned by `no_actor_role` in the kernel laws.
 
 Ordinary wave admission grows to 300. Curse/run modifiers can raise it to 500.
 Boss timing remains separate. Physical enemy capacity is distinct from wave
@@ -42,3 +48,6 @@ allocator has separate [laws and tests](../projectile-pool/README.md); the
 [visual laws](../loot-visual/LAWS.bend) cover the size cap. Integration checks
 exercise actual shot ownership/reclamation, physical pickup, XP conservation,
 accumulator reuse, pool routing and modified enemy admission.
+
+Map wards and rescue wisps are removed. There are no actor slots or automatic
+map-actor damage/rewards; player-owned weapon effects remain separate.

@@ -83,8 +83,8 @@ def validate_payload(payload, checkpoint_tick):
     if not isinstance(components, dict) or set(components) != {"bodies", "vitals", "motions"}:
         raise ReplayError("Missing authoritative component family")
     for family, records in components.items():
-        if not isinstance(records, list) or len(records) != 1468:
-            raise ReplayError(f"Expected all 1468 authoritative {family} slots")
+        if not isinstance(records, list) or len(records) != 1456:
+            raise ReplayError(f"Expected all 1456 authoritative {family} slots")
         for expected_id, record in enumerate(records, 1):
             if not isinstance(record, list) or len(record) != 3 or record[0] != expected_id:
                 raise ReplayError(f"Noncanonical {family} slot order")
@@ -278,7 +278,7 @@ def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes
         chain.update(len(encoded).to_bytes(8, "big")); chain.update(encoded)
     if not seen_start or not seen_summary:
         raise ReplayError("Incomplete replay: start/summary absent")
-    return {"status": "passed", "fixture": fixture, "checkpoints": count, "semanticSha256": chain.hexdigest(), "baselineSha256": file_sha(baseline), "candidateSha256": file_sha(candidate), "scope": "Exact declared gameplay and all 1468 authoritative component/stamp/world-metadata observations; timing fields excluded only at record root."}
+    return {"status": "passed", "fixture": fixture, "checkpoints": count, "semanticSha256": chain.hexdigest(), "baselineSha256": file_sha(baseline), "candidateSha256": file_sha(candidate), "scope": "Exact declared gameplay and all 1456 authoritative component/stamp/world-metadata observations; timing fields excluded only at record root."}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

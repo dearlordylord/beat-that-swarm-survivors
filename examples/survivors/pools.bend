@@ -11,13 +11,13 @@ def hostile_start() -> U32: 1024
 def hostile_count() -> U32: 32
 def hostile_end() -> U32: 1056
 def actor_start() -> U32: 1056
-def actor_count() -> U32: 12
-def actor_end() -> U32: 1068
-def xp_start() -> U32: 1068
+def actor_count() -> U32: 0
+def actor_end() -> U32: 1056
+def xp_start() -> U32: 1056
 def xp_count() -> U32: 400
-def xp_end() -> U32: 1468
-def total_count() -> U32: 1468
-def total_nat() -> Nat: 1468n
+def xp_end() -> U32: 1456
+def total_count() -> U32: 1456
+def total_nat() -> Nat: 1456n
 def owner_count() -> U32: 24
 def logical_count() -> U32: 8
 def normal_enemy_cap() -> U32: 300
@@ -27,7 +27,7 @@ type Role is Data:
   Enemy{}
   PlayerShot{}
   Hostile{}
-  Actor{}
+  Actor{} # Compatibility value; role(seed) never constructs this removed role.
   Xp{}
   Outside{}
 
@@ -35,14 +35,10 @@ def xp_role(inside:Bool) -> Role:
   match inside:
     case True{}: Xp{}
     case False{}: Outside{}
-def actor_role(inside:Bool,seed:U32) -> Role:
-  match inside:
-    case True{}: Actor{}
-    case False{}: xp_role(U32.is_lt(seed,xp_end()))
 def hostile_role(inside:Bool,+seed:U32) -> Role:
   match inside:
     case True{}: Hostile{}
-    case False{}: actor_role(U32.is_lt(seed,actor_end()),seed)
+    case False{}: xp_role(U32.is_lt(seed,xp_end()))
 def player_role(inside:Bool,+seed:U32) -> Role:
   match inside:
     case True{}: PlayerShot{}

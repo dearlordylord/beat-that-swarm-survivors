@@ -1,7 +1,6 @@
 import Base
 import projectile.bend as P
 import encounters.bend as E
-import actors.bend as A
 import spawn-policy.bend as S
 import spawn-lifecycle.bend as SL
 import persistent-xp.bend as X
@@ -364,9 +363,8 @@ def plan_hits(rows: List<&2,Snapshot>,+bodies: List<&2,Body>) -> List<&2,HitPlan
   match rows:
     case []: []
     case Snapshot{Body{+x,+y,1,+id,+damage,_,+age,+seed,+radius},Motion{_,_,+life,+pierce,+visited,_,_,_,_}} <> rest: append_hit_plan(Bool.and(P.active_hit(id,age),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce))),seed,id,damage,x,y,radius,pierce,visited,bodies,plan_hits(rest,bodies))
-    case Snapshot{Body{+x,+y,11,+phase,+hp,_,_,+seed,_},Motion{_,_,+cooldown,_,_,_,_,_,_}} <> rest: append_hit_plan(A.pulse(11,hp,phase,cooldown),seed,10,A.ward_damage(),x,y,A.ward_radius(),9999,[],bodies,plan_hits(rest,bodies))
     case _ <> rest: plan_hits(rest,bodies)
-# Frozen targeting inputs contain enemies only. XP, actors, shots and dormant
+# Frozen targeting inputs contain enemies only. XP, shots and dormant
 # bodies remain in the full frame/snapshots, without multiplying aim/contact work.
 def enemy_geometry(rows: List<&2,Body>) -> List<&2,Body>:
   match rows:
@@ -607,20 +605,6 @@ def regular_updated(+oldX: F32,+oldY: F32,radius: F32,seed: U32,previousKind: U3
 def normal_regular_entity(body: Body,motion: Motion,+args: Args) -> EntityRow:
   match body args:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Args{+run,_,_,_,_,_}: regular_updated(x,y,radius,seed,kind,age,update(Body{x,y,kind,variant,hp,maxHp,age,seed,radius},run),motion,args)
-def actor_row(+kind: U32,+seed: U32,actor: A.Actor) -> EntityRow:
-  match actor:
-    case A.Actor{+x,+y,+hp,+age,+cooldown,+phase,+reward}: EntityRow{Row{Body{x,y,kind,phase,hp,(80 + 80 * Bool.to_u32(U32.is_eq(kind,11)) : U32),age,seed,12.0},0,(40 * reward : U32),(50 * reward : U32),(15 * reward : U32),0,0,0},Motion{0.0,0.0,cooldown,0,[],0,0,0,0}}
-def actor_step_aim(body: Body,motion: Motion,run: Run,aim: Aim) -> EntityRow:
-  match body motion run aim:
-    case Body{+x,+y,+kind,+phase,+hp,_,+age,+seed,_} Motion{_,_,+cooldown,_,_,_,_,_,_} Run{_,_,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_} Aim{+ex,+ey,_,+range}: actor_row(kind,seed,A.step(kind,seed,x,y,hp,age,cooldown,phase,px,py,ex,ey,F32.is_le(range,8100.0)))
-def actor_entity(body: Body,motion: Motion,args: Args) -> EntityRow:
-  match body args:
-    case Body{_,_,8,_,_,_,_,+seed,_} _: actor_row(choose_id(U32.is_lt(seed,(PL.actor_start() + 8 : U32)),10,11),seed,A.spawn(choose_id(U32.is_lt(seed,(PL.actor_start() + 8 : U32)),10,11),((seed - PL.actor_start()) % 4 + 4 * Bool.to_u32(Bool.and(U32.is_lt(seed,(PL.actor_start() + 8 : U32)),U32.is_le((PL.actor_start() + 4 : U32),seed))) : U32)))
-    case Body{+x,+y,+kind,+phase,+hp,+maxHp,+age,+seed,+radius} Args{run,bodies,_,_,_,_}: actor_step_aim(Body{x,y,kind,phase,hp,maxHp,age,seed,radius},motion,run,nearest(bodies,x,y,Aim{0.0,0.0,0,10000000.0}))
-def normal_dispatch(actor: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
-  match actor:
-    case True{}: actor_entity(body,motion,args)
-    case False{}: normal_regular_entity(body,motion,args)
 def xp_amount(body: Body) -> U32:
   match body:
     case Body{_,_,2,_,amount,_,_,_,_}: amount
@@ -629,18 +613,14 @@ def xp_entity(body: Body,args: Args) -> EntityRow:
   match body args:
     case Body{+x,+y,2,+variant,+amount,+generation,+age,+seed,+radius} Args{run,_,_,_,_,_}: EntityRow{loot_update(Body{x,y,2,variant,amount,generation,age,seed,radius},run),empty_motion()}
     case Body{+x,+y,_,+variant,_,+generation,+age,+seed,_} _: dormant_entity(x,y,seed)
-def extra_entity(xp: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
+def normal_pool(xp: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
   match xp:
     case True{}: xp_entity(body,args)
-    case False{}: normal_dispatch(True{},body,motion,args)
-def normal_pool(extra: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
-  match extra body:
-    case True{} Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: extra_entity(U32.is_le(PL.xp_start(),seed),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args)
-    case False{} body: normal_dispatch(False{},body,motion,args)
+    case False{}: normal_regular_entity(body,motion,args)
 def normal_identity(relic: Bool,+seed: U32,body: Body,motion: Motion,args: Args) -> EntityRow:
   match relic:
     case True{}: relic_entity(args)
-    case False{}: normal_pool(Bool.or(PL.is_actor(seed),PL.is_xp(seed)),body,motion,args)
+    case False{}: normal_pool(PL.is_xp(seed),body,motion,args)
 def normal_entity(body: Body,motion: Motion,args: Args) -> EntityRow:
   match body:
     case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: normal_identity(U32.is_eq(seed,PL.relic_seed()),seed,Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args)
@@ -680,7 +660,7 @@ def entity_update(body: Body,motion: Motion,+args: Args) -> EntityRow: entity_up
 def missing_row() -> EntityRow: EntityRow{Row{Body{0.0,0.0,8,0,0,0,0,0,0.0},0,0,0,0,0,0,0},empty_motion()}
 def Frame() -> Type: Q.Frame<Schema,Store,Unit,Unit>
 def selected_kind(+mode: U32,+kind: U32,+seed: U32) -> Bool:
-  Bool.or(Bool.and(U32.is_eq(mode,0),Bool.or(PL.is_player_shot(seed),PL.is_hostile(seed))),Bool.or(Bool.and(U32.is_eq(mode,2),Bool.or(PL.is_actor(seed),PL.is_xp(seed))),Bool.and(PL.is_enemy_pool(seed),Bool.or(U32.is_eq(mode,2),Bool.and(U32.is_eq(mode,1),U32.is_eq(kind,0))))))
+  Bool.or(Bool.and(U32.is_eq(mode,0),Bool.or(PL.is_player_shot(seed),PL.is_hostile(seed))),Bool.or(Bool.and(U32.is_eq(mode,2),PL.is_xp(seed)),Bool.and(PL.is_enemy_pool(seed),Bool.or(U32.is_eq(mode,2),Bool.and(U32.is_eq(mode,1),U32.is_eq(kind,0))))))
 def selected_observed(+mode: U32,result: Frame() & C.Access<Body>) -> Frame() & Bool:
   match result:
     case (frame,C.Found{Body{_,_,+kind,_,_,_,_,+seed,_}}): (frame,selected_kind(mode,kind,seed))

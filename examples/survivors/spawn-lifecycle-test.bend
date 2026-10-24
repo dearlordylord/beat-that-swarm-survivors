@@ -18,4 +18,4 @@ def main() -> IO(Unit):
   do IO<Unit>:
     expect(born(apply(90,0,[])),"slow from dead incarnation cannot move respawn inside screen")
     expect(born(apply(65626,120,[])),"freeze and burn cannot teleport new incarnation to corpse")
-    expect(born(apply(0,0,[G.HitPlan{(G.pool_actor_start() + 8 : U32),10,24,1800.0,1800.0,120.0,True{},[]}])),"tower collision at old corpse cannot hit newborn outside screen")
+    expect(born(apply(0,0,[G.HitPlan{G.pool_player_start(),10,24,1800.0,1800.0,120.0,True{},[]}])),"stale area collision at old corpse cannot hit newborn outside screen")

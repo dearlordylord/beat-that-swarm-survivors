@@ -6,7 +6,6 @@ for (const file of [
   "game.bend",
   "projectile.bend",
   "encounters.bend",
-  "actors.bend",
 ])
   assert.ok(
     (await stat(new URL("./dist/game.mjs", import.meta.url))).mtimeMs >=

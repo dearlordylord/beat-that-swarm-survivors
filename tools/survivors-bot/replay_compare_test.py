@@ -15,10 +15,10 @@ def payload(tick=0):
     body = lambda seed: [0, 0, 8, 0, 0, 0, 0, seed, 0]
     stamp = [[0, 1], [0, 1]]
     return {"run": run, "bodies": [], "offers": [], "snapshots": [], "pending": [],
-            "components": {"bodies": [[i+1, body(i), stamp] for i in range(1468)],
-                           "vitals": [[i+1, [0, 0], stamp] for i in range(1468)],
-                           "motions": [[i+1, [0, 0, 0, 0, [], 0, 0, 0, 0], stamp] for i in range(1468)]},
-            "metadata": {"namespace": 1, "allocator": [1469, 1468, 2048, 11, [], [], [[0, 2]] * 2048],
+            "components": {"bodies": [[i+1, body(i), stamp] for i in range(1456)],
+                           "vitals": [[i+1, [0, 0], stamp] for i in range(1456)],
+                           "motions": [[i+1, [0, 0, 0, 0, [], 0, 0, 0, 0], stamp] for i in range(1456)]},
+            "metadata": {"namespace": 1, "allocator": [1457, 1456, 2048, 11, [], [], [[0, 2]] * 2048],
                          "clock": [[0, 1], []], "events": 0, "pendingCommands": 0,
                          "registrations": [], "nextSystemId": 0}}
 

@@ -126,3 +126,5 @@ native=step(native,run({tick:700,hp:80}),[body(748,1080,900,2,10,502)]);assert.e
  assert.equal(relic.generation,0,'relic stable identity');
 }
 console.log(`Native policy behavioral parity: ${upgrades} offer cases, steering, bounded routes, XP lifetime/generation, hysteresis, damage and stuck replans passed`);
+assert.deepEqual(P.goals_at(list([body(1056,1000,900,10,80),body(1057,1050,900,11,80)]),100),{$:'Nil'},
+ 'NoHiddenActorGoal: native policy ignores removed map-actor bodies even when alive and inactive');

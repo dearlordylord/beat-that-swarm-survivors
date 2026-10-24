@@ -131,7 +131,7 @@ export function resolveCandidate(request,response,currentFrame,{runId,decisionSe
   return candidate.offerIndex;
 }
 
-const GOAL_KINDS = new Set(['move_north','move_east','move_south','move_west','approach_chest','approach_relic','approach_wisp','approach_ward','approach_experience']);
+const GOAL_KINDS = new Set(['move_north','move_east','move_south','move_west','approach_chest','approach_relic','approach_experience']);
 function catalogOf(frame, catalog) {
   if (!Array.isArray(catalog)) throw new Error('Require engine goal catalog');
   const ids = new Set();
@@ -175,8 +175,6 @@ export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=
     approach_experience:'Collect a real persistent XP cluster within the engine pickup radius. Compare value, travel time, route danger and current upgrade progress. The cluster remains until collected; merging can increase its value while keeping its identity.',
     approach_chest:'Approach a real chest. Collection grants a reward choice; evolution/union eligibility depends on the current build. Travel and collection are not guaranteed safe.',
     approach_relic:'Approach the stage relic, which unlocks its associated weapon for future runs. It does not guarantee immediate combat power or a safe route.',
-    approach_wisp:'Approach a living inactive wisp. Player proximity strictly below 100 activates it; activation alone pays nothing. It then travels toward the center, can take enemy damage, and pays its rescue reward only if it reaches within 18 units of the center alive.',
-    approach_ward:'Approach a living inactive ward. Player proximity strictly below 100 activates its defensive pulses. Arrival or activation does not guarantee survival or any immediate payout.'
   };
   const enemies=(frame.bodies??[]).filter((b)=>b[2]===0&&b[4]>0);
   const candidates=selected.map((goal)=>{
