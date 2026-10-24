@@ -1,0 +1,22 @@
+/* B — Cartridge Arcade: hard pixels, stepped edges, no blurred glow. */
+#menu[data-control-style="B"] .start-button{appearance:none;display:inline-flex;align-items:stretch;justify-content:center;min-width:210px;min-height:60px;padding:0;border:0;background:transparent;border-radius:0;color:#202519;cursor:pointer;overflow:visible;font:800 18px/1.1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.04em;text-transform:uppercase}
+#menu[data-control-style="B"] .cta-surface{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;gap:13px;flex:1;min-height:60px;padding:14px 24px 19px;background:#55583e;clip-path:polygon(8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,100% 4px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px),0 4px,8px 4px);transition:transform 80ms steps(1,end)}
+#menu[data-control-style="B"] .cta-surface:before{content:'';position:absolute;inset:0 0 5px;background:#eed796;z-index:-1;border:4px solid #1b221b;box-shadow:inset 0 0 0 3px #fff2bb,inset 0 -5px 0 #b9a163}
+#menu[data-control-style="B"] .cta-icon svg{width:20px;height:20px;shape-rendering:crispEdges;filter:drop-shadow(2px 2px #fff1b766)}
+#menu[data-control-style="B"] .cta-cap{position:absolute;right:11px;top:10px;width:3px;height:3px;background:#947f4e;box-shadow:0 5px #947f4e}
+#menu[data-control-style="B"] .start-button:hover .cta-surface:before{background:#fff0b3;box-shadow:inset 0 0 0 3px #fff9d5,inset 0 -5px 0 #c4a658}
+#menu[data-control-style="B"] .start-button:active .cta-surface{transform:translateY(3px)}
+#menu[data-control-style="B"] .start-button:active .cta-surface:before{bottom:2px;box-shadow:inset 0 0 0 3px #ffe7a3,inset 0 3px #a58f59}
+#menu[data-control-style="B"] #tabs{display:flex;align-items:flex-end;gap:7px;border-bottom:4px solid #070e0a;padding:15px 0 0;margin-bottom:12px;background:transparent}
+#menu[data-control-style="B"] #tabs button{background:none;border:0;border-radius:0;box-shadow:none;color:#a8b79b;font:700 12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;text-transform:uppercase;letter-spacing:0;min-height:50px}
+#menu[data-control-style="B"] #tabs .tab-surface{min-height:50px;padding:11px 17px;background:#26352c;border:3px solid #101a14;border-bottom:0;box-shadow:inset 3px 3px #485c41,inset -3px 0 #17251a;transition:transform 80ms steps(1,end)}
+#menu[data-control-style="B"] #tabs .tab-icon svg{shape-rendering:crispEdges;color:#7d976d;width:14px;height:14px}
+#menu[data-control-style="B"] #tabs button.active{color:#1e2a1e}
+#menu[data-control-style="B"] #tabs button.active .tab-surface{background:#e4d79f;border-color:#0a160d;box-shadow:inset 3px 3px #fff1c2,inset -3px 0 #b1a274;transform:translateY(-4px);padding-bottom:15px}
+#menu[data-control-style="B"] #tabs button.active .tab-icon svg{color:#263d22}
+#menu[data-control-style="B"] #tabs button.active .tab-active-mark{position:absolute;bottom:3px;left:50%;width:16px;height:3px;transform:translateX(-50%);background:#45583b;box-shadow:-4px 0 #45583b,4px 0 #45583b}
+#menu[data-control-style="B"] #tabs button:hover:not(.active) .tab-surface{background:#354c35}
+#menu[data-control-style="B"] #tabs button:active .tab-surface{transform:translateY(1px)}
+#menu[data-control-style="B"] .a-bottom{background:#172219;border:3px solid #8c9a6a;border-radius:0;box-shadow:inset 0 0 0 3px #0b150e,0 5px #060c08;backdrop-filter:none}
+@media(max-width:600px){#menu[data-control-style="B"] #tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding-bottom:0}#menu[data-control-style="B"] #tabs button{grid-column:span 2;min-width:0;font-size:11px;min-height:50px}#menu[data-control-style="B"] #tabs button:nth-child(4),#menu[data-control-style="B"] #tabs button:nth-child(5){grid-column:span 3}#menu[data-control-style="B"] #tabs .tab-surface{padding:10px 5px;gap:5px;min-height:50px}#menu[data-control-style="B"] #tabs button.active .tab-surface{transform:none;padding-bottom:10px}#menu[data-control-style="B"] .start-button{font-size:16px}#menu[data-control-style="B"] .a-bottom .cta-surface{gap:8px}}
+@media(prefers-reduced-motion:reduce){#menu[data-control-style="B"] .cta-surface,#menu[data-control-style="B"] #tabs .tab-surface{transition:none!important;transform:none!important}}
