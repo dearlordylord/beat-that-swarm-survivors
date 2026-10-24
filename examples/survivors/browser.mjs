@@ -114,6 +114,7 @@ function menu() {
   let html = "";
   if (tab === "expedition") {
     html =
+      `<div class="start-row start-row-top"><p>${CHARACTERS[character].name} · ${STAGES[stage].name}</p><button class="primary" id="start-top">Start run →</button></div>` +
       '<div class="section-title">I · Choose your fate</div><div class="grid heroes">' +
       CHARACTERS.map((h) => {
         let open = isUnlocked(profile, "character", h.id);
@@ -143,7 +144,7 @@ function menu() {
           mode === m.id,
         ),
       ).join("") +
-      '</div><div class="start-row"><p>Collect experience shards and build a loadout of 6 weapons and 6 relics. A level VIII weapon and its matching relic unlock an evolution from a chest.</p><button class="primary" id="start">Into the night →</button></div>';
+      '</div><div class="start-row"><p>Collect experience shards and build a loadout of 6 weapons and 6 relics. A level VIII weapon and its matching relic unlock an evolution from a chest.</p><button class="primary" id="start">Start run →</button></div>';
   } else if (tab === "shop") {
     html =
       '<div class="section-title">Power that outlives the night</div><div class="grid shop">' +
@@ -527,7 +528,7 @@ document.addEventListener("click", (event) => {
       b.textContent = banishing
         ? "Choose an ability to banish"
         : "Banish an offer…";
-    } else if (b.id === "start" || b.id === "restart") start();
+    } else if (b.id === "start" || b.id === "start-top" || b.id === "restart") start();
     else if (b.id === "map") pause(true);
     else if (b.id === "pause" || b.id === "resume") pause();
     else if (b.id === "return") menu();

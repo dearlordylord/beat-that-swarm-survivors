@@ -640,3 +640,5 @@ footer {
 .source-links a:hover { color: var(--gold); }
 .source-links a:focus-visible { color: var(--gold); outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
 .source-links svg { flex-shrink: 0; }
+
+.start-row-top { margin-top: 0; margin-bottom: 20px; }
