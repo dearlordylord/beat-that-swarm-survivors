@@ -634,3 +634,9 @@ footer {
   .topline .brand { max-width: 110px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   #map { padding: 6px; font-size: 10px; }
 }
+
+.source-links { display: flex; justify-content: center; gap: 18px; margin-top: 14px; }
+.source-links a { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 6px; color: var(--muted); font-size: 12px; text-decoration: none; }
+.source-links a:hover { color: var(--gold); }
+.source-links a:focus-visible { color: var(--gold); outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+.source-links svg { flex-shrink: 0; }
