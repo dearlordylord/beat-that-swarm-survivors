@@ -142,3 +142,27 @@ The final production native windowed application compiles with Bend 2.0.38 and
 Clang 19 on Linux arm64. The final pixel oracle, BendHub dependency audit
 (54 modules) and unchanged spawn-policy kernel proofs pass. Final source/binary
 hashes and logs: `../bend-games/research/native-render-final-20261023/`.
+
+## Public browser game — 2026-10-23
+
+[Play the public game](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site).
+The current ordinary build/gameplay suite and real Chromium browser smoke pass,
+including keyboard/touch movement, rewards, pause, collection and profile reload.
+All three stages have empty stderr and no source-guard failures. The browser
+edition uses the current Bend simulation compiled to JavaScript, with the
+existing Canvas/input/audio frontend; it does not run the native image renderer.
+
+`build-web.sh` passes and its ten static files match the published package
+byte-for-byte. Generated game module SHA256:
+`021a431ba33449e32183885144bbbda7ecfc2a25ae098bb034f090e9f5154a9b`.
+A separate anonymous check of the deployed public URL passes HTTP 200, game
+start, advancing ticks, keyboard movement and paused tick stability, with zero
+page errors or failed script/module responses. This is a short functional
+browser check, not a complete online run or browser performance qualification.
+
+Sites project: `appgprj_6adc187631688191ba85f51abdc97f4f`; public version 1,
+source commit `059e4adc1041666d44e88632d1d2ba94fdc39ac3`, deployed successfully.
+The deployment source checkout retains `.openai/hosting.json` and `SOURCE.json`;
+the latter binds the game source revision, asset hashes and BendHub dependency.
+Raw game/browser receipts and captures are retained outside tracked source in
+`../bend-games/research/public-web-game-20261023/`.

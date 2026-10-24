@@ -22,14 +22,30 @@ Standard and Inverse reach dawn after ten simulated minutes, then a lethal Reape
 
 ## Browser version
 
-The earlier browser frontend remains available for comparison and automated simulation checks:
+[**Play Nightfall Survivors online**](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site).
+
+The browser edition runs the Bend simulation compiled to JavaScript, with Canvas rendering and browser input/audio. It supports desktop keyboard and a touch joystick; progress stays in this browser’s local storage. Native and browser saves are separate.
+
+For local browser play:
 
 ```sh
-bash examples/survivors/build.sh
 node examples/survivors/launch.mjs
 ```
 
 This path requires Node.js 20+ and opens http://127.0.0.1:8713. The portable `run.command` now starts the native version.
+
+For a static website, build from the repository root:
+
+```sh
+bash examples/survivors/build-web.sh
+python3 -m http.server 8713 --directory examples/survivors/dist/web
+```
+
+Upload the complete `examples/survivors/dist/web` directory to a static host.
+The hosted game needs no server-side Bend, Node.js, API keys or classifier;
+Bend and Node are build/development tools only. Serve over HTTP rather than
+opening the HTML file directly. Re-run the build and redeploy after updating
+the game sources.
 
 ## Checks
 
