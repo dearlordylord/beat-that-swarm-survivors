@@ -4,6 +4,8 @@ The current world has 1,456 identities: 512 enemy/relic slots, 512 player projec
 
 Fresh emitted gameplay and Chromium checks passed (`/tmp/survivors-no-actors-gameplay.log`, `/tmp/survivors-no-actors-browser.log`). Regressions cover former NPC locations and injected obsolete tower snapshots: no actor bodies, passive rewards, tower damage or slow. The ordinary stationary smoke dies at tick 435; this is not a complete-run or performance claim. Actual Bend-backed bot action and offline-policy parity checks passed, including rejection of removed actor goals. All-U32 pool laws prove the actor range empty.
 
+Native UI/profile, rendering fixtures, spawn-lifecycle checks and application compilation passed; no physical window was opened. The unchanged complete-run controller reached death at tick 36,583 (level 1, 14 kills, 167 gold, zero choices), so its stricter level/chest/boss/evolution progression oracle **failed**. Earlier actor-assisted progression results do not qualify this revision. No controller or oracle was changed to hide that failure.
+
 Evidence: `../../../bend-games/research/no-map-actors-20261024/`. Earlier measurements below describe earlier source versions and do not qualify the actor-free game.
 
 # Automatic reward panel follow-up
