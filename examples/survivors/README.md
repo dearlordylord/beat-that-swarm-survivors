@@ -6,9 +6,11 @@ A Vampire Survivors clone built as a Bendvy ECS example. See [setup](../../READM
 
 `game.bend` owns the affine world and runs queries with declared component access: projectile updates write geometry and motion; enemy movement writes geometry and reads motion; combat reads geometry and writes health/status; lifecycle applies entity transitions. `projectile.bend` and `encounters.bend` implement weapon motion, enemies and hazards.
 
-The fixed pool has 1004 entities: 512 enemy/relic slots, 192 player projectiles, 32 hostile projectiles, 12 independent actors and 256 persistent XP piles. Eight rescue wisps and four ward sentinels share the combat systems; their state uses Body, Vitals and Motion. XP leaves enemy slots immediately and requires physical collection. Overflow merges into the nearest existing XP pile without moving it or granting automatic credit.
+The pool layout is defined in [`pools.bend`](pools.bend): 512 enemy/relic slots, 512 shared player-projectile slots, 32 hostile-projectile slots, 12 actors and 400 XP piles (1468 entities total). Ordinary enemy admission reaches 300; Curse and run modifiers can raise it to 500. Eight rescue wisps and four ward sentinels share the combat systems; their state uses Body, Vitals and Motion. XP leaves enemy slots immediately and requires physical collection. Overflow accumulates in one marked red pile, preserving its identity and position until pickup. Visual size grows with XP up to radius 8 at 100 XP; further XP still accumulates.
 
-Pool capacity is not a frame-rate result. The example makes no claim of whole-game formal proof or GPU/parallel-runtime performance qualification. See [balance](BALANCE.md), [native renderer measurements](../../research/native-renderer-performance.md) and the verified [offscreen birth invariant](spawn-policy/README.md) for narrower results and limits.
+Player shots carry their owning weapon and logical spread slot in Motion. A once-per-tick allocator shares free slots across equipped weapons, preserves live shots and applies per-weapon live budgets of 40–70; persistent fields retain their logical-slot limits. Volley amounts and firing cadence are unchanged. See [pool behavior](pools/README.md).
+
+Pool capacity is not a frame-rate result. The example makes no claim of whole-game formal proof or GPU/parallel-runtime performance qualification. See [balance](BALANCE.md), [current pool/frame measurements](../../research/shared-projectile-pool.md) and the verified [offscreen birth invariant](spawn-policy/README.md) for narrower results and limits.
 
 ## Native launch
 

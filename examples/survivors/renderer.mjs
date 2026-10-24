@@ -1,3 +1,5 @@
+import Game from "./dist/game.mjs";
+
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
 const TAU = Math.PI * 2;
 const THEMES = [
@@ -416,12 +418,13 @@ export class Renderer {
       ? 0
       : Math.sin(t * 3 + (b[7] || 0)) * 2;
     if (k === 2) {
-      const r = 3 + (v % 3);
-      c.fillStyle = "#4eafff35";
+      const r = Game.xp_visual_radius(b[4] >>> 0);
+      const color = "#" + Game.xp_pile_color(b[4] >>> 0, v >>> 0).toString(16).padStart(6, "0");
+      c.fillStyle = color + "35";
       c.beginPath();
-      c.arc(x, y, 10, 0, TAU);
+      c.arc(x, y, r + 6, 0, TAU);
       c.fill();
-      c.fillStyle = ["#69ceff", "#9b8aff", "#ff7fbd"][v % 3];
+      c.fillStyle = color;
       c.beginPath();
       c.moveTo(x, y - r + bob);
       c.lineTo(x + r * 0.7, y + bob);

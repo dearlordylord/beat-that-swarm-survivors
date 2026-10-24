@@ -7,8 +7,8 @@ assert.equal(Game.earned_xp(2, empty, 0, 0), 2, "XP awards retain their original
 assert.equal(Game.earned_xp(6, empty, 0, 0), 6);
 assert.equal(Game.next_xp_need(1), 206, "Subsequent level costs are doubled");
 assert.equal(Game.active_limit(0), 96);
-assert.equal(Game.active_limit(21600), 512);
-assert.equal(Game.active_limit(100000), 512);
+assert.equal(Game.active_limit(21600), 300);
+assert.equal(Game.active_limit(100000), 300);
 assert.ok(Game.next_xp_need(40) > Game.next_xp_need(20) * 2,
   "Later levels require accelerating investment rather than constant interruption");
 const openingSpawns = Array.from({length: 24}, (_, i) => Game.enemy_new(i, 60, 1800, 1800, 0, 0, 0));
@@ -147,11 +147,11 @@ const pulse = list([
       hp: 160,
       maxHp: 160,
       age: 90,
-      seed: 744,
+      seed: Game.pool_actor_start() + 8,
       radius: 12,
     },
     motion: {
-      $: "Motion",
+      ...Game.empty_motion(),
       vx: 0,
       vy: 0,
       life: 0,
@@ -204,7 +204,7 @@ const reaperBody = {
   radius: 36,
 };
 const frozenMotion = {
-  $: "Motion",
+  ...Game.empty_motion(),
   vx: 0,
   vy: 0,
   life: 0,
@@ -315,7 +315,13 @@ let dense = accept(Game.start(0, 0));
 dense.state.run.tick = 21600;
 for (let i = 0; i < 12; i++) dense = accept(Game.advance_live(dense.state, 0, 0));
 const admittedEnemies = dense.frame.bodies.filter(b => b[2] === 0).length;
-assert.ok(admittedEnemies >= 480, `Late-wave admission produced ${admittedEnemies} enemies`);
+assert.equal(admittedEnemies, 300, "Normal late-wave admission follows the 300-enemy gameplay cap");
+let boosted = accept(Game.start(0, 0));
+// Legal maximum Curse rank plus Inverse mode exceeds the500 admission ceiling.
+boosted = accept(Game.set_mode(boosted.state, 1));
+boosted.state.run = { ...boosted.state.run, tick: 21600, passives: Game.set_at(boosted.state.run.passives, 14, 5) };
+for (let i = 0; i < 6; i++) boosted = accept(Game.advance_live(boosted.state, 0, 0));
+assert.equal(boosted.frame.bodies.filter(b => b[2] === 0).length, 500, "Modified admission saturates at 500 while preserving reserved relic capacity");
 for (let i = 0; i < 60; i++) {
   if ([3, 4].includes(dense.frame.phase)) break;
   dense = accept(Game.advance_live(dense.state, 1, 0));

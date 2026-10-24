@@ -1,3 +1,9 @@
+# Current pool revision
+
+The current [pool scheme](pools/README.md) uses 400 physical XP piles and a shared 512-slot projectile pool. Ordinary enemy admission reaches 300 and modified admission 500. Weapon cadence and volley amounts are unchanged; more volleys can remain alive together. The observations below describe earlier pool configurations; current validation is recorded in [VALIDATION.md](VALIDATION.md).
+
+---
+
 # Automatic choices and slower XP follow-up
 
 New level and treasure choices automatically pause combat and open their panels. Esc explicitly defers a choice; E reopens it. Consuming a reward promotes and opens the next queued reward. No reward is spent automatically.

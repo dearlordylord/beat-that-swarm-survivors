@@ -108,9 +108,11 @@ const body = (kind, seed, variant = 1) => ({
 });
 const shot = (pierce, visited = []) => ({
   $: "Snapshot",
-  body: body(1, 192),
+  body: body(1, Game.pool_player_start()),
   motion: {
-    $: "Motion",
+    ...Game.empty_motion(),
+    ownerBase: 1,
+    logicalSlot: 0,
     vx: 1,
     vy: 0,
     life: 60,
@@ -122,13 +124,13 @@ const shot = (pierce, visited = []) => ({
 });
 const enemies = list([body(0, 11), body(0, 12)]);
 const single = Game.plan_hits(list([shot(1)]), enemies);
-assert.deepEqual(array(Game.hit_targets(single, 192)), [11]);
+assert.deepEqual(array(Game.hit_targets(single, Game.pool_player_start())), [11]);
 assert.equal(Game.collisions(single, 100, 100, 10, 11).damage, 7);
 assert.equal(Game.collisions(single, 100, 100, 10, 12).damage, 0);
 const visited = Game.plan_hits(list([shot(1, [11])]), enemies);
-assert.deepEqual(array(Game.hit_targets(visited, 192)), [12]);
+assert.deepEqual(array(Game.hit_targets(visited, Game.pool_player_start())), [12]);
 const pair = Game.plan_hits(list([shot(2)]), enemies);
-assert.deepEqual(array(Game.hit_targets(pair, 192)), [11, 12]);
+assert.deepEqual(array(Game.hit_targets(pair, Game.pool_player_start())), [11, 12]);
 assert.equal(Game.collisions(pair, 100, 100, 10, 12).damage, 7);
 console.log(
   "Recovery does not create health; frozen collision recipients obey pierce and hit history.",

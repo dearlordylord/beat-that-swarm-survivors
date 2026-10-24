@@ -10,7 +10,7 @@ for(const [px,py]of [[1800,1800],[20,20],[3580,3580]])for(const seed of [17,23,5
  const run={...p.state.run,tick,px,py,seed:12344+tick};
  const old={...G.initial_body(seed),x:px,y:py};
  const motion={...G.empty_motion(),vx:42,vy:13,life:17,pierce:23,visited:list([8,9]),slow,burn};
- const hits=ward?list([{$:'HitPlan',shot:744,weapon:10,damage:24,x:px,y:py,radius:120,area:{$:'True'},targets:nil}]):nil;
+ const hits=ward?list([{$:'HitPlan',shot:G.pool_actor_start()+8,weapon:10,damage:24,x:px,y:py,radius:120,area:{$:'True'},targets:nil}]):nil;
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits};
  const candidate=G.update(old,run).body;
  assert.equal(candidate.kind,0,'fixture really admits a fresh enemy');

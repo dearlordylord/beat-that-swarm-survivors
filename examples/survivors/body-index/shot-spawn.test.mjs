@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// Differential oracle: compile the unchanged baseline and candidate game.bend
-// separately, then supply their paths. No copy of the old implementation lives
-// in this fixture; only pure Run/Args inputs cross the two module boundaries.
+// Differential birth oracle: old bank identities define logical owner/ordinal
+// only. The candidate receives explicit metadata and a different physical ID;
+// complete birth state is compared, with its two new Motion metadata fields
+// asserted separately. This does not qualify shared request planning/saturation.
 const [baselinePath, candidatePath] = process.argv.slice(2);
 assert.ok(baselinePath && candidatePath, 'Pass baseline-game.mjs and candidate-game.mjs');
 assert.notEqual(resolve(baselinePath), resolve(candidatePath), 'The oracle and candidate must be separate artifacts');
@@ -54,8 +55,18 @@ function compare(seed, level, tick, profile, geometry, direction, invuln = 0) {
   if (level === 0) assert.equal(actualSchedule, false, 'An unowned ordinary scheduled shot stays false; retaliation is separate');
   scheduledComparisons++;
   const expected = plain(api(baseline, 'shot_spawn')(seed, args(baseline, level, tick, profile, geometry, direction, invuln)));
-  const actual = plain(api(candidate, 'shot_spawn')(seed, args(candidate, level, tick, profile, geometry, direction, invuln)));
-  assert.deepEqual(actual, expected, `shot_spawn seed=${seed} rank=${level} tick=${tick} arcana=${profile.arcana} invuln=${invuln}`);
+  const physicalSeed = 1023 - (seed - 512);
+  const fire = actualSchedule || (profile.arcana === 4 && base === 19 && slot === 0 && invuln > 30 && tick % 12 === 0);
+  const actual = plain(api(candidate, 'shot_spawn_assigned')(physicalSeed,
+    args(candidate, level, tick, profile, geometry, direction, invuln),
+    fire ? {$:'Some',value:{$:'Request',owner:base,slot,level}} : {$:'None'}));
+  const metadata = { ownerBase: actual.motion.ownerBase, logicalSlot: actual.motion.logicalSlot };
+  assert.deepEqual(metadata, actual.row.body.kind === 1 ? {ownerBase:base,logicalSlot:slot} : {ownerBase:0,logicalSlot:0},
+    'Birth records logical metadata independently of the physical pool slot');
+  const legacyShape = structuredClone(actual);
+  delete legacyShape.motion.ownerBase;delete legacyShape.motion.logicalSlot;
+  legacyShape.row.body.seed=seed;
+  assert.deepEqual(legacyShape, expected, `shot_spawn seed=${seed} rank=${level} tick=${tick} arcana=${profile.arcana} invuln=${invuln}`);
   assert.equal(actual.$, 'EntityRow');
   if (actual.row.body.kind === 1) fired++; else { assert.equal(actual.row.body.kind, 8); dormant++; }
   outputHash.update(JSON.stringify(actual)); comparisons++;
@@ -80,5 +91,5 @@ const thorn = compare(664, 0, 12, { ...profiles[0], arcana: 4 }, geometries[2], 
 assert.equal(thorn.row.body.kind, 1, 'Unowned Thorn still fires for Arcana 4 retaliation');
 assert.ok(fired > 0 && dormant > 0);
 const hash = path => createHash('sha256').update(readFileSync(path)).digest('hex');
-console.log(JSON.stringify({ test: 'shot-spawn-differential', comparisons, scheduledComparisons, fired, dormant,
+console.log(JSON.stringify({ test: 'explicit-shot-birth-differential', comparisons, scheduledComparisons, fired, dormant,
   outputSha256: outputHash.digest('hex'), baselineSha256: hash(baselinePath), candidateSha256: hash(candidatePath) }));

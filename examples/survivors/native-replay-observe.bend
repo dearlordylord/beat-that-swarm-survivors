@@ -1,5 +1,6 @@
 import Base
 import game.bend as G
+import pools.bend as PL
 import bendvy-ecs-core@0.1.0.1/world.bend as W
 import bendvy-ecs-core@0.1.0.1/column.bend as Col
 import bendvy-ecs-core@0.1.0.1/lifecycle.bend as L
@@ -51,7 +52,7 @@ def vitals(value: G.Vitals) -> String:
     case G.Vitals{health,maximum}: array([U32.show(health),U32.show(maximum)])
 def motion(value: G.Motion) -> String:
   match value:
-    case G.Motion{vx,vy,life,pierce,visited,slow,burn}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(slow),U32.show(burn)])
+    case G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(slow),U32.show(burn),U32.show(owner),U32.show(slot)])
 def offer(value: G.Offer) -> String:
   match value:
     case G.Offer{kind,id,level}: array([U32.show(kind),U32.show(id),U32.show(level)])
@@ -108,13 +109,13 @@ def store_motion(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.Vitals>
     case (m,ms): (G.Store{b,v,m},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "]}")
 def store_vitals(b: Col.Column<G.Schema,G.Body>,m: Col.Column<G.Schema,G.Motion>,bs: String,result: Col.Column<G.Schema,G.Vitals> & String) -> G.Store & String:
   match result:
-    case (v,vs): store_motion(b,v,bs,vs,column_rows(~G.Motion,~G.Motion,~G.project_motion,~motion,1004n,1,m))
+    case (v,vs): store_motion(b,v,bs,vs,column_rows(~G.Motion,~G.Motion,~G.project_motion,~motion,PL.total_nat(),1,m))
 def store_body(v: Col.Column<G.Schema,G.Vitals>,m: Col.Column<G.Schema,G.Motion>,result: Col.Column<G.Schema,G.Body> & String) -> G.Store & String:
   match result:
-    case (b,bs): store_vitals(b,m,bs,column_rows(~G.Vitals,~G.Vitals,~G.project_vitals,~vitals,1004n,1,v))
+    case (b,bs): store_vitals(b,m,bs,column_rows(~G.Vitals,~G.Vitals,~G.project_vitals,~vitals,PL.total_nat(),1,v))
 def store(value: G.Store) -> G.Store & String:
   match value:
-    case G.Store{b,v,m}: store_body(v,m,column_rows(~G.Body,~G.Body,~G.project,~body,1004n,1,b))
+    case G.Store{b,v,m}: store_body(v,m,column_rows(~G.Body,~G.Body,~G.project,~body,PL.total_nat(),1,b))
 def key(value: K.Key) -> String:
   match value:
     case K.EntityKey{id,generation}: array([U32.show(id),U32.show(generation)])
@@ -216,7 +217,7 @@ def fold_offer(value: G.Offer,acc: U32) -> U32:
     case G.Offer{kind,id,level}: fold_words([kind,id,level],acc)
 def fold_motion(value: G.Motion,acc: U32) -> U32:
   match value:
-    case G.Motion{vx,vy,life,pierce,visited,slow,burn}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,slow,burn],acc))
+    case G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,slow,burn,owner,slot],acc))
 def fold_snapshot(value: G.Snapshot,acc: U32) -> U32:
   match value:
     case G.Snapshot{b,m}: fold_motion(m,fold_body(b,acc))
@@ -257,13 +258,13 @@ def force_store_motion(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.V
     case (m,acc): (G.Store{b,v,m},acc)
 def force_store_vitals(b: Col.Column<G.Schema,G.Body>,m: Col.Column<G.Schema,G.Motion>,result: Col.Column<G.Schema,G.Vitals> & U32) -> G.Store & U32:
   match result:
-    case (v,acc): force_store_motion(b,v,force_column(~G.Motion,~G.Motion,~G.project_motion,~fold_motion,1004n,1,m,acc))
+    case (v,acc): force_store_motion(b,v,force_column(~G.Motion,~G.Motion,~G.project_motion,~fold_motion,PL.total_nat(),1,m,acc))
 def force_store_body(v: Col.Column<G.Schema,G.Vitals>,m: Col.Column<G.Schema,G.Motion>,result: Col.Column<G.Schema,G.Body> & U32) -> G.Store & U32:
   match result:
-    case (b,acc): force_store_vitals(b,m,force_column(~G.Vitals,~G.Vitals,~G.project_vitals,~fold_vitals,1004n,1,v,acc))
+    case (b,acc): force_store_vitals(b,m,force_column(~G.Vitals,~G.Vitals,~G.project_vitals,~fold_vitals,PL.total_nat(),1,v,acc))
 def force_store(value: G.Store) -> G.Store & U32:
   match value:
-    case G.Store{b,v,m}: force_store_body(v,m,force_column(~G.Body,~G.Body,~G.project,~fold_body,1004n,1,b,2166136261))
+    case G.Store{b,v,m}: force_store_body(v,m,force_column(~G.Body,~G.Body,~G.project,~fold_body,PL.total_nat(),1,b,2166136261))
 def force_world_clock(acc: U32,result: G.World() & Tick.Tick) -> G.World() & U32:
   match result:
     case (owner,time): (owner,fold_tick(time,acc))

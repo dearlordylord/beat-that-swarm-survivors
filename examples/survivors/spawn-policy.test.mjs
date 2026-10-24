@@ -99,7 +99,7 @@ for(const [px,py] of [[20,20],[20,3580],[1800,1800],[3580,20],[3580,3580]])
       assert.equal(packet.$,'Packet','actual live advance must succeed');
       const run=packet.state.run;
       for(const body of bodyList(packet.state.bodies)) {
-        if(body.seed>=512 || body.kind!==0 || before.get(body.seed)===0) continue;
+        if(body.seed>=Game.pool_enemy_count() || body.kind!==0 || before.get(body.seed)===0) continue;
         const context=JSON.stringify({px,py,startTick,step,body,runPx:run.px,runPy:run.py});
         assert.equal(accepted(body.x,body.y,run.px,run.py,body.radius),true,context);
         const x=(body.x-run.px)*.65+256,y=(body.y-run.py)*.65+210;
@@ -110,10 +110,10 @@ for(const [px,py] of [[20,20],[20,3580],[1800,1800],[3580,20],[3580,3580]])
     }
     if(startTick===21600) {
       // normal_entity reserves pool identity511 for relic_entity; it is not an
-      // enemy slot even though the admission budget has a nominal cap of512.
-      assert.deepEqual([...seen].sort((a,b)=>a-b),Array.from({length:511},(_,i)=>i),
-        'Dense fixture observes every actual enemy slot (0..510), including boss identity0');
-      assert.notEqual(bodyList(packet.state.bodies).find(body=>body.seed===511)?.kind,0,
+      // enemy slot even though the admission budget has a physical pool of512, including the reserved relic.
+      assert.deepEqual([...seen].sort((a,b)=>a-b),Array.from({length:300},(_,i)=>i),
+        'Normal dense fixture observes all 300 admitted enemies, including boss identity0');
+      assert.notEqual(bodyList(packet.state.bodies).find(body=>body.seed===Game.pool_relic_seed())?.kind,0,
         'Reserved relic identity511 must never be counted as an enemy');
     }
   }

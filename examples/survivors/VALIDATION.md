@@ -166,3 +166,27 @@ The deployment source checkout retains `.openai/hosting.json` and `SOURCE.json`;
 the latter binds the game source revision, asset hashes and BendHub dependency.
 Raw game/browser receipts and captures are retained outside tracked source in
 `../bend-games/research/public-web-game-20261023/`.
+
+
+## Shared projectile pool and XP revision — 2026-10-24
+
+The current layout has 1468 entities, 400 physical XP entries and 512 shared
+player-projectile slots with explicit owner/logical-position metadata.
+Configuration, allocation, visual-cap, pickup and spawn small-core kernel checks
+pass. The ordinary suite, 305 allocator cases, 55,585 birth/schedule comparisons,
+actual ECS owner transport, legal 300/500 enemy admission, simultaneous 480-drop
+XP conservation, desktop/touch browser flow, exact XP browser colors/capped
+footprints, native UI/profile/FPS/XP/spawn/parallel fixtures and native application
+build pass. The final integrated visual/allocator test adapters use the ordinary
+game build and pass separately.
+
+The unchanged maximum-meta native controller passes a full run: tick 36563,
+phase 4, HP 0, level 15, 1696 kills, 1203 gold and 16 decisions, with its existing
+boss/chest/evolution assertions. This qualifies one defensive build only.
+Native source hashes match before/after execution; headless captures are retained.
+No actual macOS window/FPS or general balance parity is claimed.
+
+See [the pool report](../../research/shared-projectile-pool.md) for 400/500-enemy
+frame observations, proof boundaries and the rejected planner optimization.
+Raw source-bound evidence: `../bend-games/research/shared-projectile-pool-20261023/`.
+The earlier 1004-entity/48-shot timings above describe their earlier revision.

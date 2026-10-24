@@ -321,11 +321,12 @@ def hero_color(character: U32) -> U32:
 def player(+x: F32,+y: F32,character: U32,invuln: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   hero(x,y,0.85,tint(U32.is_lt(0,invuln),16052433,hero_color(character)),tail)
 
-def gem(+x: F32,+y: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  a = D.rect((x - 1.0 : F32),(y - 4.0 : F32),2.0,8.0,color,tail)
-  b = D.rect((x - 2.0 : F32),(y - 2.0 : F32),4.0,4.0,color,a)
-  c = D.rect((x - 3.0 : F32),(y - 1.0 : F32),6.0,2.0,color,b)
-  D.rect((x - 1.0 : F32),(y - 2.0 : F32),1.0,2.0,16052433,c)
+def gem_scaled(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = box(x,y,scale,(0.0 - 1.0 : F32),(0.0 - 4.0 : F32),2.0,8.0,color,tail)
+  b = box(x,y,scale,(0.0 - 2.0 : F32),(0.0 - 2.0 : F32),4.0,4.0,color,a)
+  c = box(x,y,scale,(0.0 - 3.0 : F32),(0.0 - 1.0 : F32),6.0,2.0,color,b)
+  box(x,y,scale,(0.0 - 1.0 : F32),(0.0 - 2.0 : F32),1.0,2.0,16052433,c)
+def gem(x: F32,y: F32,color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>: gem_scaled(x,y,1.0,color,tail)
 
 def sprite(kind: U32,+variant: U32,+x: F32,+y: F32,+radius: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match kind:

@@ -15,10 +15,10 @@ def payload(tick=0):
     body = lambda seed: [0, 0, 8, 0, 0, 0, 0, seed, 0]
     stamp = [[0, 1], [0, 1]]
     return {"run": run, "bodies": [], "offers": [], "snapshots": [], "pending": [],
-            "components": {"bodies": [[i+1, body(i), stamp] for i in range(1004)],
-                           "vitals": [[i+1, [0, 0], stamp] for i in range(1004)],
-                           "motions": [[i+1, [0, 0, 0, 0, [], 0, 0], stamp] for i in range(1004)]},
-            "metadata": {"namespace": 1, "allocator": [1005, 1004, 1024, 10, [], [], [[0, 2]] * 1024],
+            "components": {"bodies": [[i+1, body(i), stamp] for i in range(1468)],
+                           "vitals": [[i+1, [0, 0], stamp] for i in range(1468)],
+                           "motions": [[i+1, [0, 0, 0, 0, [], 0, 0, 0, 0], stamp] for i in range(1468)]},
+            "metadata": {"namespace": 1, "allocator": [1469, 1468, 2048, 11, [], [], [[0, 2]] * 2048],
                          "clock": [[0, 1], []], "events": 0, "pendingCommands": 0,
                          "registrations": [], "nextSystemId": 0}}
 
@@ -41,6 +41,7 @@ class CompareTest(unittest.TestCase):
     def test_each_authoritative_or_gameplay_mutation_fails(self):
         mutations = [lambda p:p["run"].__setitem__(4, 1), lambda p:p["components"]["bodies"][499][1].__setitem__(8, 0x80000000),
                      lambda p:p["components"]["vitals"][900][1].__setitem__(0, 10), lambda p:p["components"]["motions"][10][1].__setitem__(6, 90),
+                     lambda p:p["components"]["motions"][10][1].__setitem__(7, 21), lambda p:p["components"]["motions"][10][1].__setitem__(8, 7),
                      lambda p:p["components"]["bodies"][0][2][1].__setitem__(0, 1), lambda p:p["metadata"]["clock"][0].__setitem__(1, 2),
                      lambda p:p["pending"].append(1), lambda p:p["metadata"]["allocator"][6][50].__setitem__(1, 3)]
         for mutate in mutations:
@@ -50,7 +51,7 @@ class CompareTest(unittest.TestCase):
         a=replay(); b=copy.deepcopy(a); b[2]["payload"]["run"][4]=False; self.write(a,b)
         with self.assertRaises(R.ReplayError):R.compare(self.a,self.b)
     def test_missing_slots_and_opaque_commands_fail_even_when_both_match(self):
-        for change in [lambda p:p["components"]["vitals"].pop(),lambda p:p["metadata"].__setitem__("pendingCommands",1)]:
+        for change in [lambda p:p["components"]["vitals"].pop(),lambda p:p["metadata"].__setitem__("pendingCommands",1),lambda p:p["components"]["motions"][0][1].__delitem__(slice(7,None))]:
             a=replay();change(a[2]["payload"]);self.write(a,a)
             with self.assertRaises(R.ReplayError):R.compare(self.a,self.b)
     def test_truncation_duplicate_checkpoint_and_missing_summary_fail(self):

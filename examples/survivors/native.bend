@@ -3,6 +3,7 @@ import game.bend as G
 import encounters.bend as E
 import native_draw.bend as D
 import native_art.bend as Art
+import loot-visual.bend as LV
 import native_audio.bend as Sound
 import native-content.bend as C
 import native-profile.bend as P
@@ -263,14 +264,20 @@ def healthbar_visible(visible: Bool,kind: U32,hp: U32,maxHp: U32,x: F32,y: F32,r
     case True{}: Art.health_bar(kind,hp,maxHp,x,y,radius,tail)
     case False{}: tail
 
+def body_xp_visible(visible: Bool,+kind: U32,+variant: U32,+x: F32,+y: F32,+radius: F32,+amount: U32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match visible kind:
+    case False{} _: tail
+    case True{} 2: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,U32.is_eq(variant,1)),tail)
+    case True{} _: Art.sprite(kind,variant,x,y,radius,color,tail)
+
 def body_sprites(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case G.Body{x,y,+kind,+variant,hp,maxHp,age,seed,radius} <> rest:
+    case G.Body{x,y,+kind,+variant,+hp,maxHp,age,seed,radius} <> rest:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
-      body_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,body_color(kind,variant),body_sprites(rest,px,py,tail))
+      body_xp_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,hp,body_color(kind,variant),body_sprites(rest,px,py,tail))
 
 # A separate overlay keeps a nearby sprite from hiding another enemy's HP.
 def body_healthbars(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
@@ -396,7 +403,7 @@ def pulse_ring(active: Bool,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Re
 def ward_pulses(rows: List<&2,G.Snapshot>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case G.Snapshot{G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},G.Motion{vx,vy,+life,pierce,visited,slow,burn}} <> rest:
+    case G.Snapshot{G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},G.Motion{vx,vy,+life,pierce,visited,slow,burn,_,_}} <> rest:
       pulse_ring(Bool.and(Bool.and(U32.is_eq(kind,11),U32.is_eq(variant,1)),Bool.and(U32.is_lt(0,hp),Bool.and(U32.is_le(82,life),U32.is_le(life,90)))),((x - px) * 0.65 + 256.0 : F32),((y - py) * 0.65 + 210.0 : F32),ward_pulses(rest,px,py,tail))
 
 def gameplay_rows(+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
