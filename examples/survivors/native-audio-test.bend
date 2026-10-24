@@ -18,7 +18,10 @@ def frames(rows: List<&2,F32>) -> U32:
     case _: 4294967295
 def cursor(track: A.Track) -> U32:
   match track:
-    case A.Track{_,_,_,cursor,_,_,_,_,_}: cursor
+    case A.Track{_,_,_,cursor,_,_,_,_,_,_}: cursor
+def playlist_seed(track: A.Track) -> U32:
+  match track:
+    case A.Track{_,_,_,_,_,_,_,_,_,seed}: seed
 def elapsed(now: Nat,then: Nat) -> Nat: Nat.sub(now,then)
 def energy(rows: List<&2,F32>) -> F32:
   match rows:
@@ -32,7 +35,7 @@ def bench(fuel: Nat,+index: U32) -> F32:
     case 1n+k: (energy(A.samples(1024n,index,busy_voices(index))) + bench(k,(index + 1024 : U32)) : F32)
 def score_step(track: A.Track) -> U32:
   match track:
-    case A.Track{_,_,_,_,step,_,_,_,_}: step
+    case A.Track{_,_,_,_,step,_,_,_,_,_}: step
 def target(control: A.Control) -> U32:
   match control:
     case A.Control{_,target,_,_,_}: target
@@ -66,10 +69,10 @@ def main() -> IO(Unit):
     expect(U32.is_le(voice_count(A.install_score(M.notes(0,0,3),0,busy_voices(0))),10),"overlapping note bank is capped at10voices")
     expect(U32.is_eq(cursor(A.transport_at(5000n,False{},0,0,paused)),0),"paused musical clock does not advance")
     expect(U32.is_eq(score_step(A.prepare(A.initial())),4294967295),"menu refill does not consume first score step")
-    expect(Bool.not(A.observation_due(150n,A.Track{150n,100,0,100,0,[],True{},0,A.Control{0,0,0,100n,0}})),"danger scan reuses cached observation before100ms")
-    expect(A.observation_due(200n,A.Track{200n,100,0,100,0,[],True{},0,A.Control{0,0,0,100n,0}}),"danger scan becomes due at100ms")
-    expect(A.observation_due(150n,A.Track{150n,100,0,A.step_start(16),15,[],True{},0,A.Control{0,0,0,100n,0}}),"bar preparation requests fresh danger before100ms")
-    expect(U32.is_eq(cursor(A.reset_if(True{},A.after_block(100,A.Track{0n,0,0,0,0,[],True{},0,A.Control{0,0,0,0n,0}}))),0),"new run resets musical cursor")
+    expect(Bool.not(A.observation_due(150n,A.Track{150n,100,0,100,0,[],True{},0,A.Control{0,0,0,100n,0},0})),"danger scan reuses cached observation before100ms")
+    expect(A.observation_due(200n,A.Track{200n,100,0,100,0,[],True{},0,A.Control{0,0,0,100n,0},0}),"danger scan becomes due at100ms")
+    expect(A.observation_due(150n,A.Track{150n,100,0,A.step_start(16),15,[],True{},0,A.Control{0,0,0,100n,0},0}),"bar preparation requests fresh danger before100ms")
+    expect(U32.is_eq(cursor(A.reset_if(True{},A.after_block(100,A.Track{0n,0,0,0,0,[],True{},0,A.Control{0,0,0,0n,0},0}))),0),"new run resets musical cursor")
     expect(stereo(A.cue_pcm(3)),"paused reward cue uses standalone stereo PCM")
     expect(F32.is_gt(energy(A.cue_pcm(3)),0.0),"paused reward cue retains audible energy")
     expect(U32.is_eq(frames(A.cue_pcm(3)),882),"paused reward cue is bounded to882frames")
@@ -77,5 +80,7 @@ def main() -> IO(Unit):
     expect(A.refill_allowed(1024,A.step_start(16),15,True{}),"bar generation is allowed within46ms playback horizon")
     expect(U32.is_eq(target(A.control_at(200n,0,A.Control{0,3,0,100n,1000})),0),"latest calmer observation replaces pending high target")
     expect(U32.is_eq(band(A.prepare_changed(True{},16,200n,A.Control{0,3,0,100n,0})),0),"bar boundary uses latest intent rather than latched high target")
+    expect(U32.is_eq(playlist_seed(A.transport_at(5000n,False{},0,0,A.transport_at(1000n,True{},0,0,A.initial()))),1001),"native pause retains the run playlist seed")
+    expect(U32.is_eq(playlist_seed(A.reset_if(True{},A.transport_at(1000n,True{},0,0,A.initial()))),0),"new native run discards the old playlist seed")
     start : Nat <- IO.now()
     measured(start,bench(22n,0))

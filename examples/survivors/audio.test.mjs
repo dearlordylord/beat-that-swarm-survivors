@@ -70,9 +70,9 @@ test('shared hysteresis holds instrumentation across rapid threshold oscillation
     target = Game["music:target_band"](target, danger);
     assert.equal(target, 1);
   }
-  target = Game["music:target_band"](target, 500);
+  target = Game["music:target_band"](target, 650);
   assert.equal(target, 2);
-  for (const danger of [499, 501, 490, 510]) {
+  for (const danger of [649, 651, 640, 660]) {
     target = Game["music:target_band"](target, danger);
     assert.equal(target, 2);
   }
@@ -85,4 +85,16 @@ test('music-only envelope level leaves established SFX gain unchanged', () => {
   assert.equal(engine.context.gains[0].gain.ramps[0][0], 0.05);
   assert.equal(engine.context.gains[1].gain.ramps[0][0], 0.2);
   engine.stop(true);
+});
+
+test('composition seed survives pause and theme boundary preserves tension', () => {
+  const engine=new AudioEngine();
+  engine.context=context();engine.master={gain:param()};engine.playing=true;
+  engine.frame={stage:0};engine.musicSeed=123;engine.activeBand=2;engine.targetBand=2;
+  engine.step=512;engine.nextNote=0;
+  engine._refreshDanger=()=>{};engine._note=()=>{};
+  engine._schedule();
+  assert.equal(engine.activeBand,2,'Changing composition must not reset the arrangement');
+  engine.stop();
+  assert.equal(engine.musicSeed,123,'Pause keeps the run playlist');
 });

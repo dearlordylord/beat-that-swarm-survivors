@@ -5,9 +5,9 @@ import music.bend as M
 # The runtime ring has 4096 frames; refill requests at most 1024 at once.
 type Voice is Data: Voice{id: U32,start: U32,duration: U32,increment: F32,gain: F32}
 type Control is Data: Control{smooth: U32,target: U32,band: U32,clock: Nat,raw: U32}
-type Track is Data: Track{clock: Nat,time: U32,carry: U32,cursor: U32,step: U32,voices: List<&2,Voice>,active: Bool,stage: U32,band: Control}
+type Track is Data: Track{clock: Nat,time: U32,carry: U32,cursor: U32,step: U32,voices: List<&2,Voice>,active: Bool,stage: U32,band: Control,seed: U32}
 type Feed is Type: Feed{audio: Audio,track: Track,queued: U32}
-def initial() -> Track: Track{0n,0,0,0,4294967295,[],False{},0,Control{0,0,0,0n,0}}
+def initial() -> Track: Track{0n,0,0,0,4294967295,[],False{},0,Control{0,0,0,0n,0},0}
 def step_at(+frame: U32) -> U32: (frame / 55125 * 22 + (frame % 55125) * 22 / 55125 : U32)
 def step_start(+step: U32) -> U32: (step / 22 * 55125 + ((step % 22) * 55125 + 21) / 22 : U32)
 def clock_delta(previous: Nat,now: Nat) -> U32: U32.from_nat(Nat.min(60000n,Nat.sub(now,previous)))
@@ -60,9 +60,9 @@ def take_voices(fuel: Nat,voices: List<&2,Voice>) -> List<&2,Voice>:
         case voice <> rest: voice <> take_voices(k,rest)
 def install_score(notes: List<&2,M.Note>,+start: U32,voices: List<&2,Voice>) -> List<&2,Voice>:
   take_voices(10n,install(notes,start,alive_voices(voices,start)))
-def score_step(changed: Bool,+frame: U32,step: U32,voices: List<&2,Voice>,stage: U32,band: U32) -> List<&2,Voice>:
+def score_step(changed: Bool,+frame: U32,step: U32,voices: List<&2,Voice>,stage: U32,band: U32,seed: U32) -> List<&2,Voice>:
   match changed:
-    case True{}: install_score(M.notes(step,stage,band),frame,voices)
+    case True{}: install_score(M.notes_seed(step,stage,band,seed),frame,voices)
     case False{}: voices
 def force_control(force: Bool,now: Nat,previous: Control) -> Control:
   match force:
@@ -82,11 +82,11 @@ def prepare_changed(changed: Bool,+step: U32,+now: Nat,control: Control) -> Cont
 def control_band(control: Control) -> U32:
   match control:
     case Control{_,_,band,_,_}: band
-def prepared(clock: Nat,time: U32,carry: U32,+cursor: U32,+step: U32,voices: List<&2,Voice>,active: Bool,+stage: U32,+control: Control) -> Track:
-  Track{clock,time,carry,cursor,step_at(cursor),score_step(Bool.not(U32.is_eq(step,step_at(cursor))),cursor,step_at(cursor),voices,stage,control_band(control)),active,stage,control}
+def prepared(clock: Nat,time: U32,carry: U32,+cursor: U32,+step: U32,voices: List<&2,Voice>,active: Bool,+stage: U32,+control: Control,+seed: U32) -> Track:
+  Track{clock,time,carry,cursor,step_at(cursor),score_step(Bool.not(U32.is_eq(step,step_at(cursor))),cursor,step_at(cursor),voices,stage,control_band(control),seed),active,stage,control,seed}
 def prepare_live(track: Track) -> Track:
   match track:
-    case Track{+clock,time,carry,+cursor,+step,voices,active,stage,control}: prepared(clock,time,carry,cursor,step,voices,active,stage,prepare_changed(Bool.not(U32.is_eq(step,step_at(cursor))),step_at(cursor),clock,control))
+    case Track{+clock,time,carry,+cursor,+step,voices,active,stage,control,seed}: prepared(clock,time,carry,cursor,step,voices,active,stage,prepare_changed(Bool.not(U32.is_eq(step,step_at(cursor))),step_at(cursor),clock,control),seed)
 def cue_frequency(cue: U32) -> F32:
   match cue:
     case 1: 220.0
@@ -98,7 +98,7 @@ def cue_voices(cue: U32,+frame: U32,voices: List<&2,Voice>) -> List<&2,Voice>:
     case +id: take_voices(10n,Voice{7,frame,882,(cue_frequency(id) / 22050.0 : F32),0.8} <> replace_voice(voices,7))
 def with_cue(track: Track,cue: U32) -> Track:
   match track:
-    case Track{clock,time,carry,+cursor,step,voices,active,stage,band}: Track{clock,time,carry,cursor,step,cue_voices(cue,cursor,voices),active,stage,band}
+    case Track{clock,time,carry,+cursor,step,voices,active,stage,band,seed}: Track{clock,time,carry,cursor,step,cue_voices(cue,cursor,voices),active,stage,band,seed}
 def pulse(positive: Bool) -> F32:
   match positive:
     case True{}: 1.0
@@ -141,22 +141,22 @@ def chunk_size(+cursor: U32,queued: U32) -> U32:
   U32.min((3072 - U32.min(3072,queued) : U32),U32.min(1024,(step_start((step_at(cursor) + 1 : U32)) - cursor : U32)))
 def after_block(count: U32,track: Track) -> Track:
   match track:
-    case Track{clock,time,carry,+cursor,step,voices,+active,stage,band}: Track{clock,time,carry,(cursor + count * Bool.to_u32(active) : U32),step,voices,active,stage,band}
+    case Track{clock,time,carry,+cursor,step,voices,+active,stage,band,seed}: Track{clock,time,carry,(cursor + count * Bool.to_u32(active) : U32),step,voices,active,stage,band,seed}
 def feed_written(track: Track,result: Audio & U32) -> IO(Feed):
   (audio,queued) = result
   IO.pure(Feed,Feed{audio,track,queued})
 def feed_chunk(audio: Audio,track: Track,queued: U32) -> IO(Feed):
   match track:
-    case Track{clock,time,carry,+cursor,step,+voices,+active,stage,+band}:
+    case Track{clock,time,carry,+cursor,step,+voices,+active,stage,+band,seed}:
       +count = chunk_size(cursor,queued)
-      IO.bind(Audio & U32,Feed,Audio.write(audio,block(active,count,cursor,voices)),feed_written(after_block(count,Track{clock,time,carry,cursor,step,voices,active,stage,band})))
+      IO.bind(Audio & U32,Feed,Audio.write(audio,block(active,count,cursor,voices)),feed_written(after_block(count,Track{clock,time,carry,cursor,step,voices,active,stage,band,seed})))
 def prepare_active(active: Bool,track: Track) -> Track:
   match active:
     case True{}: prepare_live(track)
     case False{}: track
 def prepare(track: Track) -> Track:
   match track:
-    case Track{clock,time,carry,cursor,step,voices,+active,stage,control}: prepare_active(active,Track{clock,time,carry,cursor,step,voices,active,stage,control})
+    case Track{clock,time,carry,cursor,step,voices,+active,stage,control,seed}: prepare_active(active,Track{clock,time,carry,cursor,step,voices,active,stage,control,seed})
 def refill_allowed(+queued: U32,+cursor: U32,step: U32,+active: Bool) -> Bool:
   +boundary = Bool.and(active,Bool.and(Bool.not(U32.is_eq(step,step_at(cursor))),U32.is_eq((step_at(cursor) % 16 : U32),0)))
   Bool.and(U32.is_lt(queued,3072),Bool.or(Bool.not(boundary),U32.is_le(queued,1024)))
@@ -166,8 +166,8 @@ def feed_if(below: Bool,audio: Audio,track: Track,queued: U32) -> IO(Feed):
     case False{}: IO.pure(Feed,Feed{audio,track,queued})
 def feed_next(state: Feed) -> IO(Feed):
   match state:
-    case Feed{audio,Track{clock,time,carry,+cursor,+step,voices,+active,stage,band},+queued}:
-      feed_if(refill_allowed(queued,cursor,step,active),audio,Track{clock,time,carry,cursor,step,voices,active,stage,band},queued)
+    case Feed{audio,Track{clock,time,carry,+cursor,+step,voices,+active,stage,band,seed},+queued}:
+      feed_if(refill_allowed(queued,cursor,step,active),audio,Track{clock,time,carry,cursor,step,voices,active,stage,band,seed},queued)
 def feed_finish(state: Feed) -> IO(Audio & Track):
   match state:
     case Feed{audio,track,_}: IO.pure(Audio & Track,(audio,track))
@@ -210,19 +210,19 @@ def control_at(+now: Nat,+raw: U32,previous: Control) -> Control:
     case Control{smooth,target,band,+clock,_}: control_due(Nat.is_le(100n,Nat.sub(now,clock)),now,raw,Control{smooth,target,band,clock,raw})
 def transport_at(+now: Nat,+active: Bool,stage: U32,danger: U32,track: Track) -> Track:
   match track:
-    case Track{+clock,+time,+carry,+cursor,+step,voices,+wasActive,_,control}:
+    case Track{+clock,+time,+carry,+cursor,+step,voices,+wasActive,_,control,+seed}:
       +total = (advance_clock(Bool.and(active,wasActive),clock,now) * 22050 + carry : U32)
       +next = (time + total / 1000 : U32)
-      Track{now,next,(total % 1000 : U32),U32.max(cursor,next),step,transport_voices(active,wasActive,voices),active,stage,control_at(now,danger,control)}
+      Track{now,next,(total % 1000 : U32),U32.max(cursor,next),step,transport_voices(active,wasActive,voices),active,stage,control_at(now,danger,control),Bool.pick(U32,U32.is_eq(seed,0),(U32.from_nat(now) + 1 : U32),seed)}
 
 # Observations run at10Hz, with a fresh read while the next bar awaits generation.
 def observation_due(+now: Nat,track: Track) -> Bool:
   match track:
-    case Track{_,_,_,+cursor,+step,_,_,_,Control{_,_,_,clock,_}}:
+    case Track{_,_,_,+cursor,+step,_,_,_,Control{_,_,_,clock,_},seed}:
       Bool.or(Nat.is_le(100n,Nat.sub(now,clock)),Bool.and(Bool.not(U32.is_eq(step,step_at(cursor))),U32.is_eq((step_at(cursor) % 16 : U32),0)))
 def cached_raw(track: Track) -> U32:
   match track:
-    case Track{_,_,_,_,_,_,_,_,Control{_,_,_,_,raw}}: raw
+    case Track{_,_,_,_,_,_,_,_,Control{_,_,_,_,raw},seed}: raw
 def reset_if(reset: Bool,track: Track) -> Track:
   match reset:
     case True{}: initial()
@@ -248,4 +248,4 @@ def dispatch_active(active: Bool,audio: Maybe<Audio>,track: Track,cue: U32) -> I
     case False{}: inactive_pump(audio,track,cue)
 def dispatch(audio: Maybe<Audio>,track: Track,cue: U32) -> IO(Maybe<Audio> & Track):
   match track:
-    case Track{clock,time,carry,cursor,step,voices,+active,stage,control}: dispatch_active(active,audio,Track{clock,time,carry,cursor,step,voices,active,stage,control},cue)
+    case Track{clock,time,carry,cursor,step,voices,+active,stage,control,seed}: dispatch_active(active,audio,Track{clock,time,carry,cursor,step,voices,active,stage,control,seed},cue)

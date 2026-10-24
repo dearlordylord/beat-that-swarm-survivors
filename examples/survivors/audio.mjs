@@ -26,6 +26,7 @@ export class AudioEngine {
     this.scheduled = [];
     this.nextNote = 0;
     this.step = 0;
+    this.musicSeed = (Math.random() * 0x100000000) >>> 0;
     this.lastEvent = new Map();
     this.nodes = new Map();
   }
@@ -236,7 +237,7 @@ export class AudioEngine {
       if (this.step % 16 === 0 && this.nextNote > now + 0.03) break;
       if (this.step % 16 === 0) this._refreshDanger(now, true);
       this.activeBand = Game["music:commit"](this.step >>> 0, this.activeBand, this.targetBand);
-      let notes = Game["music:notes"](this.step >>> 0, this.frame.stage >>> 0, this.activeBand);
+      let notes = Game["music:notes_seed"](this.step >>> 0, this.frame.stage >>> 0, this.activeBand, this.musicSeed);
       while (notes.$ === "Con") { this._note(notes.head, Math.max(0, this.nextNote - now)); notes = notes.tail; }
       this.scheduled.push({ step: this.step, time: this.nextNote });
       this.step = (this.step + 1) >>> 0;
@@ -271,6 +272,6 @@ export class AudioEngine {
       }
     }
     this.nextNote = (this.context?.currentTime ?? 0) + 0.04;
-    if (reset) { this.step = 0; this.danger = 0; this.targetBand = 0; this.activeBand = 0; this.lastDanger = -Infinity; }
+    if (reset) { this.musicSeed = (Math.random() * 0x100000000) >>> 0; this.step = 0; this.danger = 0; this.targetBand = 0; this.activeBand = 0; this.lastDanger = -Infinity; }
   }
 }

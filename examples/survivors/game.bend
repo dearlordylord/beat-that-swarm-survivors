@@ -121,10 +121,10 @@ def distance2(+x: F32,+y: F32,+px: F32,+py: F32) -> F32: ((x - px) * (x - px) + 
 def close(x: F32,y: F32,px: F32,py: F32,+radius: F32) -> Bool: F32.is_le(distance2(x,y,px,py),(radius * radius : F32))
 # Music observes the world at host audio cadence, never in the ECS tick.
 def music_weight(+variant: U32) -> U32:
-  (1 + 3 * Bool.to_u32(U32.is_le(20,variant)) + 16 * Bool.to_u32(U32.is_eq(variant,30)) + Bool.to_u32(Bool.or(U32.is_eq(variant,4),Bool.or(U32.is_eq(variant,12),U32.is_eq(variant,19)))) : U32)
+  (1 + 3 * Bool.to_u32(U32.is_le(20,variant)) + 32 * Bool.to_u32(U32.is_eq(variant,30)) + Bool.to_u32(Bool.or(U32.is_eq(variant,4),Bool.or(U32.is_eq(variant,12),U32.is_eq(variant,19)))) : U32)
 def music_body_pressure(kind: U32,+variant: U32,+range: F32) -> U32:
   match kind:
-    case 0: (music_weight(variant) * (14 * Bool.to_u32(F32.is_le(range,102400.0)) + 26 * Bool.to_u32(F32.is_le(range,10000.0))) : U32)
+    case 0: (music_weight(variant) * (3 * Bool.to_u32(F32.is_le(range,102400.0)) + 27 * Bool.to_u32(F32.is_le(range,10000.0))) : U32)
     case 7: ((1 + 7 * Bool.to_u32(U32.is_eq(variant,30))) * (35 * Bool.to_u32(F32.is_le(range,57600.0)) + 80 * Bool.to_u32(F32.is_le(range,6400.0))) : U32)
     case _: 0
 def music_pressure(rows: List<&2,Body>,+px: F32,+py: F32) -> U32:
