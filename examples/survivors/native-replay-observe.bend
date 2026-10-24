@@ -112,7 +112,6 @@ def roster_handles(rows: List<&2,W.Handle<G.Schema>>) -> String:
     case value <> rest: roster_handle(value) ++ "," ++ roster_handles(rest)
 def movement_roster(value: G.MovementRoster) -> String:
   match value:
-    case G.MovementUnprepared{}: "null"
     case G.MovementPrepared{handles}: "[" ++ roster_handles(handles) ++ "]"
 # Physical columns retain their actual membership and change stamps. Logical
 # Motion is a derived compatibility view only: no unified component/stamp exists.
@@ -135,7 +134,6 @@ def role(value: GRole.Role) -> String:
     case GRole.OutsideSlot{}: "\"OutsideSlot\""
 def candidate_roster(projectile: Bool,value: G.CandidateRoster) -> String:
   match projectile value:
-    case _ G.CandidatesUnprepared{}: "null"
     case True{} G.CandidatesPrepared{projectiles,_}: "[" ++ roster_handles(projectiles) ++ "]"
     case False{} G.CandidatesPrepared{_,pool}: "[" ++ roster_handles(pool) ++ "]"
 def logical_motion_value(trajectory: Maybe<&2,G.Trajectory>,status: Maybe<&2,G.Status>) -> G.Motion:
@@ -343,7 +341,6 @@ def fold_roster_handles(rows: List<&2,W.Handle<G.Schema>>,acc: U32) -> U32:
     case value <> rest: fold_roster_handles(rest,fold_roster_handle(value,acc))
 def fold_movement_roster(value: G.MovementRoster,acc: U32) -> U32:
   match value:
-    case G.MovementUnprepared{}: mix(acc,0)
     case G.MovementPrepared{handles}: fold_roster_handles(handles,mix(acc,1))
 def fold_trajectory(value: G.Trajectory,acc: U32) -> U32:
   match value:
@@ -357,7 +354,6 @@ def fold_pickup(value: G.Pickup,acc: U32) -> U32:
 def fold_role(value: GRole.Role,acc: U32) -> U32: fold_words(codes(role(value)),acc)
 def fold_candidate_roster(value: G.CandidateRoster,acc: U32) -> U32:
   match value:
-    case G.CandidatesUnprepared{}: mix(acc,0)
     case G.CandidatesPrepared{projectiles,pool}: fold_roster_handles(pool,mix(fold_roster_handles(projectiles,mix(acc,1)),2))
 def force_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,rest: Rest,result: Col.Column<G.Schema,C> & U32) -> G.Store & U32:
   match result:

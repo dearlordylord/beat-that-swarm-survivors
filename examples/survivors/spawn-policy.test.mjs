@@ -1,3 +1,4 @@
+import Pool from './dist/pools.mjs';
 import assert from "node:assert/strict";
 import { stat } from "node:fs/promises";
 
@@ -5,6 +6,7 @@ const artifact = new URL("./dist/game.mjs", import.meta.url);
 for (const source of ["game.bend", "spawn-policy.bend", "encounters.bend", "viewport.bend", "spawn-lifecycle.bend"])
   assert.ok((await stat(artifact)).mtimeMs >= (await stat(new URL(source, import.meta.url))).mtimeMs, `Rebuild stale ${source}`);
 const { default: Game } = await import(artifact.href);
+const birthEntropy = Game.start(0,0).state.run.seed;
 const choose = Game["spawn-policy:choose"];
 const admit = Game["spawn-policy:admission"];
 const accepted = (x, y, px, py, radius) => admit(x, y, px, py, radius).$ === "Admit";
@@ -35,7 +37,7 @@ for (let variant = 0; variant < 31; variant++) {
           nativeY + nativeEnvelope < 0 || nativeY - nativeEnvelope > 512, context);
         // The real construction used for ordinary enemies and bosses must use
         // this policy too; checking its result prevents a disconnected test.
-        const body = Game.enemy_new(seed, tick, px, py, variant, 0, 0);
+        const body = Game.enemy_new_seed(seed, birthEntropy, tick, px, py, variant, 0, 0);
         assert.equal(body.x, point.x, context);
         assert.equal(body.y, point.y, context);
         // The camera moves in the same frame as spawning. Legal maximum
@@ -52,10 +54,10 @@ for (const [x, y] of [[1800, 1800], [2336, 1800], [1264, 1800], [1800, 2336], [1
 assert.equal(accepted(2336.25, 1800, 1800, 1800, 0), true);
 assert.equal(accepted(1263.75, 1800, 1800, 1800, 0), true);
 const dormant = Game.initial_body(17);
-const visibleCandidate = { ...Game.enemy_new(17, 0, 1800, 1800, 0, 0, 0), x: 1800, y: 1800 };
+const visibleCandidate = { ...Game.enemy_new_seed(17, birthEntropy, 0, 1800, 1800, 0, 0, 0), x: 1800, y: 1800 };
 assert.deepEqual(Game.candidate_enemy(visibleCandidate, dormant, 1800, 1800).body, dormant,
   "The actual spawn mutation gate retains the dormant body for a visible candidate");
-const safeCandidate = Game.enemy_new(17, 0, 1800, 1800, 0, 0, 0);
+const safeCandidate = Game.enemy_new_seed(17, birthEntropy, 0, 1800, 1800, 0, 0, 0);
 assert.deepEqual(Game.candidate_enemy(safeCandidate, dormant, 1800, 1800).body, safeCandidate,
   "The actual spawn mutation gate admits a safe candidate");
 assert.deepEqual(Game.dormant_spawn(false, 17, 12345, 0, 1800, 1800, 0, 0, 0, dormant).body, dormant,
@@ -99,7 +101,7 @@ for(const [px,py] of [[128,128],[128,14272],[7200,7200],[14272,128],[14272,14272
       assert.equal(packet.$,'Packet','actual live advance must succeed');
       const run=packet.state.run;
       for(const body of bodyList(packet.state.bodies)) {
-        if(body.seed>=Game.pool_enemy_count() || body.kind!==0 || before.get(body.seed)===0) continue;
+        if(body.seed>=Pool.enemy_count() || body.kind!==0 || before.get(body.seed)===0) continue;
         const context=JSON.stringify({px,py,startTick,step,body,runPx:run.px,runPy:run.py});
         assert.equal(accepted(body.x,body.y,run.px,run.py,body.radius),true,context);
         const x=(body.x-run.px)*.65+256,y=(body.y-run.py)*.65+210;
@@ -113,7 +115,7 @@ for(const [px,py] of [[128,128],[128,14272],[7200,7200],[14272,128],[14272,14272
       // enemy slot even though the admission budget has a physical pool of512, including the reserved relic.
       assert.deepEqual([...seen].sort((a,b)=>a-b),Array.from({length:300},(_,i)=>i),
         'Normal dense fixture observes all 300 admitted enemies, including boss identity0');
-      assert.notEqual(bodyList(packet.state.bodies).find(body=>body.seed===Game.pool_relic_seed())?.kind,0,
+      assert.notEqual(bodyList(packet.state.bodies).find(body=>body.seed===Pool.relic_seed())?.kind,0,
         'Reserved relic identity511 must never be counted as an enemy');
     }
   }

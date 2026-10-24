@@ -143,11 +143,12 @@ class SparseCompareTest(unittest.TestCase):
         self.write(rows, rows)
         with self.assertRaises(R.ReplayError): self.compare()
 
-    def test_valid_fallback_roster_difference_is_still_exactly_compared(self):
+    def test_absent_routing_is_rejected(self):
         left = self.schema.replay(True); right = copy.deepcopy(left)
         for key in ("movementCandidates", "projectileCandidates", "poolCandidates"):
             right[2]["payload"]["components"][key] = None
-        self.schema.M.validate_payload(right[2]["payload"], 1, self.layout, True)
+        with self.assertRaises(self.schema.M.ReplayError):
+            self.schema.M.validate_payload(right[2]["payload"], 1, self.layout, True)
         self.write(left, right)
         with self.assertRaises(R.ReplayError): self.compare()
 

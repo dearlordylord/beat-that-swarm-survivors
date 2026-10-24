@@ -20,7 +20,6 @@ def L.projectile_assignment(role,seed):
     case P.Enemy{}: projectile_enemy_slot(U32.is_eq(seed,P.relic_seed()))
     case P.PlayerShot{}: {==}
     case P.Hostile{}: {==}
-    case P.Actor{}: {==}
     case P.Xp{}: {==}
     case P.Outside{}: {==}
 def L.enemy_assignment(role,seed):
@@ -28,7 +27,6 @@ def L.enemy_assignment(role,seed):
     case P.Enemy{}: L.relic_retains_enemy_storage(U32.is_eq(seed,P.relic_seed()))
     case P.PlayerShot{}: {==}
     case P.Hostile{}: {==}
-    case P.Actor{}: {==}
     case P.Xp{}: {==}
     case P.Outside{}: {==}
 def L.pool_assignment(role,seed):
@@ -36,7 +34,6 @@ def L.pool_assignment(role,seed):
     case P.Enemy{}: pool_enemy_slot(U32.is_eq(seed,P.relic_seed()))
     case P.PlayerShot{}: {==}
     case P.Hostile{}: {==}
-    case P.Actor{}: {==}
     case P.Xp{}: {==}
     case P.Outside{}: {==}
 def L.disjoint_responsibilities(role):
@@ -64,7 +61,6 @@ def L.relic_assignment(role,seed):
     case P.Enemy{}: relic_enemy_slot(U32.is_eq(seed,P.relic_seed()))
     case P.PlayerShot{}: {==}
     case P.Hostile{}: {==}
-    case P.Actor{}: {==}
     case P.Xp{}: {==}
     case P.Outside{}: {==}
 def L.pickup_assignment(role,seed):
@@ -72,7 +68,6 @@ def L.pickup_assignment(role,seed):
     case P.Enemy{}: pickup_enemy_slot(U32.is_eq(seed,P.relic_seed()))
     case P.PlayerShot{}: {==}
     case P.Hostile{}: {==}
-    case P.Actor{}: {==}
     case P.Xp{}: {==}
     case P.Outside{}: {==}
 def L.player_identity(seed): {==}

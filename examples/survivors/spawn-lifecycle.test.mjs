@@ -1,5 +1,7 @@
+import Pool from './dist/pools.mjs';
 import assert from 'node:assert/strict';
 import G from './dist/game.mjs';
+const birthEntropy = G.start(0,0).state.run.seed;
 const nil={$:'Nil'},list=xs=>xs.reduceRight((tail,head)=>({$:'Con',head,tail}),nil);
 const array=xs=>{const a=[];for(;xs.$==='Con';xs=xs.tail)a.push(xs.head);return a;};
 const values=c=>Array.isArray(c.values)?c.values:values(c.carrier??c.state??c.inner);
@@ -10,7 +12,7 @@ for(const [px,py]of [[G.world_center(),G.world_center()],[20,20],[(G.world_size(
  const run={...p.state.run,tick,px,py,seed:12344+tick};
  const old={...G.initial_body(seed),x:px,y:py};
  const motion={...G.empty_motion(),vx:42,vy:13,life:17,pierce:23,visited:list([8,9]),slow,burn};
- const hits=staleArea?list([{$:'HitPlan',shot:G.pool_player_start(),weapon:10,damage:24,x:px,y:py,radius:120,area:{$:'True'},targets:nil}]):nil;
+ const hits=staleArea?list([{$:'HitPlan',shot:Pool.player_start(),weapon:10,damage:24,x:px,y:py,radius:120,area:{$:'True'},targets:nil}]):nil;
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits};
  const candidate=G.update(old,run).body;
  assert.equal(candidate.kind,0,'fixture really admits a fresh enemy');
@@ -38,7 +40,7 @@ for(const slow of [90,65626]){
 // A boss replacing a living pool slot also starts with clean status.
 {
  const p=G.start_seed_quiet(0,0,12345),run={...p.state.run,tick:7200};
- const old={...G.enemy_new(0,1,G.world_center(),G.world_center(),0,0,0),x:G.world_center(),y:G.world_center(),age:100};
+ const old={...G.enemy_new_seed(0, birthEntropy,1,G.world_center(),G.world_center(),0,0,0),x:G.world_center(),y:G.world_center(),age:100};
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits:nil};
  const born=G.normal_regular_entity(old,{...G.empty_motion(),slow:65626,burn:100},args);
  assert.equal(born.row.body.age,0);assert.ok(outside(born.row.body,G.world_center(),G.world_center()));assert.deepEqual(born.motion,G.empty_motion());checks++;
@@ -46,7 +48,7 @@ for(const slow of [90,65626]){
 // Existing zero-age after a U32 age wrap is not another birth.
 {
  const p=G.start_seed_quiet(0,0,12345),run={...p.state.run,tick:1};
- const old={...G.enemy_new(17,1,G.world_center(),G.world_center(),0,0,0),x:G.world_center(),y:G.world_center(),age:0};
+ const old={...G.enemy_new_seed(17, birthEntropy,1,G.world_center(),G.world_center(),0,0,0),x:G.world_center(),y:G.world_center(),age:0};
  const args={$:'Args',run,bodies:nil,dx:0,dy:0,snapshots:nil,hits:nil};
  const result=G.normal_regular_entity(old,{...G.empty_motion(),slow:90,burn:120},args);
  assert.ok(result.motion.slow>0,'age wrap must retain ordinary status processing');

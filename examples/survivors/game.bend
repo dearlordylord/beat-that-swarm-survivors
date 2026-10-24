@@ -29,7 +29,7 @@ type Body is Data: Body{x: F32,y: F32,kind: U32,variant: U32,hp: U32,maxHp: U32,
 type Vitals is Data: Vitals{health: U32,maximum: U32}
 type VitalToken is Data: VitalToken{}
 type Token is Data: Token{}
-# Motion is detached compatibility transport for pure helpers and snapshots.
+# Detached update payload shared by the live pure helpers and snapshots.
 # Authoritative storage separates projectile trajectory from enemy status.
 type Motion is Data: Motion{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<&2,U32>,slow: U32,burn: U32,ownerBase: U32,logicalSlot: U32}
 type Trajectory is Data: Trajectory{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<&2,U32>,ownerBase: U32,logicalSlot: U32}
@@ -41,10 +41,8 @@ type StatusToken is Data: StatusToken{}
 type RoleToken is Data: RoleToken{}
 # Derived routing metadata contains only issued identities, never gameplay data.
 type MovementRoster is Data:
-  MovementUnprepared{}
   MovementPrepared{handles: List<&2,W.Handle<Schema>>}
 type CandidateRoster is Data:
-  CandidatesUnprepared{}
   CandidatesPrepared{projectiles: List<&2,W.Handle<Schema>>,pool: List<&2,W.Handle<Schema>>}
 type BodyRest is Type: BodyRest{vitals: Col.Column<Schema,Vitals>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster,players: Col.Column<Schema,PlayerRecord>}
 type VitalRest is Type: VitalRest{bodies: Col.Column<Schema,Body>,motions: Col.Column<Schema,Trajectory>,statuses: Col.Column<Schema,Status>,pickups: Col.Column<Schema,Pickup>,roles: Col.Column<Schema,Role.Role>,movement: MovementRoster,candidates: CandidateRoster,players: Col.Column<Schema,PlayerRecord>}
@@ -118,9 +116,6 @@ def project_role(value: Role.Role) -> Role.Role & Role.Role:
     case Role.XpSlot{}: (Role.XpSlot{},Role.XpSlot{})
     case Role.OutsideSlot{}: (Role.OutsideSlot{},Role.OutsideSlot{})
 def role_family() -> C.Family<Schema,Store,RoleRest,Role.Role,Role.Role,RoleToken,take_role,put_role,project_role>: C.Family{"role"}
-def project_motion(value: Motion) -> Motion & Motion:
-  match value:
-    case Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+ownerBase,+logicalSlot}: (Motion{vx,vy,life,pierce,visited,slow,burn,ownerBase,logicalSlot},Motion{vx,vy,life,pierce,visited,slow,burn,ownerBase,logicalSlot})
 def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0,0,0}
 def empty_trajectory() -> Trajectory: Trajectory{0.0,0.0,0,0,[],0,0}
 def empty_status() -> Status: Status{0,0}
@@ -141,21 +136,16 @@ def pickup_from_body(body: Body) -> Pickup:
 def pickup_body(body: Body,pickup: Pickup) -> Body:
   match body pickup:
     case Body{x,y,_,_,_,_,age,seed,radius} Pickup{amount,generation,variant,active}: Body{x,y,Bool.pick(U32,active,2,8),variant,amount,generation,age,seed,radius}
-def empty(unit: Unit) -> Store: Store{Col.empty_indexed(~Schema,~Body),Col.empty_indexed(~Schema,~Vitals),Col.empty_indexed(~Schema,~Trajectory),Col.empty_indexed(~Schema,~Status),Col.empty_indexed(~Schema,~Pickup),Col.empty_indexed(~Schema,~Role.Role),MovementUnprepared{},CandidatesUnprepared{},Col.empty_indexed(~Schema,~PlayerRecord)}
+def empty(unit: Unit) -> Store: Store{Col.empty_indexed(~Schema,~Body),Col.empty_indexed(~Schema,~Vitals),Col.empty_indexed(~Schema,~Trajectory),Col.empty_indexed(~Schema,~Status),Col.empty_indexed(~Schema,~Pickup),Col.empty_indexed(~Schema,~Role.Role),MovementPrepared{[]},CandidatesPrepared{[],[]},Col.empty_indexed(~Schema,~PlayerRecord)}
 def World() -> Type: W.World<Schema,Store,Unit,Unit>
-# Trusted setup writers invalidate routing. The ordinary checked traversal is
-# retained until a fresh snapshot is prepared; lifecycle refreshes active rows.
-def invalidate_routing_store(store: Store) -> Store & Unit:
-  match store:
-    case Store{bodies,vitals,motions,statuses,pickups,roles,_,_,players}: (Store{bodies,vitals,motions,statuses,pickups,roles,MovementUnprepared{},CandidatesUnprepared{},players},Unit{})
 def routing_world(result: World() & Unit) -> World():
   match result:
     case (world,_): world
-def invalidate_movement_roster(world: World()) -> World():
-  routing_world(W.with_store(~Schema,~Store,~Unit,~Unit,~Unit,invalidate_routing_store,world))
+# Setup writes components before prepare_movement_roster completes the world.
+# Gameplay queries consume prepared handles; lifecycle refreshes active rows.
 def populate_result(result: C.Replacement<World(),Body>) -> World():
   match result:
-    case C.Replaced{world,_}: invalidate_movement_roster(world)
+    case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
 def populate_body(world: World(),handle: W.Handle<Schema>,body: Body) -> World():
   populate_result(C.structural_replace(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,family(),world,handle,Some{body}))
@@ -265,15 +255,11 @@ def music_pressure(rows: List<&2,Body>,+px: F32,+py: F32) -> U32:
     case Body{x,y,kind,variant,_,_,_,_,_} <> rest: U32.min(1000,(music_body_pressure(kind,variant,distance2(x,y,px,py)) + music_pressure(rest,px,py) : U32))
 def music_danger(hp: U32,maxHp: U32,+px: F32,+py: F32,rows: List<&2,Body>) -> U32:
   Music.danger(hp,maxHp,music_pressure(rows,px,py))
-def wave(+tick: U32) -> U32: (tick / 3600 : U32)
-def angle(+seed: U32) -> F32: (U32.to_f32(((seed * 2399 + 71) % 6283 : U32)) / 1000.0 : F32)
 # Early growth is quick; quadratic later costs prevent serial upgrade interruptions.
 def next_xp_need(+level: U32) -> U32: (40 + level * 6 + level * level / 3 : U32)
 def enemy_at(point: S.Point,+seed: U32,+tick: U32,+variant: U32,+stage: U32,+curse: U32) -> Body:
   match point:
     case S.Point{x,y}: Body{x,y,0,variant,(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),0,seed,E.radius(variant)}
-def enemy_new(+seed: U32,+tick: U32,px: F32,py: F32,+variant: U32,stage: U32,curse: U32) -> Body:
-  enemy_at(S.choose(seed,tick,px,py,E.radius(variant)),seed,tick,variant,stage,curse)
 # Entity seeds remain stable pool identities; run entropy changes only spawn placement.
 def enemy_new_seed(+slot: U32,+entropy: U32,+tick: U32,px: F32,py: F32,+variant: U32,stage: U32,curse: U32) -> Body:
   enemy_at(S.choose((slot + (entropy - 12345) * 31 : U32),tick,px,py,E.radius(variant)),slot,tick,variant,stage,curse)
@@ -437,11 +423,6 @@ def carried_args(carrier: ArgsCarrier) -> Args:
     case ArgsWrapped{inner}: carried_args(inner)
     case ArgsShots{args,_}: args
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
-def carried_shot_plan(carrier: ArgsCarrier) -> SP.Plan:
-  match carrier:
-    case ArgsShots{_,plan}: plan
-    case ArgsWrapped{inner}: carried_shot_plan(inner)
-    case _: empty_shot_plan()
 type Row is Data: Row{body: Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
 type Error is Data: MissingBody{}
 type Ops<-H: Type> is Type: Ops{body: Cap.Read<H,Body>,vitals: Cap.Write<H,Vitals,Vitals>,status: Cap.Write<H,Status,Status>}
@@ -703,7 +684,6 @@ def shot_spawn_assigned(seed: U32,args: Args,request: Maybe<&2,SP.Request>) -> E
     case None{}: dormant_entity(0.0,0.0,seed)
     case Some{SP.Request{+owner,+slot,level}}: with_shot_owner(shot_spawn_ready(True{},seed,owner,slot,level,args),owner,slot)
 def shot_spawn_planned(+seed: U32,args: Args,plan: SP.Plan) -> EntityRow: shot_spawn_assigned(seed,args,SP.lookup(plan,seed))
-def shot_spawn(+seed: U32,+args: Args) -> EntityRow: shot_spawn_planned(seed,args,prepare_shot_plan(args))
 def shot_surviving(alive: Bool,+x: F32,+y: F32,+id: U32,+damage: U32,+age: U32,+seed: U32,+radius: F32,+vx: F32,+vy: F32,+life: U32,+pierce: U32,+visited: List<&2,U32>) -> EntityRow:
   match alive:
     case True{}: EntityRow{Row{Body{x,y,1,id,damage,damage,age,seed,radius},0,0,0,0,0,0,0},Motion{vx,vy,life,pierce,visited,0,0,0,0}}
@@ -744,7 +724,6 @@ def shot_step_planned(body: Body,motion: Motion,+args: Args,+plan: SP.Plan) -> E
     case Body{+x,+y,1,+id,+damage,+maxHp,+age,+seed,+radius} Motion{_,_,_,0,_,_,_,_,_}: shot_spawn_planned(seed,args,plan)
     case Body{+x,+y,1,+id,+damage,+maxHp,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}: with_shot_owner(shot_step_aim(Body{x,y,1,id,damage,maxHp,age,seed,radius},Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},args,nearest_from_args(args,x,y)),owner,slot)
     case Body{_,_,_,_,_,_,_,+seed,_} _: shot_spawn_planned(seed,args,plan)
-def shot_step(body: Body,motion: Motion,+args: Args) -> EntityRow: shot_step_planned(body,motion,args,prepare_shot_plan(args))
 type Collision is Data: Collision{damage: U32,slow: U32,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
 def slow_factor(+slow: U32) -> F32: E.choose_float(U32.is_le(65536,slow),0.0,E.choose_float(U32.is_lt(0,slow),0.35,1.0))
 def cool_status(+slow: U32) -> U32: (dec((slow % 65536 : U32)) + 65536 * Bool.to_u32(Bool.and(U32.is_le(65536,slow),U32.is_lt(1,(slow % 65536 : U32)))) : U32)
@@ -819,17 +798,6 @@ def xp_entity(body: Body,args: Args) -> EntityRow:
   match body args:
     case Body{+x,+y,2,+variant,+amount,+generation,+age,+seed,+radius} Args{run,_,_,_,_,_}: EntityRow{loot_update(Body{x,y,2,variant,amount,generation,age,seed,radius},run),empty_motion()}
     case Body{+x,+y,_,+variant,_,+generation,+age,+seed,_} _: dormant_entity(x,y,seed)
-def normal_pool(xp: Bool,body: Body,motion: Motion,args: Args) -> EntityRow:
-  match xp:
-    case True{}: xp_entity(body,args)
-    case False{}: normal_regular_entity(body,motion,args)
-def normal_identity(relic: Bool,+seed: U32,body: Body,motion: Motion,args: Args) -> EntityRow:
-  match relic:
-    case True{}: relic_entity(args)
-    case False{}: normal_pool(PL.is_xp(seed),body,motion,args)
-def normal_entity(body: Body,motion: Motion,args: Args) -> EntityRow:
-  match body:
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: normal_identity(U32.is_eq(seed,PL.relic_seed()),seed,Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args)
 def intent_fire(intent: E.Intent) -> Bool:
   match intent:
     case E.Intent{_,_,fire}: fire
@@ -852,20 +820,9 @@ def hostile_advance(alive: Bool,+body: Body,+motion: Motion,+args: Args) -> Enti
 def hostile_step(body: Body,motion: Motion,args: Args) -> EntityRow:
   match motion:
     case Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,_,_}: hostile_advance(U32.is_lt(0,life),body,Motion{vx,vy,life,pierce,visited,slow,burn,0,0},args)
-def entity_selected(projectile: Bool,hostile: Bool,body: Body,motion: Motion,args: Args,plan: SP.Plan) -> EntityRow:
-  match projectile hostile:
-    case True{} False{}: shot_step_planned(body,motion,args,plan)
-    case False{} True{}: hostile_step(body,motion,args)
-    case _ _: normal_entity(body,motion,args)
-def entity_update_planned(body: Body,motion: Motion,args: Args,plan: SP.Plan) -> EntityRow:
-  match body:
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: entity_selected(PL.is_player_shot(seed),PL.is_hostile(seed),Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,args,plan)
-def entity_update(body: Body,motion: Motion,+args: Args) -> EntityRow: entity_update_planned(body,motion,args,prepare_shot_plan(args))
-
 # Each pass has an independently checked access contract. Read capabilities cannot write.
 def missing_row() -> EntityRow: EntityRow{Row{Body{0.0,0.0,8,0,0,0,0,0,0.0},0,0,0,0,0,0,0},empty_motion()}
 def Frame() -> Type: Q.Frame<Schema,Store,Unit,Unit>
-def selected_kind(mode: U32,kind: U32,seed: U32) -> Bool: MM.selected_kind(mode,kind,seed)
 def selected_role(mode: U32,role: Role.Role) -> Bool:
   match mode:
     case 0: Role.projectile(role)
@@ -964,7 +921,6 @@ def movement_roster_read(store: Store) -> Store & MovementRoster:
     case Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players}: (Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players},movement)
 def movement_scoped(args: Args,world: World(),roster: MovementRoster) -> Q.Executed<World(),Q.Error<Error>,Unit>:
   match roster:
-    case MovementUnprepared{}: Q.each(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~ArgsCarrier,~Error,~Unit,~move_plan(),~carried_move_system,ArgsHeld{args},world)
     case MovementPrepared{handles}: Q.reserved(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~ArgsCarrier,~Error,~Unit,~move_plan(),~carried_move_system,ArgsHeld{args},None{},(world,handles))
 def movement_roster_opened(args: Args,result: World() & MovementRoster) -> Q.Executed<World(),Q.Error<Error>,Unit>:
   match result:
@@ -1068,19 +1024,8 @@ def loot_enemy_caps(~H: Type,ops: LootOps<H>) -> LifecycleOps<H>:
 def loot_pickup_caps(~H: Type,ops: LootOps<H>) -> PickupLifecycleOps<H>:
   match ops:
     case LootOps{_,_,pickup}: pickup
-def prefer_body(found: Bool,body: Body,fallback: Body) -> Body:
-  match found:
-    case True{}: body
-    case False{}: fallback
 # Carry the equality result into the recursive matcher so a hit never evaluates
 # the remaining lookup. The first matching row wins, including duplicate IDs.
-def planned_body_match(rows: List<&2,EntityRow>,found: Bool,+seed: U32,+fallback: Body,current: Body) -> Body:
-  match rows found:
-    case _ True{}: current
-    case Nil{} False{}: fallback
-    case Con{EntityRow{Row{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+id,+radius},_,_,_,_,_,_,_},_},rest} False{}: planned_body_match(rest,U32.is_eq(id,seed),seed,fallback,Body{x,y,kind,variant,hp,maxHp,age,id,radius})
-def planned_body(rows: List<&2,EntityRow>,+seed: U32,+fallback: Body) -> Body:
-  planned_body_match(rows,False{},seed,fallback,fallback)
 # Construct once per lifecycle tick. Insertion order matches the original scan,
 # retaining the first occurrence of a seed and every opaque Body field.
 def body_seed(body: Body) -> U32:
@@ -1215,28 +1160,21 @@ def xp_free_enemies(rows: List<&2,EntityRow>) -> List<&2,EntityRow>:
     case row <> rest: row <> xp_free_enemies(rest)
 def xp_route_rows_at(+rows: List<&2,EntityRow>,+tick: U32,px: F32,py: F32) -> List<&2,EntityRow>:
   List.append(&2,EntityRow,xp_free_enemies(xp_pool_rows(rows,False{})),xp_apply_events(rows,xp_pool_rows(rows,True{}),tick,px,py))
-def xp_route_rows(rows: List<&2,EntityRow>,tick: U32) -> List<&2,EntityRow>: xp_route_rows_at(rows,tick,0.0,0.0)
 def xp_route_args(rows: List<&2,EntityRow>,args: Args) -> List<&2,EntityRow>:
   match args:
     case Args{Run{_,tick,px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}: xp_route_rows_at(rows,tick,px,py)
 
-def args_tick(args: Args) -> U32:
-  match args:
-    case Args{Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}: tick
 # The trusted schema adapter narrows only enumeration; capabilities, selector,
 # transaction finish, rollback and mixed allocator order remain the public query's.
 def candidate_roster_read(store: Store) -> Store & CandidateRoster:
   match store:
     case Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates,players}: (Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players},candidates)
-def candidate_roster_handles(projectile: Bool,roster: CandidateRoster) -> Maybe<&2,List<&2,W.Handle<Schema>>>:
+def candidate_roster_handles(projectile: Bool,roster: CandidateRoster) -> List<&2,W.Handle<Schema>>:
   match projectile roster:
-    case _ CandidatesUnprepared{}: None{}
-    case True{} CandidatesPrepared{projectiles,_}: Some{projectiles}
-    case False{} CandidatesPrepared{_,pool}: Some{pool}
-def candidate_query_ready(~Ops: Type -> Type,~A: Data,~Out: Data,~plan: Q.Plan<Schema,Store,Unit,Unit,Ops>,~body: @-H: Type -> @-caps: Ops(H) -> A -> H -> H & (T.Outcome<Error> & Out),args: A,world: World(),handles: Maybe<&2,List<&2,W.Handle<Schema>>>) -> Q.Executed<World(),Q.Error<Error>,Out>:
-  match handles:
-    case None{}: Q.each(~Schema,~Store,~Unit,~Unit,~Ops,~A,~Error,~Out,~plan,~body,args,world)
-    case Some{handles}: Q.reserved(~Schema,~Store,~Unit,~Unit,~Ops,~A,~Error,~Out,~plan,~body,args,None{},(world,handles))
+    case True{} CandidatesPrepared{projectiles,_}: projectiles
+    case False{} CandidatesPrepared{_,pool}: pool
+def candidate_query_ready(~Ops: Type -> Type,~A: Data,~Out: Data,~plan: Q.Plan<Schema,Store,Unit,Unit,Ops>,~body: @-H: Type -> @-caps: Ops(H) -> A -> H -> H & (T.Outcome<Error> & Out),args: A,world: World(),handles: List<&2,W.Handle<Schema>>) -> Q.Executed<World(),Q.Error<Error>,Out>:
+  Q.reserved(~Schema,~Store,~Unit,~Unit,~Ops,~A,~Error,~Out,~plan,~body,args,None{},(world,handles))
 def candidate_query_opened(~Ops: Type -> Type,~A: Data,~Out: Data,~plan: Q.Plan<Schema,Store,Unit,Unit,Ops>,~body: @-H: Type -> @-caps: Ops(H) -> A -> H -> H & (T.Outcome<Error> & Out),projectile: Bool,args: A,result: World() & CandidateRoster) -> Q.Executed<World(),Q.Error<Error>,Out>:
   match result:
     case (world,roster): candidate_query_ready(~Ops,~A,~Out,~plan,~body,args,world,candidate_roster_handles(projectile,roster))
@@ -1315,7 +1253,6 @@ def choose_unchecked_with(~emit: State -> Packet,state: State,+choice: U32) -> P
   match state:
     case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,Run{0,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
     case State{world,run,+bodies,+offers,+snapshots,pending}: emit(State{world,upgrade(offer_at(offers,U32.min(choice,2)),run),bodies,[],snapshots,pending})
-def choose_unchecked(state: State,choice: U32) -> Packet: choose_unchecked_with(~packet,state,choice)
 def choose_raw_with(~emit: State -> Packet,state: State,+choice: U32) -> Packet:
   match state:
     case State{world,Run{3,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,Run{3,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
@@ -1825,7 +1762,6 @@ def team_moved(+team: Team,projectiles: List<&2,EntityRow>,result: Q.Executed<Wo
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def team_movement_scoped(+team: Team,world: World(),roster: MovementRoster) -> Q.Executed<World(),Q.Error<Error>,Unit>:
   match roster:
-    case MovementUnprepared{}: Q.each(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~Team,~Error,~Unit,~move_plan(),~team_move_system,team,world)
     case MovementPrepared{handles}: Q.reserved(~Schema,~Store,~Unit,~Unit,~MoveOpsType,~Team,~Error,~Unit,~move_plan(),~team_move_system,team,None{},(world,handles))
 def team_movement_opened(team: Team,result: World() & MovementRoster) -> Q.Executed<World(),Q.Error<Error>,Unit>:
   match result:
@@ -1863,11 +1799,6 @@ def advance_raw_with(~emit: State -> Packet,state: State,+dx: F32,+dy: F32) -> P
     case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+snapshot,_,+snapshots,pending}:
       executed_with(~emit,Run{0,(tick + 1 : U32),F32.clamp((px + dx * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),F32.clamp((py + dy * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
     case state: emit(state)
-def finish_run(world: World(),run: Run,+bodies: List<&2,Body>,+offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: finish_run_with(~packet,world,run,bodies,offers,snapshots,pending)
-def finish_values(world: World(),run: Run,+bodies: List<&2,Body>,+totalXp: U32,+health: U32,+wasHit: U32,+chest: U32,+killed: U32,+coins: U32,+bossKills: U32,+snapshots: List<&2,Snapshot>,+relicEvent: U32) -> Packet: finish_values_with(~packet,world,run,bodies,totalXp,health,wasHit,chest,killed,coins,bossKills,snapshots,relicEvent)
-def finish_stats(world: World(),run: Run,totals: Totals,+bossKills: U32,+kinds: List<&2,U32>) -> Packet: finish_stats_with(~packet,world,run,totals,bossKills,kinds)
-def executed(+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Packet: executed_with(~packet,run,result)
-def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet: advance_raw_with(~packet,state,dx,dy)
 def started_with(~emit: State -> Packet,+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
   match created:
     case W.Created{_,world}: emit(State{prepare_movement_roster(W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{0,0,A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
@@ -1883,7 +1814,6 @@ def seeded_packet_with(~emit: State -> Packet,packetValue: Packet,+selectedSeed:
   match packetValue:
     case Packet{State{world,run,bodies,offers,snapshots,pending},_}: emit(State{world,seeded_run(run,selectedSeed),bodies,offers,snapshots,pending})
     case Failed{error}: Failed{error}
-def seeded_packet(value: Packet,seed: U32) -> Packet: seeded_packet_with(~packet,value,seed)
 def start_seed_with(~emit: State -> Packet,character: U32,meta: U32,seed: U32) -> Packet: seeded_packet_with(~emit,start_with(~emit,character,meta),seed)
 
 def start_seed(character: U32,meta: U32,seed: U32) -> Packet: start_seed_with(~packet,character,meta,seed)
@@ -1927,7 +1857,7 @@ def banish_raw(state: State,+choice: U32) -> Packet:
     case State{world,Run{1,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,banish_offer(Run{1,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},offer_at(offers,U32.min(choice,2))),bodies,[],snapshots,pending})
     case state: packet(state)
 
-# Deferred rewards are owned by the game state. The legacy advance entry pauses;
+# Deferred rewards are owned by the game state. The advance entry pauses;
 # advance_live lets a host keep the arena running until the player opens a choice.
 def pending_append(rows: List<&2,U32>,+kind: U32) -> List<&2,U32>:
   match rows:
@@ -1954,7 +1884,6 @@ def attach_pending_with(~emit: State -> Packet,result: Packet,pending: List<&2,U
 def advance(state: State,dx: F32,dy: F32) -> Packet:
   match state:
     case State{world,run,bodies,offers,snapshots,+pending}: attach_pending_with(~packet,advance_raw_with(~quiet_packet,State{world,run,bodies,offers,snapshots,[]},dx,dy),pending)
-def attach_pending(result: Packet,pending: List<&2,U32>) -> Packet: attach_pending_with(~packet,result,pending)
 def advance_quiet(state: State,dx: F32,dy: F32) -> Packet:
   match state:
     case State{world,run,bodies,offers,snapshots,+pending}: attach_pending_with(~quiet_packet,advance_raw_with(~quiet_packet,State{world,run,bodies,offers,snapshots,[]},dx,dy),pending)
@@ -1965,7 +1894,6 @@ def promote_ready_with(~emit: State -> Packet,ready: Bool,world: World(),+run: R
   match ready pending:
     case True{} +kind <> rest: emit(State{world,with_phase(run,kind),bodies,reward_offers(run,U32.is_eq(kind,2)),snapshots,rest})
     case _ pending: emit(State{world,run,bodies,offers,snapshots,pending})
-def promote_ready(ready: Bool,world: World(),run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: promote_ready_with(~packet,ready,world,run,bodies,offers,snapshots,pending)
 def promote_with(~emit: State -> Packet,result: Packet) -> Packet:
   match result:
     case Packet{State{world,+run,bodies,offers,snapshots,pending},_}: promote_ready_with(~emit,U32.is_eq(run_phase(run),0),world,run,bodies,offers,snapshots,pending)
@@ -1987,8 +1915,6 @@ def advance_live_with(~emit: State -> Packet,state: State,dx: F32,dy: F32) -> Pa
   match state:
     case State{world,+run,bodies,+offers,snapshots,pending}: live_result_with(~emit,run_phase(run),run_level(run),offers,pending,advance_raw_with(~quiet_packet,State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),bodies,offers,snapshots,[]},dx,dy))
 
-def live_selected(terminal: Bool,held: Bool,oldPhase: U32,oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: World(),run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet: live_selected_with(~packet,terminal,held,oldPhase,oldLevel,oldOffers,pending,world,run,bodies,offers,snapshots)
-def live_result(oldPhase: U32,oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet: live_result_with(~packet,oldPhase,oldLevel,oldOffers,pending,result)
 def advance_live(state: State,dx: F32,dy: F32) -> Packet: advance_live_with(~packet,state,dx,dy)
 def advance_live_quiet(state: State,dx: F32,dy: F32) -> Packet: advance_live_with(~quiet_packet,state,dx,dy)
 
@@ -1998,20 +1924,8 @@ def start_seed_quiet(character: U32,meta: U32,seed: U32) -> Packet: start_seed_w
 def configure_quiet(state: State,stage: U32,arcana: U32) -> Packet: configure_with(~quiet_packet,state,stage,arcana)
 def set_mode_quiet(state: State,mode: U32) -> Packet: set_mode_with(~quiet_packet,state,mode)
 def configure_unlocks_quiet(state: State,mask: U32) -> Packet: configure_unlocks_with(~quiet_packet,state,mask)
-def promote_quiet(result: Packet) -> Packet: promote_with(~quiet_packet,result)
 def choose_quiet(state: State,choice: U32) -> Packet: promote_with(~quiet_packet,choose_raw_with(~quiet_packet,state,choice))
 
-def pool_xp_start() -> U32: PL.xp_start()
-def pool_xp_count() -> U32: PL.xp_count()
-def pool_player_start() -> U32: PL.player_start()
-def pool_player_count() -> U32: PL.player_count()
-def pool_hostile_start() -> U32: PL.hostile_start()
-def pool_actor_start() -> U32: PL.actor_start()
-def pool_total() -> U32: PL.total_count()
-def xp_visual_color(amount: U32) -> U32: LV.color(amount)
 def xp_visual_radius(amount: U32) -> F32: LV.radius(amount)
-
-def pool_enemy_count() -> U32: PL.enemy_count()
-def pool_relic_seed() -> U32: PL.relic_seed()
 
 def xp_pile_color(amount: U32,variant: U32) -> U32: LV.pile_color(amount,U32.is_eq(variant,1))

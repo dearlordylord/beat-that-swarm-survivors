@@ -1,3 +1,4 @@
+import pools.bend as Pool
 import Base
 import arena.bend as A
 import encounters.bend as E
@@ -26,6 +27,6 @@ def main() -> IO(Unit):
   do IO<Unit>:
     expect(born(apply(90,0,[])),"slow from dead incarnation cannot move respawn inside screen")
     expect(born(apply(65626,120,[])),"freeze and burn cannot teleport new incarnation to corpse")
-    expect(born(apply(0,0,[G.HitPlan{G.pool_player_start(),10,24,1800.0,1800.0,120.0,True{},[]}])),"stale area collision at old corpse cannot hit newborn outside screen")
+    expect(born(apply(0,0,[G.HitPlan{Pool.player_start(),10,24,1800.0,1800.0,120.0,True{},[]}])),"stale area collision at old corpse cannot hit newborn outside screen")
     expect(bounded_body(G.moved_intent(G.Body{14240.0,160.0,0,25,100,100,240,0,42.0},E.Intent{50000.0,(0.0 - 50000.0 : F32),False{}},1.0)),"large charging enemy stays fully inside arena")
     expect(bounded_row(G.enemy_result(100,(0.0 - 50000.0 : F32),50000.0,25,100,240,0,42.0,A.center(),A.center())),"combat displacement keeps full large-enemy footprint inside arena")

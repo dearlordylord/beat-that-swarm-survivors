@@ -156,7 +156,7 @@ bash examples/survivors/check.sh
 bash examples/survivors/check-full.sh
 ```
 
-The ordinary suite covers catalogs, saves, projectiles, recipes, public commands, artifacts and unlocks. The [full-run controller](native-full-run.bend) defines its input fixture and success condition. Its witness qualifies that build; it does not establish fresh-profile win rates or every build. See [VALIDATION.md](VALIDATION.md) for dated witness results and the [ECS refactor receipt](../../research/ecs-refactor-results.json) for this source snapshot’s checks and measurement limits.
+The ordinary suite covers catalogs, saves, projectiles, recipes, public commands, artifacts and unlocks. The [full-run controller](native-full-run.bend) defines its input fixture and success condition. Its witness qualifies that build; it does not establish fresh-profile win rates or every build. See [VALIDATION.md](VALIDATION.md) for dated witness results and the [ECS refactor receipt](../../research/ecs-refactor-results.json) for the recorded checks and measurement limits. The later [legacy cleanup receipt](../../research/ecs-legacy-cleanup-results.json) records the removal audit and its validation.
 
 Browser checks reuse an already installed Playwright; they never install packages:
 

@@ -22,6 +22,7 @@ example_node examples/survivors/loot-visual.test.mjs
 example_node examples/survivors/projectile-pool/allocator.test.mjs
 example_node examples/survivors/shared-pools.test.mjs
 example_node examples/survivors/persistent-xp.test.mjs
+example_node examples/survivors/body-index/behavior.test.mjs
 example_node examples/survivors/progression.test.mjs
 bash examples/survivors/menu-progression/test.sh
 example_node --test examples/survivors/catalog.test.mjs
