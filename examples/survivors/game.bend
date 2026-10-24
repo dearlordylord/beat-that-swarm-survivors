@@ -1,4 +1,5 @@
 import Base
+import music.bend as Music
 import arena.bend as A
 import projectile.bend as P
 import encounters.bend as E
@@ -118,6 +119,20 @@ def dec(+value: U32) -> U32: U32.sub(value,U32.min(value,1))
 def lose(+hp: U32,damage: U32) -> U32: U32.sub(hp,U32.min(hp,damage))
 def distance2(+x: F32,+y: F32,+px: F32,+py: F32) -> F32: ((x - px) * (x - px) + (y - py) * (y - py) : F32)
 def close(x: F32,y: F32,px: F32,py: F32,+radius: F32) -> Bool: F32.is_le(distance2(x,y,px,py),(radius * radius : F32))
+# Music observes the world at host audio cadence, never in the ECS tick.
+def music_weight(+variant: U32) -> U32:
+  (1 + 3 * Bool.to_u32(U32.is_le(20,variant)) + 16 * Bool.to_u32(U32.is_eq(variant,30)) + Bool.to_u32(Bool.or(U32.is_eq(variant,4),Bool.or(U32.is_eq(variant,12),U32.is_eq(variant,19)))) : U32)
+def music_body_pressure(kind: U32,+variant: U32,+range: F32) -> U32:
+  match kind:
+    case 0: (music_weight(variant) * (14 * Bool.to_u32(F32.is_le(range,102400.0)) + 26 * Bool.to_u32(F32.is_le(range,10000.0))) : U32)
+    case 7: ((1 + 7 * Bool.to_u32(U32.is_eq(variant,30))) * (35 * Bool.to_u32(F32.is_le(range,57600.0)) + 80 * Bool.to_u32(F32.is_le(range,6400.0))) : U32)
+    case _: 0
+def music_pressure(rows: List<&2,Body>,+px: F32,+py: F32) -> U32:
+  match rows:
+    case []: 0
+    case Body{x,y,kind,variant,_,_,_,_,_} <> rest: U32.min(1000,(music_body_pressure(kind,variant,distance2(x,y,px,py)) + music_pressure(rest,px,py) : U32))
+def music_danger(hp: U32,maxHp: U32,+px: F32,+py: F32,rows: List<&2,Body>) -> U32:
+  Music.danger(hp,maxHp,music_pressure(rows,px,py))
 def wave(+tick: U32) -> U32: (tick / 3600 : U32)
 def angle(+seed: U32) -> F32: (U32.to_f32(((seed * 2399 + 71) % 6283 : U32)) / 1000.0 : F32)
 # Early growth is quick; quadratic later costs prevent serial upgrade interruptions.

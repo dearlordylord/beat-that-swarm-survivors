@@ -1,3 +1,15 @@
+# Adaptive chip-metal audio — 24 October 2026
+
+Music score and threat assessment are shared Bend code. Perception uses player HP, enemy proximity/type, hostile projectiles and lethal Reaper threats. Hosts replace the latest target rather than queuing transitions; arrangement changes at bars with hysteresis and a slower release. Already scheduled playback has a bounded 30 ms browser / 46 ms native structural horizon, not zero latency. See music/README.md.
+
+The small scheduling core passes kernel verification. A mutant that holds the old band at a boundary fails that proof. Emitted-code tests cover danger ordering, lethal threats, rapid target reversals, smoothing/hysteresis and 11,720 note events across all stages/bands. Five browser adapter tests cover separate SFX/music budgets, scheduling freshness, pause/resume and unchanged SFX gain. Ordinary gameplay still reaches tick 600 alive, level 2, with its first choice at tick 450; no simulation tuning was changed.
+
+Actual Chromium Web Audio scheduling runs independently of RAF and passes pause/resume. Three eight-second OfflineAudioContext listening sketches pass the retained RMS >0.003 and peak <0.98 diagnostic gates after a music-only gain adjustment; RMS calm/pressure/danger is about 0.0062/0.0082/0.0125, maximum peaks 0.088/0.104/0.149, no clipped samples. The original quieter renders and failed diagnostic logs are retained. Rest duration is descriptive, not an audibility requirement. This is PCM/scheduling evidence, not a physical-speaker audition or musical-quality proof.
+
+Full browser UI smoke passes with audio enabled and no page errors. Native stereo/voice lifetime/cap/paused cues/clock/queue/reset/observation regressions pass, together with existing UI/profile/FPS/loot/spawn checks and application compilation. A pure native synthesis fixture generates 22,528 stereo frames with ten continuously active voices (about 1.022 s audio) in 2 ms wall time on this host. That excludes device IO, graphics and scheduling latency. No physical macOS audio device or new game FPS benchmark was tested.
+
+Receipts, source hashes, rejected mutant and WAV sketches: `../../../bend-games/research/adaptive-chip-metal-20261024/`. Prior observations below concern earlier audio implementations.
+
 # Expanded arena and pause map — 24 October 2026
 
 The current world is 14,400×14,400, centered at (7,200,7,200); stage relics lie 3,600 units from the start. Both presentations show a pause map with player/chest/relic/camera markers. M toggles the map and preserves an already-open reward choice. Enemy movement and combat displacement clamp complete sprite envelopes, while the player margin preserves melee reach at corners.

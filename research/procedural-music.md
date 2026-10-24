@@ -1,5 +1,7 @@
 # Procedural music: current implementation and next experiments
 
+Historical baseline before adaptive chip-metal delivery. The implemented follow-up is documented in [music/README.md](../examples/survivors/music/README.md).
+
 Assessed 2026-10-24 against the current Survivors example and installed Bend 2.0.38. This is source research; no listening comparison, synthesis benchmark or implementation was performed.
 
 ## What exists

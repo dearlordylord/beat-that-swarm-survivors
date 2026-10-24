@@ -6,6 +6,8 @@ example_node examples/survivors/spawn-lifecycle.test.mjs
 example_node examples/survivors/live-quiet.test.mjs
 example_node examples/survivors/spawn-policy.test.mjs
 example_node examples/survivors/arena.test.mjs
+example_node examples/survivors/music.test.mjs
+example_node --test examples/survivors/audio.test.mjs
 example_node --test examples/survivors/renderer-map.test.mjs
 example_node examples/survivors/pools.test.mjs
 example_node examples/survivors/loot-visual.test.mjs

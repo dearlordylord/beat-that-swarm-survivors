@@ -1,4 +1,10 @@
-// Original procedural score. No audio is created until an explicit user gesture.
+import Game from "./dist/game.mjs";
+
+// Music-only level compensates for short chip envelopes; SFX retain their existing gain.
+const MUSIC_LEVEL = 4;
+
+// Bend owns composition and threat decisions; this adapter schedules and synthesizes.
+// No AudioContext is created until an explicit user gesture.
 export class AudioEngine {
   constructor() {
     this.context = null;
@@ -7,10 +13,21 @@ export class AudioEngine {
     this.muted = false;
     this.volume = 0.42;
     this.voices = 0;
+    this.musicVoices = 0;
+    this.sfxVoices = 0;
+    this.timer = null;
+    this.playing = false;
+    this.frame = null;
+    this.danger = 0;
+    this.targetBand = 0;
+    this.activeBand = 0;
+    this.lastDanger = -Infinity;
+    this.noiseBuffer = null;
+    this.scheduled = [];
     this.nextNote = 0;
     this.step = 0;
     this.lastEvent = new Map();
-    this.nodes = new Set();
+    this.nodes = new Map();
   }
   unlock() {
     if (!this.enabled) return;
@@ -41,6 +58,7 @@ export class AudioEngine {
   setMuted(value) {
     this.muted = Boolean(value);
     this._gain();
+    if (this.muted) this.stop();
   }
   setVolume(value) {
     this.volume = Math.max(0, Math.min(1, Number(value) || 0));
@@ -59,10 +77,13 @@ export class AudioEngine {
     delay = 0,
     pan = 0,
     slide = 0,
+    bus = "sfx",
   ) {
+    if (bus === "music") gain *= MUSIC_LEVEL;
     const c = this.context;
-    if (!c || !this.enabled || this.muted || this.voices >= 24) return;
+    if (!c || !this.enabled || this.muted || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24)) return;
     this.voices++;
+    this[`${bus}Voices`]++;
     const osc = c.createOscillator(),
       env = c.createGain(),
       panner = c.createStereoPanner?.();
@@ -83,10 +104,12 @@ export class AudioEngine {
       env.connect(panner);
       panner.connect(this.master);
     } else env.connect(this.master);
-    this.nodes.add(osc);
+    this.nodes.set(osc, bus);
     osc.onended = () => {
-      this.voices = Math.max(0, this.voices - 1);
-      this.nodes.delete(osc);
+      if (this.nodes.delete(osc)) {
+        this.voices = Math.max(0, this.voices - 1);
+        this[`${bus}Voices`] = Math.max(0, this[`${bus}Voices`] - 1);
+      }
       osc.disconnect();
       env.disconnect();
       panner?.disconnect();
@@ -141,53 +164,113 @@ export class AudioEngine {
         break;
     }
   }
-  update(frame) {
-    if (
-      !this.context ||
-      !this.enabled ||
-      this.muted ||
-      this.context.state !== "running"
-    )
-      return;
+  _noise(duration, gain, delay, cutoff, highpass = false) {
+    gain *= MUSIC_LEVEL;
     const c = this.context;
-    if (this.nextNote < c.currentTime - 0.5)
-      this.nextNote = c.currentTime + 0.05;
-    const scale = [0, 3, 5, 7, 10, 12, 10, 7, 5, 3, 0, -5, 0, 7, 10, 5];
-    let guard = 0;
-    while (this.nextNote < c.currentTime + 0.2 && guard++ < 3) {
-      const i = this.step++;
-      const delay = Math.max(0, this.nextNote - c.currentTime);
-      this._tone(
-        110 * 2 ** (scale[i % scale.length] / 12),
-        0.68,
-        0.026,
-        "triangle",
-        delay,
-        Math.sin(i * 0.7) * 0.5,
-      );
-      if (i % 4 === 0) {
-        this._tone(55, 0.98, 0.045, "sine", delay);
-        this._tone(82.407, 0.9, 0.012, "sine", delay + 0.03);
+    if (!c || this.musicVoices >= 32 || this.muted || !this.enabled) return;
+    if (!this.noiseBuffer) {
+      this.noiseBuffer = c.createBuffer(1, c.sampleRate, c.sampleRate);
+      const data = this.noiseBuffer.getChannelData(0);
+      let word = 0x12345678;
+      for (let i = 0; i < data.length; i++) {
+        word ^= word << 13; word ^= word >>> 17; word ^= word << 5;
+        data[i] = Math.round(((word >>> 0) / 0xffffffff * 2 - 1) * 15) / 15;
       }
-      if (i % 8 === 6)
-        this._tone(
-          440 * 2 ** (scale[i % scale.length] / 12),
-          0.5,
-          0.012,
-          "sine",
-          delay + 0.18,
-        );
-      this.nextNote += 0.38;
+    }
+    const source = c.createBufferSource(), filter = c.createBiquadFilter(), env = c.createGain();
+    source.buffer = this.noiseBuffer; filter.type = highpass ? "highpass" : "lowpass";
+    filter.frequency.value = cutoff;
+    const start = c.currentTime + delay;
+    env.gain.setValueAtTime(Math.max(0.0002, gain), start);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    source.connect(filter); filter.connect(env); env.connect(this.master);
+    this.voices++; this.musicVoices++; this.nodes.set(source, "music");
+    source.onended = () => {
+      if (this.nodes.delete(source)) { this.voices--; this.musicVoices--; }
+      source.disconnect(); filter.disconnect(); env.disconnect();
+    };
+    source.start(start); source.stop(start + duration + 0.01);
+  }
+  _note(note, delay) {
+    const frequency = Game["music:frequency"](note.pitch),
+      duration = Math.max(0.025, note.length * Game["music:step_seconds"]() * 0.9),
+      accent = Math.max(0, Math.min(1000, note.accent)) / 1000,
+      level = 0.5 + accent * 0.5;
+    switch (note.voice) {
+      case 0: this._tone(frequency, duration, 0.055 * level, "square", delay, -0.1, 0, "music"); break;
+      case 1: this._tone(frequency, duration * 0.82, 0.045 * level, "square", delay, 0.18, 0, "music"); break;
+      case 2: this._tone(frequency, duration, 0.045 * level, "triangle", delay, -0.2, 0, "music"); break;
+      case 3: this._tone(150, 0.11, 0.2 * level, "sine", delay, 0, 38, "music"); break;
+      case 4:
+        this._noise(0.12, 0.12 * level, delay, 7000);
+        this._tone(180, 0.055, 0.045 * level, "triangle", delay, 0, 75, "music"); break;
+      case 5: this._noise(0.035, 0.055 * level, delay, 6500, true); break;
+      case 6: this._noise(0.38, 0.08 * level, delay, 4500, true); break;
     }
   }
-  stop() {
-    for (const n of this.nodes) {
-      try {
-        n.stop();
-      } catch {}
+  _refreshDanger(now, force = false) {
+    if (!this.frame || (!force && now - this.lastDanger < 0.1)) return;
+    const frame = this.frame;
+    let bodies = { $: "Nil" };
+    for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
+      const b = frame.bodies[i];
+      if (b[2] !== 0 && b[2] !== 7) continue;
+      bodies = { $: "Con", head: { $: "Body", x: b[0], y: b[1], kind: b[2], variant: b[3],
+        hp: b[4], maxHp: b[5], age: b[6], seed: b[7], radius: b[8] }, tail: bodies };
     }
-    this.nodes.clear();
-    this.nextNote = (this.context?.currentTime ?? 0) + 0.1;
-    this.step = 0;
+    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, bodies);
+    this.danger = Game["music:smooth"](this.danger, raw);
+    this.targetBand = Game["music:target_band"](this.targetBand, this.danger);
+    this.lastDanger = now;
+  }
+  _schedule() {
+    const c = this.context;
+    if (!this.playing || !c || c.state !== "running" || !this.enabled || this.muted) return;
+    const now = c.currentTime;
+    this.scheduled = this.scheduled.filter(note => note.time > now);
+    this._refreshDanger(now);
+    if (this.nextNote < now - 0.03) this.nextNote = now + 0.04;
+    let guard = 0;
+    while (this.nextNote < now + 0.16 && guard++ < 4) {
+      // A future bar must not commit a stale target from the look-ahead window.
+      if (this.step % 16 === 0 && this.nextNote > now + 0.03) break;
+      if (this.step % 16 === 0) this._refreshDanger(now, true);
+      this.activeBand = Game["music:commit"](this.step >>> 0, this.activeBand, this.targetBand);
+      let notes = Game["music:notes"](this.step >>> 0, this.frame.stage >>> 0, this.activeBand);
+      while (notes.$ === "Con") { this._note(notes.head, Math.max(0, this.nextNote - now)); notes = notes.tail; }
+      this.scheduled.push({ step: this.step, time: this.nextNote });
+      this.step = (this.step + 1) >>> 0;
+      this.nextNote += Game["music:step_seconds"]();
+    }
+  }
+  update(frame, playing = true) {
+    this.frame = frame;
+    if (!playing || !this.context || !this.enabled || this.muted || this.context.state !== "running") {
+      this.stop(); return;
+    }
+    if (!this.playing) {
+      this.playing = true;
+      this.nextNote = this.context.currentTime + 0.04;
+      this.timer = globalThis.setInterval(() => this._schedule(), 25);
+      this.timer?.unref?.();
+    }
+  }
+  stop(reset = false) {
+    this.playing = false;
+    const unplayed = this.scheduled.find(note => note.time > (this.context?.currentTime ?? 0));
+    if (!reset && unplayed) this.step = unplayed.step;
+    this.scheduled = [];
+    if (this.timer !== null) globalThis.clearInterval(this.timer);
+    this.timer = null;
+    for (const [node, bus] of this.nodes) {
+      if (!reset && bus !== "music") continue;
+      try { node.stop(); } catch {}
+      if (this.nodes.delete(node)) {
+        this.voices = Math.max(0, this.voices - 1);
+        this[`${bus}Voices`] = Math.max(0, this[`${bus}Voices`] - 1);
+      }
+    }
+    this.nextNote = (this.context?.currentTime ?? 0) + 0.04;
+    if (reset) { this.step = 0; this.danger = 0; this.targetBand = 0; this.activeBand = 0; this.lastDanger = -Infinity; }
   }
 }

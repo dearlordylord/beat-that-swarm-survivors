@@ -761,13 +761,13 @@ def fps_sample(+now: Nat,fps: Fps) -> Fps:
     case Fps{0n,_,value,ready}: Fps{now,0,value,ready}
     case Fps{+clock,frames,value,ready}: fps_measured(Nat.is_le(500n,Nat.sub(now,clock)),now,U32.from_nat(Nat.min(4294967295n,Nat.sub(now,clock))),Fps{clock,frames,value,ready})
 
-type Session is Type: Session{native: Native,audio: Maybe<Audio>,kills: U32,level: U32,health: U32,fps: Fps}
-def session_shown(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,fps: Fps,drawn: Native & Image) -> Session & Image:
+type Session is Type: Session{native: Native,audio: Maybe<Audio>,kills: U32,level: U32,health: U32,music: Sound.Track,fps: Fps}
+def session_shown(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,music: Sound.Track,fps: Fps,drawn: Native & Image) -> Session & Image:
   (native,image) = drawn
-  (Session{native,audio,kills,level,health,fps_count(fps)},image)
+  (Session{native,audio,kills,level,health,music,fps_count(fps)},image)
 def session_view(state: Session) -> Session & Image:
   match state:
-    case Session{native,audio,kills,level,health,+fps}: session_shown(audio,kills,level,health,fps,view_fps(native,fps_ready(fps),fps_value(fps)))
+    case Session{native,audio,kills,level,health,music,+fps}: session_shown(audio,kills,level,health,music,fps,view_fps(native,fps_ready(fps),fps_value(fps)))
 
 def metrics(state: Native) -> Native & (U32 & U32 & U32 & U32):
   match state:
@@ -782,27 +782,39 @@ def sound_cue(muted: U32,damaged: Bool,levelled: Bool,killed: Bool) -> U32:
     case _ _ _ True{}: 2
     case _ _ _ _: 0
 
-def session_with_audio(native: Native,kills: U32,level: U32,health: U32,fps: Fps,audio: Maybe<Audio>) -> IO(Maybe<Session>):
-  IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health,fps}})
-def session_metrics(audio: Maybe<Audio>,oldKills: U32,oldLevel: U32,oldHealth: U32,fps: Fps,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
+def session_with_audio(native: Native,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Audio> & Sound.Track) -> IO(Maybe<Session>):
+  (audio,music) = result
+  IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health,music,fps}})
+def music_observation(due: Bool,+run: G.Run,rows: List<&2,G.Body>,cached: U32) -> U32:
+  match due:
+    case True{}: G.music_danger(run_hp(run),run_maxHp(run),run_px(run),run_py(run),rows)
+    case False{}: cached
+def session_sound(+now: Nat,audio: Maybe<Audio>,+music: Sound.Track,kills: U32,level: U32,health: U32,fps: Fps,cue: U32,native: Native) -> IO(Maybe<Session>):
+  match native:
+    case Native{G.Packet{G.State{world,+run,+rows,offers,snapshots,pending},frame},+ui,profile}:
+      +active = Bool.and(U32.is_eq(ui_screen(ui),1),Bool.and(U32.is_eq(ui_paused(ui),0),Bool.and(U32.is_eq(ui_frames(ui),0),U32.is_le(run_phase(run),2))))
+      +track = Sound.reset_if(Bool.or(Bool.not(U32.is_eq(ui_screen(ui),1)),U32.is_eq(run_tick(run),0)),music)
+      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile},kills,level,health,fps))
+    case native: IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,False{},0,0,Sound.initial()),0),session_with_audio(native,kills,level,health,fps))
+def session_metrics(now: Nat,audio: Maybe<Audio>,music: Sound.Track,oldKills: U32,oldLevel: U32,oldHealth: U32,fps: Fps,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
   (native,(+kills,+level,+health,muted)) = result
-  IO.bind(Maybe<Audio>,Maybe<Session>,Sound.play(audio,sound_cue(muted,U32.is_lt(health,oldHealth),U32.is_lt(oldLevel,level),U32.is_lt(oldKills,kills))),session_with_audio(native,kills,level,health,fps))
-def session_next(audio: Maybe<Audio>,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Native>) -> IO(Maybe<Session>):
+  session_sound(now,audio,music,kills,level,health,fps,sound_cue(muted,U32.is_lt(health,oldHealth),U32.is_lt(oldLevel,level),U32.is_lt(oldKills,kills)),native)
+def session_next(now: Nat,audio: Maybe<Audio>,music: Sound.Track,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Native>) -> IO(Maybe<Session>):
   match result:
     case None{}:
       do IO<Maybe<Session>>:
         Unit <- Sound.close(audio)
         IO.pure(Maybe<Session>,None{})
-    case Some{native}: session_metrics(audio,kills,level,health,fps,metrics(native))
+    case Some{native}: session_metrics(now,audio,music,kills,level,health,fps,metrics(native))
 def session_tick(events: List<Event>,state: Session) -> IO(Maybe<Session>):
   match state:
-    case Session{native,audio,kills,level,health,+fps}:
+    case Session{native,audio,kills,level,health,music,+fps}:
       do IO<Maybe<Session>>:
         +now : Nat <- IO.now()
         result : Maybe<Native> <- tick_at(now,events,native)
-        session_next(audio,kills,level,health,fps_sample(now,fps),result)
+        session_next(now,audio,music,kills,level,health,fps_sample(now,fps),result)
 def main() -> IO(Unit):
   do IO<Unit>:
     profile : P.Profile <- P.load()
     audio : Maybe<Audio> <- Sound.open()
-    App.run(~Session,~App{session_view,session_tick},"Nightfall Survivors - Bend",1024,768,Session{initial(profile),audio,0,1,100,fps_initial()})
+    App.run(~Session,~App{session_view,session_tick},"Nightfall Survivors - Bend",1024,768,Session{initial(profile),audio,0,1,100,Sound.initial(),fps_initial()})

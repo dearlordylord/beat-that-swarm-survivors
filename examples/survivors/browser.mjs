@@ -101,7 +101,7 @@ function menu() {
   paused = false;
   keys.clear();
   touch.x = touch.y = 0;
-  audio.stop();
+  audio.stop(true);
   $("#menu").hidden = false;
   $("#overlay").hidden = true;
   $("#hud").hidden = true;
@@ -196,7 +196,7 @@ function menu() {
       ).join("") +
       "</div>";
   } else {
-    html = `<div class="settings"><label class="setting"><div>Music and sound<span>An original synthesized soundtrack</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
+    html = `<div class="settings"><label class="setting"><div>Music and sound<span>Adaptive chip-metal · responds to nearby danger</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
   }
   $("#menuContent").innerHTML = html;
   if (previousFocus) {
@@ -249,7 +249,7 @@ function start() {
   banishing = false;
   runId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
   audio.unlock();
-  audio.stop();
+  audio.stop(true);
   settings();
   renderer.reset();
   seenWeapons = new Set();
@@ -293,6 +293,7 @@ function phase() {
   $("#overlay").hidden = false;
   const d = $("#dialog");
   if (frame.phase === 1 || frame.phase === 2) {
+    audio.stop();
     audio.event(frame.phase === 1 ? "level" : "chest");
     let offers = frame.offers || [];
     d.innerHTML = `<div class="eyebrow">${frame.phase === 1 ? `LEVEL ${frame.level}` : "TREASURE OF THE NIGHT"}</div><h2 id="dialog-title">${frame.phase === 1 ? "Power awakens" : "A fallen lord’s gift"}</h2><p>${frame.phase === 1 ? "Choose an ability for the next wave." : "Choose your reward. A matching weapon may evolve."}</p><div class="grid choices">${offers
@@ -413,6 +414,7 @@ function hud() {
 }
 function fail(error) {
   paused = true;
+  audio.stop();
   $("#error").hidden = false;
   $("#error").textContent =
     `Unable to continue the game: ${error.message}\nReload the page to return to the menu.`;
@@ -442,8 +444,8 @@ function animation(now) {
             break;
           }
         }
-        audio.update(frame);
       } else accumulator = 0;
+      audio.update(frame, !paused && !upgradeOpen && [0, 1, 2].includes(frame.phase));
       renderer.draw(frame, dt / 1000, profile.settings);
       hud();
     }

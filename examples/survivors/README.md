@@ -53,6 +53,10 @@ python3 -m http.server 8713 --directory examples/survivors/dist/web
 
 Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend or Node.js.
 
+## Music
+
+Adaptive chip-metal uses a shared Bend score and danger assessment: nearby enemies, enemy types, hostile shots and player health change the arrangement at bar boundaries. The latest target replaces older observations; changes never queue. Native synthesizes stereo PCM in Bend, while the browser renders those notes through Web Audio. See [music](music/README.md) for timing and validation scope.
+
 ## Checks
 
 Checks require Node.js 20+, Bend, a C compiler and platform audio/window development libraries. Linux uses flock when available; other hosts use a temporary lock directory. Remove stale locks only after confirming no checks are running:
