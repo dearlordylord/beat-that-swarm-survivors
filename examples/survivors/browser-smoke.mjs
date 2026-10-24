@@ -44,6 +44,18 @@ const server = createServer(async (req, res) => {
   }
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+async function assertMenuLayout(page) {
+  const geometry = await page.evaluate(() => {
+    const scroll = document.querySelector('#menuScroll').getBoundingClientRect();
+    const dock = document.querySelector('#menuDock').getBoundingClientRect();
+    const action = document.querySelector('#menuDock .a-bottom').getBoundingClientRect();
+    return { scrollBottom: scroll.bottom, dockTop: dock.top, actionBottom: action.bottom,
+      height: innerHeight, overflow: document.documentElement.scrollWidth > innerWidth };
+  });
+  assert.ok(geometry.scrollBottom <= geometry.dockTop + 1, 'Action dock has its own row outside scrolling choices');
+  assert.ok(geometry.actionBottom <= geometry.height, 'Start remains inside the viewport');
+  assert.equal(geometry.overflow, false);
+}
 let browser;
 try {
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
@@ -62,6 +74,7 @@ try {
   assert.equal(await page.locator("[data-character]").count(), 8, "Locked survivors are visible alongside unlocked choices");
   await page.locator('[data-character="1"]').click();
   assert.equal(await page.locator('[data-buy-kind="character"]').isDisabled(), true, "Fresh player sees the price and requirement without accidental purchase");
+  await assertMenuLayout(page);
   assert.equal(await page.locator('.a-survivor h2').textContent(), "Mira");
   assert.equal(await page.locator('text=View unlocks').count(), 0);
   await page.locator('[data-menu-panel="stage"]').click();
@@ -197,6 +210,10 @@ export default { ...fixtureGame, start: (...args) => {
   mobile.setDefaultNavigationTimeout(5000);
   mobile.on("pageerror", (e) => errors.push(e.message));
   await mobile.goto(`http://127.0.0.1:${server.address().port}/`);
+  await mobile.locator('[data-menu-panel="character"]').click();
+  await mobile.locator('[data-character="1"]').click();
+  await mobile.locator('[data-unlock-details]').scrollIntoViewIfNeeded();
+  await assertMenuLayout(mobile);
   await mobile.locator("#start").click();
   await mobile.waitForFunction(
     () => Number(document.querySelector("#game").dataset.tick) >= 10,

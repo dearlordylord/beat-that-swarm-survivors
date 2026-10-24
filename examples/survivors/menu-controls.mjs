@@ -1,0 +1,2 @@
+// Shared control markup is rendered synchronously, before the menu is displayed.
+export const startControl = `<span class="cta-surface"><span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor"><path d="M11 1A7 7 0 1 0 15 12a6 6 0 0 1-4-11zm2 0h1v2h2v1h-2v2h-1V4h-2V3h2V1z"/></svg></span><span class="cta-label">Start Run</span><span class="cta-cap" aria-hidden="true"></span></span>`;

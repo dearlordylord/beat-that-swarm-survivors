@@ -11,6 +11,7 @@
     <meta name="description" content="A Vampire Survivors clone built as a Bendvy ECS example." />
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./menu-a.css" />
+    <link rel="stylesheet" href="./menu-moon.css" />
   </head>
   <body>
     <main id="app">
@@ -35,6 +36,7 @@
         <div id="runStats"></div>
       </div>
       <section id="menu" class="screen">
+        <div id="menuScroll">
         <div class="menu-wrap">
           <header class="menu-header">
             <div class="menu-brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong>Survivors</strong><small>Bendvy ECS example</small></div></div>
@@ -44,11 +46,11 @@
           </div>
           </header>
           <nav id="tabs">
-            <button data-tab="expedition" class="active">Expedition</button
-            ><button data-tab="shop">Legacy</button
-            ><button data-tab="collection">Collection</button
-            ><button data-tab="achievements">Achievements</button
-            ><button data-tab="settings">Settings</button>
+            <button data-tab="expedition" class="active"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M11 1h4v4l-6 6 2 2-2 2-2-2-3 3-2-2 3-3-2-2 2-2 2 2 6-6V1z"/></svg></span><span class="tab-label">Expedition</span><span class="tab-active-mark" aria-hidden="true"></span></span></button
+            ><button data-tab="shop"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 1h6v1h2v2h1v8h-1v2h-2v1H5v-1H3v-2H2V4h1V2h2zm1 3v8h4v-2H8V8h2V6H8V4H6z"/></svg></span><span class="tab-label">Legacy</span><span class="tab-active-mark" aria-hidden="true"></span></span></button
+            ><button data-tab="collection"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h6l1 1 1-1h6v12H9l-1 1-1-1H1V2zm2 2v8h4V4H3zm6 0v8h4V4H9z"/></svg></span><span class="tab-label">Collection</span><span class="tab-active-mark" aria-hidden="true"></span></span></button
+            ><button data-tab="achievements"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8v2h3v5h-2v2h-2v2H9v2h3v2H4v-2h3v-2H5v-2H3V8H1V3h3V1zm-1 4v2h2V5H3zm9 0v2h1V5h-1z"/></svg></span><span class="tab-label">Achievements</span><span class="tab-active-mark" aria-hidden="true"></span></span></button
+            ><button data-tab="settings"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 0h4v3l2-1 3 3-1 2h2v4h-3l1 2-3 3-2-1v1H5v-3l-2 1-3-3 1-2H0V5h3L2 3l3-3 1 1V0zm0 5v5h4V5H6z"/></svg></span><span class="tab-label">Settings</span><span class="tab-active-mark" aria-hidden="true"></span></span></button>
           </nav>
           <div id="wallet"></div>
           <div id="menuContent"></div>
@@ -60,6 +62,8 @@
 
 
         </div>
+        </div>
+        <div id="menuDock" class="expedition" hidden></div>
       </section>
       <section id="overlay" class="screen" hidden>
         <div

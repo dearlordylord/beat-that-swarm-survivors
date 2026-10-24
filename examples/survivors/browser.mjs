@@ -171,6 +171,10 @@ function menu() {
     html = `<div class="settings"><label class="setting"><div>Music and sound<span>Adaptive chip-metal · responds to nearby danger</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
   }
   $("#menuContent").innerHTML = html;
+  // The dock is a sibling of the scroller, so it cannot cover picker content.
+  const action = $("#menuContent .a-bottom");
+  $("#menuDock").replaceChildren(...(action ? [action] : []));
+  $("#menuDock").hidden = !action;
   if (previousFocus) {
     const match = [...$("#menu").querySelectorAll("button,input")].find(
       (element) =>
@@ -435,7 +439,7 @@ document.addEventListener("click", (event) => {
     if (b.dataset.tab) {
       tab = b.dataset.tab;
       menu();
-      $("#menu").scrollTop = 0;
+      $("#menuScroll").scrollTop = 0;
     } else if (b.dataset.menuPanel !== undefined) {
       openPanel = openPanel === b.dataset.menuPanel ? null : b.dataset.menuPanel;
       pendingUnlock = null;
