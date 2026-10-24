@@ -1,3 +1,4 @@
+import Pool from './dist/pools.mjs';
 import assert from "node:assert/strict";
 import { stat } from "node:fs/promises";
 import { WEAPONS, UNIONS } from "./content.mjs";
@@ -108,7 +109,7 @@ const body = (kind, seed, variant = 1) => ({
 });
 const shot = (pierce, visited = []) => ({
   $: "Snapshot",
-  body: body(1, Game.pool_player_start()),
+  body: body(1, Pool.player_start()),
   motion: {
     ...Game.empty_motion(),
     ownerBase: 1,
@@ -124,13 +125,13 @@ const shot = (pierce, visited = []) => ({
 });
 const enemies = list([body(0, 11), body(0, 12)]);
 const single = Game.plan_hits(list([shot(1)]), enemies);
-assert.deepEqual(array(Game.hit_targets(single, Game.pool_player_start())), [11]);
+assert.deepEqual(array(Game.hit_targets(single, Pool.player_start())), [11]);
 assert.equal(Game.collisions(single, 100, 100, 10, 11).damage, 7);
 assert.equal(Game.collisions(single, 100, 100, 10, 12).damage, 0);
 const visited = Game.plan_hits(list([shot(1, [11])]), enemies);
-assert.deepEqual(array(Game.hit_targets(visited, Game.pool_player_start())), [12]);
+assert.deepEqual(array(Game.hit_targets(visited, Pool.player_start())), [12]);
 const pair = Game.plan_hits(list([shot(2)]), enemies);
-assert.deepEqual(array(Game.hit_targets(pair, Game.pool_player_start())), [11, 12]);
+assert.deepEqual(array(Game.hit_targets(pair, Pool.player_start())), [11, 12]);
 assert.equal(Game.collisions(pair, 100, 100, 10, 12).damage, 7);
 console.log(
   "Recovery does not create health; frozen collision recipients obey pierce and hit history.",

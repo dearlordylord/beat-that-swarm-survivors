@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import Game from "./dist/game.mjs";
+const birthEntropy = Game.start(0,0).state.run.seed;
 const list = (xs) =>
   xs.reduceRight((tail, head) => ({ $: "Con", head, tail }), { $: "Nil" });
 const empty = list(Array(18).fill(0));
@@ -11,7 +12,7 @@ assert.equal(Game.active_limit(21600), 300);
 assert.equal(Game.active_limit(100000), 300);
 assert.ok(Game.next_xp_need(40) > Game.next_xp_need(20) * 2,
   "Later levels require accelerating investment rather than constant interruption");
-const openingSpawns = Array.from({length: 24}, (_, i) => Game.enemy_new(i, 60, 1800, 1800, 0, 0, 0));
+const openingSpawns = Array.from({length: 24}, (_, i) => Game.enemy_new_seed(i, birthEntropy, 60, 1800, 1800, 0, 0, 0));
 assert.ok(new Set(openingSpawns.map(b => b.x + ":" + b.y)).size > 12, "Spawns occupy varied offscreen positions");
 assert.ok(openingSpawns.every(b => Math.max(Math.abs(b.x - 1800), Math.abs(b.y - 1800)) > 512 + 3 * b.radius + 24));
 const early = Game.pressure_damage(1, 0, 0, 0, empty, 0, 0, 0);
@@ -110,30 +111,6 @@ assert.ok(
   !endless.frame.bodies.some((b) => b[3] === 30),
   "Endless never summons Dawn Reaper",
 );
-// Former map-actor locations cannot activate AoE damage or grant rescue rewards.
-let actorFree = accept(Game.start(0, 0));
-actorFree.state.run.weapons = list(Array(24).fill(0));
-for (const [px, py] of [[1960, 1800], [2012, 1890], [1800, 1800]]) {
-  actorFree.state.run = { ...actorFree.state.run, px, py };
-  for (let tick = 0; tick < 4; tick++) {
-    actorFree = accept(Game.advance(actorFree.state, 0, 0));
-    assert.ok(actorFree.frame.bodies.every(body => body[2] !== 10 && body[2] !== 11),
-      "Map wisps and wards never spawn");
-    assert.equal(actorFree.frame.xp, 0, "Former rescue locations grant no XP");
-    assert.equal(actorFree.frame.gold, 0, "Former rescue locations grant no gold");
-    assert.equal(actorFree.frame.kills, 0, "No independent map AoE kills enemies");
-  }
-}
-const obsoleteWard = list([{
-  $: "Snapshot",
-  body: { $: "Body", x: 100, y: 100, kind: 11, variant: 1,
-    hp: 160, maxHp: 160, age: 90, seed: Game.pool_xp_start(), radius: 12 },
-  motion: Game.empty_motion(),
-}]);
-const obsoleteCollision = Game.collisions(Game.plan_hits(obsoleteWard, list([])), 100, 100, 12, 0);
-assert.equal(obsoleteCollision.damage, 0, "Removed ward snapshots cannot create AoE damage");
-assert.equal(obsoleteCollision.slow, 0, "Removed ward snapshots cannot create slow status");
-console.log(JSON.stringify({ test: "no independent map actors, rescue rewards or ward AoE", passed: true }));
 // An evolved-control build must not permanently freeze or displace the Reaper.
 const immuneRun = accept(Game.start(0, 0)).state.run;
 immuneRun.tick = 36010;
@@ -249,7 +226,7 @@ for (const offer of deferred.frame.offers) {
 }
 const freezeTick = deferred.frame.tick;
 deferred = accept(Game.advance(deferred.state, 0, 0));
-assert.equal(deferred.frame.tick, freezeTick, "Legacy paused advance contract remains intact");
+assert.equal(deferred.frame.tick, freezeTick, "Paused advance contract remains intact");
 assert.deepEqual(arrayQueue(Game.reward_backlog(3, true)), [1, 2, 2], "Simultaneous level and multiple chests are retained");
 console.log(JSON.stringify({test: "deferred progression", tick: deferred.frame.tick, queued: arrayQueue(deferred.state.pending).length}));
 function arrayQueue(xs) {

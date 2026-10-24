@@ -10,9 +10,6 @@ def player_end() -> U32: 1024
 def hostile_start() -> U32: 1024
 def hostile_count() -> U32: 32
 def hostile_end() -> U32: 1056
-def actor_start() -> U32: 1056
-def actor_count() -> U32: 0
-def actor_end() -> U32: 1056
 def xp_start() -> U32: 1056
 def xp_count() -> U32: 400
 def xp_end() -> U32: 1456
@@ -27,7 +24,6 @@ type Role is Data:
   Enemy{}
   PlayerShot{}
   Hostile{}
-  Actor{} # Compatibility value; role(seed) never constructs this removed role.
   Xp{}
   Outside{}
 
@@ -61,10 +57,6 @@ def hostile_flag(role:Role) -> Bool:
   match role:
     case Hostile{}: True{}
     case _: False{}
-def actor_flag(role:Role) -> Bool:
-  match role:
-    case Actor{}: True{}
-    case _: False{}
 def xp_flag(role:Role) -> Bool:
   match role:
     case Xp{}: True{}
@@ -74,10 +66,8 @@ def outside_flag(role:Role) -> Bool:
     case Outside{}: True{}
     case _: False{}
 def is_enemy_pool(seed:U32) -> Bool: enemy_flag(role(seed))
-def is_enemy(seed:U32) -> Bool: is_enemy_pool(seed)
 def is_player_shot(seed:U32) -> Bool: player_flag(role(seed))
 def is_hostile(seed:U32) -> Bool: hostile_flag(role(seed))
-def is_actor(seed:U32) -> Bool: actor_flag(role(seed))
 def is_xp(seed:U32) -> Bool: xp_flag(role(seed))
 
 # Per-weapon live caps for the local 24-weapon catalogue, not a claim of

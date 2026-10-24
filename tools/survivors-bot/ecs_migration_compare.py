@@ -214,8 +214,6 @@ def validate_payload(payload, checkpoint_tick, layout, migrated):
             if components['motions'][offset][1] != trajectory[:5] + status + trajectory[5:]:
                 raise ReplayError('Physical/logical Motion incoherence')
     if migrated:
-        if (components['projectileCandidates'] is None) != (components['poolCandidates'] is None):
-            raise ReplayError('Candidate roster readiness mismatch')
         expected = {'movementCandidates': [], 'projectileCandidates': [], 'poolCandidates': []}
         namespace = payload['metadata']['namespace']
         for index, generation in live:
@@ -229,12 +227,11 @@ def validate_payload(payload, checkpoint_tick, layout, migrated):
                 expected['poolCandidates'].append(handle)
         for name, handles in expected.items():
             observed = components[name]
-            if observed is not None:
-                sequence(observed, name)
-                for handle in observed:
-                    R.words(handle, 3, 'candidate handle')
-                if observed != handles:
-                    raise ReplayError(f'{name} differs from issued membership/order')
+            sequence(observed, name)
+            for handle in observed:
+                R.words(handle, 3, 'candidate handle')
+            if observed != handles:
+                raise ReplayError(f'{name} differs from issued membership/order')
     return {**{key: payload[key] for key in GAMEPLAY},
             'authoritativeBodies': [row[1] for row in components['bodies']],
             'enemyVitals': [components['vitals'][offset][1] for offset, role in enumerate(roles) if role in ENEMIES],

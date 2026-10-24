@@ -1,3 +1,4 @@
+import Pool from './dist/pools.mjs';
 import assert from 'node:assert/strict';
 import G from './dist/game.mjs';
 
@@ -26,7 +27,7 @@ const assertView = (state, seed) => {
   const packet = G.start_seed_quiet(0, 0, 100);
   const store = packet.state.world.store;
   const roles = values(store.roles);
-  for (let seed = 0; seed < G.pool_total(); seed++) {
+  for (let seed = 0; seed < Pool.total_count(); seed++) {
     const role = roles[seed].value.$;
     assert.equal(entry(store.pickups, seed).$, role === 'XpSlot' ? 'Some' : 'None');
     if (role === 'XpSlot') {
@@ -42,7 +43,7 @@ const assertView = (state, seed) => {
 // credit the cleared identity a second time.
 {
   let packet = G.start_seed_quiet(0, 0, 100);
-  const seed = G.pool_xp_start();
+  const seed = Pool.xp_start();
   const store = packet.state.world.store;
   const body = entry(store.bodies, seed);
   body.value = {
@@ -72,7 +73,7 @@ const assertView = (state, seed) => {
 {
   const packet = G.start_seed_quiet(0, 0, 100);
   const store = packet.state.world.store;
-  const seed = G.pool_xp_start();
+  const seed = Pool.xp_start();
   const before = structuredClone({
     enemy: entry(store.bodies, 0),
     body: entry(store.bodies, seed),

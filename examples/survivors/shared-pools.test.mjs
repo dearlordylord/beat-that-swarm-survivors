@@ -1,9 +1,10 @@
+import Pool from './dist/pools.mjs';
 import assert from 'node:assert/strict';
 import G from './dist/game.mjs';
 
 const list = values => values.reduceRight((tail, head) => ({ $: 'Con', head, tail }), { $: 'Nil' });
-const playerStart = G.pool_player_start();
-const playerCount = G.pool_player_count();
+const playerStart = Pool.player_start();
+const playerCount = Pool.player_count();
 const empty = list([]);
 const initial = G.start(0, 0).state.run;
 const weapons = Array(24).fill(0);
@@ -22,13 +23,13 @@ const spawn = currentArgs => {
     .filter(entity => entity.row.body.kind === 1);
 };
 assert.equal(playerCount, 512);
-assert.equal(G.pool_xp_count(), 400);
-assert.equal(G.pool_enemy_count(), 512);
-assert.equal(G.pool_relic_seed(), 511);
-assert.equal(G.pool_hostile_start() - playerStart, playerCount);
-assert.equal(G.pool_xp_start() - G.pool_hostile_start(), 32, "No map actor slots remain between hostile and XP pools");
-assert.equal(G.pool_total(), 1456);
-assert.equal(G.pool_total(), G.pool_xp_start() + G.pool_xp_count());
+assert.equal(Pool.xp_count(), 400);
+assert.equal(Pool.enemy_count(), 512);
+assert.equal(Pool.relic_seed(), 511);
+assert.equal(Pool.hostile_start() - playerStart, playerCount);
+assert.equal(Pool.xp_start() - Pool.hostile_start(), 32, "No map actor slots remain between hostile and XP pools");
+assert.equal(Pool.total_count(), 1456);
+assert.equal(Pool.total_count(), Pool.xp_start() + Pool.xp_count());
 
 const first = spawn(args(run));
 assert.equal(first.length, 8, 'Full logical volley occupies eight physical slots');
@@ -85,14 +86,14 @@ for (const carrier of [
   assert.deepEqual(opened.fst, ownedArgs);
   assert.deepEqual(opened.snd, ownedPlan);
 }
-const hostileSeed = G.pool_hostile_start();
+const hostileSeed = Pool.hostile_start();
 const lateArgs = args({ ...run, tick: 21600 });
 const dormantHostile = G.dormant_entity(1800, 1800, hostileSeed);
-const dispatchedHostile = G.entity_update(dormantHostile.row.body, dormantHostile.motion, lateArgs);
+const dispatchedHostile = G.projectile_update_role({ $: 'HostileProjectileSlot' }, dormantHostile.row.body, G.trajectory_of(dormantHostile.motion), lateArgs, G.prepare_shot_plan(lateArgs));
 assert.ok([7, 8].includes(dispatchedHostile.row.body.kind), 'Hostile identity can never enter enemy admission');
 const liveHostile = G.hostile_created(true, hostileSeed, run.px, run.py,
   { $: 'Aim', x: 1700, y: 1700, id: 0, distance: 20000 });
-const movedHostile = G.entity_update(liveHostile.row.body, liveHostile.motion, lateArgs);
+const movedHostile = G.projectile_update_role({ $: 'HostileProjectileSlot' }, liveHostile.row.body, G.trajectory_of(liveHostile.motion), lateArgs, G.prepare_shot_plan(lateArgs));
 assert.equal(movedHostile.row.body.kind, 7);
 assert.equal(movedHostile.row.body.seed, hostileSeed);
 assert.equal(movedHostile.row.body.age, liveHostile.row.body.age + 1);

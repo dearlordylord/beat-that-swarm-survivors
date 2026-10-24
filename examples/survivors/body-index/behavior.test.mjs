@@ -1,4 +1,4 @@
-// Differential oracle against the previously shipped first-match row lookup.
+// The running index must retain the first complete value for each U32 key.
 import assert from 'node:assert/strict';
 import G from '../dist/game.mjs';
 const list = xs => xs.reduceRight((tail,head)=>({$:'Con',head,tail}),{$:'Nil'});
@@ -13,7 +13,7 @@ mixed.push(body(0xffffffff,700,9));
 const mixedRows = list(mixed.map(row));
 const mixedIndex = G.body_index(mixedRows);
 for (const key of [...extremes,42,0xabcdef01]) {
-  assert.deepEqual(G.indexed_body(mixedIndex,key,fallback),G.planned_body(mixedRows,key,fallback),`U32 key ${key}`);
+  assert.deepEqual(G.indexed_body(mixedIndex,key,fallback),mixed.find(b=>b.seed===key) ?? fallback,`U32 key ${key}`);
 }
 assert.deepEqual(G.indexed_body(mixedIndex,1,fallback),mixed[1]);
 assert.notDeepEqual(G.indexed_body(mixedIndex,1,fallback),G.indexed_body(mixedIndex,0x80000001,fallback),'High bit participates in the key');
@@ -28,7 +28,7 @@ for (let trial=0;trial<12;trial++) {
   const rows=list(entries.map(row));
   const index=G.body_index(rows);
   for(const key of [...entries.map(b=>b.seed),random(),random()]) {
-    assert.deepEqual(G.indexed_body(index,key,fallback),G.planned_body(rows,key,fallback));
+    assert.deepEqual(G.indexed_body(index,key,fallback),entries.find(b=>b.seed===key) ?? fallback);
   }
 }
 console.log('Body index: full-U32 keys, first duplicate, opaque field preservation, missing fallback and shuffled differential oracle passed');

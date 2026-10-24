@@ -150,7 +150,8 @@ class MigrationTest(unittest.TestCase):
         a = replay(False); b = replay(True)
         for name in ('movementCandidates', 'projectileCandidates', 'poolCandidates'):
             b[2]['payload']['components'][name] = None
-        self.write(a, b); self.compare()
+        self.write(a, b)
+        with self.assertRaises(M.ReplayError): self.compare()
 
     def test_actual_stamp_validity_and_no_invented_unified_stamp(self):
         for stamp in ([None, None], [[0, 11], [0, 10]], [[0, 1], [0, 101]], [[-1, 0], [0, 10]], [[0, True], [0, 10]], [None, [0, 10]]):

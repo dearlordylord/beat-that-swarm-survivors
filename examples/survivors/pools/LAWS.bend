@@ -6,7 +6,7 @@ def bit(value:Bool) -> U32:
     case True{}: 1
     case False{}: 0
 def role_count(+role:P.Role) -> U32:
-  (bit(P.enemy_flag(role)) + bit(P.player_flag(role)) + bit(P.hostile_flag(role)) + bit(P.actor_flag(role)) + bit(P.xp_flag(role)) + bit(P.outside_flag(role)) : U32)
+  (bit(P.enemy_flag(role)) + bit(P.player_flag(role)) + bit(P.hostile_flag(role)) + bit(P.xp_flag(role)) + bit(P.outside_flag(role)) : U32)
 
 # Guarantees: every seed has exactly one role, including an explicit outside role.
 # Why it matters: the entity update router cannot assign one slot to two pools.
@@ -17,12 +17,12 @@ law unique_role:
 # Guarantees: the allocation intervals are adjacent and exhaust exactly 1456 slots.
 # Why it matters: game initialization must neither omit a pool nor overlap storage.
 law contiguous_layout:
-  {(P.enemy_end(),P.player_start(),P.player_end(),P.hostile_start(),P.hostile_end(),P.actor_start(),P.actor_end(),P.xp_start(),P.xp_end(),P.total_count()) == (512,512,1024,1024,1056,1056,1056,1056,1456,1456) : U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32}
+  {(P.enemy_end(),P.player_start(),P.player_end(),P.hostile_start(),P.hostile_end(),P.xp_start(),P.xp_end(),P.total_count()) == (512,512,1024,1024,1056,1056,1456,1456) : U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32}
 
 # Guarantees: pool counts and spawn thresholds have the approved exact values.
 # Why it matters: the runtime must reserve 400 XP slots while leaving boss room.
 law exact_counts:
-  {(P.enemy_count(),P.relic_seed(),P.player_count(),P.hostile_count(),P.actor_count(),P.xp_count(),P.owner_count(),P.logical_count(),P.normal_enemy_cap(),P.max_regular_enemies()) == (512,511,512,32,0,400,24,8,300,500) : U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32}
+  {(P.enemy_count(),P.relic_seed(),P.player_count(),P.hostile_count(),P.xp_count(),P.owner_count(),P.logical_count(),P.normal_enemy_cap(),P.max_regular_enemies()) == (512,511,512,32,400,24,8,300,500) : U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32 & U32}
 
 # Guarantees: the structural entity traversal visits the same count as allocation.
 # Why it matters: a stale Nat traversal count would leave part of a run dormant.
@@ -49,10 +49,3 @@ law exact_catalogue:
 # Why it matters: the reserved relic and all pool boundary slots route correctly.
 law exact_role_boundaries:
   {(P.role(0),P.role(511),P.role(512),P.role(1023),P.role(1024),P.role(1055),P.role(1056),P.role(1067),P.role(1068),P.role(1455),P.role(1456)) == (P.Enemy{},P.Enemy{},P.PlayerShot{},P.PlayerShot{},P.Hostile{},P.Hostile{},P.Xp{},P.Xp{},P.Xp{},P.Xp{},P.Outside{}) : P.Role & P.Role & P.Role & P.Role & P.Role & P.Role & P.Role & P.Role & P.Role & P.Role & P.Role}
-
-# Guarantees: the public actor-role predicate is false for every U32 identity.
-# Why it matters: removed custom map actors must reserve no physical slots;
-# former actor identities are XP entries, not dormant actor placeholders.
-law no_actor_role:
-  for +seed: U32
-  {P.is_actor(seed) == False{} : Bool}

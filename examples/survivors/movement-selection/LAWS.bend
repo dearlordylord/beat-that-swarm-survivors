@@ -3,14 +3,6 @@ import ../movement-membership.bend as M
 import ../pools.bend as P
 import ../entity-role.bend as R
 
-# Guarantees: movement admits exactly enemy-pool identities with enemy kind.
-# Why it matters: membership must include newly born enemies and exclude drops
-#   and dormant incarnations before the next movement pass begins.
-law exact_movement_scope:
-  for kind: U32
-  for seed: U32
-  {M.active(kind,seed) == Bool.and(P.is_enemy_pool(seed),U32.is_eq(kind,0)) : Bool}
-
 # Guarantees: collecting lifecycle outputs preserves their order across batches.
 # Why it matters: filtering inactive rows cannot reorder movement writes and
 #   therefore cannot change their lifecycle stamps or transactional order.
@@ -40,4 +32,4 @@ law exact_role_scope:
 law assigned_role_equivalence:
   for +kind: U32
   for +seed: U32
-  {M.active_role(R.assigned(seed),kind) == M.active(kind,seed) : Bool}
+  {M.active_role(R.assigned(seed),kind) == Bool.and(P.is_enemy_pool(seed),U32.is_eq(kind,0)) : Bool}
