@@ -360,7 +360,7 @@ function pause(value) {
     audio.stop();
     $("#overlay").hidden = false;
     $("#dialog").innerHTML =
-      '<div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">A moment of rest</h2><p>The night will wait for your return.</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. XP collects automatically after 2 seconds.<br>Collect chests manually; press E to choose a ready reward.<br>Guide wisps home and activate wards. Carry up to 6 weapons and 6 relics.</p>';
+      '<div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">A moment of rest</h2><p>The night will wait for your return.</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. Walk over experience shards to collect XP; shards stay on the ground.<br>Collect chests manually; press E to choose a ready reward.<br>Guide wisps home and activate wards. Carry up to 6 weapons and 6 relics.</p>';
     focusDialog();
   } else {
     $("#overlay").hidden = true;
