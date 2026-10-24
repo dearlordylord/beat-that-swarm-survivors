@@ -90,6 +90,10 @@ Do not publish by manually copying an old `dist/web`. This procedure guarantees 
 
 Adaptive chip-metal uses a shared Bend score and danger assessment: nearby enemies, enemy types, hostile shots and player health change the arrangement at bar boundaries. The latest target replaces older observations; changes never queue. Native synthesizes stereo PCM in Bend, while the browser renders those notes through Web Audio. See [music](music/README.md) for timing and validation scope.
 
+## Multiplayer exploration
+
+The game currently remains single-player. The [multiplayer work map](../../research/survivors-multiplayer-plan.md) separates the Bend/Iroh transport adapter from the shared-world gameplay model and records unresolved co-op decisions. See the linked feasibility study for evidence and platform limits.
+
 ## Checks
 
 Checks require Node.js 20+, Bend, a C compiler and platform audio/window development libraries. Linux uses flock when available; other hosts use a temporary lock directory. Remove stale locks only after confirming no checks are running:
