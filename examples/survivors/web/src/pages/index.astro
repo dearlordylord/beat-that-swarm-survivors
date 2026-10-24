@@ -1,0 +1,14 @@
+---
+import template from '../../../index.html?raw';
+import { renderExpedition, renderExpeditionAction } from '../../../expedition-menu.mjs';
+import { freshProfile, validateSetup } from '../../../progression.mjs';
+
+// Astro owns static presentation. The profile and catalog come from Bend.
+const profile = freshProfile();
+const initial = { profile, ...validateSetup(profile, {}) };
+const html = template
+  .replace('<div id="menuContent"></div>', `<div id="menuContent">${renderExpedition({ ...initial, staticPickers: true })}</div>`)
+  .replace('<div id="menuDock" class="expedition" hidden></div>', `<div id="menuDock" class="expedition">${renderExpeditionAction(initial)}</div>`)
+  .replace('<div id="wallet"></div>', '<div id="wallet">◈ 0 · legacy gold</div>');
+---
+<Fragment set:html={html} />

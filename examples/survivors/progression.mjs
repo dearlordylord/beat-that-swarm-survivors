@@ -1,249 +1,122 @@
-import {
-  META_UPGRADES,
-  CHARACTERS,
-  STAGES,
-  ACHIEVEMENTS,
-  RUN_MODES,
-  WEAPON_UNLOCKS,
-} from "./content.mjs";
+// Presentation/storage adapter. Every game decision is made by the Bend core.
+import Core from "./dist/menu-progression.mjs";
+import * as Catalog from "./content.mjs";
+
 const KEY = "nightfall-survivors-v1";
-const fresh = () => ({
-  version: 1,
-  gold: 0,
-  meta: Array(10).fill(0),
-  characters: [0],
-  stages: [0],
-  achievements: [],
-  stats: {
-    kills: 0,
-    totalgold: 0,
-    survive: 0,
-    wins: 0,
-    evolutions: 0,
-    levels: 1,
-    characters: 1,
-    stages: 1,
-    weapons: 0,
-    revivals: 0,
-    bosskills: 0,
-    characterwins: 0,
-    relics: 0,
-  },
-  collection: { weapons: [], evolutions: [], enemies: [] },
-  stageRelics: [],
-  wonCharacters: [],
-  recorded: [],
-  settings: {
-    muted: false,
-    volume: 0.35,
-    reducedMotion: false,
-    showDamage: true,
-  },
-});
+const NAT_MAX = 281474976710655;
+const list = values => values.reduceRight((tail, head) => ({ $: "Con", head, tail }), { $: "Nil" });
+const array = values => {
+  const result = [];
+  for (let row = values; row?.$ === "Con"; row = row.tail) result.push(row.head);
+  return result;
+};
+
+// Generic JSON-value transport, with no game-specific fields or rules.
+export function toBend(value) {
+  if (value === null || value === undefined) return { $: "JNull" };
+  if (typeof value === "boolean") return { $: "JBoolean", value };
+  if (typeof value === "string") return { $: "JText", value };
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return { $: "JNull" };
+    const source = String(Math.abs(value));
+    const [mantissa, exponent = "0"] = source.split("e");
+    const [whole, fraction = ""] = mantissa.split(".");
+    const scale = fraction.length - Number(exponent);
+    let numerator = Number(whole + fraction), denominator = 1;
+    if (scale >= 0) denominator = 10 ** scale;
+    else numerator *= 10 ** -scale;
+    if (numerator > NAT_MAX || denominator > NAT_MAX) {
+      const numeratorDigits = (whole + fraction + (scale < 0 ? "0".repeat(-scale) : "")).replace(/^0+/, "") || "0";
+      const denominatorDigits = scale > 0 ? "1" + "0".repeat(scale) : "1";
+      const digits = source => list([...source].reverse().map(Number));
+      return { $: "JDecimal", value: String(value), numerator: digits(numeratorDigits), denominator: digits(denominatorDigits), negative: value < 0 };
+    }
+    return { $: "JNumber", numerator, denominator, negative: value < 0 };
+  }
+  if (Array.isArray(value)) return { $: "JSequence", values: list(value.map(toBend)) };
+  if (typeof value === "object") {
+    const entries = Object.entries(value);
+    return { $: "JObject", keys: list(entries.map(([key]) => key)), values: list(entries.map(([, item]) => toBend(item))) };
+  }
+  throw new TypeError("Bend menu transport expects a JSON value");
+}
+export function fromBend(value) {
+  switch (value?.$) {
+    case "JNull": return null;
+    case "JBoolean": case "JText": return value.value;
+    case "JDecimal": return Number(value.value);
+    case "JRatio": {
+      const numerator = array(value.numerator).reverse().join("") || "0";
+      const denominator = array(value.denominator).reverse().join("") || "1";
+      const n = Number(numerator), d = Number(denominator);
+      if (Number.isFinite(n) && Number.isFinite(d)) return n / d;
+      // Avoid Infinity/Infinity and premature underflow when decoding an exact ratio.
+      // This is a generic numeric codec, independent of all game rules.
+      const shift = 40 + denominator.length - numerator.length;
+      const scaled = shift >= 0
+        ? BigInt(numerator) * 10n ** BigInt(shift) / BigInt(denominator)
+        : BigInt(numerator) / (BigInt(denominator) * 10n ** BigInt(-shift));
+      return Number(`${scaled}e${-shift}`);
+    }
+    case "JNumber": return (value.negative ? -1 : 1) * value.numerator / value.denominator;
+    case "JSequence": return array(value.values).map(fromBend);
+    case "JObject": {
+      const keys = array(value.keys), values = array(value.values);
+      return Object.fromEntries(keys.map((key, index) => [key, fromBend(values[index])]));
+    }
+    default: throw new TypeError("Unknown Bend menu transport value");
+  }
+}
+const catalog = toBend(Catalog);
+const decode = fromBend;
+export const freshProfile = () => decode(Core.fresh());
 export function loadProfile() {
-  const base = fresh();
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (!raw || raw.version !== 1) return base;
-    for (const key of [
-      "gold",
-      "meta",
-      "characters",
-      "stages",
-      "achievements",
-      "stageRelics",
-      "wonCharacters",
-      "recorded",
-    ])
-      if (raw[key] !== undefined) base[key] = raw[key];
-    Object.assign(base.stats, raw.stats || {});
-    Object.assign(base.collection, raw.collection || {});
-    Object.assign(base.settings, raw.settings || {});
-    base.gold = Math.max(0, Math.floor(Number(base.gold) || 0));
-    base.meta = META_UPGRADES.map((u, i) =>
-      Math.max(
-        0,
-        Math.min(u.maxLevel, Math.floor(Number(base.meta?.[i]) || 0)),
-      ),
-    );
-    for (const key of [
-      "characters",
-      "stages",
-      "achievements",
-      "stageRelics",
-      "wonCharacters",
-      "recorded",
-    ])
-      if (!Array.isArray(base[key])) base[key] = fresh()[key];
-    base.characters = [
-      ...new Set([
-        0,
-        ...base.characters.filter((i) => CHARACTERS.some((c) => c.id === i)),
-      ]),
-    ];
-    base.stages = [
-      ...new Set([
-        0,
-        ...base.stages.filter((i) => STAGES.some((c) => c.id === i)),
-      ]),
-    ];
-    base.stageRelics = [
-      ...new Set(
-        base.stageRelics.filter((i) => Number.isInteger(i) && i >= 0 && i < 5),
-      ),
-    ];
-    for (const key of Object.keys(base.stats))
-      base.stats[key] = Math.max(0, Number(base.stats[key]) || 0);
-    for (const key of ["weapons", "evolutions", "enemies"])
-      base.collection[key] = Array.isArray(base.collection[key])
-        ? [...new Set(base.collection[key].filter(Number.isInteger))]
-        : [];
-    return base;
+    return decode(Core.normalize(toBend(JSON.parse(localStorage.getItem(KEY) || "null")), catalog));
   } catch {
-    return base;
+    return freshProfile();
   }
 }
 export function saveProfile(profile) {
   try {
     localStorage.setItem(KEY, JSON.stringify(profile));
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 export function upgradeCost(profile, id) {
-  const item = META_UPGRADES.find((u) => u.id === id);
-  return item
-    ? Math.floor(item.costBase * (1 + (profile.meta[id] || 0) * 0.75))
-    : Infinity;
+  return decode(Core.upgrade_cost(toBend(profile), toBend(id), catalog)) ?? Infinity;
+}
+export function upgradeStatus(profile, id) {
+  return decode(Core.upgrade_status(toBend(profile), toBend(id), catalog));
+}
+export function purchaseStatus(profile, kind, id) {
+  return decode(Core.purchase_status(toBend(profile), kind, toBend(id), catalog));
+}
+export function validateSetup(profile, setup) {
+  return decode(Core.validate_setup(toBend(profile), toBend(setup), catalog));
+}
+function apply(profile, outcome) {
+  if (outcome.$ === "JNull") return false;
+  Object.assign(profile, decode(outcome));
+  saveProfile(profile);
+  return true;
 }
 export function buyUpgrade(profile, id) {
-  const item = META_UPGRADES.find((u) => u.id === id),
-    cost = upgradeCost(profile, id);
-  if (!item || profile.meta[id] >= item.maxLevel || profile.gold < cost)
-    return false;
-  profile.gold -= cost;
-  profile.meta[id]++;
-  saveProfile(profile);
-  return true;
+  return apply(profile, Core.buy_upgrade(toBend(profile), toBend(id), catalog));
 }
-export function metaCode(profile) {
-  return (
-    profile.meta.reduce(
-      (code, level, i) => code + Math.min(7, level) * 2 ** (i * 3),
-      0,
-    ) >>> 0
-  );
-}
-export function requirementsMet(profile, item) {
-  return (
-    !item.condition ||
-    (profile.stats[item.condition.stat] || 0) >= item.condition.value
-  );
-}
-export function allowedWeapons(profile) {
-  let mask = 0xffffff;
-  for (const item of WEAPON_UNLOCKS) {
-    const open =
-      item.stageRelic !== undefined
-        ? profile.stageRelics.includes(item.stageRelic)
-        : requirementsMet(profile, item);
-    if (!open) mask &= ~(1 << item.id);
-  }
-  return mask >>> 0;
-}
-export function isUnlocked(profile, kind, id) {
-  if (kind === "mode") {
-    const item = RUN_MODES.find((x) => x.id === id);
-    return !!item && requirementsMet(profile, item);
-  }
-  if (kind === "weapon") return !!(allowedWeapons(profile) & (1 << id));
-  return (kind === "character" ? profile.characters : profile.stages).includes(
-    id,
-  );
-}
+export const metaCode = profile => Core.meta_code(toBend(profile));
+export const requirementsMet = (profile, item) => Core.requirements_met(toBend(profile), toBend(item));
+export const allowedWeapons = profile => Core.allowed_weapons(toBend(profile), catalog);
+export const isUnlocked = (profile, kind, id) => Core.unlocked(toBend(profile), kind, toBend(id), catalog);
 export function unlock(profile, kind, id) {
-  const catalog =
-    kind === "character" ? CHARACTERS : kind === "stage" ? STAGES : [];
-  const item = catalog.find((i) => i.id === id);
-  if (
-    !item ||
-    !requirementsMet(profile, item) ||
-    isUnlocked(profile, kind, id) ||
-    profile.gold < item.cost
-  )
-    return false;
-  profile.gold -= item.cost;
-  (kind === "character" ? profile.characters : profile.stages).push(id);
-  profile.stats.characters = profile.characters.length;
-  profile.stats.stages = profile.stages.length;
-  award(profile);
-  saveProfile(profile);
-  return true;
+  return apply(profile, Core.purchase(toBend(profile), kind, toBend(id), catalog));
 }
-function award(profile) {
-  const added = [];
-  for (const a of ACHIEVEMENTS) {
-    if (profile.achievements.includes(a.id)) continue;
-    const conditions = a.conditions || {
-      [a.condition.stat]: a.condition.value,
-    };
-    if (
-      Object.entries(conditions).every(
-        ([key, value]) => (profile.stats[key] || 0) >= value,
-      )
-    ) {
-      profile.achievements.push(a.id);
-      added.push(a.id);
-    }
-  }
-  return added;
+export function observeRun(history, frame) {
+  return decode(Core.observe_run(toBend(history), toBend(frame)));
 }
 export function recordRun(profile, frame) {
-  const signature = String(
-    frame.runId ||
-      `${frame.character}:${frame.stage}:${frame.tick}:${frame.kills}:${frame.gold}:${frame.phase}`,
-  );
-  if (profile.recorded.includes(signature)) return [];
-  profile.recorded.push(signature);
-  profile.recorded = profile.recorded.slice(-100);
-  const gold = Math.max(0, Math.floor(frame.gold || 0));
-  profile.gold += gold;
-  const s = profile.stats;
-  s.totalgold += gold;
-  s.kills += frame.kills || 0;
-  s.survive = Math.max(s.survive, (frame.tick || 0) / 60);
-  s.levels = Math.max(s.levels, frame.level || 1);
-  s.revivals += frame.revivalsUsed || 0;
-  s.bosskills += frame.bossesKilled || 0;
-  if (frame.phase === 4) {
-    s.wins++;
-    if (!profile.wonCharacters.includes(frame.character))
-      profile.wonCharacters.push(frame.character);
-  }
-  if (frame.relicCollected === 1 && !profile.stageRelics.includes(frame.stage))
-    profile.stageRelics.push(frame.stage);
-  s.relics = profile.stageRelics.length;
-  const used = [...(frame.usedWeapons || [])],
-    evolved = [...(frame.evolvedWeapons || [])];
-  (frame.weapons || []).forEach((level, id) => {
-    if (level > 0 && !used.includes(id)) used.push(id);
-    if (level >= 9 && !evolved.includes(id)) evolved.push(id);
-  });
-  for (const [key, ids] of [
-    ["weapons", used],
-    ["evolutions", evolved],
-    ["enemies", frame.enemiesKilled || []],
-  ])
-    profile.collection[key] = [
-      ...new Set([...profile.collection[key], ...ids]),
-    ];
-  s.evolutions += evolved.length;
-  s.weapons = profile.collection.weapons.length;
-  s.characters = profile.characters.length;
-  s.stages = profile.stages.length;
-  s.characterwins = profile.wonCharacters.length;
-  const result = award(profile);
+  const result = decode(Core.record_run(toBend(profile), toBend(frame), catalog));
+  Object.assign(profile, result.profile);
   saveProfile(profile);
-  return result;
+  return result.added;
 }

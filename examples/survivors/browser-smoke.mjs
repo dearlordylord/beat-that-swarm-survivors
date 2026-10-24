@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 for (const file of ["game.bend", "projectile.bend", "encounters.bend"])
   assert.ok(
-    (await stat(new URL("./dist/game.mjs", import.meta.url))).mtimeMs >=
+    (await stat(new URL("./dist/web/dist/game.mjs", import.meta.url))).mtimeMs >=
       (await stat(new URL(file, import.meta.url))).mtimeMs,
     "Rebuild stale " + file,
   );
@@ -14,7 +14,7 @@ const { chromium } = await import(
 );
 const captureDir = process.env.NIGHTFALL_CAPTURE_DIR || fileURLToPath(new URL("./dist/browser-captures/", import.meta.url));
 await mkdir(captureDir, { recursive: true });
-const root = fileURLToPath(new URL(".", import.meta.url));
+const root = fileURLToPath(new URL("./dist/web/", import.meta.url));
 const server = createServer(async (req, res) => {
   const target = path.resolve(
     root,

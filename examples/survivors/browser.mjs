@@ -1,4 +1,3 @@
-import Game from "./dist/game.mjs";
 import {
   WEAPONS,
   PASSIVES,
@@ -13,9 +12,7 @@ import {
   WEAPON_UNLOCKS,
   STAGE_RELICS,
 } from "./content.mjs";
-import { Renderer } from "./renderer.mjs";
-import { AudioEngine } from "./audio.mjs";
-import { renderExpedition } from "./expedition-menu.mjs";
+import { renderExpedition, renderExpeditionAction } from "./expedition-menu.mjs";
 import {
   loadProfile,
   saveProfile,
@@ -24,14 +21,55 @@ import {
   recordRun,
   isUnlocked,
   unlock,
-  upgradeCost,
   requirementsMet,
   allowedWeapons,
+  upgradeStatus,
+  validateSetup,
+  observeRun,
 } from "./progression.mjs";
 const $ = (s) => document.querySelector(s),
   canvas = $("#game"),
-  renderer = new Renderer(canvas),
-  audio = new AudioEngine();
+  audio = {
+    engine: null,
+    context: null,
+    master: null,
+    unlock() {
+      if (this.engine) return this.engine.unlock();
+      // Keep the browser gesture even when the simulation is still downloading.
+      try {
+        const Context = globalThis.AudioContext || globalThis.webkitAudioContext;
+        if (!this.context && Context) {
+          this.context = new Context();
+          this.master = this.context.createGain();
+          this.master.gain.value = 0;
+          this.master.connect(this.context.destination);
+        }
+        if (this.context?.state === 'suspended') this.context.resume().catch(() => {});
+      } catch {}
+    },
+    stop(...args) { this.engine?.stop(...args); },
+    event(...args) { this.engine?.event(...args); },
+    update(...args) { this.engine?.update(...args); },
+    setMuted(...args) { this.engine?.setMuted(...args); },
+    setVolume(...args) { this.engine?.setVolume(...args); },
+  };
+let Game, renderer, runtimeTask, starting = false;
+function prepareRuntime() {
+  if (!runtimeTask) runtimeTask = Promise.all([
+    import('./dist/game.mjs'), import('./renderer.mjs'), import('./audio.mjs'),
+  ]).then(([game, graphics, sound]) => {
+    Game = game.default;
+    renderer = new graphics.Renderer(canvas);
+    audio.engine = new sound.AudioEngine();
+    if (audio.context) {
+      audio.engine.context = audio.context;
+      audio.engine.master = audio.master;
+      audio.engine.nextNote = audio.context.currentTime + 0.1;
+    }
+    settings();
+  }).catch(error => { runtimeTask = null; throw error; });
+  return runtimeTask;
+}
 let profile = loadProfile(),
   state,
   frame,
@@ -51,13 +89,11 @@ let profile = loadProfile(),
   runId = "";
 let openPanel = null, pendingUnlock = null;
 let loadoutSignature = "";
-let seenWeapons = new Set(),
-  seenEvolutions = new Set();
+let runHistory = observeRun({}, {});
 const runResult = () => ({
   ...frame,
   runId,
-  usedWeapons: [...seenWeapons],
-  evolvedWeapons: [...seenEvolutions],
+  ...runHistory,
 });
 const keys = new Set(),
   touch = { x: 0, y: 0 },
@@ -120,21 +156,20 @@ function menu() {
     html =
       '<div class="section-title">Power that outlives the night</div><div class="grid shop">' +
       META_UPGRADES.map((u) => {
-        let rank = profile.meta[u.id] || 0,
-          cost = upgradeCost(profile, u.id);
-        return `<article class="card"><h3>${u.name}</h3><p>${u.description}</p><span class="progress">${"◆".repeat(rank)}${"◇".repeat(u.maxLevel - rank)}</span><button data-upgrade="${u.id}" ${rank >= u.maxLevel || profile.gold < cost ? "disabled" : ""}>${rank >= u.maxLevel ? "Fully upgraded" : `Upgrade · ${cost} ◈`}</button></article>`;
+        const { rank, cost, maxed, canBuy } = upgradeStatus(profile, u.id);
+        return `<article class="card"><h3>${u.name}</h3><p>${u.description}</p><span class="progress">${"◆".repeat(rank)}${"◇".repeat(u.maxLevel - rank)}</span><button data-upgrade="${u.id}" ${canBuy ? "" : "disabled"}>${maxed ? "Fully upgraded" : `Upgrade · ${cost} ◈`}</button></article>`;
       }).join("") +
       "</div>";
   } else if (tab === "collection") {
     html =
       '<div class="collection-tabs">' +
       [
-        ["weapons", "Weapons · 24"],
-        ["evolutions", "Evolutions · 24"],
-        ["unions", "Unions · 6"],
-        ["passives", "Relics · 18"],
-        ["enemies", "Bestiary · 30"],
-        ["artifacts", "Artifacts · 5"],
+        ["weapons", `Weapons · ${WEAPONS.length}`],
+        ["evolutions", `Evolutions · ${WEAPONS.length}`],
+        ["unions", `Unions · ${UNIONS.length}`],
+        ["passives", `Relics · ${PASSIVES.length}`],
+        ["enemies", `Bestiary · ${ENEMIES.length}`],
+        ["artifacts", `Artifacts · ${STAGE_RELICS.length}`],
       ]
         .map(
           ([id, name]) =>
@@ -172,9 +207,9 @@ function menu() {
   }
   $("#menuContent").innerHTML = html;
   // The dock is a sibling of the scroller, so it cannot cover picker content.
-  const action = $("#menuContent .a-bottom");
-  $("#menuDock").replaceChildren(...(action ? [action] : []));
-  $("#menuDock").hidden = !action;
+  $("#menuDock").innerHTML = tab === "expedition"
+    ? renderExpeditionAction({ character, stage }) : "";
+  $("#menuDock").hidden = tab !== "expedition";
   if (previousFocus) {
     const match = [...$("#menu").querySelectorAll("button,input")].find(
       (element) =>
@@ -205,10 +240,7 @@ function accept(packet) {
   let old = frame;
   frame = JSON.parse(packet.frame);
   if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true;
-  frame.weapons.forEach((level, id) => {
-    if (level > 0) seenWeapons.add(id);
-    if (level >= 9) seenEvolutions.add(id);
-  });
+  runHistory = observeRun(runHistory, { weapons: frame.weapons });
   frame.stage ??= stage;
   if (old && running) {
     if (frame.hp < old.hp) audio.event("hit");
@@ -220,7 +252,25 @@ function accept(packet) {
     phase();
   }
 }
-function start() {
+async function start() {
+  if (starting) return;
+  starting = true;
+  const buttons = [...document.querySelectorAll('#start,#start-top,#restart')];
+  buttons.forEach(button => { button.disabled = true; button.setAttribute('aria-busy', 'true'); });
+  const status = $('#engineStatus');
+  status.textContent = 'Preparing game…';
+  try {
+    await prepareRuntime();
+  } catch (error) {
+    status.textContent = 'Could not load the game. Check your connection and reload.';
+    console.error(error);
+    return;
+  } finally {
+    starting = false;
+    buttons.forEach(button => { button.disabled = false; button.removeAttribute('aria-busy'); });
+  }
+  status.textContent = '';
+  ({ character, stage, arcana, mode } = validateSetup(profile, { character, stage, arcana, mode }));
   upgradeOpen = false;
   banishing = false;
   runId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
@@ -228,8 +278,7 @@ function start() {
   audio.stop(true);
   settings();
   renderer.reset();
-  seenWeapons = new Set();
-  seenEvolutions = new Set();
+  runHistory = observeRun({}, {});
   frame = undefined;
   shownPhase = -1;
   running = true;
@@ -507,7 +556,7 @@ document.addEventListener("click", (event) => {
       b.textContent = banishing
         ? "Choose an ability to banish"
         : "Banish an offer…";
-    } else if (b.id === "start" || b.id === "start-top" || b.id === "restart") start();
+    } else if (b.id === "start" || b.id === "start-top" || b.id === "restart") start().catch(fail);
     else if (b.id === "map") pause(true);
     else if (b.id === "pause" || b.id === "resume") pause();
     else if (b.id === "return") menu();
@@ -638,6 +687,9 @@ for (const type of ["pointerup", "pointercancel"])
     touch.x = touch.y = 0;
     $("#stick").style.transform = "";
   });
+({ character, stage, arcana, mode } = validateSetup(profile, {}));
 settings();
 menu();
 requestAnimationFrame(animation);
+// Fetch the simulation after the independent menu has mounted.
+prepareRuntime().catch(() => { /* Keep the menu usable if the game download fails. */ });

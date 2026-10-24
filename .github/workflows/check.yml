@@ -41,10 +41,16 @@ jobs:
         run: python3 scripts/check-dependencies.py --registry
       - name: Check portable timeout helper
         run: node examples/run-bounded.test.mjs
+      - name: Install pinned Astro build dependencies
+        run: npm ci --prefix examples/survivors/web --no-audit --no-fund
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
       - name: Check gameplay and browser-side progression
         run: bash examples/survivors/check.sh
+      - name: Build the prerendered browser page
+        run: |
+          bash examples/survivors/build-web.sh
+          node examples/survivors/launcher.test.mjs
       - name: Check optional classifier bot offline
         run: |
           npm ci --prefix tools/survivors-bot --ignore-scripts

@@ -1,14 +1,15 @@
-// Portable development launcher: current Bend sources are built at every launch.
+// Portable development launcher: the canonical Bend + Astro build runs at every launch.
 import { createServer } from "node:http";
 import { createReadStream } from "node:fs";
-import { mkdtemp, mkdir, rename, rm, stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-if (Number(process.versions.node.split(".")[0]) < 20)
-  throw Error("Node.js 20 or newer is required.");
+const [major, minor, patch] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && (minor < 23 || (minor === 23 && patch < 4))))
+  throw Error("Node.js 22.23.4 or newer is required for Astro.");
 const run = promisify(execFile);
 const app = fileURLToPath(new URL(".", import.meta.url));
 const repo = path.resolve(app, "../..");
@@ -22,7 +23,7 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === "--host") host = args[++i];
   else if (args[i] === "--help") {
     console.log(
-      "run.command [--port 8713] [--host 127.0.0.1] [--no-open]\nBuilds current Bend sources, starts the server and opens the browser.",
+      "node examples/survivors/launch.mjs [--port 8713] [--host 127.0.0.1] [--no-open]\nBuilds current Bend sources and the Astro menu, starts the server and opens the browser.",
     );
     process.exit(0);
   } else throw Error(`Unknown argument: ${args[i]}`);
@@ -31,49 +32,59 @@ if (!Number.isInteger(port) || port < 1 || port > 65535 || !host)
   throw Error("Use a valid --port (1–65535) and --host.");
 const address = host === "0.0.0.0" ? "127.0.0.1" : host;
 const url = `http://${address.includes(":") ? `[${address}]` : address}:${port}`;
-const dist = path.join(app, "dist");
+const web = path.join(app, "dist", "web");
 async function build() {
-  await mkdir(dist, { recursive: true });
-  const staging = await mkdtemp(path.join(dist, ".launch-"));
-  try {
-    console.log("Building current Bend sources…");
-    const child = execFile(
-      process.env.BEND || "bend",
-      [path.join(app, "game.bend"), "-o", path.join(staging, "game.mjs")],
-      { cwd: repo, timeout: 300000, killSignal: "SIGKILL" },
-      (error) => {
-        if (error?.code === "ENOENT")
-          console.error(
-            "Bend was not found. Add ~/.bend/bin to PATH or set BEND=/absolute/path/to/bend.",
-          );
-      },
+  console.log("Building current Bend sources and Astro menu…");
+  const child = execFile(
+    "bash",
+    [path.join(app, "build-web.sh")],
+    { cwd: repo, timeout: 300000, killSignal: "SIGKILL", maxBuffer: 8 * 1024 * 1024 },
+  );
+  child.stdout.pipe(process.stdout);
+  child.stderr.pipe(process.stderr);
+  await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code, signal) =>
+      code === 0
+        ? resolve()
+        : reject(Error(`Web build failed (${signal || code}).`)),
     );
-    child.stdout.pipe(process.stdout);
-    child.stderr.pipe(process.stderr);
-    await new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", (code, signal) =>
-        code === 0
-          ? resolve()
-          : reject(Error(`Bend build failed (${signal || code}).`)),
-      );
-    });
-    await rename(path.join(staging, "game.mjs"), path.join(dist, "game.mjs"));
-    console.log("Build complete.");
-  } finally {
-    await rm(staging, { recursive: true, force: true });
-  }
+  });
+  await stat(path.join(web, "index.html"));
+  console.log("Build complete.");
 }
-const assets = new Map([
-  ["/", ["index.html", "text/html"]],
-  ["/index.html", ["index.html", "text/html"]],
-  ["/style.css", ["style.css", "text/css"]],
-  ...["browser", "renderer", "content", "audio", "progression"].map((name) => [
-    `/${name}.mjs`,
-    [`${name}.mjs`, "text/javascript"],
-  ]),
-  ["/dist/game.mjs", ["dist/game.mjs", "text/javascript"]],
+const mime = new Map([
+  [".html", "text/html; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
+  [".js", "text/javascript; charset=utf-8"],
+  [".mjs", "text/javascript; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".map", "application/json; charset=utf-8"],
+  [".svg", "image/svg+xml"],
+  [".png", "image/png"],
+  [".webp", "image/webp"],
+  [".ico", "image/x-icon"],
+  [".woff2", "font/woff2"],
+  [".wasm", "application/wasm"],
+  [".txt", "text/plain; charset=utf-8"],
 ]);
+function within(root, candidate) {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+async function assetFile(pathname) {
+  const decoded = decodeURIComponent(pathname);
+  if (decoded.includes("\0")) return null;
+  let file = path.resolve(web, "." + decoded);
+  if (!within(web, file)) return null;
+  let info = await stat(file);
+  if (info.isDirectory()) {
+    file = path.join(file, "index.html");
+    info = await stat(file);
+  }
+  if (!info.isFile()) return null;
+  const [realRoot, realFile] = await Promise.all([realpath(web), realpath(file)]);
+  return within(realRoot, realFile) ? { file, info } : null;
+}
 async function stopPrevious() {
   let previous;
   try {
@@ -99,7 +110,13 @@ async function main() {
   await stopPrevious();
   const instance = randomUUID();
   const server = createServer(async (req, res) => {
-    const pathname = new URL(req.url, url).pathname;
+    let pathname;
+    try {
+      pathname = new URL(req.url, url).pathname;
+    } catch {
+      res.writeHead(400).end();
+      return;
+    }
     res.setHeader("Cache-Control", "no-store");
     if (pathname === "/__nightfall" && req.method === "GET") {
       res.setHeader("Content-Type", "application/json");
@@ -129,22 +146,22 @@ async function main() {
       res.writeHead(204).end();
       return;
     }
-    const asset = assets.get(pathname);
-    if (!asset) {
-      res.writeHead(404).end();
-      return;
-    }
     try {
-      const file = path.join(app, asset[0]);
-      await stat(file);
-      res.setHeader("Content-Type", asset[1] + "; charset=utf-8");
+      const asset = await assetFile(pathname);
+      if (!asset) {
+        res.writeHead(404).end();
+        return;
+      }
+      res.setHeader("Content-Type", mime.get(path.extname(asset.file)) || "application/octet-stream");
+      res.setHeader("Content-Length", asset.info.size);
+      res.setHeader("X-Content-Type-Options", "nosniff");
       if (req.method === "HEAD") res.end();
       else
-        createReadStream(file)
+        createReadStream(asset.file)
           .on("error", () => res.destroy())
           .pipe(res);
-    } catch {
-      res.writeHead(404).end();
+    } catch (error) {
+      res.writeHead(error instanceof URIError ? 400 : 404).end();
     }
   });
   // The previous launcher may still be releasing its listening socket.
@@ -161,7 +178,7 @@ async function main() {
     }
   }
   console.log(
-    `Nightfall Survivors: ${url}\nRefresh the page for changed UI files. Relaunch to rebuild Bend. Ctrl+C stops the server.`,
+    `Nightfall Survivors: ${url}\nRelaunch to rebuild Bend and the static menu. Ctrl+C stops the server.`,
   );
   if (openBrowser) {
     const command =

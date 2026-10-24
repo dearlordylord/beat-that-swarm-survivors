@@ -8,6 +8,7 @@
     />
     <meta name="theme-color" content="#11151d" />
     <title>Survivors ECS example</title>
+    <link rel="canonical" href="https://survivors.dearlordylord.com/" />
     <meta name="description" content="A Vampire Survivors clone built as a Bendvy ECS example." />
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./menu-a.css" />
@@ -52,7 +53,9 @@
             ><button data-tab="achievements"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8v2h3v5h-2v2h-2v2H9v2h3v2H4v-2h3v-2H5v-2H3V8H1V3h3V1zm-1 4v2h2V5H3zm9 0v2h1V5h-1z"/></svg></span><span class="tab-label">Achievements</span><span class="tab-active-mark" aria-hidden="true"></span></span></button
             ><button data-tab="settings"><span class="tab-surface"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 0h4v3l2-1 3 3-1 2h2v4h-3l1 2-3 3-2-1v1H5v-3l-2 1-3-3 1-2H0V5h3L2 3l3-3 1 1V0zm0 5v5h4V5H6z"/></svg></span><span class="tab-label">Settings</span><span class="tab-active-mark" aria-hidden="true"></span></span></button>
           </nav>
+          <noscript><p class="script-notice">Playing requires JavaScript. The catalog is readable below.</p><style>.inline-picker[hidden]{display:block!important}</style></noscript>
           <div id="wallet"></div>
+          <p id="engineStatus" role="status" aria-live="polite"></p>
           <div id="menuContent"></div>
           <footer>
             WASD / arrow keys to move · M for map · Esc / Space to pause · attacks are

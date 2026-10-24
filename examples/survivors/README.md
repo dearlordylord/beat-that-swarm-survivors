@@ -36,15 +36,18 @@ Standard and Inverse reach dawn after ten simulated minutes, then spawn a lethal
 
 ## Browser menu
 
+Astro prerenders the Lunar Stone menu into the initial HTML, including the full character and stage catalog. It is readable without JavaScript. A small compiled Bend module owns profile normalization, unlocks, prices, purchases and progression; browser code stores its returned profile and renders its decisions. The simulation, renderer and audio load independently in the background. Start waits for them when necessary.
+
 The Lunar Stone menu uses Moon Seal controls, with Start at the top and in a reserved lower row. Choices scroll in a separate area, so the lower action cannot cover them. Styles load directly from the page; no prototype theme switcher or sample profile is included. Each setup row shows its current icon and name. Opening a category shows all choices; locked survivors/stages display their price and requirements, and only an explicit Buy action spends gold. Progress-only modes keep their existing unlock rules.
 
 ## Browser launch
 
-[Browser demo](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site). Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
+[Browser demo](https://survivors.dearlordylord.com). Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
 
-For local play, with Node.js 20+:
+For browser builds and local play, use Node.js 22.23.4+ and install the pinned Astro build dependencies once:
 
 ```sh
+npm ci --prefix examples/survivors/web
 node examples/survivors/launch.mjs
 ```
 
@@ -55,7 +58,14 @@ bash examples/survivors/build-web.sh
 python3 -m http.server 8713 --directory examples/survivors/dist/web
 ```
 
-Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend or Node.js.
+Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend, Astro or Node.js. `index.html` is the source HTML shell; the deployable, prerendered page is `dist/web/index.html`. `content.mjs` is generated from `menu-catalog.bend` at build time; edit the Bend catalog, not the generated file.
+
+Browser verification after building:
+
+```sh
+node examples/survivors/web-smoke.mjs
+node examples/survivors/browser-smoke.mjs
+```
 
 ## Music
 
