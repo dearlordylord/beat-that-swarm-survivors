@@ -36,3 +36,15 @@ test('map viewport clips to world edges and collected relic disappears', () => {
   const scale = 336 / 14400;
   assert.deepEqual(rendered.views[0], [12, 12, 532 * scale, 340 * scale]);
 });
+
+test('co-op map marks every observed participant, including distant and fallen teammates', () => {
+  const players = [
+    { id: 0, px: 7200, py: 7200, hp: 100 },
+    { id: 1, px: 14000, py: 400, hp: 0 },
+  ];
+  const rendered = map({ ...frame, ownPlayerId: 0, players });
+  assert.equal(rendered.canvas.dataset.players, 2);
+  assert.equal(rendered.circles.length, 2);
+  assert.deepEqual(rendered.circles[1].slice(0, 3), [12 + 14000 * 336 / 14400, 12 + 400 * 336 / 14400, 4]);
+  assert.match(rendered.canvas['aria-label'], /1 teammate marked in blue; fallen players in gray/);
+});

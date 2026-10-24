@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#11151d" />
+  <title>Co-op · Survivors ECS example</title>
+  <meta name="description" content="Two-player shared-world co-op for the Bendvy Survivors ECS example." />
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./coop.css" />
+</head>
+<body>
+  <main id="coop-app">
+    <header class="coop-header"><a href="./">☾ Survivors <small>Bendvy ECS example</small></a><span>Two-player co-op</span></header>
+    <section id="coop-lobby" class="coop-panel" aria-labelledby="lobby-title">
+      <p class="eyebrow">One world · two survivors</p>
+      <h1 id="lobby-title">Co-op run</h1>
+      <p>Host a run, then send your friend the invitation link. Both play here in the browser.</p>
+      <div class="setup-grid">
+        <label>Survivor<select id="coop-character"></select></label>
+        <label>Arcana<select id="coop-arcana"></select></label>
+        <label data-host-setup>Stage<select id="coop-stage"></select></label>
+        <label data-host-setup>Mode<select id="coop-mode"></select></label>
+      </div>
+      <p id="coop-setup-detail" class="muted"></p>
+      <div class="lobby-actions"><button id="coop-host" class="moon-button"><span aria-hidden="true">☾</span> Host a run</button><span class="muted">or join a friend</span></div>
+      <form id="coop-join-form"><label for="coop-ticket">Invitation link</label><div class="join-row"><input id="coop-ticket" type="text" spellcheck="false" autocomplete="off" placeholder="Paste your friend’s invitation" required /><button id="coop-join" type="submit">Join run</button></div></form>
+      <section id="coop-invitation" hidden aria-label="Your invitation"><label for="coop-invite-link">Send this link to your friend</label><div class="join-row"><input id="coop-invite-link" readonly /><button id="coop-copy" type="button">Copy link</button></div><p class="muted">Keep this page open. The run ends if the host leaves.</p></section>
+      <p id="coop-status" role="status" aria-live="polite">Choose your survivor to begin.</p>
+      <p class="fine-print">WASD / arrows to move · automatic attacks · M for map.<br />XP is shared. Level-ups pause for both players. Chests belong to their collector.</p>
+    </section>
+    <section id="coop-play" hidden aria-label="Co-op game">
+      <canvas id="coop-game" width="1024" height="640" tabindex="0" aria-label="Shared arena"></canvas>
+      <div class="coop-hud"><div class="hud-line"><span id="coop-clock">00:00</span><span id="coop-level"></span><span id="coop-gold"></span><span id="coop-fps"></span><button id="coop-map-toggle" aria-expanded="false" aria-controls="coop-map-panel">Map [M]</button><button id="coop-leave">Leave</button></div><div class="meter"><i id="coop-xp"></i></div><div id="coop-players"></div></div>
+      <div id="coop-play-status" role="status" aria-live="polite"></div>
+      <aside id="coop-map-panel" hidden><button id="coop-map-close" aria-label="Close map">×</button><h2>Arena map</h2><canvas id="coop-map" width="360" height="360" aria-label="Arena map"></canvas><p>The world keeps moving.</p></aside>
+      <section id="coop-reward" hidden role="dialog" aria-modal="true" aria-labelledby="coop-reward-title"><div class="coop-panel"><p class="eyebrow" id="coop-reward-kind"></p><h2 id="coop-reward-title"></h2><p id="coop-reward-detail"></p><div id="coop-offers"></div></div></section>
+      <div id="coop-touch" aria-label="Touch movement"><span aria-hidden="true">✥</span></div>
+    </section>
+    <noscript><p>Playing requires JavaScript.</p></noscript>
+  </main>
+  <script type="module" src="./coop-browser.mjs"></script>
+</body>
+</html>

@@ -102,3 +102,13 @@ test('guard binds the static publishing root and Site identity and serializes pr
   await put(f.site, '.openai/hosting.json', '{"project_id":"another-site","static":{"directory":"dist"}}');
   await assert.rejects(verifySite(f.options), /different Site project/);
 }));
+test('Iroh transport source is captured and invalidates a prepared co-op publication', async () => usingFixture(async f => {
+  const source = 'prototypes/iroh-transport/transport/src/lib.rs';
+  await put(f.repo, source, '// transport revision one');
+  await prepareSite(f.options);
+  const receipt = JSON.parse(await readFile(path.join(f.site, 'SOURCE.json'), 'utf8'));
+  assert.ok(receipt.sourceFiles[source]);
+  assert.equal(await readFile(path.join(f.site, 'source/survivors', source), 'utf8'), '// transport revision one');
+  await put(f.repo, source, '// transport revision two');
+  await assert.rejects(verifySite(f.options), /Sources changed/);
+}));

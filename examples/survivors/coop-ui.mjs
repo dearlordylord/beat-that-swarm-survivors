@@ -1,0 +1,296 @@
+import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS, PASSIVES, UNIONS, ACHIEVEMENTS } from './content.mjs';
+import { loadProfile, validateSetup, metaCode, allowedWeapons, isUnlocked, observeRun, recordRun } from './progression.mjs';
+import { Renderer } from './renderer.mjs';
+import { AudioEngine } from './audio.mjs';
+import { ObservationPresentation } from './coop-presentation.mjs';
+
+// Presentation and device IO only. The controller supplies authoritative Bend frames.
+const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const time = ticks => `${Math.floor(ticks / 3600).toString().padStart(2, '0')}:${Math.floor(ticks / 60 % 60).toString().padStart(2, '0')}`;
+const catalogs = { character: CHARACTERS, arcana: ARCANA, stage: STAGES, mode: RUN_MODES };
+const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
+
+export function invitationTicket(value, base = globalThis.location?.href) {
+  const text = String(value || '').trim();
+  try {
+    const url = new URL(text, base);
+    const ticket = url.searchParams.get('join') ?? new URLSearchParams(url.hash.slice(1)).get('join');
+    if (ticket !== null) return ticket;
+  } catch { /* A raw transport ticket is also accepted by the connection adapter. */ }
+  return text;
+}
+
+export function offerPresentation(offer) {
+  const item = offer.kind === 5 ? UNIONS[offer.id]
+    : offer.kind === 0 || offer.kind === 3 ? WEAPONS[offer.id]
+    : offer.kind === 1 ? PASSIVES[offer.id]
+    : offer.kind === 4 ? { name: 'Golden gift', icon: '◈', description: 'Gold for this run.' }
+    : { name: 'Restorative elixir', icon: '♥', description: 'Restore health.' };
+  return {
+    name: (offer.kind === 3 ? item?.evolvedName : item?.name) || 'Reward',
+    description: (offer.kind === 3 ? item?.evolvedDescription : item?.description) || '',
+    icon: item?.icon || '✦',
+    detail: offer.kind === 5 ? 'Union' : offer.kind === 3 ? 'Evolution' : offer.kind <= 1 ? `Level ${offer.level}` : '',
+  };
+}
+
+// The Bend progression core owns awards and durable receipt deduplication.
+// This adapter only observes rendered equipment and supplies an IO run/player key.
+export class CoopRunProgress {
+  constructor(profile) { this.profile = profile; this.reset(); }
+  reset() { this.history = observeRun({}, {}); this.savedReceipt = null; this.added = []; }
+  observe(frame) {
+    this.history = observeRun(this.history, { weapons: frame.weapons });
+    if (frame.phase !== 3 && frame.phase !== 4) return null;
+    if (typeof frame.runId !== 'string' || !frame.runId || !Number.isInteger(frame.ownPlayerId)) return null;
+    const receipt = `${frame.runId}:${frame.ownPlayerId}`;
+    if (receipt !== this.savedReceipt) {
+      this.added = recordRun(this.profile, { ...frame, ...this.history, runId: receipt });
+      this.savedReceipt = receipt;
+    }
+    return { receipt, added: this.added };
+  }
+}
+
+export class CoopUI {
+  constructor(callbacks = {}, { document = globalThis.document, window = globalThis.window } = {}) {
+    this.document = document;
+    this.window = window;
+    this.callbacks = callbacks;
+    this.$ = selector => document.querySelector(selector);
+    this.profile = loadProfile();
+    this.progress = new CoopRunProgress(this.profile);
+    this.canvas = this.$('#coop-game');
+    this.renderer = new Renderer(this.canvas);
+    this.presentation = new ObservationPresentation();
+    this.audio = new AudioEngine();
+    this.audio.setMuted(this.profile.settings?.muted ?? false);
+    this.audio.setVolume(this.profile.settings?.volume ?? 0.42);
+    this.keys = new Set();
+    this.touch = { x: 0, y: 0 };
+    this.lastInput = '';
+    this.frame = null;
+    this.rewardSignature = '';
+    this.choiceBusy = false;
+    this.events = new AbortController();
+    const on = (target, type, listener, options = {}) => target.addEventListener(type, listener, { ...options, signal: this.events.signal });
+    const initial = validateSetup(this.profile, {});
+    for (const [kind, catalog] of Object.entries(catalogs)) {
+      const select = this.$(`#coop-${kind}`);
+      select.innerHTML = catalog.map(item => `<option value="${item.id}" ${isUnlocked(this.profile, kind, item.id) ? '' : 'disabled'}>${esc(item.icon || (kind === 'character' ? '✦' : kind === 'stage' ? '☾' : '◷'))} ${esc(item.name)}${isUnlocked(this.profile, kind, item.id) ? '' : ' · locked'}</option>`).join('');
+      select.value = initial[kind];
+      on(select, 'change', () => this.updateSetup());
+    }
+    this.updateSetup();
+    const join = new URL(window.location.href).searchParams.get('join') ?? new URLSearchParams(window.location.hash.slice(1)).get('join');
+    if (join) {
+      this.$('#coop-ticket').value = window.location.href;
+      this.status('Invitation ready. Choose your survivor, then join.');
+    }
+    on(this.$('#coop-host'), 'click', () => this.invoke('onHost', this.setup()));
+    on(this.$('#coop-join-form'), 'submit', event => {
+      event.preventDefault();
+      const source = this.$('#coop-ticket').value;
+      let session = new URL(window.location.href).searchParams.get('session');
+      try { session = new URL(source).searchParams.get('session') ?? session; } catch {}
+      this.invoke('onJoin', invitationTicket(source, window.location.href), this.setup(), { session });
+    });
+    on(this.$('#coop-copy'), 'click', async () => {
+      const input = this.$('#coop-invite-link');
+      try {
+        await window.navigator.clipboard.writeText(input.value);
+        this.$('#coop-copy').textContent = 'Copied';
+      } catch {
+        input.focus(); input.select();
+        this.status('Copy the selected link and send it to your friend.');
+      }
+    });
+    on(this.$('#coop-leave'), 'click', () => this.invoke('onLeave'));
+    on(this.$('#coop-map-toggle'), 'click', () => this.toggleMap());
+    on(this.$('#coop-map-close'), 'click', () => this.toggleMap(false));
+    on(this.$('#coop-offers'), 'click', event => {
+      const button = event.target.closest('[data-choice]');
+      if (button && !button.disabled) this.choose(Number(button.dataset.choice));
+    });
+    on(window, 'keydown', event => {
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName)) return;
+      if (movementKeys.has(event.code)) {
+        event.preventDefault(); this.keys.add(event.code); this.emitInput();
+      }
+      if (!event.repeat && event.code === 'KeyM' && this.frame) {
+        event.preventDefault(); this.toggleMap();
+      }
+      if (!event.repeat && /^Digit[1-9]$/.test(event.code) && !this.$('#coop-reward').hidden)
+        this.choose(Number(event.code.slice(5)) - 1);
+      if (event.code === 'Escape') this.toggleMap(false);
+    });
+    on(window, 'keyup', event => {
+      if (movementKeys.has(event.code)) { this.keys.delete(event.code); this.emitInput(); }
+    });
+    on(window, 'blur', () => this.clearInput());
+    on(document, 'visibilitychange', () => { if (document.hidden) this.clearInput(); });
+    const pad = this.$('#coop-touch');
+    const touchMove = event => {
+      const rect = pad.getBoundingClientRect();
+      this.touch = { x: Math.sign(event.clientX - rect.left - rect.width / 2), y: Math.sign(event.clientY - rect.top - rect.height / 2) };
+      this.emitInput();
+    };
+    on(pad, 'pointerdown', event => {
+      pad.setPointerCapture(event.pointerId); pad.dataset.active = 'true'; touchMove(event);
+    });
+    on(pad, 'pointermove', event => { if (pad.hasPointerCapture(event.pointerId)) touchMove(event); });
+    const touchEnd = () => { pad.dataset.active = 'false'; this.touch = { x: 0, y: 0 }; this.emitInput(); };
+    on(pad, 'pointerup', touchEnd); on(pad, 'pointercancel', touchEnd); on(pad, 'lostpointercapture', touchEnd);
+    this.animate = now => {
+      const delta = Math.max(0, Math.min(100, now - (this.previous || now)));
+      this.previous = now;
+      if (this.frame) {
+        const display = this.presentation.sample(now) || this.frame;
+        this.renderer.draw(display, delta / 1000, this.profile.settings || {});
+        if (!this.$('#coop-map-panel').hidden) this.renderer.drawMap(this.$('#coop-map'), display);
+        if (delta > 0) this.fps = this.fps === undefined ? 1000 / delta : this.fps * .95 + 1000 / delta * .05;
+        this.$('#coop-fps').textContent = `${Math.round(this.fps || 0)} FPS`;
+      }
+      this.animation = window.requestAnimationFrame(this.animate);
+    };
+    this.animation = window.requestAnimationFrame(this.animate);
+  }
+  setup() {
+    const selected = Object.fromEntries(Object.keys(catalogs).map(kind => [kind, Number(this.$(`#coop-${kind}`).value)]));
+    return { ...validateSetup(this.profile, selected), meta: metaCode(this.profile), allowedWeapons: allowedWeapons(this.profile) };
+  }
+  updateSetup() {
+    const setup = this.setup();
+    for (const kind of Object.keys(catalogs)) this.$(`#coop-${kind}`).value = setup[kind];
+    this.$('#coop-setup-detail').textContent = `${CHARACTERS[setup.character]?.description || ''} ${ARCANA[setup.arcana]?.description || ''}`;
+  }
+  input() {
+    return {
+      x: Math.sign(Number(this.keys.has('KeyD') || this.keys.has('ArrowRight')) - Number(this.keys.has('KeyA') || this.keys.has('ArrowLeft')) + this.touch.x),
+      y: Math.sign(Number(this.keys.has('KeyS') || this.keys.has('ArrowDown')) - Number(this.keys.has('KeyW') || this.keys.has('ArrowUp')) + this.touch.y),
+    };
+  }
+  emitInput() {
+    const input = this.input(), signature = `${input.x},${input.y}`;
+    if (signature !== this.lastInput) {
+      this.lastInput = signature;
+      this.callbacks.onInput?.(input);
+    }
+  }
+  clearInput() { this.keys.clear(); this.touch = { x: 0, y: 0 }; this.emitInput(); }
+  async invoke(name, ...args) {
+    this.audio.unlock();
+    try { return await this.callbacks[name]?.(...args); }
+    catch (error) { this.status(error.message || String(error), { error: true }); }
+  }
+  status(text, { busy = false, error = false } = {}) {
+    this.$('#coop-status').textContent = text;
+    this.$('#coop-status').dataset.error = String(error);
+    this.$('#coop-play-status').textContent = text;
+    for (const selector of ['#coop-host', '#coop-join']) this.$(selector).disabled = busy;
+    this.$('#coop-lobby').setAttribute('aria-busy', String(busy));
+  }
+  invitation(ticket) {
+    let url;
+    try { url = new URL(ticket); } catch {
+      url = new URL(this.window.location.href); url.hash = ''; url.searchParams.set('join', ticket);
+    }
+    this.$('#coop-invite-link').value = url.href;
+    this.$('#coop-invitation').hidden = false;
+    this.status('Waiting for your friend. Send them the invitation link.');
+  }
+  role(role) {
+    for (const element of this.document.querySelectorAll('[data-host-setup]')) element.hidden = role === 'guest';
+  }
+  setChoicePending(pending) {
+    this.choiceBusy = pending;
+    for (const button of this.$('#coop-offers').querySelectorAll('button')) button.disabled = pending;
+  }
+  choose(index) {
+    const button = this.$(`#coop-offers [data-choice="${index}"]`);
+    if (!button || button.disabled || this.choiceBusy) return;
+    this.setChoicePending(true);
+    this.invoke('onChoice', { round: this.frame.roundId ?? this.frame.rewardRound?.id ?? 0, index });
+  }
+  toggleMap(open = this.$('#coop-map-panel').hidden) {
+    this.$('#coop-map-panel').hidden = !open;
+    this.$('#coop-map-toggle').setAttribute('aria-expanded', String(open));
+    if (open && this.frame) this.renderer.drawMap(this.$('#coop-map'), this.presentation.sample(this.window.performance.now()) || this.frame);
+    // This is a local overlay; it never requests a pause from the controller.
+  }
+  present(frame) {
+    const previous = this.frame;
+    // A disconnect arriving after a completed receipt must not replace its result screen.
+    if (previous && previous.runId === frame.runId && [3, 4].includes(previous.phase) && frame.phase === 5) return;
+    this.frame = frame;
+    this.presentation.push(frame, this.window.performance.now());
+    const saved = this.progress.observe(frame);
+    this.$('#coop-lobby').hidden = true;
+    this.$('#coop-play').hidden = false;
+    this.$('#coop-clock').textContent = time(frame.tick || 0);
+    this.$('#coop-level').textContent = `Level ${frame.level ?? 1}`;
+    this.$('#coop-gold').textContent = `◈ ${frame.gold ?? 0}`;
+    this.$('#coop-xp').style.width = `${Math.max(0, Math.min(100, (frame.xp || 0) / (frame.xpNeed || 1) * 100))}%`;
+    const players = frame.players || [{ id: frame.ownPlayerId ?? 0, ...frame }];
+    const playerSignature = JSON.stringify([frame.ownPlayerId, players.map(player => [player.id, player.hp, player.maxHp])]);
+    if (playerSignature !== this.playerSignature) {
+      this.playerSignature = playerSignature;
+      this.$('#coop-players').innerHTML = players.map(player => `<div class="player-status" data-own="${player.id === (frame.ownPlayerId ?? 0)}"><span>${player.id === (frame.ownPlayerId ?? 0) ? 'You' : `P${player.id + 1}`}</span><span class="health-track"><i style="width:${Math.max(0, Math.min(100, (player.hp || 0) / (player.maxHp || 1) * 100))}%"></i></span><small>${player.hp === 0 ? 'Fallen' : esc(`${player.hp} / ${player.maxHp}`)}</small></div>`).join('');
+    }
+    const offers = frame.offers || [];
+    const signature = JSON.stringify([frame.phase, frame.roundId, frame.rewardRound, frame.choicePending, offers]);
+    if (signature !== this.rewardSignature) {
+      this.rewardSignature = signature;
+      this.setChoicePending(false);
+      const pausedForReward = frame.phase === 1 || frame.phase === 2;
+      const ended = frame.phase === 3 || frame.phase === 4;
+      const aborted = frame.phase === 5;
+      this.$('#coop-reward').hidden = !pausedForReward && !ended && !aborted;
+      if (pausedForReward) {
+        this.clearInput();
+        this.$('#coop-reward-kind').textContent = frame.phase === 1 ? `Level ${frame.level}` : 'Chest';
+        this.$('#coop-reward-title').textContent = offers.length && frame.choicePending !== false ? 'Choose your reward' : 'Waiting for your teammate';
+        this.$('#coop-reward-detail').textContent = 'The world is paused until all required choices are complete.';
+        this.$('#coop-offers').innerHTML = frame.choicePending === false ? '' : offers.map((offer, index) => {
+          const item = offerPresentation(offer);
+          return `<button class="reward-offer" data-choice="${index}"><span class="offer-icon" aria-hidden="true">${esc(item.icon)}</span><strong>${esc(item.name)}</strong><small>${esc(item.description)}</small><small>${esc(item.detail)} · ${index + 1}</small></button>`;
+        }).join('');
+        this.audio.event(frame.phase === 1 ? 'level' : 'chest');
+        this.$('#coop-offers button')?.focus({ preventScroll: true });
+      } else if (ended || aborted) {
+        this.clearInput();
+        this.$('#coop-reward-kind').textContent = aborted ? 'Connection closed' : 'Run complete';
+        this.$('#coop-reward-title').textContent = aborted ? 'Session ended' : frame.phase === 4 ? 'Dawn breaks' : 'The night is over';
+        this.$('#coop-reward-detail').textContent = aborted ? 'This run ended before completion. Return to the lobby to connect again.' : `${time(frame.tick || 0)} · Level ${frame.level ?? 1} · ${frame.kills ?? 0} defeated · ${frame.gold ?? 0} gold`;
+        const awards = saved?.added.map(id => ACHIEVEMENTS.find(item => item.id === id)?.name || id) || [];
+        const saveNote = saved ? `Saved to this browser.${awards.length ? ` New achievements: ${awards.join(', ')}.` : ''}` : 'Run receipt unavailable; progress has not been saved.';
+        this.$('#coop-offers').innerHTML = `${aborted ? '' : `<p class="muted">${esc(saveNote)}</p>`}<button id="coop-finish" class="moon-button">Return to lobby</button>`;
+        this.$('#coop-finish').addEventListener('click', () => this.invoke('onLeave'), { once: true, signal: this.events.signal });
+        this.$('#coop-finish').focus({ preventScroll: true });
+        if (aborted) this.audio.stop(true);
+        else this.audio.event(frame.phase === 4 ? 'victory' : 'gameover');
+      }
+    }
+    if (previous) {
+      if (frame.hp < previous.hp) this.audio.event('hit');
+      if (frame.hp > previous.hp) this.audio.event('heal');
+      if (frame.kills > previous.kills) this.audio.event('kill');
+    }
+    this.audio.update(frame, frame.phase === 0);
+    if (!previous) this.canvas.focus({ preventScroll: true });
+  }
+  reset() {
+    this.clearInput(); this.frame = null; this.rewardSignature = ''; this.choiceBusy = false;
+    this.playerSignature = '';
+    this.progress.reset(); this.presentation.reset();
+    this.renderer.reset(); this.audio.stop(true); this.toggleMap(false);
+    this.$('#coop-lobby').hidden = false; this.$('#coop-play').hidden = true;
+    this.$('#coop-invitation').hidden = true; this.status('Choose your survivor to begin.');
+  }
+  dispose() {
+    this.clearInput(); this.events.abort(); this.window.cancelAnimationFrame(this.animation);
+    this.renderer.resizeObserver?.disconnect();
+    this.window.removeEventListener('resize', this.renderer.handleResize);
+    this.audio.stop(true);
+  }
+}

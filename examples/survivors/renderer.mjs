@@ -40,6 +40,13 @@ function hash(x, y = 0) {
   n = Math.imul(n ^ (n >>> 13), 1274126177);
   return (n >>> 0) / 4294967296;
 }
+// Observed player positions only; this helper never advances or predicts gameplay.
+export function framePlayers(frame) {
+  return Array.isArray(frame.players) && frame.players.length
+    ? frame.players
+    : [{ id: frame.ownPlayerId ?? 0, px: frame.px, py: frame.py, hp: frame.hp,
+      maxHp: frame.maxHp, character: frame.character }];
+}
 function rect(c, x, y, w, h, col) {
   c.fillStyle = col;
   c.fillRect(Math.round(x), Math.round(y), w, h);
@@ -100,15 +107,15 @@ export class Renderer {
       .filter((b) => b[2] !== 6)
       .slice()
       .sort((a, b) => a[1] - b[1]);
-    let playerDrawn = false;
+    const players = framePlayers(frame).slice().sort((a, b) => a.py - b.py || a.id - b.id);
+    let playerIndex = 0;
     for (const b of ordered) {
-      if (!playerDrawn && b[1] > py) {
-        this.player(px, py, frame.character);
-        playerDrawn = true;
-      }
+      while (playerIndex < players.length && b[1] > players[playerIndex].py)
+        this.observedPlayer(players[playerIndex++], players.length > 1);
       this.body(b);
     }
-    if (!playerDrawn) this.player(px, py, frame.character);
+    while (playerIndex < players.length)
+      this.observedPlayer(players[playerIndex++], players.length > 1);
     for (const b of bodies) if (b[2] === 6) this.effect(b, false);
     for (const b of bodies) this.healthBar(b);
     if (options.showDamage !== false) this.damage(bodies, dt);
@@ -160,8 +167,7 @@ export class Renderer {
       c.beginPath(); c.moveTo(at, pad); c.lineTo(at, size - pad); c.stroke();
       c.beginPath(); c.moveTo(pad, at); c.lineTo(size - pad, at); c.stroke();
     }
-    const [px, py] = point(frame.px, frame.py),
-      left = Math.max(0, frame.px - this.width / 2),
+    const left = Math.max(0, frame.px - this.width / 2),
       top = Math.max(0, frame.py - this.height / 2),
       right = Math.min(world, frame.px + this.width / 2),
       bottom = Math.min(world, frame.py + this.height / 2),
@@ -180,10 +186,17 @@ export class Renderer {
       c.fillStyle = "#a6b6ff"; c.beginPath(); c.moveTo(x, y - 5);
       c.lineTo(x + 4, y); c.lineTo(x, y + 5); c.lineTo(x - 4, y); c.closePath(); c.fill();
     }
-    c.fillStyle = "#ffffff"; c.beginPath(); c.arc(px, py, 3, 0, TAU); c.fill();
+    const players = framePlayers(frame);
+    for (const player of players) {
+      const [x, y] = point(player.px, player.py);
+      const own = player.id === (frame.ownPlayerId ?? 0);
+      c.fillStyle = player.hp === 0 ? "#8f838b" : own ? "#ffffff" : "#9ce5fa";
+      c.beginPath(); c.arc(x, y, own ? 3 : 4, 0, TAU); c.fill();
+    }
+    canvas.dataset.players = players.length;
     canvas.dataset.chests = chests; canvas.dataset.relic = hasRelic ? "1" : "0";
     canvas.dataset.worldSize = world;
-    canvas.setAttribute("aria-label", `Arena map. You at ${Math.round(frame.px)}, ${Math.round(frame.py)}. ${chests} chests. ${hasRelic ? "Stage relic marked." : "Stage relic collected."} Enemies are not shown.`);
+    canvas.setAttribute("aria-label", `Arena map. You at ${Math.round(frame.px)}, ${Math.round(frame.py)}. ${chests} chests. ${hasRelic ? "Stage relic marked." : "Stage relic collected."} ${players.length > 1 ? `${players.length - 1} teammate marked in blue; fallen players in gray. ` : ""}Enemies are not shown.`);
   }
   ground() {
     const c = this.ctx,
@@ -619,6 +632,29 @@ export class Renderer {
     c.strokeRect(x - width / 2, y - 12, width, 25);
     c.fillStyle = "#f5dc9b";
     c.fillText(label, x, y + 5);
+    c.restore();
+  }
+  observedPlayer(player, multiplayer) {
+    if (!multiplayer) {
+      this.player(player.px, player.py, player.character);
+      return;
+    }
+    const c = this.ctx, [x, y] = this.xy(player.px, player.py),
+      own = player.id === (this.frame.ownPlayerId ?? 0),
+      color = own ? "#f3dfb0" : "#9ce5fa";
+    c.save();
+    if (player.hp === 0) c.globalAlpha = 0.35;
+    this.player(player.px, player.py, player.character);
+    c.globalAlpha = 1;
+    c.font = "bold 10px monospace"; c.textAlign = "center";
+    c.fillStyle = "#10131d"; c.fillRect(x - 23, y - 48, 46, 14);
+    c.fillStyle = player.hp === 0 ? "#b5a5af" : color;
+    c.fillText(player.hp === 0 ? `P${player.id + 1} fallen` : own ? "YOU" : `P${player.id + 1}`, x, y - 38);
+    if (player.maxHp > 0 && player.hp > 0) {
+      c.fillStyle = "#11121a"; c.fillRect(x - 17, y - 32, 34, 4);
+      c.fillStyle = color;
+      c.fillRect(x - 16, y - 31, 32 * Math.max(0, Math.min(1, player.hp / player.maxHp)), 2);
+    }
     c.restore();
   }
   player(wx, wy, character = 0) {
