@@ -1,55 +1,57 @@
-# Nightfall Survivors
+# Survivors example
 
-An original single-player survivors game built on the published BendHub distribution of Bendvy. Follow the [repository setup and dependency instructions](../../README.md) before launching; no local Bendvy checkout is required. The native version uses Bend for the simulation, drawing, input, menus, sound and profile storage. Bend's window/audio runtime talks to the operating system. No browser or Node.js is needed to play the native version.
+A Vampire Survivors clone built as a Bendvy ECS example. See [setup](../../README.md), [requirements](GAME_SPEC.md) and [reference scope](REFERENCE_SCOPE.md).
 
-On macOS (including Apple Silicon), install Bend and Apple's Command Line Tools (`xcode-select --install`), then launch from your checkout:
+## ECS
+
+`game.bend` owns the affine world and runs queries with declared component access: projectile updates write geometry and motion; enemy movement writes geometry and reads motion; combat reads geometry and writes health/status; lifecycle applies entity transitions. `projectile.bend` and `encounters.bend` implement weapon motion, enemies and hazards.
+
+The fixed pool has 1004 entities: 512 enemy/relic slots, 192 player projectiles, 32 hostile projectiles, 12 independent actors and 256 persistent XP piles. Eight rescue wisps and four ward sentinels share the combat systems; their state uses Body, Vitals and Motion. XP leaves enemy slots immediately and requires physical collection. Overflow merges into the nearest existing XP pile without moving it or granting automatic credit.
+
+Pool capacity is not a frame-rate result. The example makes no claim of whole-game formal proof or GPU/parallel-runtime performance qualification. See [balance](BALANCE.md), [native renderer measurements](../../research/native-renderer-performance.md) and the verified [offscreen birth invariant](spawn-policy/README.md) for narrower results and limits.
+
+## Native launch
+
+Bend handles simulation, drawing, input, menus, audio and profile storage. Native play requires no Node.js or browser. On macOS, install Bend and Apple's Command Line Tools (`xcode-select --install`), then run from the repository root:
 
 ```sh
 ./examples/survivors/run.command
 ```
 
-You can also double-click `run.command` in Finder. Each launch compiles the current local Bend sources and runs `dist/nightfall` in its own window. There is no npm install. The launcher does not download Git updates: update your checkout normally to receive remote changes. A failed compilation preserves the previous binary. `--build-only` builds without opening a window. The launcher finds Bend in `~/.bend/bin`, `~/.local/bin` and Homebrew paths; `BEND=/absolute/path/to/bend` overrides the compiler.
+You can also double-click `run.command` in Finder. It compiles local sources and opens `dist/nightfall`; update the checkout to receive changes. Failed compilation preserves the previous binary. Use `--build-only` to compile without launching. The launcher searches `~/.bend/bin`, `~/.local/bin` and Homebrew paths; `BEND=/absolute/path/to/bend` overrides the compiler.
 
-Native profiles live in `~/Library/Application Support/Nightfall Survivors/nightfall-profile.txt` on macOS, or `${XDG_DATA_HOME:-~/.local/share}/nightfall-survivors/nightfall-profile.txt` on Linux. Set `NIGHTFALL_DATA_DIR` to override the directory. The native profile is separate from the browser's localStorage; it does not automatically import browser progress. When running the binary directly, its working directory determines the profile location.
+Profiles are stored at `~/Library/Application Support/Nightfall Survivors/nightfall-profile.txt` on macOS or `${XDG_DATA_HOME:-~/.local/share}/nightfall-survivors/nightfall-profile.txt` on Linux. `NIGHTFALL_DATA_DIR` overrides the directory. Direct binary execution uses its working directory. Browser localStorage saves are separate and are not imported automatically.
 
-At camp, use arrows to select, Left/Right to change category, Enter to equip or buy, and Space to start. M opens permanent upgrades; C opens the collection, recipes and unlock requirements. During a run, use WASD or arrow keys to move; attacks are automatic. Esc pauses and V toggles sound. Level and treasure rewards automatically open the choice panel and pause the arena. Use 1/2/3 to choose. Esc explicitly defers the reward and resumes combat; E reopens a deferred choice. Queued rewards open in turn after each choice. R rerolls, K skips and B banishes while the reward panel is open. From pause, Q returns to camp and banks collected gold once. Blue experience shards remain on the ground until physically collected; chests must also be picked up. Choose upgrades, combine a level VIII weapon with its matching relic, and collect boss chests to evolve it.
+## Controls
 
-XP awards and bonuses are unchanged, and the first level-up still requires 100 XP; subsequent thresholds are doubled to `2 * (100 + 3 * L + L * L / 3)` using the previous level L. Later choices require more kills; deferred rewards remain queued without being automatically spent. The collection explains all 24 weapons, 24 evolutions, six weapon unions and 18 passive upgrades. Eight heroes have different starting weapons; twelve Arcana reshape builds. Five arenas have distinct encounters, hazards and a recoverable artifact that opens a weapon. Characters, arenas, weapons and modes open through survival, kills, discoveries, bosses and victories. Legacy gold purchases permanent upgrades. Native progress is saved to disk between runs.
+At camp: arrows select, Left/Right change category, Enter equips or buys, Space starts, M opens permanent upgrades, and C opens the collection and recipes. In a run: WASD/arrows move, attacks are automatic, Esc pauses, and V toggles sound. XP and chests require pickup.
 
-The upper-right HUD shows measured FPS after a half-second warmup (`FPS --` initially). It counts rendered callbacks over real elapsed time, independently of simulation catch-up, with smoothing. Native play uses typed, frame-free Bend updates, skips offscreen sprite construction and paints only touched image branches. See the [native frame measurements](../../research/native-renderer-performance.md) for the dense-scene renderer improvement and its limits. Reused enemy slots clear previous-life status: tower slow/freeze cannot teleport a respawn to its old corpse. The [offscreen birth invariant](spawn-policy/README.md) records the verified laws and integration checks.
+Rewards pause combat: 1/2/3 choose, R rerolls, K skips, B banishes. Esc defers a reward; E reopens it. Queued rewards open in order. From pause, Q returns to camp and banks collected gold once.
 
-Standard and Inverse reach dawn after ten simulated minutes, then a lethal Reaper pursues you. Surviving until dawn earns completion credit when the run ends. Endless continues without the Reaper. The separate five-minute Trial accelerates waves and disables permanent upgrades. Both deaths and victories earn gold; ending a run from the pause screen keeps the gold already collected.
+Standard and Inverse reach dawn after ten simulated minutes, then spawn a lethal Reaper; reaching dawn earns completion credit when the run ends. Endless has no Reaper. The five-minute Trial accelerates waves and disables permanent upgrades.
 
-## Browser version
+## Browser launch
 
-[**Play Nightfall Survivors online**](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site).
+[Browser demo](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site). Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
 
-The browser edition runs the Bend simulation compiled to JavaScript, with Canvas rendering and browser input/audio. It supports desktop keyboard and a touch joystick; progress stays in this browser’s local storage. Native and browser saves are separate.
-
-For local browser play:
+For local play, with Node.js 20+:
 
 ```sh
 node examples/survivors/launch.mjs
 ```
 
-This path requires Node.js 20+ and opens http://127.0.0.1:8713. The portable `run.command` now starts the native version.
-
-For a static website, build from the repository root:
+This opens http://127.0.0.1:8713. For static hosting, build from the repository root:
 
 ```sh
 bash examples/survivors/build-web.sh
 python3 -m http.server 8713 --directory examples/survivors/dist/web
 ```
 
-Upload the complete `examples/survivors/dist/web` directory to a static host.
-The hosted game needs no server-side Bend, Node.js, API keys or classifier;
-Bend and Node are build/development tools only. Serve over HTTP rather than
-opening the HTML file directly. Re-run the build and redeploy after updating
-the game sources.
+Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend or Node.js.
 
 ## Checks
 
-Qualification scripts require Node.js 20+, Bend, a C compiler and the platform audio/window development libraries. They use portable Node timeouts; Linux uses flock when available and other hosts use a temporary lock directory. Remove a stale lock directory only after confirming no checks are running:
+Checks require Node.js 20+, Bend, a C compiler and platform audio/window development libraries. Linux uses flock when available; other hosts use a temporary lock directory. Remove stale locks only after confirming no checks are running:
 
 ```sh
 bash examples/survivors/check-native.sh
@@ -88,7 +90,7 @@ bash examples/survivors/check.sh
 bash examples/survivors/check-full.sh
 ```
 
-The ordinary suite checks catalogs, purchases, corrupted-save recovery, actual projectile trajectories, evolution/union recipes, healing and pierce regressions, public commands, all five artifact pickups, unlock persistence and a fresh-profile defeat. The longer full-run controller uses maximum purchased upgrades and Arcana 9, chooses through the public API and checks a genuine ten-minute completion with a boss, chest and evolution. The current native witness reached dawn at level 41 and died to the Reaper at tick 36,713 (about 10:11.88), with 42 upgrade/reward decisions. This validates one advanced purchased build on the slower-XP, larger-horde revision, not fresh-profile win rates or every build. Historical complete-run results remain separately labeled. See [VALIDATION.md](VALIDATION.md) for checks actually executed against the current sources.
+The ordinary suite covers catalogs, saves, projectiles, recipes, public commands, artifacts and unlocks. The full-run controller checks ten-minute completion, a boss, chest and evolution using maximum purchased upgrades and Arcana 9. This qualifies one advanced build, not fresh-profile win rates or every build. See [VALIDATION.md](VALIDATION.md) for executed checks and witness results.
 
 Browser checks reuse an already installed Playwright; they never install packages:
 
@@ -97,9 +99,3 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs bash examples/survivors
 ```
 
 They verify desktop keyboard and mobile touch movement, modal focus, pause, collection navigation and profile reload. Generated ESM stays in ignored `dist/`.
-
-## Bend and ECS
-
-`game.bend` owns the affine world and orchestrates four real queries: projectile updates write geometry and motion; enemy movement writes geometry and reads motion; combat reads geometry and writes health/status; lifecycle applies entity transitions to geometry. A fixed pool contains 1004 entities: 512 enemy/relic slots, 192 player projectile slots, 32 hostile projectile slots, 12 independent world actors and 256 persistent XP piles. XP leaves enemy slots immediately. When the XP pool fills, new XP merges into the nearest existing pile without automatic credit; that pile stays at its original position. Capacity is not a measured frame-rate result: an injected-clock regression admits 511 simultaneous enemies, while actual complete-run density and performance require separate validation. Eight rescue wisps react to nearby enemies and seek the central refuge after activation; four ward sentinels have their own health, activation state and attack cooldown. Their local pulses damage and slow enemies through the same combat pipeline. Dead actors remain inactive and rescue rewards occur once. `projectile.bend` and `encounters.bend` define weapon motion, enemy roles, bosses and arena hazards. The native frontend consumes typed Bend state directly; the optional JavaScript frontend does not calculate combat outcomes. Actor state currently reuses Body, Vitals and Motion; it does not introduce a separate ActorState component. See [BALANCE.md](BALANCE.md) for the current difficulty pass and its validation limits.
-
-The game requirements are in [GAME_SPEC.md](GAME_SPEC.md), and the original-game feature benchmark is in [REFERENCE_SCOPE.md](REFERENCE_SCOPE.md). Catalog totals alone do not establish equivalent richness. No formal proof of the entire game or GPU/parallel-runtime performance qualification is claimed.

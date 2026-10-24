@@ -4,7 +4,7 @@ Playable examples of [Bendvy](https://github.com/dearlordylord/bendvy), consumin
 
 ## Survivors example
 
-An ECS example using Bendvy to model a survivors simulation.
+A Vampire Survivors clone demonstrating Bendvy ECS queries, combat and entity lifecycles.
 [Browser demo](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site) · [Source and usage](examples/survivors/README.md)
 
 Install **Bend 2.0.38** and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
@@ -67,7 +67,7 @@ bash examples/survivors/check-native-full.sh
 
 ## License
 
-Application source is available under **MIT OR Apache-2.0**; see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Original content and procedural graphics accompany the examples. Game titles mentioned in research identify their respective games; no assets from those games are included.
+Application source is available under **MIT OR Apache-2.0**; see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). The example uses its own names and procedural graphics; Vampire Survivors supplies the gameplay reference.
 
 Native bot batches can also use Bend's explicit fork-join scheduler inside one process:
 

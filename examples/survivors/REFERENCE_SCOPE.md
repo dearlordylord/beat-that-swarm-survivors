@@ -1,5 +1,7 @@
 # Reference scope: Vampire Survivors richness
 
+Vampire Survivors is the gameplay reference for this Bendvy ECS example. This comparison guides the clone’s mechanics and build variety.
+
 This note uses poncle’s Steam announcements as the source of record. It separates the October 2022 v1.0 launch baseline from the current stable base game and does not count paid DLC content as base-game breadth. It is a mechanic benchmark, not a claim that matching catalog totals would establish equivalent richness.
 
 ## Two different reference points
