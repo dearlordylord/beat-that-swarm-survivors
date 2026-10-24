@@ -1,7 +1,9 @@
 name: Examples
 on:
   push:
+    branches: [master]
   pull_request:
+    branches: [master]
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,6 +30,19 @@ jobs:
           tar -xzf "$archive" -C "$RUNNER_TEMP"
           echo "BEND=$RUNNER_TEMP/bend/bin/bend" >> "$GITHUB_ENV"
           echo "BEND_LIB=$RUNNER_TEMP/bendhub" >> "$GITHUB_ENV"
+      - name: Install the pinned Bend proof-checker toolchain
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/elan.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
+            https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-unknown-linux-gnu.tar.gz \
+            -o "$archive"
+          echo "42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/elan-installer"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/elan-installer"
+          "$RUNNER_TEMP/elan-installer/elan-init" -y --no-modify-path --default-toolchain leanprover/lean4:v4.34.0
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/lean" --version
       - name: Install native build dependencies
         timeout-minutes: 6
         run: |
@@ -41,6 +56,8 @@ jobs:
         run: python3 scripts/check-dependencies.py --registry
       - name: Check portable timeout helper
         run: node examples/run-bounded.test.mjs
+      - name: Check local publication guards
+        run: node --test scripts/survivors-site.test.mjs
       - name: Install pinned Astro build dependencies
         run: npm ci --prefix examples/survivors/web --no-audit --no-fund
       - name: Build using a fresh BendHub cache

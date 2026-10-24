@@ -67,6 +67,25 @@ node examples/survivors/web-smoke.mjs
 node examples/survivors/browser-smoke.mjs
 ```
 
+## Publication
+
+The publication guard tests run with `node --test scripts/survivors-site.test.mjs`.
+
+Use `master` locally and on GitHub. Publication stays on Sites; no GitHub Actions deployment is required.
+
+From the repository root, prepare the next release into the existing Site checkout:
+
+```sh
+node scripts/prepare-survivors-site.mjs --site-checkout /absolute/path/to/nightfall-survivors
+node scripts/verify-survivors-site.mjs --site-checkout /absolute/path/to/nightfall-survivors
+```
+
+Preparation fetches `origin/master`, checks the branch/revision, snapshots the current authored inputs (including unsaved-to-Git files), installs the pinned Astro dependencies in that isolated snapshot and runs the complete Bend + Astro build. It does not reuse the source checkout's `dist` output. `SOURCE.json` records the input and asset hashes; `version.json` identifies the revision, source fingerprint and whether local edits were included. The complete authored snapshot is saved with the Site source. A failed build leaves the previous Site files intact.
+
+Before editing the Site checkout, open it with the Sites source helper. Prepare with the command above, then include the verifier as a required command in the helper's packaging request. Pass `--repo /absolute/path/to/bendvy-ecs-examples` when running verification from the Site checkout. If the source changes after preparation, verification fails: prepare again. Publish only the archive and pushed source commit returned by that helper. The public `/version.json` allows the deployed source fingerprint to be checked after publication.
+
+Do not publish by manually copying an old `dist/web`. This procedure guarantees the prepared artifact matches the checked local source snapshot; it does not make later source edits or a Git push deploy themselves.
+
 ## Music
 
 Adaptive chip-metal uses a shared Bend score and danger assessment: nearby enemies, enemy types, hostile shots and player health change the arrangement at bar boundaries. The latest target replaces older observations; changes never queue. Native synthesizes stereo PCM in Bend, while the browser renders those notes through Web Audio. See [music](music/README.md) for timing and validation scope.
