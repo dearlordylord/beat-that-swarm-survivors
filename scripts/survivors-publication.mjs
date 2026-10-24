@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const exec = promisify(execFile);
 const defaultRepo = fileURLToPath(new URL('..', import.meta.url));
-const scopes = ['prototypes/iroh-transport', 'examples/survivors', 'examples/common.sh', 'examples/run-bounded.mjs', 'bendhub-dependencies.json', 'LICENSE-MIT', 'LICENSE-APACHE'];
+const scopes = ['tools/iroh-transport', 'examples/survivors', 'examples/common.sh', 'examples/run-bounded.mjs', 'bendhub-dependencies.json', 'LICENSE-MIT', 'LICENSE-APACHE'];
 const sourceSnapshot = 'source/survivors';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const within = (root, candidate) => candidate === root || candidate.startsWith(root + path.sep);

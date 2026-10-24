@@ -27,7 +27,7 @@ cp "$app_dir/dist/menu-progression.mjs" "$staging_dir/public/dist/"
 example_emit "$app_dir/coop-core.bend" "$staging_dir/public/dist/coop-core.mjs"
 example_emit "$app_dir/coop-session.bend" "$staging_dir/public/dist/coop-session.mjs"
 example_emit "$app_dir/coop-protocol.bend" "$staging_dir/public/dist/coop-protocol.mjs"
-bash "$example_repo/prototypes/iroh-transport/build-transport.sh" "$staging_dir/public/iroh"
+bash "$example_repo/tools/iroh-transport/build.sh" "$staging_dir/public/iroh"
 for asset in style.css browser.mjs renderer.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-controls.mjs menu-a.css menu-moon.css coop.html coop.css coop-ui.mjs coop-presentation.mjs coop-browser.mjs coop-worker.mjs coop-transport.mjs; do
   cp "$app_dir/$asset" "$staging_dir/public/$asset"
 done

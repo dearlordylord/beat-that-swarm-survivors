@@ -1,4 +1,4 @@
-# Iroh transport adapter prototype
+# Survivors Iroh transport
 
 Pinned: Iroh 1.4.1, Noq/Noq-proto 1.4.0, wasm-bindgen 0.2.122. This crate only
 transports bytes. Bend decides the meaning and acceptance of application messages.
@@ -47,48 +47,40 @@ stalled receive streams close that connection. Browser endpoints use Iroh's publ
 development relays and are relay-only; no NAT traversal/direct-connect result is
 claimed. Production relay capacity is a separate deployment choice.
 
-## Build
+## Build and checks
 
-From the worktree root, with Rust wasm32 target and wasm-bindgen-cli 0.2.122:
+The browser co-op mode uses this adapter directly. Rust transports encrypted bytes;
+Bend owns game admission and simulation. There is no separate lab or chat UI.
 
-```sh
-CARGO_TARGET_DIR=/tmp/bendvy-iroh-cargo-target CARGO_BUILD_JOBS=2 cargo build --locked --release --target wasm32-unknown-unknown --manifest-path prototypes/iroh-transport/transport/Cargo.toml
-wasm-bindgen --target web --out-name iroh_transport --out-dir prototypes/iroh-transport/transport/dist/pkg /tmp/bendvy-iroh-cargo-target/wasm32-unknown-unknown/release/bendvy_iroh_transport.wasm
-```
-
-The optional native byte echo peer uses the same ALPN and invitation/frame format:
+Developer prerequisites: Rust 1.94+, the Wasm target and matching bindgen CLI:
 
 ```sh
-CARGO_TARGET_DIR=/tmp/bendvy-iroh-cargo-target cargo run --locked --release --features native-probe --manifest-path prototypes/iroh-transport/transport/Cargo.toml --bin iroh-native-probe
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.122 --locked
+bash tools/iroh-transport/build.sh /tmp/survivors-iroh
 ```
 
-It prints its invitation and echoes received byte frames. It is an IO diagnostic,
-not a Bend game server. Native Linux arm64 compilation here does not qualify
-macOS or cross-network NAT traversal. `cargo test --features native-probe` checks
-real native loopback ordering and the receive-size bound.
+The regular Survivors web build invokes the script and packages its output at
+`./iroh/`. Hosted players install nothing. Native solo does not need this toolchain.
 
-Primary basis: [official browser example](https://github.com/n0-computer/iroh-examples/tree/main/browser-echo),
-[browser limitations](https://docs.iroh.computer/languages/wasm-browser), and the
-pinned crate source/lockfile. No Bend runtime or primary game code is imported.
-
-## Game integration
-
-`examples/survivors/coop-transport.mjs` is the game IO adapter. It passes raw
-`Uint8Array` messages to the Bend game protocol rather than using the lab's chat
-framing. It copies payloads when queued, serializes writes, binds received events
-to the authenticated peer, and invalidates pending sends on connection changes.
-It bounds its queue to 16 messages and 4 MiB total; individual frames are bounded
-to 1 MiB in both JS and Rust. These are transport resource limits, not gameplay
-pool limits. A completed send is not an application acknowledgment.
-
-Build only the reusable Wasm module with:
+From the repository root:
 
 ```sh
-bash prototypes/iroh-transport/build-transport.sh OUTPUT_DIRECTORY
+CARGO_TARGET_DIR=/tmp/bendvy-iroh-cargo-target cargo test --locked --features native-probe --manifest-path tools/iroh-transport/Cargo.toml --jobs 2
+node --test examples/survivors/coop-transport.test.mjs
 ```
 
-Place its generated files at the game adapter's `./iroh/` URL or provide
-`CoopTransport.create(callback, { moduleUrl })`. Transport callbacks carry raw
-`message.bytes`, authenticated `peerId`, and a local `connectionEpoch`. Bend must
-still decide the session/player assignment and application acceptance. A new
-transport connection is not permission to join an existing run.
+The optional `iroh-native-probe` binary is a byte echo diagnostic, not a game
+server or native Bend/Iroh FFI. Its loopback checks cover ordering and frame bounds;
+they do not qualify macOS or cross-network direct connectivity.
+
+## Game boundary
+
+`examples/survivors/coop-transport.mjs` copies queued payloads, serializes writes,
+binds incoming events to the authenticated peer and invalidates stale sends.
+Its queue is bounded to 16 messages / 4 MiB, with a 1 MiB frame limit in JS and
+Rust. A completed send is not an application acknowledgment. Bend validates
+commands and maps the authenticated connection to an allowed player.
+
+Primary references: [browser example](https://github.com/n0-computer/iroh-examples/tree/main/browser-echo)
+and [browser limitations](https://docs.iroh.computer/languages/wasm-browser).
