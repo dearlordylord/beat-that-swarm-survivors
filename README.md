@@ -2,12 +2,10 @@
 
 Playable examples of [Bendvy](https://github.com/dearlordylord/bendvy), consuming its published **BendHub distribution**. This repository contains application code and game-design research; Bendvy itself is fetched by the Bend compiler.
 
-## Play Nightfall Survivors
+## Survivors example
 
-[**Play in your browser**](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site) — no installation required.
-Keyboard and touch controls are supported; progress is saved in your browser.
-
-An original single-player survivors game: 24 weapons, 24 evolutions, six unions, 18 passive upgrades, eight heroes, five arenas, twelve Arcana, persistent progression and independent world actors. The native version uses Bend for simulation, rendering, input, sound and saved profiles.
+An ECS example using Bendvy to model a survivors simulation.
+[Browser demo](https://nightfall-survivors-bendvy.leafyyew32.chatgpt.site) · [Source and usage](examples/survivors/README.md)
 
 Install **Bend 2.0.38** and a native C compiler. On macOS, install Apple's Command Line Tools with `xcode-select --install`, then:
 
