@@ -1,14 +1,24 @@
 ---
 import template from '../../../index.html?raw';
 import { withPageMetadata } from '../../../seo.mjs';
-import { renderExpedition, renderExpeditionAction } from '../../../expedition-menu.mjs';
+import { renderExpeditionAction } from '../../../expedition-menu.mjs';
+import { MENU_TABS, renderMenuContent } from '../../../menu-content.mjs';
 import { freshProfile, validateSetup } from '../../../progression.mjs';
 
 // Astro owns static presentation. The profile and catalog come from Bend.
 const profile = freshProfile();
 const initial = { profile, ...validateSetup(profile, {}) };
+// A query string cannot select an Astro static build. Ship each menu view and
+// select it synchronously in the head, before CSS or asynchronous module loading.
+const routeScript = `<script>{const tab=new URLSearchParams(location.search).get('tab');document.documentElement.dataset.menuTab=${JSON.stringify(MENU_TABS)}.includes(tab)?tab:'expedition';}</script>`;
+const routeStyles = `<style>[data-initial-tab]{display:none}${MENU_TABS.map(tab => `html[data-menu-tab="${tab}"] [data-initial-tab="${tab}"]{display:block}`).join('')}html:not([data-menu-tab="expedition"]) #menuDock{display:none}</style>`;
+const initialViews = MENU_TABS.map(tab => `<section data-initial-tab="${tab}">${renderMenuContent(tab, { ...initial, staticPickers: true })}</section>`).join('');
 const html = withPageMetadata(template, 'home')
-  .replace('<div id="menuContent"></div>', `<div id="menuContent">${renderExpedition({ ...initial, staticPickers: true })}</div>`)
+  .replace('<html lang="en">', '<html lang="en" data-menu-tab="expedition">')
+  .replace('<head>', `<head>${routeScript}${routeStyles}`)
+  .replace('data-tab="expedition" class="active"', 'data-tab="expedition"')
+  .replace('</nav>', `</nav><script>document.querySelector('#tabs [data-tab="'+document.documentElement.dataset.menuTab+'"]')?.classList.add('active');</script>`)
+  .replace('<div id="menuContent"></div>', `<div id="menuContent">${initialViews}</div>`)
   .replace('<div id="menuDock" class="expedition" hidden></div>', `<div id="menuDock" class="expedition">${renderExpeditionAction(initial)}</div>`)
   .replace('<div id="wallet"></div>', '<div id="wallet">◈ 0 · legacy gold</div>');
 ---
