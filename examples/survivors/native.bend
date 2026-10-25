@@ -3,6 +3,7 @@ import Base
 import game-components.bend as Components
 import projectile-state.bend as Shot
 import game.bend as G
+import pickup-state.bend as Pickup
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
 import enemy-presentation.bend as EnemyView
@@ -292,11 +293,27 @@ def body_sprites(rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,
     case body <> rest: body_sprite(body,px,py,body_sprites(rest,px,py,tail))
 def enemy_sprite(enemy: Enemy.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match enemy:
-    case Enemy.State{Space.Spatial{x,y,_,radius},archetype,_,Components.Vitals{health,_},_}:
+    case Enemy.State{Space.Spatial{x,y,_,radius},+archetype,_,Components.Vitals{health,_},_}:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
       body_visible(Bool.and(U32.is_lt(0,health),body_on_screen(sx,sy,scaled)),0,archetype,sx,sy,scaled,enemy_color(archetype),tail)
+def pickup_item_sprite(item: Pickup.Item,+x: F32,+y: F32,+radius: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match item:
+    case Pickup.Xp{amount,marked}: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,marked),tail)
+    case Pickup.Gold{_}: Art.sprite(3,0,x,y,radius,body_color(3,0),tail)
+    case Pickup.Healing{_}: Art.sprite(4,0,x,y,radius,body_color(4,0),tail)
+    case Pickup.Chest{}: Art.sprite(5,0,x,y,radius,body_color(5,0),tail)
+    case Pickup.Relic{stage}: Art.sprite(9,stage,x,y,radius,body_color(9,stage),tail)
+def pickup_sprite(pickup: Pickup.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match pickup:
+    case Pickup.State{Space.Spatial{x,y,_,radius},Pickup.Payload{item,_,active},_}:
+      +sx = V.native_x(x,px)
+      +sy = V.native_y(y,py)
+      +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
+      match Bool.and(active,body_on_screen(sx,sy,scaled)):
+        case True{}: pickup_item_sprite(item,sx,sy,scaled,tail)
+        case False{}: tail
 def enemy_sprites(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
@@ -321,6 +338,7 @@ def actor_sprites(rows: List<&2,G.Snapshot>,+px: F32,+py: F32,tail: List<&2,D.Re
     case G.Snapshot{body,_} <> rest: body_sprite(body,px,py,actor_sprites(rest,px,py,tail))
     case G.EnemySnapshot{enemy} <> rest: enemy_sprite(enemy,px,py,actor_sprites(rest,px,py,tail))
     case G.ProjectileSnapshot{projectile} <> rest: projectile_sprite(projectile,px,py,actor_sprites(rest,px,py,tail))
+    case G.PickupSnapshot{pickup} <> rest: pickup_sprite(pickup,px,py,actor_sprites(rest,px,py,tail))
 # Health overlays are typed enemy observations and are drawn after every sprite.
 def enemy_healthbars(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
