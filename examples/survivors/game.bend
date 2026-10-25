@@ -1448,11 +1448,6 @@ def team_move_system(~H: Type,~ops: MoveOps<H>,team: Team,ctx: H) -> H & (T.Outc
 def team_spawn_view(+team: Team,+id: U32) -> PlayerView:
   +candidate = team_for_id(team,id)
   Bool.pick(PlayerView,view_alive(candidate),candidate,team_nearest(team,run_px(view_run(candidate)),run_py(view_run(candidate))))
-def team_body_view(+team: Team,body: Components.Body) -> PlayerView:
-  match body:
-    case Components.Body{+x,+y,8,_,_,_,_,+seed,_}: team_spawn_view(team,(seed % 2 : U32))
-    case Components.Body{+x,+y,0,_,_,_,_,_,_}: team_nearest(team,x,y)
-    case Components.Body{+x,+y,_,_,_,_,_,_,_}: collector(team,x,y)
 def movement_x(point: PlayerMovement.Point) -> F32:
   match point:
     case PlayerMovement.Point{x,_}: x
