@@ -483,6 +483,14 @@ document.addEventListener("click", (event) => {
       openPanel = openPanel === b.dataset.menuPanel ? null : b.dataset.menuPanel
       pendingUnlock = null
       menu()
+    } else if (b.hasAttribute("data-close-unlock")) {
+      const inspected = pendingUnlock
+      pendingUnlock = null
+      menu()
+      if (inspected)
+        document
+          .querySelector<HTMLElement>(`[data-${inspected.kind}="${inspected.id}"]`)
+          ?.focus({ preventScroll: true })
     } else if (b.dataset.buyKind !== undefined) {
       const kind = b.dataset.buyKind,
         id = Number(b.dataset.buyId)
@@ -507,7 +515,7 @@ document.addEventListener("click", (event) => {
         openPanel = null
         menu()
       } else {
-        pendingUnlock = { kind, id }
+        pendingUnlock = pendingUnlock?.kind === kind && pendingUnlock.id === id ? null : { kind, id }
         openPanel = kind
         menu()
         const details = $("[data-unlock-details]")
@@ -571,6 +579,14 @@ document.addEventListener("change", (e) => {
   saveProfile(profile)
 })
 window.addEventListener("keydown", (e) => {
+  if (e.code === "Escape" && pendingUnlock && !running) {
+    e.preventDefault()
+    const inspected = pendingUnlock
+    pendingUnlock = null
+    menu()
+    document.querySelector<HTMLElement>(`[data-${inspected.kind}="${inspected.id}"]`)?.focus({ preventScroll: true })
+    return
+  }
   if (e.code === "KeyM" && running && !document.activeElement?.matches("input,select,textarea")) {
     e.preventDefault()
     if (!e.repeat && !upgradeOpen) pause()

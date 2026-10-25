@@ -46,8 +46,11 @@ done
 if [[ -f "$app_dir/favicon.svg" ]]; then cp "$app_dir/favicon.svg" "$staging_dir/public/"; fi
 cp -R "$app_dir/social" "$staging_dir/public/social"
 cp "$example_repo/LICENSE-MIT" "$example_repo/LICENSE-APACHE" "$staging_dir/public/"
-NIGHTFALL_WEB_PUBLIC="$staging_dir/public" NIGHTFALL_WEB_OUTPUT="$astro_output" \
-  "$NODE" "$app_dir/web/node_modules/astro/bin/astro.mjs" build --root "$app_dir/web"
+(
+  cd "$app_dir/web"
+  NIGHTFALL_WEB_PUBLIC="$staging_dir/public" NIGHTFALL_WEB_OUTPUT="$astro_output" \
+    "$NODE" "$app_dir/web/node_modules/astro/bin/astro.mjs" build --root "$app_dir/web"
+)
 # Local builds expose their provenance for browser diagnostics. Publication replaces
 # this with its immutable release manifest after building the isolated snapshot.
 "$NODE" "$example_repo/scripts/write-survivors-version.mts" "$example_repo" "$astro_output"
