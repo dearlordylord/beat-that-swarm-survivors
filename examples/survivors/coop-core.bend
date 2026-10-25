@@ -1,6 +1,7 @@
 import Base
 import coop-reward-policy.bend as RP
 import coop-attach.bend as Attach
+import list-map.bend as ListMap
 import game.bend as G
 import coop-prediction.bend as Prediction
 import coop-combat-prediction.bend as CombatPrediction
@@ -356,10 +357,12 @@ def owned_row_values(+id: U32,+run: G.Run,row: G.EntityRow,collectorId: U32) -> 
 def owned_row(+team: G.Team,id: U32,run: G.Run,+row: G.EntityRow) -> G.EntityRow:
   match row:
     case G.EntityRow{G.Row{body,_,xp,gold,heal,chest,_,relic},_}: owned_row_values(id,run,row,pickup_owner(team,body,U32.or(U32.or(xp,gold),U32.or(U32.or(heal,chest),relic))))
-def owned_rows_run(+team: G.Team,+id: U32,+run: G.Run,rows: List<&2,G.EntityRow>) -> List<&2,G.EntityRow>:
-  match rows:
-    case []: []
-    case row <> rest: owned_row(team,id,run,row) <> owned_rows_run(team,id,run,rest)
+type OwnedRowsContext is Data: OwnedRowsContext{team:G.Team,id:U32,run:G.Run}
+def owned_row_context(context:OwnedRowsContext,row:G.EntityRow) -> G.EntityRow:
+  match context:
+    case OwnedRowsContext{team,id,run}: owned_row(team,id,run,row)
+def owned_rows_run(team: G.Team,id: U32,run: G.Run,rows: List<&2,G.EntityRow>) -> List<&2,G.EntityRow>:
+  ListMap.map(~G.EntityRow,~G.EntityRow,~OwnedRowsContext,~owned_row_context,OwnedRowsContext{team,id,run},rows)
 def owned_rows(+team: G.Team,+id: U32,rows: List<&2,G.EntityRow>) -> List<&2,G.EntityRow>:
   owned_rows_run(team,id,G.view_run(G.team_for_id(team,id)),rows)
 def totals_xp(totals: G.Totals) -> U32:

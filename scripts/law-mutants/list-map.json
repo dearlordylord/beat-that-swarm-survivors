@@ -1,0 +1,18 @@
+[
+  {
+    "source": "examples/survivors/list-map.bend",
+    "proof": "examples/survivors/list-map-PROOF.bend",
+    "label": "context-map-keeps-reversed-row-order",
+    "law": "map_exact",
+    "old": "List.reverse(&2,B,go(~A,~B,~Context,~f,rows,context,[]))",
+    "new": "go(~A,~B,~Context,~f,rows,context,[])"
+  },
+  {
+    "source": "examples/survivors/list-map.bend",
+    "proof": "examples/survivors/list-map-PROOF.bend",
+    "label": "context-map-discards-row",
+    "law": "accumulator_exact",
+    "old": "go(~A,~B,~Context,~f,tail,context,f(context,head) <> acc)",
+    "new": "go(~A,~B,~Context,~f,tail,context,acc)"
+  }
+]
