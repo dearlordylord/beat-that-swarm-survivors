@@ -1,6 +1,7 @@
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
+import projectile-state.bend as Shot
 import game.bend as G
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
@@ -300,12 +301,26 @@ def enemy_sprites(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.R
   match rows:
     case []: tail
     case enemy <> rest: enemy_sprite(enemy,px,py,enemy_sprites(rest,px,py,tail))
+def projectile_kind(side: Shot.Side) -> U32:
+  match side:
+    case Shot.PlayerShot{}: 1
+    case Shot.HostileShot{}: 7
+def projectile_sprite(projectile: Shot.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match projectile:
+    case Shot.State{Space.Spatial{x,y,_,radius},_,side,Components.ShotPayload{weapon,_,True{}},_}:
+      +sx = V.native_x(x,px)
+      +sy = V.native_y(y,py)
+      +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
+      +kind = projectile_kind(side)
+      body_visible(body_on_screen(sx,sy,scaled),kind,weapon,sx,sy,scaled,body_color(kind,weapon),tail)
+    case _: tail
 # Draw the original completed phase order, rather than grouping the new types.
 def actor_sprites(rows: List<&2,G.Snapshot>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
     case G.Snapshot{body,_} <> rest: body_sprite(body,px,py,actor_sprites(rest,px,py,tail))
     case G.EnemySnapshot{enemy} <> rest: enemy_sprite(enemy,px,py,actor_sprites(rest,px,py,tail))
+    case G.ProjectileSnapshot{projectile} <> rest: projectile_sprite(projectile,px,py,actor_sprites(rest,px,py,tail))
 # Health overlays are typed enemy observations and are drawn after every sprite.
 def enemy_healthbars(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
@@ -816,16 +831,16 @@ def sound_cue(muted: U32,damaged: Bool,levelled: Bool,killed: Bool) -> U32:
 def session_with_audio(native: Native,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Audio> & Sound.Track) -> IO(Maybe<Session>):
   (audio,music) = result
   IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health,music,fps}})
-def music_observation(due: Bool,+run: G.Run,rows: List<&2,Components.Body>,enemies: List<&2,Enemy.State>,cached: U32) -> U32:
+def music_observation(due: Bool,+run: G.Run,rows: List<&2,Components.Body>,enemies: List<&2,Enemy.State>,projectiles: List<&2,Shot.State>,cached: U32) -> U32:
   match due:
-    case True{}: G.music_danger(run_hp(run),run_maxHp(run),run_px(run),run_py(run),rows,EnemyView.pressures(enemies))
+    case True{}: G.music_danger(run_hp(run),run_maxHp(run),run_px(run),run_py(run),rows,EnemyView.pressures(enemies),projectiles)
     case False{}: cached
 def session_sound(+now: Nat,audio: Maybe<Audio>,+music: Sound.Track,kills: U32,level: U32,health: U32,fps: Fps,cue: U32,native: Native) -> IO(Maybe<Session>):
   match native:
     case Native{G.Packet{G.State{world,+run,+rows,offers,+snapshots,pending}},+ui,profile}:
       +active = Bool.and(U32.is_eq(ui_screen(ui),1),Bool.and(U32.is_eq(ui_paused(ui),0),Bool.and(U32.is_eq(ui_frames(ui),0),U32.is_le(run_phase(run),2))))
       +track = Sound.reset_if(Bool.or(Bool.not(U32.is_eq(ui_screen(ui),1)),U32.is_eq(run_tick(run),0)),music)
-      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,G.enemy_observations(snapshots),Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},kills,level,health,fps))
+      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,G.enemy_observations(snapshots),G.projectile_observations(snapshots),Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},kills,level,health,fps))
     case native: IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,False{},0,0,Sound.initial()),0),session_with_audio(native,kills,level,health,fps))
 def session_metrics(now: Nat,audio: Maybe<Audio>,music: Sound.Track,oldKills: U32,oldLevel: U32,oldHealth: U32,fps: Fps,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
   (native,(+kills,+level,+health,muted)) = result

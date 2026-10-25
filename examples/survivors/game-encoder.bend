@@ -37,7 +37,7 @@ def actor_order_json(rows: List<&2,G.ActorRef>) -> String:
 def projectiles_json(rows: List<&2,Shot.State>,+tick: U32) -> String:
   match rows:
     case []: ""
-    case projectile <> []: ShotEncoder.visual(tick,(tick - Shot.age(projectile) : U32),projectile)
+    case +projectile <> []: ShotEncoder.visual(tick,(tick - Shot.age(projectile) : U32),projectile)
     case +projectile <> rest: ShotEncoder.visual(tick,(tick - Shot.age(projectile) : U32),projectile) ++ "," ++ projectiles_json(rest,tick)
 def nums_json(rows: List<&2,U32>) -> String:
   match rows:
