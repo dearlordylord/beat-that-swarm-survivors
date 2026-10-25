@@ -17,6 +17,9 @@ def player_actor(+id:U32,+character:U32,x:F32,y:F32,hp:U32,connected:Bool) -> P.
 # Actual health, damage and pickup amount remain outside this timeline record.
 def body_liveness(+kind:U32,hp:U32,life:U32,pierce:U32) -> Bool:
   Bool.pick(Bool,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7)),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0)),U32.is_gt(hp,0))
+def projectile_actor(hostile: Bool,+seed:U32,born:U32,weapon:U32,+slot:U32,x:F32,y:F32,age:U32,life:U32,pierce:U32) -> P.Actor:
+  +kind = Bool.pick(U32,hostile,7,1)
+  P.Actor{seed,kind,generation(kind,seed,born,weapon,slot),Numbers.normalize(x),Numbers.normalize(y),age,Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0)),visual_owner(kind,slot)}
 def body_actor(+seed:U32,+kind:U32,born:U32,weapon:U32,+slot:U32,x:F32,y:F32,age:U32,hp:U32,life:U32,pierce:U32) -> P.Actor:
   P.Actor{seed,kind,generation(kind,seed,born,weapon,slot),Numbers.normalize(x),Numbers.normalize(y),age,body_liveness(kind,hp,life,pierce),visual_owner(kind,slot)}
 def birth(births:BI.Index<U32>,tick:U32,age:U32,seed:U32) -> U32: BI.get(~U32,births,seed,(tick - age : U32))

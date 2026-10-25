@@ -1,6 +1,8 @@
 # Typed projection only. This module exposes no world-forecast operation.
 import Base
 import game-components.bend as Components
+import projectile-state.bend as Shot
+import enemy-spatial.bend as Space
 import ./game.bend as G
 import ./coop-combat-prediction.bend as Wire
 import ./coop-playback.bend as P
@@ -17,9 +19,14 @@ def body_liveness(kind:U32,hp:U32,life:U32,pierce:U32) -> Bool: Projection.body_
 def body_actor(body:Components.Body,motion:G.Motion,born:U32) -> P.Actor:
   match body motion:
     case Components.Body{x,y,kind,_,hp,_,age,seed,_} G.Motion{_,_,life,pierce,_,_,_,weapon,slot}: Projection.body_actor(seed,kind,born,weapon,slot,x,y,age,hp,life,pierce)
+def projectile_hostile(side:Shot.Side) -> Bool:
+  match side:
+    case Shot.PlayerShot{}: False{}
+    case Shot.HostileShot{}: True{}
 def snapshot_actor(context:BodyContext,snapshot:G.Snapshot) -> P.Actor:
   match context snapshot:
     case BodyContext{tick,births} G.Snapshot{Components.Body{x,y,kind,_,hp,_,+age,+seed,_},G.Motion{_,_,life,pierce,_,_,_,weapon,slot}}: Projection.body_actor(seed,kind,Projection.birth(births,tick,age,seed),weapon,slot,x,y,age,hp,life,pierce)
+    case BodyContext{tick,births} G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,+age,_},+seed,side,_,Components.Trajectory{_,_,life,pierce,_,owner,slot}}}: Projection.projectile_actor(projectile_hostile(side),seed,Projection.birth(births,tick,age,seed),owner,slot,x,y,age,life,pierce)
 def extra_selected(keep:Bool,key:U32,kind:U32,variant:U32,x:F32,y:F32,age:U32,hp:U32,tick:U32) -> Maybe<&2,P.Actor>:
   Projection.extra_selected(keep,key,kind,variant,x,y,age,hp,tick)
 def extra_actor(key:U32,kind:U32,variant:U32,x:F32,y:F32,age:U32,hp:U32,tick:U32) -> Maybe<&2,P.Actor>:
