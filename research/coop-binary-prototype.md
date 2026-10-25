@@ -59,33 +59,35 @@ same existing presentation shape after decode; neither renderer was rewritten.
 ## Results
 
 Apple M2 Max, macOS arm64, Node v25.6.1, pinned Bend 2.0.38. Final run was made
-after the reliability suite completed, without running another check alongside
-it. Eight warmups and 100 samples per fixture; baseline/binary order alternates.
+after fixing fixture isolation, without running another check alongside it.
+These measurements supersede the original run in commit `0a090b8`, whose
+initial/live scenarios shared mutable ECS storage. Eight warmups and 100 samples
+per fixture; baseline/binary order alternates.
 The JSON-transfer control always runs third, so this is an exploratory local
 comparison rather than a statistically controlled benchmark study. Times below
 are p50 milliseconds, excluding compression and any Iroh/WASM/network work.
 
 | Fixture | Existing pipeline | Typed + JSON transfer | Typed + binary transfer | Existing → binary |
 | --- | ---: | ---: | ---: | ---: |
-| Initial | 0.100 | 0.034 | 0.058 | 1.72× |
-| Actual core after 60 ticks, 125 visible bodies | 2.093 | 0.467 | 0.677 | 3.09× |
-| Controlled 128 bodies | 1.958 | 0.457 | 0.644 | 3.04× |
-| Controlled 512 bodies | 7.532 | 1.736 | 2.400 | 3.14× |
-| Controlled 1,000 bodies | 14.736 | 3.317 | 4.640 | 3.18× |
-| 512 bodies with statuses + 512 journal events | 10.663 | 4.181 | 3.935 | 2.71× |
-| Choice metadata fixture | 2.076 | 0.450 | 0.653 | 3.18× |
-| Disconnected core observation | 2.045 | 0.452 | 0.658 | 3.11× |
+| Initial | 0.093 | 0.031 | 0.059 | 1.58× |
+| Actual core after 60 ticks, 125 visible bodies | 2.055 | 0.451 | 0.661 | 3.11× |
+| Controlled 128 bodies | 1.934 | 0.443 | 0.631 | 3.06× |
+| Controlled 512 bodies | 7.555 | 1.740 | 2.397 | 3.15× |
+| Controlled 1,000 bodies | 14.669 | 3.265 | 4.646 | 3.16× |
+| 512 bodies with statuses + 512 journal events | 10.797 | 4.240 | 3.962 | 2.73× |
+| Choice metadata fixture | 2.050 | 0.450 | 0.651 | 3.15× |
+| Disconnected core observation | 2.047 | 0.452 | 0.649 | 3.16× |
 
-For 512 bodies, p95 was 8.045 ms existing, 2.000 ms typed+JSON and 2.933 ms
-typed+binary. For 1,000 bodies: 16.267 / 3.494 / 5.135 ms respectively.
+For 512 bodies, p95 was 8.661 ms existing, 2.347 ms typed+JSON and 3.024 ms
+typed+binary. For 1,000 bodies: 16.277 / 3.608 / 5.255 ms respectively.
 
 | Fixture | JSON bytes | Binary bytes | JSON+gzip bytes | Binary+gzip bytes |
 | --- | ---: | ---: | ---: | ---: |
-| Actual core after 60 ticks | 55,408 | 16,805 | 6,052 | 3,095 |
-| 128 bodies | 58,643 | 17,273 | 5,367 | 2,796 |
-| 512 bodies | 221,782 | 65,657 | 17,130 | 10,602 |
-| 1,000 bodies | 429,119 | 127,145 | 32,071 | 23,754 |
-| 512 bodies + dense journal | 452,148 | 121,649 | 24,941 | 17,429 |
+| Actual core after 60 ticks | 55,405 | 16,805 | 6,042 | 3,095 |
+| 128 bodies | 58,640 | 17,273 | 5,355 | 2,800 |
+| 512 bodies | 221,779 | 65,657 | 17,118 | 10,604 |
+| 1,000 bodies | 429,116 | 127,145 | 32,061 | 23,757 |
+| 512 bodies + dense journal | 452,145 | 121,649 | 24,926 | 17,428 |
 
 Gzip uses browser-compatible `CompressionStream`/`DecompressionStream` executed
 in Node. Both compressed sizes include four envelope bytes, and binary sizes
@@ -97,12 +99,12 @@ Stage measurements for 512 bodies explain the result:
 
 | Stage | p50 ms |
 | --- | ---: |
-| Bend JSON creation + parse | 3.903 |
-| Typed Bend observation + presentation reshaping | 0.203 |
-| Deep clone of envelope objects | 2.193 |
-| Transfer of prepared binary buffer | 0.015 |
-| Native JSON stringify/UTF-8/parse roundtrip | 1.461 |
-| Prototype binary encode/decode roundtrip | 2.127 |
+| Bend JSON creation + parse | 4.001 |
+| Typed Bend observation + presentation reshaping | 0.205 |
+| Deep clone of envelope objects | 2.152 |
+| Transfer of prepared binary buffer | 0.011 |
+| Native JSON stringify/UTF-8/parse roundtrip | 1.422 |
+| Prototype binary encode/decode roundtrip | 2.158 |
 
 Stage medians are independent measurements and should not be added as an exact
 prediction of pipeline latency. The codec is a simple generic schema interpreter
@@ -113,10 +115,21 @@ codec or packed renderer may improve CPU further, but that remains unmeasured.
 
 Compression was also measured separately over precomputed payloads (10 samples,
 gzip + gunzip + parse/decode, excluding observation creation and transfer). For
-512 bodies p50 was 3.222 ms JSON versus 2.907 ms binary; for 1,000 bodies it was
-5.779 versus 5.840 ms. Smaller bytes alone do not guarantee less compression CPU.
+512 bodies p50 was 3.726 ms JSON versus 3.120 ms binary; for 1,000 bodies it was
+6.272 versus 5.970 ms. Smaller bytes alone do not guarantee less compression CPU.
 
 ## Checks and interpretation
+
+Every fixture now starts from its own freshly created world; the live factory
+creates and joins a new game and advances that world alone. The disconnected
+fixture disconnects its own world. Setup stays outside all timed regions.
+
+A regression check runs after all fixtures are prepared, before each measurement
+batch and after repeated observations. It independently pins world ticks, player
+positions and connected flags, plus the choice fixture's round/required players.
+The check was first run against the old setup and failed with initial X=7350
+instead of 7200. After the fix it passes for all eight fixtures, including live
+guest connected=true and disconnected guest connected=false.
 
 All eight fixtures passed typed-vs-original observation parity, binary exact
 roundtrip, gzip roundtrip, transferred-buffer ownership/delivery and observation
@@ -138,8 +151,9 @@ BEND="$HOME/.bend/bin/bend" NODE=node bash examples/survivors/check-coop-reliabi
 ```
 
 The dependency audit covered 197 Bend modules with the pinned theorem-library
-submodule initialized. The existing reliability suite compiled its own fresh
-modules and passed, including dense contact geometry, codecs, journal, playback,
+submodule initialized. The existing reliability suite, run before this
+fixture-only fix, compiled its own fresh modules and passed, including dense
+contact geometry, codecs, journal, playback,
 input flow and client clock. This checks coexistence with the prototype; it does
 not establish production-browser integration of the new codec.
 

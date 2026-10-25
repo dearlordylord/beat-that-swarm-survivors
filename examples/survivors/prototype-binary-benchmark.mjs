@@ -54,22 +54,41 @@ try {
   ],{encoding:'utf8',timeout:30000});
   if(compile.status!==0)throw Error(compile.stdout+compile.stderr);
   const {default:B}=await import(pathToFileURL(output));
-  const initial=B.start().state,joined=B.join(initial).state;
-  assert.ok(joined,'guest joins real core');
-  let live=joined;for(let i=0;i<60;i++)live=B.step(live).state;
+  function liveState() {
+    // Emitted Bend mutates affine array storage. Each fixture owns a fresh world.
+    let state=B.join(B.start().state).state;
+    assert.ok(state,'guest joins real core');
+    for(let i=0;i<60;i++)state=B.step(state).state;
+    return state;
+  }
   const fixtures=[
-    ['initial',initial,[]],['live-60-ticks',live,[]],
-    ['population-128',populated(live,128),[]],['population-512',populated(live,512),[]],
-    ['population-1000',populated(live,1000),[]],['status-512-journal-512',populated(live,512,true),hits(512)],
-    ['choice', {...live,round:3,required:list([0,1]),offers:list([{$:'PlayerOffers',id:1,offers:list([{$:'Offer',kind:0,id:11,level:2}])}])},[]],
-    ['disconnected',B.disconnect(live).state,[]],
+    ['initial',B.start().state,[]],['live-60-ticks',liveState(),[]],
+    ['population-128',populated(liveState(),128),[]],['population-512',populated(liveState(),512),[]],
+    ['population-1000',populated(liveState(),1000),[]],['status-512-journal-512',populated(liveState(),512,true),hits(512)],
+    ['choice', {...liveState(),round:3,required:list([0,1]),offers:list([{$:'PlayerOffers',id:1,offers:list([{$:'Offer',kind:0,id:11,level:2}])}])},[]],
+    ['disconnected',B.disconnect(liveState()).state,[]],
   ];
+  function assertFixture(name,frame) {
+    const initial=name==='initial',populated=name.startsWith('population-')||name==='status-512-journal-512';
+    assert.equal(frame.tick,initial?0:populated?600:60,`${name}: expected world tick`);
+    assert.deepEqual(frame.players.map(p=>[p.id,p.connected,p.px,p.py]),initial?
+      [[0,true,7200,7200]]:
+      [[0,true,7350,7200],[1,name!=='disconnected',7232,7372.5]],
+    `${name}: lifecycle and positions remain isolated from other fixtures`);
+    if(name==='choice') {
+      assert.equal(frame.roundId,3);assert.equal(frame.choicePending,true);
+      assert.deepEqual(frame.requiredPlayers,[0,1]);
+    }
+  }
+  // Check after every fixture is prepared: later transitions must not alter earlier worlds.
+  for(const [name,state]of fixtures)assertFixture(name,JSON.parse(B.baseline(state,1).frame));
   const results=[];
   for(const [name,state,events]of fixtures){
     const rejection=name==='choice'?{reason:2,seq:10,targetWorldTick:42,worldTick:43}:null;
     const old=()=>envelope(JSON.parse(B.baseline(state,1).frame),events,rejection);
     const fresh=()=>envelope(presentation(B.observe(state,1).observation),events,rejection);
     const expected=old(),candidate=fresh();
+    assertFixture(name,expected.frame);assertFixture(name,candidate.frame);
     assert.deepEqual(normalize(candidate),normalize(expected),`${name}: typed observation parity`);
     const binary=encode(candidate),json=utf8.encode(JSON.stringify(expected));
     assert.deepEqual(decode(binary),candidate,`${name}: binary roundtrip exact`);
@@ -120,6 +139,7 @@ try {
     const badBool=binary.slice();badBool[20]=2;assert.throws(()=>decode(badBool));
     const badFloat=binary.slice();new DataView(badFloat.buffer).setFloat32(21,Infinity,true);assert.throws(()=>decode(badFloat));
     assert.deepEqual(normalize(fresh()),normalize(old()),`${name}: parity after repeated observations`);
+    assertFixture(name,fresh().frame);
   }
   assert.throws(()=>decode(new Uint8Array(MAX_BYTES+1)));
   const report={base:'01b4164612cd6e37d39aa75b16fab2dd253ebb0d',node:process.version,platform:process.platform,arch:process.arch,cpu:cpus()[0].model,samples,
