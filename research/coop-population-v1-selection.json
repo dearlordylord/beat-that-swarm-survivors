@@ -1,0 +1,76 @@
+{
+  "experimentId": "coop-population-v1",
+  "selectedExtraPercent": 25,
+  "baselineExtraPercent": 100,
+  "criteriaSha256": "5661dd428f784a2ecad0aaa5b087e49448520eadfd4f5f553e86e14faed56ff0",
+  "gameContextHash": "5b528a6b2dab0ceaf100d5210d4df0fef273632fdfaf2a107c086ce239f754d4",
+  "policyHash": "9b63e95df0d72d6e60786995671e97c08aae52c91a41031753e46b4046a91279",
+  "frozenBeforeFinalCohort": true,
+  "basis": {
+    "developmentSeeds": [
+      100,
+      101,
+      102,
+      103
+    ],
+    "validationSeeds": [
+      104729,
+      130363,
+      155921,
+      196613
+    ],
+    "horizonTicks": 7200,
+    "developmentLevelsCandidateMinusBaseline": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "validationLevelsCandidateMinusBaseline": [
+      3,
+      1,
+      0,
+      0
+    ],
+    "allEightPairsReachedHorizonBothArms": true,
+    "scope": "Finite early-game observations; not human play or statistical proof."
+  },
+  "telemetryErratum": {
+    "version": 1,
+    "invalidFields": [
+      "ordinaryPopulation",
+      "bossPopulation"
+    ],
+    "reason": "Timed boss variants20..29 were misclassified as ordinary; total population and gameplay fields unaffected.",
+    "retainedValidFields": [
+      "population",
+      "hp0",
+      "hp1",
+      "maxHp0",
+      "maxHp1",
+      "level",
+      "xp",
+      "kills",
+      "choices0",
+      "choices1",
+      "positions",
+      "outcome"
+    ],
+    "fullRegressionWillUseVersion": 2
+  },
+  "finalSeeds": [
+    982451653,
+    961748941
+  ],
+  "finalProfiles": [
+    "fresh",
+    "advanced"
+  ],
+  "finalRequestedTicks": 36000,
+  "releasePending": [
+    "V2 classification proof/fixture and old-v2 gameplay replay equivalence",
+    "Full-horizon regression and independent review",
+    "Repository checks and actual browser co-op",
+    "Fresh-source publication"
+  ]
+}
