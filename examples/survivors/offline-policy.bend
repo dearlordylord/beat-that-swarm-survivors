@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import game.bend as G
 import bot-actions.bend as A
 import offline-policy/risk-grid.bend as R
@@ -92,20 +93,20 @@ def stable_generation(kind: U32,generation: U32,tick: U32,age: U32) -> U32:
     case 2: generation
     case 9: 0
     case _: (tick - age : U32)
-def goals_at(+rows: List<&2,G.Body>,+tick: U32) -> List<&2,Goal>:
+def goals_at(+rows: List<&2,Components.Body>,+tick: U32) -> List<&2,Goal>:
   match rows:
     case []: []
-    case G.Body{+x,+y,+kind,+variant,+hp,+generation,+age,+seed,+radius} <> rest:
+    case Components.Body{+x,+y,+kind,+variant,+hp,+generation,+age,+seed,+radius} <> rest:
       +tail=goals_at(rest,tick)
       +eligible=Bool.or(Bool.and(U32.is_eq(kind,2),U32.is_lt(0,hp)),Bool.or(U32.is_eq(kind,5),U32.is_eq(kind,9)))
       branch(~(List<&2,Goal>),eligible,(_ =>
-          +value=yes(U32.is_eq(kind,2),U32.to_f32(G.xp_amount(G.Body{x,y,kind,variant,hp,generation,age,seed,radius})),yes(U32.is_eq(kind,5),14.0,yes(U32.is_eq(kind,9),9.0,5.0)))
+          +value=yes(U32.is_eq(kind,2),U32.to_f32(G.xp_amount(Components.Body{x,y,kind,variant,hp,generation,age,seed,radius})),yes(U32.is_eq(kind,5),14.0,yes(U32.is_eq(kind,9),9.0,5.0)))
           Goal{seed,stable_generation(kind,generation,tick,age),kind,x,y,value,Point{floor_cell(x),floor_cell(y)}} <> tail
 
       ),(_ =>
           tail
       ))
-def goals(rows: List<&2,G.Body>) -> List<&2,Goal>: goals_at(rows,0)
+def goals(rows: List<&2,Components.Body>) -> List<&2,Goal>: goals_at(rows,0)
 
 # Omniscient refresh removes collected XP; pool members retain seed + generation.
 # Aggregate reward per 120px XP cluster; use its nearest live member as target.
@@ -184,10 +185,10 @@ def cell_point(+index: U32) -> Point: Point{(U32.to_f32((index % 60 : U32)) * 60
 def cell_index(+point: Point) -> U32:
   match point:
     case Point{x,y}: (U32.min(59,F32.to_u32((F32.max(0.0,y) / 60.0 : F32))) * 60 + U32.min(59,F32.to_u32((F32.max(0.0,x) / 60.0 : F32))) : U32)
-def danger(+rows: List<&2,G.Body>,+point: Point,+blocked: Bool,+risk: F32) -> Bool & F32:
+def danger(+rows: List<&2,Components.Body>,+point: Point,+blocked: Bool,+risk: F32) -> Bool & F32:
   match rows:
     case []: (blocked,risk)
-    case G.Body{+x,+y,+kind,_,+hp,_,_,_,+radius} <> rest:
+    case Components.Body{+x,+y,+kind,_,+hp,_,_,_,+radius} <> rest:
       branch(~(Bool & F32),Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),U32.is_eq(kind,7)),(_ =>
           +r=(radius + yes(U32.is_eq(kind,7),12.0,18.0) : F32)
           +d=distance(point,Point{x,y})
@@ -343,10 +344,10 @@ def route_window(+here:Point,+target:Point,window:R.RiskWindow,budget:U32) -> Ro
       +localTarget=shifted_point(target,x,y)
       +projected=projected_point(localTarget)
       world_route(route_grid(shifted_point(here,x,y),projected,cells,budget),x,y,distance(localTarget,projected))
-def here_window(here:Point,rows:List<&2,G.Body>) -> R.RiskWindow:
+def here_window(here:Point,rows:List<&2,Components.Body>) -> R.RiskWindow:
   match here:
     case Point{x,y}: R.window(rows,x,y,G.world_size(),G.world_margin())
-def route(+here: Point,+target: Point,rows: List<&2,G.Body>,budget: U32) -> Route: route_window(here,target,here_window(here,rows),budget)
+def route(+here: Point,+target: Point,rows: List<&2,Components.Body>,budget: U32) -> Route: route_window(here,target,here_window(here,rows),budget)
 
 type Attempt is Data: Attempt{result: Route,goal: Goal,expanded: U32}
 def insert_near(+goal: Goal,+rows: List<&2,Goal>,+here: Point) -> List<&2,Goal>:
@@ -488,15 +489,15 @@ def suppress_cardinal(+choice: Maybe<&2,Choice>,+damaged: Bool,+fragile: Bool) -
     case None{}: None{}
     case Some{+candidate}: branch(~Maybe<&2,Choice>,Bool.and(U32.is_le(12,goal_kind(choice_goal(candidate))),Bool.not(Bool.or(damaged,fragile))),(_ => None{}),(_ => Some{candidate}))
 
-def nearest(+rows: List<&2,G.Body>,+here: Point,+best: G.Body,+bestDistance: F32,+count: U32) -> G.Body & U32:
+def nearest(+rows: List<&2,Components.Body>,+here: Point,+best: Components.Body,+bestDistance: F32,+count: U32) -> Components.Body & U32:
   match rows:
     case []: (best,count)
     case +body <> rest:
       match body:
-        case G.Body{+x,+y,+kind,_,hp,_,_,_,_}:
-          branch(~(G.Body & U32),Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),(_ =>
+        case Components.Body{+x,+y,+kind,_,hp,_,_,_,_}:
+          branch(~(Components.Body & U32),Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),(_ =>
               +d=distance(here,Point{x,y})
-              branch(~(G.Body & U32),F32.is_lt(d,bestDistance),(_ =>
+              branch(~(Components.Body & U32),F32.is_lt(d,bestDistance),(_ =>
                   nearest(rest,here,body,d,(count + 1 : U32))
               ),(_ =>
                   nearest(rest,here,best,bestDistance,(count + 1 : U32))
@@ -518,10 +519,10 @@ def point_x(+point: Point) -> F32:
 def point_y(+point: Point) -> F32:
   match point:
     case Point{_,y}: y
-def avoid(+rows: List<&2,G.Body>,+here: Point,+close: Bool,+dx: F32,+dy: F32) -> F32 & F32:
+def avoid(+rows: List<&2,Components.Body>,+here: Point,+close: Bool,+dx: F32,+dy: F32) -> F32 & F32:
   match rows:
     case []: (dx,dy)
-    case G.Body{+x,+y,+kind,_,_,_,_,_,+radius} <> rest:
+    case Components.Body{+x,+y,+kind,_,_,_,_,_,+radius} <> rest:
       branch(~(F32 & F32),Bool.or(U32.is_eq(kind,0),U32.is_eq(kind,7)),(_ =>
           +px=point_x(here)
           +py=point_y(here)
@@ -538,9 +539,9 @@ def initial_vector(+target: Maybe<&2,Point>,+px: F32,+py: F32,+nx: F32,+ny: F32,
   match target:
     case Some{Point{tx,ty}}: ((tx - px : F32),(ty - py : F32))
     case None{}: ((nx / nd * radial * 6.0 + ny / nd * yes(close,12.0,35.0) + (G.world_center() - px) * 0.05 : F32),(ny / nd * radial * 6.0 - nx / nd * yes(close,12.0,35.0) + (G.world_center() - py) * 0.05 : F32))
-def steer_enemy(+enemy: G.Body,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>,+px: F32,+py: F32,+here: Point,+close: Bool,+radius: F32) -> F32 & F32:
+def steer_enemy(+enemy: Components.Body,+rows: List<&2,Components.Body>,+target: Maybe<&2,Point>,+px: F32,+py: F32,+here: Point,+close: Bool,+radius: F32) -> F32 & F32:
   match enemy:
-    case G.Body{x,y,_,_,_,_,_,_,r}:
+    case Components.Body{x,y,_,_,_,_,_,_,r}:
       +nx=(px - x : F32)
       +ny=(py - y : F32)
       +nd=F32.max(1.0,hypot(nx,ny))
@@ -554,11 +555,11 @@ def steer_enemy(+enemy: G.Body,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>,+
           ((dx / length : F32),(dy / length : F32))
       ))
       ))
-def steer(+run: G.Run,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>) -> F32 & F32:
+def steer(+run: G.Run,+rows: List<&2,Components.Body>,+target: Maybe<&2,Point>) -> F32 & F32:
   match run:
     case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,_,weapons,+passives,_,+arcana,_,_,_,_,_,_,_}}:
       +here : Point = Point{px,py}
-      bind(~(G.Body),~(U32),~(F32 & F32),nearest(rows,here,G.Body{(px + 300.0 : F32),py,0,0,1,1,0,0,12.0},1000000.0,0),(+enemy => +count =>
+      bind(~(Components.Body),~(U32),~(F32 & F32),nearest(rows,here,Components.Body{(px + 300.0 : F32),py,0,0,1,1,0,0,12.0},1000000.0,0),(+enemy => +count =>
         bind(~(Bool),~(F32),~(F32 & F32),aura(weapons,0,passives,arcana,True{},0.0,0),(+fields => +radius =>
           +close=Bool.and(fields,U32.is_lt(0,count))
           steer_enemy(enemy,rows,target,px,py,here,close,radius)
@@ -576,7 +577,7 @@ def invalidated(+old: Maybe<&2,Choice>,+fresh: Maybe<&2,Choice>) -> Bool:
   match old fresh:
     case Some{_} None{}: True{}
     case _ _: False{}
-def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,G.Body>) -> Memory & (F32 & F32):
+def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>) -> Memory & (F32 & F32):
   match memory run:
     case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
       +here : Point = Point{px,py}

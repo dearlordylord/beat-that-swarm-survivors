@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import ./game.bend as G
 import ./projectile-pool.bend as SP
 import ./body-index.bend as BI
@@ -8,11 +9,11 @@ import ./body-index.bend as BI
 # Bend JSON ABI. There is no weapon-only simulation or trajectory retention.
 def birth_at(births:BI.Index<U32>,tick:U32,snapshot:G.Snapshot) -> U32:
   match snapshot:
-    case G.Snapshot{G.Body{_,_,_,_,_,_,age,seed,_},_}: BI.get(~U32,births,seed,(tick - age : U32))
+    case G.Snapshot{Components.Body{_,_,_,_,_,_,age,seed,_},_}: BI.get(~U32,births,seed,(tick - age : U32))
 
 def birth_entry(+snapshot:G.Snapshot,+tick:U32,+prior:BI.Index<U32>,fresh:BI.Index<U32>,index:BI.Index<U32>) -> BI.Index<U32>:
   match snapshot:
-    case G.Snapshot{G.Body{_,_,_,_,_,_,_,+seed,_},_}: BI.insert(~U32,index,seed,BI.get(~U32,fresh,seed,birth_at(prior,tick,snapshot)))
+    case G.Snapshot{Components.Body{_,_,_,_,_,_,_,+seed,_},_}: BI.insert(~U32,index,seed,BI.get(~U32,fresh,seed,birth_at(prior,tick,snapshot)))
 
 def birth_map(rows:List<&2,G.Snapshot>,+tick:U32,+prior:BI.Index<U32>,+fresh:BI.Index<U32>,index:BI.Index<U32>) -> BI.Index<U32>:
   match rows:
@@ -46,9 +47,9 @@ def native_run(value:G.Run) -> String:
   match value:
     case G.Run{session,personal}: "{\"$\":\"Run\",\"session\":" ++ native_session(session) ++ ",\"player\":" ++ native_personal(personal) ++ "}"
 
-def native_body(value:G.Body) -> String:
+def native_body(value:Components.Body) -> String:
   match value:
-    case G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "{\"$\":\"Body\"" ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"kind\":" ++ U32.show(kind) ++ ",\"variant\":" ++ U32.show(variant) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"age\":" ++ U32.show(age) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"radius\":" ++ F32.show(radius) ++ "}"
+    case Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "{\"$\":\"Body\"" ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"kind\":" ++ U32.show(kind) ++ ",\"variant\":" ++ U32.show(variant) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"age\":" ++ U32.show(age) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"radius\":" ++ F32.show(radius) ++ "}"
 
 def native_births(index:BI.Index<U32>) -> String:
   match index:

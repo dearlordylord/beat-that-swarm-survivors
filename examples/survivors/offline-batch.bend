@@ -1,6 +1,7 @@
 import run-state.bend as RS
 # Native, unpaced simulation. No browser, Node, classifier, or frame parsing.
 import Base
+import game-components.bend as Components
 import game.bend as G
 import bot-actions.bend as B
 import offline-policy.bend as Policy
@@ -35,15 +36,15 @@ def outcome(terminal: Bool) -> String:
     case True{}: "terminal"
     case False{}: "bounded-observation"
 def phase(+run: G.Run) -> U32: G.run_phase(run)
-def piles(+rows: List<&2,G.Body>) -> U32:
+def piles(+rows: List<&2,Components.Body>) -> U32:
   match rows:
     case []: 0
-    case G.Body{_,_,kind,_,_,_,_,_,_} <> rest: (Bool.to_u32(U32.is_eq(kind,2)) + piles(rest) : U32)
-def xp_sum(+rows: List<&2,G.Body>) -> U32:
+    case Components.Body{_,_,kind,_,_,_,_,_,_} <> rest: (Bool.to_u32(U32.is_eq(kind,2)) + piles(rest) : U32)
+def xp_sum(+rows: List<&2,Components.Body>) -> U32:
   match rows:
     case []: 0
-    case G.Body{_,_,kind,_,value,_,_,_,_} <> rest: (value * Bool.to_u32(U32.is_eq(kind,2)) + xp_sum(rest) : U32)
-def report(+index: U32,+seed: U32,+profile: U32,+choices: U32,+started: Nat,+ticks: U32,+run: G.Run,+rows: List<&2,G.Body>) -> IO(Unit):
+    case Components.Body{_,_,kind,_,value,_,_,_,_} <> rest: (value * Bool.to_u32(U32.is_eq(kind,2)) + xp_sum(rest) : U32)
+def report(+index: U32,+seed: U32,+profile: U32,+choices: U32,+started: Nat,+ticks: U32,+run: G.Run,+rows: List<&2,Components.Body>) -> IO(Unit):
   match run:
     case G.Run{RS.Session{+phase,+tick,xp,xpNeed,level,kills,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       do IO<Unit>:
@@ -60,7 +61,7 @@ type BatchReady is Type: BatchReady{finished: Bool,progress: Progress}
 def moved(result: Policy.Memory & G.Packet,+choices: U32) -> Progress:
   (memory,packet) = result
   Progress{memory,packet,choices}
-def next(+currentPhase: U32,state: G.State,+run: G.Run,+rows: List<&2,G.Body>,+offers: List<&2,G.Offer>,+memory: Policy.Memory,+choices: U32) -> Progress:
+def next(+currentPhase: U32,state: G.State,+run: G.Run,+rows: List<&2,Components.Body>,+offers: List<&2,G.Offer>,+memory: Policy.Memory,+choices: U32) -> Progress:
   match currentPhase:
     case 1: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
     case 2: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}

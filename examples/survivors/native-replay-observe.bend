@@ -1,5 +1,7 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
+import game-storage.bend as Storage
 import game.bend as G
 import enemy-spatial.bend as Space
 import pools.bend as PL
@@ -47,15 +49,15 @@ def maybe_tick(value: Maybe<&2,Tick.Tick>) -> String:
 def stamp(value: L.Stamp) -> String:
   match value:
     case L.Stamp{added,changed}: array([maybe_tick(added),maybe_tick(changed)])
-def body(value: G.Body) -> String:
+def body(value: Components.Body) -> String:
   match value:
-    case G.Body{x,y,kind,variant,hp,maximum,age,seed,radius}: array([fbits(x),fbits(y),U32.show(kind),U32.show(variant),U32.show(hp),U32.show(maximum),U32.show(age),U32.show(seed),fbits(radius)])
+    case Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius}: array([fbits(x),fbits(y),U32.show(kind),U32.show(variant),U32.show(hp),U32.show(maximum),U32.show(age),U32.show(seed),fbits(radius)])
 def spatial(value: Space.Spatial) -> String:
   match value:
     case Space.Spatial{x,y,age,radius}: array([fbits(x),fbits(y),U32.show(age),fbits(radius)])
-def vitals(value: G.Vitals) -> String:
+def vitals(value: Components.Vitals) -> String:
   match value:
-    case G.Vitals{health,maximum}: array([U32.show(health),U32.show(maximum)])
+    case Components.Vitals{health,maximum}: array([U32.show(health),U32.show(maximum)])
 def motion(value: G.Motion) -> String:
   match value:
     case G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(slow),U32.show(burn),U32.show(owner),U32.show(slot)])
@@ -65,12 +67,12 @@ def offer(value: G.Offer) -> String:
 def snapshot_row(value: G.Snapshot) -> String:
   match value:
     case G.Snapshot{b,m}: array([body(b),motion(m)])
-def bodies_items(rows: List<&2,G.Body>) -> String:
+def bodies_items(rows: List<&2,Components.Body>) -> String:
   match rows:
     case []: ""
     case value <> []: body(value)
     case value <> rest: body(value) ++ "," ++ bodies_items(rest)
-def bodies(rows: List<&2,G.Body>) -> String: "[" ++ bodies_items(rows) ++ "]"
+def bodies(rows: List<&2,Components.Body>) -> String: "[" ++ bodies_items(rows) ++ "]"
 def offers_items(rows: List<&2,G.Offer>) -> String:
   match rows:
     case []: ""
@@ -90,45 +92,45 @@ def maybe_value(~T: Data,~show: T -> String,value: Maybe<&2,T>) -> String:
   match value:
     case None{}: "null"
     case Some{value}: show(value)
-def column_finish(~C: Type,+id: U32,value: String,result: Col.Column<G.Schema,C> & L.Stamp) -> Col.Column<G.Schema,C> & String:
+def column_finish(~C: Type,+id: U32,value: String,result: Col.Column<Storage.Schema,C> & L.Stamp) -> Col.Column<Storage.Schema,C> & String:
   match result:
     case (column,metadata): (column,array([U32.show(id),value,stamp(metadata)]))
-def column_value(~C: Type,~V: Data,~show: V -> String,+id: U32,result: Col.Column<G.Schema,C> & Maybe<&2,V>) -> Col.Column<G.Schema,C> & String:
+def column_value(~C: Type,~V: Data,~show: V -> String,+id: U32,result: Col.Column<Storage.Schema,C> & Maybe<&2,V>) -> Col.Column<Storage.Schema,C> & String:
   match result:
-    case (column,value): column_finish(~C,id,maybe_value(~V,~show,value),Col.lifecycle(~G.Schema,~C,column,id))
+    case (column,value): column_finish(~C,id,maybe_value(~V,~show,value),Col.lifecycle(~Storage.Schema,~C,column,id))
 # Keep traversal tail-recursive: nested per-row continuations overflow the JS
 # host stack on an ordinary initialized world before the first full comparison.
-def column_row_accumulated(~C: Type,reversed: List<&2,String>,result: Col.Column<G.Schema,C> & String) -> Col.Column<G.Schema,C> & List<&2,String>:
+def column_row_accumulated(~C: Type,reversed: List<&2,String>,result: Col.Column<Storage.Schema,C> & String) -> Col.Column<Storage.Schema,C> & List<&2,String>:
   match result:
     case (column,text): (column,text <> reversed)
-def column_rows_loop(~C: Type,~V: Data,~project: C -> C & V,~show: V -> String,fuel: Nat,+id: U32,state: Col.Column<G.Schema,C> & List<&2,String>) -> Col.Column<G.Schema,C> & String:
+def column_rows_loop(~C: Type,~V: Data,~project: C -> C & V,~show: V -> String,fuel: Nat,+id: U32,state: Col.Column<Storage.Schema,C> & List<&2,String>) -> Col.Column<Storage.Schema,C> & String:
   match fuel state:
     case 0n Tuple{column,reversed}: (column,join(List.reverse(&2,String,reversed)))
-    case 1n+rest Tuple{column,reversed}: column_rows_loop(~C,~V,~project,~show,rest,(id + 1 : U32),column_row_accumulated(~C,reversed,column_value(~C,~V,~show,id,Col.view(~G.Schema,~C,~V,~project,column,id))))
-def column_rows(~C: Type,~V: Data,~project: C -> C & V,~show: V -> String,fuel: Nat,id: U32,column: Col.Column<G.Schema,C>) -> Col.Column<G.Schema,C> & String:
+    case 1n+rest Tuple{column,reversed}: column_rows_loop(~C,~V,~project,~show,rest,(id + 1 : U32),column_row_accumulated(~C,reversed,column_value(~C,~V,~show,id,Col.view(~Storage.Schema,~C,~V,~project,column,id))))
+def column_rows(~C: Type,~V: Data,~project: C -> C & V,~show: V -> String,fuel: Nat,id: U32,column: Col.Column<Storage.Schema,C>) -> Col.Column<Storage.Schema,C> & String:
   column_rows_loop(~C,~V,~project,~show,fuel,id,(column,[]))
-def roster_handle(value: W.Handle<G.Schema>) -> String:
+def roster_handle(value: W.Handle<Storage.Schema>) -> String:
   match value:
     case W.Handle{namespace,K.EntityKey{id,generation}}: array([U32.show(namespace),U32.show(id),U32.show(generation)])
-def roster_handles(rows: List<&2,W.Handle<G.Schema>>) -> String:
+def roster_handles(rows: List<&2,W.Handle<Storage.Schema>>) -> String:
   match rows:
     case []: ""
     case value <> []: roster_handle(value)
     case value <> rest: roster_handle(value) ++ "," ++ roster_handles(rest)
-def movement_roster(value: G.MovementRoster) -> String:
+def movement_roster(value: Storage.MovementRoster) -> String:
   match value:
-    case G.MovementPrepared{handles}: "[" ++ roster_handles(handles) ++ "]"
+    case Storage.MovementPrepared{handles}: "[" ++ roster_handles(handles) ++ "]"
 # Physical columns retain their actual membership and change stamps. Logical
 # Motion is a derived compatibility view only: no unified component/stamp exists.
-def trajectory(value: G.Trajectory) -> String:
+def trajectory(value: Components.Trajectory) -> String:
   match value:
-    case G.Trajectory{vx,vy,life,pierce,visited,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)])
-def status(value: G.Status) -> String:
+    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)])
+def status(value: Components.Status) -> String:
   match value:
-    case G.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
-def pickup(value: G.Pickup) -> String:
+    case Components.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
+def pickup(value: Components.Pickup) -> String:
   match value:
-    case G.Pickup{amount,generation,variant,active}: array([U32.show(amount),U32.show(generation),U32.show(variant),U32.show(Bool.to_u32(active))])
+    case Components.Pickup{amount,generation,variant,active}: array([U32.show(amount),U32.show(generation),U32.show(variant),U32.show(Bool.to_u32(active))])
 def role(value: GRole.Role) -> String:
   match value:
     case GRole.EnemySlot{}: "\"EnemySlot\""
@@ -137,26 +139,26 @@ def role(value: GRole.Role) -> String:
     case GRole.HostileProjectileSlot{}: "\"HostileProjectileSlot\""
     case GRole.XpSlot{}: "\"XpSlot\""
     case GRole.OutsideSlot{}: "\"OutsideSlot\""
-def candidate_roster(projectile: Bool,value: G.CandidateRoster) -> String:
+def candidate_roster(projectile: Bool,value: Storage.CandidateRoster) -> String:
   match projectile value:
-    case True{} G.CandidatesPrepared{projectiles,_}: "[" ++ roster_handles(projectiles) ++ "]"
-    case False{} G.CandidatesPrepared{_,pool}: "[" ++ roster_handles(pool) ++ "]"
-def logical_motion_value(trajectory: Maybe<&2,G.Trajectory>,status: Maybe<&2,G.Status>) -> G.Motion:
+    case True{} Storage.CandidatesPrepared{projectiles,_}: "[" ++ roster_handles(projectiles) ++ "]"
+    case False{} Storage.CandidatesPrepared{_,pool}: "[" ++ roster_handles(pool) ++ "]"
+def logical_motion_value(trajectory: Maybe<&2,Components.Trajectory>,status: Maybe<&2,Components.Status>) -> G.Motion:
   match trajectory status:
     case Some{trajectory} Some{status}: G.logical_motion(trajectory,status)
     case Some{trajectory} None{}: G.logical_motion(trajectory,G.empty_status())
     case None{} Some{status}: G.logical_motion(G.empty_trajectory(),status)
     case None{} None{}: G.empty_motion()
-type LogicalColumns is Type: LogicalColumns{trajectories: Col.Column<G.Schema,G.Trajectory>,statuses: Col.Column<G.Schema,G.Status>}
-def logical_row_status(id: U32,trajectories: Col.Column<G.Schema,G.Trajectory>,value: Maybe<&2,G.Trajectory>,result: Col.Column<G.Schema,G.Status> & Maybe<&2,G.Status>) -> LogicalColumns & String:
+type LogicalColumns is Type: LogicalColumns{trajectories: Col.Column<Storage.Schema,Components.Trajectory>,statuses: Col.Column<Storage.Schema,Components.Status>}
+def logical_row_status(id: U32,trajectories: Col.Column<Storage.Schema,Components.Trajectory>,value: Maybe<&2,Components.Trajectory>,result: Col.Column<Storage.Schema,Components.Status> & Maybe<&2,Components.Status>) -> LogicalColumns & String:
   match result:
     case (statuses,status): (LogicalColumns{trajectories,statuses},array([U32.show(id),motion(logical_motion_value(value,status)),"null"]))
-def logical_row_trajectory(+id: U32,statuses: Col.Column<G.Schema,G.Status>,result: Col.Column<G.Schema,G.Trajectory> & Maybe<&2,G.Trajectory>) -> LogicalColumns & String:
+def logical_row_trajectory(+id: U32,statuses: Col.Column<Storage.Schema,Components.Status>,result: Col.Column<Storage.Schema,Components.Trajectory> & Maybe<&2,Components.Trajectory>) -> LogicalColumns & String:
   match result:
-    case (trajectories,value): logical_row_status(id,trajectories,value,Col.view(~G.Schema,~G.Status,~G.Status,~G.project_status,statuses,id))
+    case (trajectories,value): logical_row_status(id,trajectories,value,Col.view(~Storage.Schema,~Components.Status,~Components.Status,~Storage.project_status,statuses,id))
 def logical_row(+id: U32,columns: LogicalColumns) -> LogicalColumns & String:
   match columns:
-    case LogicalColumns{trajectories,statuses}: logical_row_trajectory(id,statuses,Col.view(~G.Schema,~G.Trajectory,~G.Trajectory,~G.project_trajectory,trajectories,id))
+    case LogicalColumns{trajectories,statuses}: logical_row_trajectory(id,statuses,Col.view(~Storage.Schema,~Components.Trajectory,~Components.Trajectory,~Storage.project_trajectory,trajectories,id))
 def logical_row_accumulated(reversed: List<&2,String>,result: LogicalColumns & String) -> LogicalColumns & List<&2,String>:
   match result:
     case (columns,value): (columns,value <> reversed)
@@ -164,46 +166,46 @@ def logical_rows(fuel: Nat,+id: U32,state: LogicalColumns & List<&2,String>) -> 
   match fuel state:
     case 0n Tuple{columns,reversed}: (columns,join(List.reverse(&2,String,reversed)))
     case 1n+rest Tuple{columns,reversed}: logical_rows(rest,(id + 1 : U32),logical_row_accumulated(reversed,logical_row(id,columns)))
-def logical_store_done(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.Vitals>,p: Col.Column<G.Schema,G.Pickup>,r: Col.Column<G.Schema,GRole.Role>,movement: G.MovementRoster,candidates: G.CandidateRoster,players: Col.Column<G.Schema,G.PlayerRecord>,spaces: Col.Column<G.Schema,Space.Spatial>,result: LogicalColumns & String) -> G.Store & String:
+def logical_store_done(b: Col.Column<Storage.Schema,Components.Body>,v: Col.Column<Storage.Schema,Components.Vitals>,p: Col.Column<Storage.Schema,Components.Pickup>,r: Col.Column<Storage.Schema,GRole.Role>,movement: Storage.MovementRoster,candidates: Storage.CandidateRoster,players: Col.Column<Storage.Schema,Components.PlayerRecord>,spaces: Col.Column<Storage.Schema,Space.Spatial>,result: LogicalColumns & String) -> Storage.Store & String:
   match result:
-    case (LogicalColumns{t,s},text): (G.Store{b,v,t,s,p,r,movement,candidates,players,spaces},text)
-def logical_store(store: G.Store) -> G.Store & String:
+    case (LogicalColumns{t,s},text): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces},text)
+def logical_store(store: Storage.Store) -> Storage.Store & String:
   match store:
-    case G.Store{b,v,t,s,p,r,movement,candidates,players,spaces}: logical_store_done(b,v,p,r,movement,candidates,players,spaces,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
-def observed_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,rest: Rest,result: Col.Column<G.Schema,C> & String) -> G.Store & String:
+    case Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces}: logical_store_done(b,v,p,r,movement,candidates,players,spaces,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
+def observed_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,rest: Rest,result: Col.Column<Storage.Schema,C> & String) -> Storage.Store & String:
   match result:
     case (column,text): (put(rest,column),text)
-def observed_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,~project: C -> C & V,~show: V -> String,result: Rest & Col.Column<G.Schema,C>) -> G.Store & String:
+def observed_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~show: V -> String,result: Rest & Col.Column<Storage.Schema,C>) -> Storage.Store & String:
   match result:
     case (rest,column): observed_column_done(~C,~Rest,~put,rest,column_rows(~C,~V,~project,~show,PL.total_nat(),1,column))
-def observed_column(~C: Type,~V: Data,~Rest: Type,~take: G.Store -> Rest & Col.Column<G.Schema,C>,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,~project: C -> C & V,~show: V -> String,store: G.Store) -> G.Store & String:
+def observed_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest & Col.Column<Storage.Schema,C>,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~show: V -> String,store: Storage.Store) -> Storage.Store & String:
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
-def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: G.Store & String) -> G.Store & String:
+def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},ms): (G.Store{b,v,t,s,p,r,movement,candidates,players,spaces},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
-def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: G.Store & String) -> G.Store & String:
+    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,es): store_logical(bs,vs,ts,ss,ps,rs,es,logical_store(owner))
-def store_role(bs: String,vs: String,ts: String,ss: String,ps: String,result: G.Store & String) -> G.Store & String:
+def store_role(bs: String,vs: String,ts: String,ss: String,ps: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,rs): store_spatial(bs,vs,ts,ss,ps,rs,observed_column(~Space.Spatial,~Space.Spatial,~G.SpatialRest,~G.take_spatial,~G.put_spatial,~G.project_spatial,~spatial,owner))
-def store_pickup(bs: String,vs: String,ts: String,ss: String,result: G.Store & String) -> G.Store & String:
+    case (owner,rs): store_spatial(bs,vs,ts,ss,ps,rs,observed_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~spatial,owner))
+def store_pickup(bs: String,vs: String,ts: String,ss: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,ps): store_role(bs,vs,ts,ss,ps,observed_column(~GRole.Role,~GRole.Role,~G.RoleRest,~G.take_role,~G.put_role,~G.project_role,~role,owner))
-def store_status(bs: String,vs: String,ts: String,result: G.Store & String) -> G.Store & String:
+    case (owner,ps): store_role(bs,vs,ts,ss,ps,observed_column(~GRole.Role,~GRole.Role,~Storage.RoleRest,~Storage.take_role,~Storage.put_role,~Storage.project_role,~role,owner))
+def store_status(bs: String,vs: String,ts: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,ss): store_pickup(bs,vs,ts,ss,observed_column(~G.Pickup,~G.Pickup,~G.PickupRest,~G.take_pickup,~G.put_pickup,~G.project_pickup,~pickup,owner))
-def store_trajectory(bs: String,vs: String,result: G.Store & String) -> G.Store & String:
+    case (owner,ss): store_pickup(bs,vs,ts,ss,observed_column(~Components.Pickup,~Components.Pickup,~Storage.PickupRest,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~pickup,owner))
+def store_trajectory(bs: String,vs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,ts): store_status(bs,vs,ts,observed_column(~G.Status,~G.Status,~G.StatusRest,~G.take_status,~G.put_status,~G.project_status,~status,owner))
-def store_vitals(bs: String,result: G.Store & String) -> G.Store & String:
+    case (owner,ts): store_status(bs,vs,ts,observed_column(~Components.Status,~Components.Status,~Storage.StatusRest,~Storage.take_status,~Storage.put_status,~Storage.project_status,~status,owner))
+def store_vitals(bs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,vs): store_trajectory(bs,vs,observed_column(~G.Trajectory,~G.Trajectory,~G.TrajectoryRest,~G.take_trajectory,~G.put_trajectory,~G.project_trajectory,~trajectory,owner))
-def store_body(result: G.Store & String) -> G.Store & String:
+    case (owner,vs): store_trajectory(bs,vs,observed_column(~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryRest,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~trajectory,owner))
+def store_body(result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,bs): store_vitals(bs,observed_column(~G.Vitals,~G.Vitals,~G.VitalRest,~G.take_vitals,~G.put_vitals,~G.project_vitals,~vitals,owner))
-def store(value: G.Store) -> G.Store & String:
-  store_body(observed_column(~G.Body,~G.Body,~G.BodyRest,~G.take,~G.put,~G.project,~body,value))
+    case (owner,bs): store_vitals(bs,observed_column(~Components.Vitals,~Components.Vitals,~Storage.VitalRest,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~vitals,owner))
+def store(value: Storage.Store) -> Storage.Store & String:
+  store_body(observed_column(~Components.Body,~Components.Body,~Storage.BodyRest,~Storage.take,~Storage.put,~Storage.project,~body,value))
 def key(value: K.Key) -> String:
   match value:
     case K.EntityKey{id,generation}: array([U32.show(id),U32.show(generation)])
@@ -253,26 +255,26 @@ def registrations(rows: List<&2,W.RegistrationMeta>) -> String:
     case []: ""
     case value <> []: registration(value)
     case value <> rest: registration(value) ++ "," ++ registrations(rest)
-def world_allocator(+namespace: U32,store: G.Store,resource: Unit,+events: List<&2,Unit>,pending: List<Deferred.Command<G.World()>>,+regs: List<&2,W.RegistrationMeta>,+next: U32,+time: Clock.State,pendingCount: U32,result: A.Allocator & String) -> G.World() & String:
+def world_allocator(+namespace: U32,store: Storage.Store,resource: Unit,+events: List<&2,Unit>,pending: List<Deferred.Command<Storage.World()>>,+regs: List<&2,W.RegistrationMeta>,+next: U32,+time: Clock.State,pendingCount: U32,result: A.Allocator & String) -> Storage.World() & String:
   match result:
     case (alloc,text): (W.World{namespace,alloc,store,resource,events,pending,regs,next,time},"{\"namespace\":" ++ U32.show(namespace) ++ ",\"allocator\":" ++ text ++ ",\"clock\":" ++ clock(time) ++ ",\"events\":" ++ Nat.show(List.length(&2,Unit,events)) ++ ",\"pendingCommands\":" ++ U32.show(pendingCount) ++ ",\"registrations\":[" ++ registrations(regs) ++ "],\"nextSystemId\":" ++ U32.show(next) ++ "}")
-def world_counted(result: G.World() & U32) -> G.World() & String:
+def world_counted(result: Storage.World() & U32) -> Storage.World() & String:
   match result:
     case (W.World{namespace,alloc,store,resource,events,pending,regs,next,time},count): world_allocator(namespace,store,resource,events,pending,regs,next,time,count,allocator(alloc))
-def world(value: G.World()) -> G.World() & String:
-  world_counted(W.pending_count(~G.Schema,~G.Store,~Unit,~Unit,value))
-def metadata_join(componentText: String,result: G.World() & String) -> G.World() & String:
+def world(value: Storage.World()) -> Storage.World() & String:
+  world_counted(W.pending_count(~Storage.Schema,~Storage.Store,~Unit,~Unit,value))
+def metadata_join(componentText: String,result: Storage.World() & String) -> Storage.World() & String:
   match result:
     case (owner,text): (owner,"\"components\":" ++ componentText ++ ",\"metadata\":" ++ text)
-def world_components(result: G.World() & String) -> G.World() & String:
+def world_components(result: Storage.World() & String) -> Storage.World() & String:
   match result:
     case (owner,text): metadata_join(text,world(owner))
-def snapshot_finish(+runValue: G.Run,+rows: List<&2,G.Body>,+off: List<&2,G.Offer>,+shots: List<&2,G.Snapshot>,+pending: List<&2,U32>,result: G.World() & String) -> G.State & String:
+def snapshot_finish(+runValue: G.Run,+rows: List<&2,Components.Body>,+off: List<&2,G.Offer>,+shots: List<&2,G.Snapshot>,+pending: List<&2,U32>,result: Storage.World() & String) -> G.State & String:
   match result:
     case (owner,text): (G.State{owner,runValue,rows,off,shots,pending},"{\"run\":" ++ run(runValue) ++ ",\"bodies\":" ++ bodies(rows) ++ ",\"offers\":" ++ offers(off) ++ ",\"snapshots\":" ++ snapshots(shots) ++ ",\"pending\":" ++ u32s(pending) ++ "," ++ text ++ "}")
 def snapshot(value: G.State) -> G.State & String:
   match value:
-    case G.State{owner,runValue,rows,off,shots,pending}: snapshot_finish(runValue,rows,off,shots,pending,world_components(W.with_store(~G.Schema,~G.Store,~Unit,~Unit,~String,store,owner)))
+    case G.State{owner,runValue,rows,off,shots,pending}: snapshot_finish(runValue,rows,off,shots,pending,world_components(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~String,store,owner)))
 
 # Nonserializing completion barrier used ONCE per timed window, never per tick.
 # Its rolling word value is observable but is not a correctness hash. Full exact
@@ -293,12 +295,12 @@ def fold_maybe_tick(value: Maybe<&2,Tick.Tick>,acc: U32) -> U32:
 def fold_stamp(value: L.Stamp,acc: U32) -> U32:
   match value:
     case L.Stamp{added,changed}: fold_maybe_tick(changed,fold_maybe_tick(added,acc))
-def fold_body(value: G.Body,acc: U32) -> U32:
+def fold_body(value: Components.Body,acc: U32) -> U32:
   match value:
-    case G.Body{x,y,kind,variant,hp,maximum,age,seed,radius}: fold_words([F32.bits(x),F32.bits(y),kind,variant,hp,maximum,age,seed,F32.bits(radius)],acc)
-def fold_vitals(value: G.Vitals,acc: U32) -> U32:
+    case Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius}: fold_words([F32.bits(x),F32.bits(y),kind,variant,hp,maximum,age,seed,F32.bits(radius)],acc)
+def fold_vitals(value: Components.Vitals,acc: U32) -> U32:
   match value:
-    case G.Vitals{health,maximum}: fold_words([health,maximum],acc)
+    case Components.Vitals{health,maximum}: fold_words([health,maximum],acc)
 def fold_offer(value: G.Offer,acc: U32) -> U32:
   match value:
     case G.Offer{kind,id,level}: fold_words([kind,id,level],acc)
@@ -308,7 +310,7 @@ def fold_motion(value: G.Motion,acc: U32) -> U32:
 def fold_snapshot(value: G.Snapshot,acc: U32) -> U32:
   match value:
     case G.Snapshot{b,m}: fold_motion(m,fold_body(b,acc))
-def fold_bodies(rows: List<&2,G.Body>,acc: U32) -> U32:
+def fold_bodies(rows: List<&2,Components.Body>,acc: U32) -> U32:
   match rows:
     case []: mix(acc,0)
     case value <> rest: fold_bodies(rest,fold_body(value,mix(acc,1)))
@@ -330,82 +332,82 @@ def fold_present(~V: Data,~fold: V -> U32 -> U32,value: Maybe<&2,V>,acc: U32) ->
   match value:
     case None{}: mix(acc,0)
     case Some{value}: fold(value,mix(acc,1))
-def force_column_metadata(~C: Type,acc: U32,result: Col.Column<G.Schema,C> & L.Stamp) -> Col.Column<G.Schema,C> & U32:
+def force_column_metadata(~C: Type,acc: U32,result: Col.Column<Storage.Schema,C> & L.Stamp) -> Col.Column<Storage.Schema,C> & U32:
   match result:
     case (column,metadata): (column,fold_stamp(metadata,acc))
-def force_column_value(~C: Type,~V: Data,~fold: V -> U32 -> U32,+id: U32,acc: U32,result: Col.Column<G.Schema,C> & Maybe<&2,V>) -> Col.Column<G.Schema,C> & U32:
+def force_column_value(~C: Type,~V: Data,~fold: V -> U32 -> U32,+id: U32,acc: U32,result: Col.Column<Storage.Schema,C> & Maybe<&2,V>) -> Col.Column<Storage.Schema,C> & U32:
   match result:
-    case (column,value): force_column_metadata(~C,fold_present(~V,~fold,value,acc),Col.lifecycle(~G.Schema,~C,column,id))
-def force_column_next(~C: Type,result: Col.Column<G.Schema,C> & U32,use: Col.Column<G.Schema,C> -> U32 -> Col.Column<G.Schema,C> & U32) -> Col.Column<G.Schema,C> & U32:
+    case (column,value): force_column_metadata(~C,fold_present(~V,~fold,value,acc),Col.lifecycle(~Storage.Schema,~C,column,id))
+def force_column_next(~C: Type,result: Col.Column<Storage.Schema,C> & U32,use: Col.Column<Storage.Schema,C> -> U32 -> Col.Column<Storage.Schema,C> & U32) -> Col.Column<Storage.Schema,C> & U32:
   match result:
     case (column,acc): use(column)(acc)
-def force_column(~C: Type,~V: Data,~project: C -> C & V,~fold: V -> U32 -> U32,fuel: Nat,+id: U32,column: Col.Column<G.Schema,C>,acc: U32) -> Col.Column<G.Schema,C> & U32:
+def force_column(~C: Type,~V: Data,~project: C -> C & V,~fold: V -> U32 -> U32,fuel: Nat,+id: U32,column: Col.Column<Storage.Schema,C>,acc: U32) -> Col.Column<Storage.Schema,C> & U32:
   match fuel:
     case 0n: (column,acc)
-    case 1n+rest: force_column_next(~C,force_column_value(~C,~V,~fold,id,mix(acc,id),Col.view(~G.Schema,~C,~V,~project,column,id)),(column => acc => force_column(~C,~V,~project,~fold,rest,(id + 1 : U32),column,acc)))
-def fold_roster_handle(value: W.Handle<G.Schema>,acc: U32) -> U32:
+    case 1n+rest: force_column_next(~C,force_column_value(~C,~V,~fold,id,mix(acc,id),Col.view(~Storage.Schema,~C,~V,~project,column,id)),(column => acc => force_column(~C,~V,~project,~fold,rest,(id + 1 : U32),column,acc)))
+def fold_roster_handle(value: W.Handle<Storage.Schema>,acc: U32) -> U32:
   match value:
     case W.Handle{namespace,K.EntityKey{id,generation}}: mix(mix(mix(acc,namespace),id),generation)
-def fold_roster_handles(rows: List<&2,W.Handle<G.Schema>>,acc: U32) -> U32:
+def fold_roster_handles(rows: List<&2,W.Handle<Storage.Schema>>,acc: U32) -> U32:
   match rows:
     case []: acc
     case value <> rest: fold_roster_handles(rest,fold_roster_handle(value,acc))
-def fold_movement_roster(value: G.MovementRoster,acc: U32) -> U32:
+def fold_movement_roster(value: Storage.MovementRoster,acc: U32) -> U32:
   match value:
-    case G.MovementPrepared{handles}: fold_roster_handles(handles,mix(acc,1))
-def fold_trajectory(value: G.Trajectory,acc: U32) -> U32:
+    case Storage.MovementPrepared{handles}: fold_roster_handles(handles,mix(acc,1))
+def fold_trajectory(value: Components.Trajectory,acc: U32) -> U32:
   match value:
-    case G.Trajectory{vx,vy,life,pierce,visited,owner,slot}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
-def fold_status(value: G.Status,acc: U32) -> U32:
+    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
+def fold_status(value: Components.Status,acc: U32) -> U32:
   match value:
-    case G.Status{slow,burn}: fold_words([slow,burn],acc)
-def fold_pickup(value: G.Pickup,acc: U32) -> U32:
+    case Components.Status{slow,burn}: fold_words([slow,burn],acc)
+def fold_pickup(value: Components.Pickup,acc: U32) -> U32:
   match value:
-    case G.Pickup{amount,generation,variant,active}: fold_words([amount,generation,variant,Bool.to_u32(active)],acc)
+    case Components.Pickup{amount,generation,variant,active}: fold_words([amount,generation,variant,Bool.to_u32(active)],acc)
 def fold_role(value: GRole.Role,acc: U32) -> U32: fold_words(codes(role(value)),acc)
-def fold_candidate_roster(value: G.CandidateRoster,acc: U32) -> U32:
+def fold_candidate_roster(value: Storage.CandidateRoster,acc: U32) -> U32:
   match value:
-    case G.CandidatesPrepared{projectiles,pool}: fold_roster_handles(pool,mix(fold_roster_handles(projectiles,mix(acc,1)),2))
-def force_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,rest: Rest,result: Col.Column<G.Schema,C> & U32) -> G.Store & U32:
+    case Storage.CandidatesPrepared{projectiles,pool}: fold_roster_handles(pool,mix(fold_roster_handles(projectiles,mix(acc,1)),2))
+def force_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,rest: Rest,result: Col.Column<Storage.Schema,C> & U32) -> Storage.Store & U32:
   match result:
     case (column,acc): (put(rest,column),acc)
-def force_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,~project: C -> C & V,~fold: V -> U32 -> U32,acc: U32,result: Rest & Col.Column<G.Schema,C>) -> G.Store & U32:
+def force_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~fold: V -> U32 -> U32,acc: U32,result: Rest & Col.Column<Storage.Schema,C>) -> Storage.Store & U32:
   match result:
     case (rest,column): force_column_done(~C,~Rest,~put,rest,force_column(~C,~V,~project,~fold,PL.total_nat(),1,column,acc))
-def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: G.Store -> Rest & Col.Column<G.Schema,C>,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,~project: C -> C & V,~fold: V -> U32 -> U32,acc: U32,store: G.Store) -> G.Store & U32:
+def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest & Col.Column<Storage.Schema,C>,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~fold: V -> U32 -> U32,acc: U32,store: Storage.Store) -> Storage.Store & U32:
   force_column_split(~C,~V,~Rest,~put,~project,~fold,acc,take(store))
-def force_store_routing(result: G.Store & U32) -> G.Store & U32:
+def force_store_routing(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},acc): (G.Store{b,v,t,s,p,r,movement,candidates,players,spaces},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
-def force_store_role(result: G.Store & U32) -> G.Store & U32:
+    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},acc): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
+def force_store_role(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_routing(force_store_column(~Space.Spatial,~Space.Spatial,~G.SpatialRest,~G.take_spatial,~G.put_spatial,~G.project_spatial,~fold_spatial,acc,owner))
-def force_store_pickup(result: G.Store & U32) -> G.Store & U32:
+    case (owner,acc): force_store_routing(force_store_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~fold_spatial,acc,owner))
+def force_store_pickup(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_role(force_store_column(~GRole.Role,~GRole.Role,~G.RoleRest,~G.take_role,~G.put_role,~G.project_role,~fold_role,acc,owner))
-def force_store_status(result: G.Store & U32) -> G.Store & U32:
+    case (owner,acc): force_store_role(force_store_column(~GRole.Role,~GRole.Role,~Storage.RoleRest,~Storage.take_role,~Storage.put_role,~Storage.project_role,~fold_role,acc,owner))
+def force_store_status(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_pickup(force_store_column(~G.Pickup,~G.Pickup,~G.PickupRest,~G.take_pickup,~G.put_pickup,~G.project_pickup,~fold_pickup,acc,owner))
-def force_store_trajectory(result: G.Store & U32) -> G.Store & U32:
+    case (owner,acc): force_store_pickup(force_store_column(~Components.Pickup,~Components.Pickup,~Storage.PickupRest,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~fold_pickup,acc,owner))
+def force_store_trajectory(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_status(force_store_column(~G.Status,~G.Status,~G.StatusRest,~G.take_status,~G.put_status,~G.project_status,~fold_status,acc,owner))
-def force_store_vitals(result: G.Store & U32) -> G.Store & U32:
+    case (owner,acc): force_store_status(force_store_column(~Components.Status,~Components.Status,~Storage.StatusRest,~Storage.take_status,~Storage.put_status,~Storage.project_status,~fold_status,acc,owner))
+def force_store_vitals(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_trajectory(force_store_column(~G.Trajectory,~G.Trajectory,~G.TrajectoryRest,~G.take_trajectory,~G.put_trajectory,~G.project_trajectory,~fold_trajectory,acc,owner))
-def force_store_body(result: G.Store & U32) -> G.Store & U32:
+    case (owner,acc): force_store_trajectory(force_store_column(~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryRest,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~fold_trajectory,acc,owner))
+def force_store_body(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_vitals(force_store_column(~G.Vitals,~G.Vitals,~G.VitalRest,~G.take_vitals,~G.put_vitals,~G.project_vitals,~fold_vitals,acc,owner))
-def force_store(value: G.Store) -> G.Store & U32:
-  force_store_body(force_store_column(~G.Body,~G.Body,~G.BodyRest,~G.take,~G.put,~G.project,~fold_body,2166136261,value))
-def force_world_clock(acc: U32,result: G.World() & Tick.Tick) -> G.World() & U32:
+    case (owner,acc): force_store_vitals(force_store_column(~Components.Vitals,~Components.Vitals,~Storage.VitalRest,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~fold_vitals,acc,owner))
+def force_store(value: Storage.Store) -> Storage.Store & U32:
+  force_store_body(force_store_column(~Components.Body,~Components.Body,~Storage.BodyRest,~Storage.take,~Storage.put,~Storage.project,~fold_body,2166136261,value))
+def force_world_clock(acc: U32,result: Storage.World() & Tick.Tick) -> Storage.World() & U32:
   match result:
     case (owner,time): (owner,fold_tick(time,acc))
-def force_world(result: G.World() & U32) -> G.World() & U32:
+def force_world(result: Storage.World() & U32) -> Storage.World() & U32:
   match result:
-    case (owner,acc): force_world_clock(acc,W.clock(~G.Schema,~G.Store,~Unit,~Unit,owner))
-def force_finish(+runValue: G.Run,+rows: List<&2,G.Body>,+off: List<&2,G.Offer>,+shots: List<&2,G.Snapshot>,+pending: List<&2,U32>,result: G.World() & U32) -> G.State & U32:
+    case (owner,acc): force_world_clock(acc,W.clock(~Storage.Schema,~Storage.Store,~Unit,~Unit,owner))
+def force_finish(+runValue: G.Run,+rows: List<&2,Components.Body>,+off: List<&2,G.Offer>,+shots: List<&2,G.Snapshot>,+pending: List<&2,U32>,result: Storage.World() & U32) -> G.State & U32:
   match result:
     case (owner,acc): (G.State{owner,runValue,rows,off,shots,pending},fold_words(pending,fold_snapshots(shots,fold_offers(off,fold_bodies(rows,fold_run(runValue,acc))))))
 def force(value: G.State) -> G.State & U32:
   match value:
-    case G.State{owner,runValue,rows,off,shots,pending}: force_finish(runValue,rows,off,shots,pending,force_world(W.with_store(~G.Schema,~G.Store,~Unit,~Unit,~U32,force_store,owner)))
+    case G.State{owner,runValue,rows,off,shots,pending}: force_finish(runValue,rows,off,shots,pending,force_world(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~U32,force_store,owner)))

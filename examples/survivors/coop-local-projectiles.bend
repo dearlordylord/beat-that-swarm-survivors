@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import ./game.bend as G
 import ./projectile.bend as Projectile
 import ./projectile-contact.bend as Contact
@@ -17,7 +18,7 @@ import ./coop-local-projectiles-policy.bend as Policy
 # reachable here. Remote targets are observations from one displayed cohort.
 type Target is Data: Target{seed:U32,generation:U32,x:F32,y:F32,radius:F32,alive:Bool}
 type Point is Data: Point{x:F32,y:F32}
-type Geometry is Data: Geometry{targets:List<&2,Target>,bodies:List<&2,G.Body>,contacts:List<&2,Contact.Target>,index:Broadphase.Index,policyTargets:List<&2,Policy.Target>}
+type Geometry is Data: Geometry{targets:List<&2,Target>,bodies:List<&2,Components.Body>,contacts:List<&2,Contact.Target>,index:Broadphase.Index,policyTargets:List<&2,Policy.Target>}
 type Visual is Data:
   Visual{id:String,owner:U32,slot:U32,weapon:U32,poolSeed:U32,age:U32,originX:F32,originY:F32,shot:Projectile.Shot,pending:Bool,predictedSeed:U32,predictedGeneration:U32,predictedX:F32,predictedY:F32,pendingAge:U32,confirmed:Bool,late:Bool,event:Maybe<&2,Journal.HitEvent>,guideTick:U32,guideX:F32,guideY:F32,fade:U32}
 type RenderShot is Data: RenderShot{id:String,player:U32,kind:U32,weapon:U32,seed:U32,age:U32,x:F32,y:F32,radius:F32,life:U32,fade:U32,opacity:F32}
@@ -286,11 +287,11 @@ def shown_shot_prepared(+value:Visual,presentationTick:U32,+targets:List<&2,Poli
 
 # Pool-backed plan is rebuilt from the current local Run and latest observed
 # projectile occupancy, with exactly one PlayerView. Nothing is replayed.
-def live_target_body(target:Target,+tail:List<&2,G.Body>) -> List<&2,G.Body>:
+def live_target_body(target:Target,+tail:List<&2,Components.Body>) -> List<&2,Components.Body>:
   match target:
     case Target{seed,_,x,y,radius,alive}:
-      Bool.pick(List<&2,G.Body>,alive,G.Body{x,y,0,0,1,1,0,seed,radius} <> tail,tail)
-def target_bodies(rows:List<&2,Target>) -> List<&2,G.Body>:
+      Bool.pick(List<&2,Components.Body>,alive,Components.Body{x,y,0,0,1,1,0,seed,radius} <> tail,tail)
+def target_bodies(rows:List<&2,Target>) -> List<&2,Components.Body>:
   match rows:
     case []: []
     case head <> tail: live_target_body(head,target_bodies(tail))
@@ -326,10 +327,10 @@ def owner_run(attached:Bool,+value:Visual,run:G.Run) -> G.Run:
   match attached value:
     case True{} _: run
     case False{} _: released_run(value,run)
-def shot_body(value:Visual) -> G.Body:
+def shot_body(value:Visual) -> Components.Body:
   match value:
     case Visual{_,_,_,weapon,_,age,_,_,Projectile.Shot{x,y,_,_,radius,_,_},_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      G.Body{x,y,1,weapon,0,0,age,0,radius}
+      Components.Body{x,y,1,weapon,0,0,age,0,radius}
 def shot_motion(value:Visual) -> G.Motion:
   match value:
     case Visual{_,owner,slot,_,_,_,_,_,Projectile.Shot{_,_,vx,vy,_,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}:
@@ -360,7 +361,7 @@ def contact_targets(rows:List<&2,Target>) -> List<&2,Contact.Target>:
 def prepare_geometry(+rows:List<&2,Target>) -> Geometry:
   +contacts:List<&2,Contact.Target> = contact_targets(rows)
   Geometry{rows,target_bodies(rows),contacts,Broadphase.prepare(contacts),policy_targets(rows)}
-def geometry_bodies(geometry:Geometry) -> List<&2,G.Body>:
+def geometry_bodies(geometry:Geometry) -> List<&2,Components.Body>:
   match geometry:
     case Geometry{_,bodies,_,_,_}: bodies
 def first_contact(rows:List<&2,Contact.Contact>) -> Maybe<&2,Contact.Contact>:
@@ -491,14 +492,14 @@ def advance_visuals(rows:List<&2,Visual>,+run:G.Run,+tick:U32,+geometry:Geometry
 
 def shot_from_row(row:G.EntityRow) -> Projectile.Shot:
   match row:
-    case G.EntityRow{G.Row{G.Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},G.Motion{vx,vy,life,pierce,_,_,_,_,_}}:
+    case G.EntityRow{G.Row{Components.Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},G.Motion{vx,vy,life,pierce,_,_,_,_,_}}:
       Projectile.Shot{x,y,vx,vy,radius,life,pierce}
 def row_weapon(row:G.EntityRow) -> U32:
   match row:
-    case G.EntityRow{G.Row{G.Body{_,_,_,weapon,_,_,_,_,_},_,_,_,_,_,_,_},_}: weapon
+    case G.EntityRow{G.Row{Components.Body{_,_,_,weapon,_,_,_,_,_},_,_,_,_,_,_,_},_}: weapon
 def canonical_visual_match(+player:U32,sourceTick:U32,+visual:Visual,snapshot:G.Snapshot) -> Bool:
   match snapshot:
-    case G.Snapshot{G.Body{_,_,1,_,_,_,age,_,_},G.Motion{_,_,_,_,_,_,_,owner,+slot}}:
+    case G.Snapshot{Components.Body{_,_,1,_,_,_,age,_,_},G.Motion{_,_,_,_,_,_,_,owner,+slot}}:
       Bool.and(U32.is_eq(player,(slot / 65536 : U32)),String.eq(shot_id(visual),identity(player,(sourceTick - age : U32),owner,slot)))
     case _: False{}
 def canonical_visual_present(rows:List<&2,G.Snapshot>,+player:U32,+sourceTick:U32,+visual:Visual) -> Bool:
@@ -508,7 +509,7 @@ def canonical_visual_present(rows:List<&2,G.Snapshot>,+player:U32,+sourceTick:U3
 def planned_snapshot(value:Visual) -> G.Snapshot:
   match value:
     case Visual{_,owner,slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      G.Snapshot{G.Body{x,y,1,weapon,0,0,age,poolSeed,radius},G.Motion{vx,vy,life,pierce,[],0,0,owner,slot}}
+      G.Snapshot{Components.Body{x,y,1,weapon,0,0,age,poolSeed,radius},G.Motion{vx,vy,life,pierce,[],0,0,owner,slot}}
 def planned_visual(keep:Bool,value:Visual,+tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match keep:
     case False{}: tail

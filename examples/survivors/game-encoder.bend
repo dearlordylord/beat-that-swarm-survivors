@@ -1,11 +1,12 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import game.bend as G
 
-def body_json(body: G.Body) -> String:
+def body_json(body: Components.Body) -> String:
   match body:
-    case G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maxHp) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ "]"
-def rows_json(rows: List<&2,G.Body>) -> String:
+    case Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maxHp) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ "]"
+def rows_json(rows: List<&2,Components.Body>) -> String:
   match rows:
     case []: ""
     case body <> []: body_json(body)
@@ -23,10 +24,10 @@ def offers_json(rows: List<&2,G.Offer>) -> String:
     case []: ""
     case o <> []: offer_json(o)
     case o <> rest: offer_json(o) ++ "," ++ offers_json(rest)
-def visible_bodies(rows: List<&2,G.Body>) -> List<&2,G.Body>:
+def visible_bodies(rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
   match rows:
     case []: []
-    case G.Body{_,_,8,_,_,_,_,_,_} <> rest: visible_bodies(rest)
+    case Components.Body{_,_,8,_,_,_,_,_,_} <> rest: visible_bodies(rest)
     case body <> rest: body <> visible_bodies(rest)
 def encode_extra(observation: G.Observation,extra: String) -> String:
   match observation:

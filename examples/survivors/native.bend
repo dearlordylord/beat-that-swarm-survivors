@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import game.bend as G
 import encounters.bend as E
 import native_draw.bend as D
@@ -273,25 +274,25 @@ def body_xp_visible(visible: Bool,+kind: U32,+variant: U32,+x: F32,+y: F32,+radi
     case True{} 2: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,U32.is_eq(variant,1)),tail)
     case True{} _: Art.sprite(kind,variant,x,y,radius,color,tail)
 
-def body_sprites(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def body_sprites(rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case G.Body{x,y,+kind,+variant,+hp,maxHp,age,seed,radius} <> rest:
+    case Components.Body{x,y,+kind,+variant,+hp,maxHp,age,seed,radius} <> rest:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
       body_xp_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,hp,body_color(kind,variant),body_sprites(rest,px,py,tail))
 
 # A separate overlay keeps a nearby sprite from hiding another enemy's HP.
-def body_healthbars(rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def body_healthbars(rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case G.Body{x,y,kind,variant,hp,maxHp,age,seed,radius} <> rest:
+    case Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius} <> rest:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
       healthbar_visible(body_on_screen(sx,sy,scaled),kind,hp,maxHp,sx,sy,scaled,body_healthbars(rest,px,py,tail))
-def bodies(+rows: List<&2,G.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def bodies(+rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   body_healthbars(rows,px,py,body_sprites(rows,px,py,tail))
 
 def loadout(rows: List<&2,U32>,+index: U32,+x: F32,+y: F32,+category: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
@@ -381,17 +382,17 @@ def map_marker(kind: U32,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>
     case 5: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,16768903,tail)
     case 9: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,13948927,tail)
     case _: tail
-def map_markers(rows: List<&2,G.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def map_markers(rows: List<&2,Components.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case G.Body{x,y,kind,_,_,_,_,_,_} <> rest: map_marker(kind,x,y,map_markers(rest,tail))
+    case Components.Body{x,y,kind,_,_,_,_,_,_} <> rest: map_marker(kind,x,y,map_markers(rest,tail))
 def map_view(+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   +left = F32.max(0.0,(run_px(run) - V.native_center_x() / V.native_scale() : F32))
   +top = F32.max(0.0,(run_py(run) - V.native_center_y() / V.native_scale() : F32))
   +right = F32.min(G.world_size(),(run_px(run) + (512.0 - V.native_center_x()) / V.native_scale() : F32))
   +bottom = F32.min(G.world_size(),(run_py(run) + (384.0 - V.native_center_y()) / V.native_scale() : F32))
   border(map_coord(left,48.0),map_coord(top,96.0),((right - left) * 224.0 / G.world_size() : F32),((bottom - top) * 224.0 / G.world_size() : F32),7985384,tail)
-def pause_map(+run: G.Run,rows: List<&2,G.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def pause_map(+run: G.Run,rows: List<&2,Components.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   D.text("PAUSED / MAP",48.0,68.0,2.0,15584891,
   D.text("YOU",298.0,112.0,1.0,15584891,
   D.text("CHEST",298.0,140.0,1.0,16768903,
@@ -403,13 +404,13 @@ def pause_map(+run: G.Run,rows: List<&2,G.Body>,tail: List<&2,D.Rect>) -> List<&
   D.rect((map_coord(run_px(run),48.0) - 2.0 : F32),(map_coord(run_py(run),96.0) - 2.0 : F32),5.0,5.0,15584891,
   map_markers(rows,map_view(run,border(48.0,96.0,224.0,224.0,4020038,
   D.rect(48.0,96.0,224.0,224.0,1186082,D.rect(28.0,52.0,456.0,296.0,724763,tail))))))))))))))
-def map_phase(phase: U32,+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def map_phase(phase: U32,+run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match phase:
     case 0: pause_map(run,rows,tail)
     case 1: pause_map(run,rows,tail)
     case 2: pause_map(run,rows,tail)
     case phase: modal(phase,run,offers,paused,tail)
-def world_modal(+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def world_modal(+run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match paused:
     case 1: map_phase(run_phase(run),run,rows,offers,1,tail)
     case p: modal(run_phase(run),run,offers,p,tail)
@@ -435,17 +436,17 @@ def ground(fuel: Nat,+index: U32,+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D
       +period = G.at([360,420,240,300,180],run_stage(run))
       color = ground_color(Bool.or(Bool.or(F32.is_lt(wx,0.0),F32.is_lt(wy,0.0)),Bool.or(F32.is_lt(G.world_size(),wx),F32.is_lt(G.world_size(),wy))),ground_hazard(run_stage(run),wx,wy),U32.is_le((period - 120 : U32),(run_tick(run) % period : U32)),((F32.to_u32(F32.abs(wx)) / 64 + F32.to_u32(F32.abs(wy)) / 64) % 2 : U32))
       D.rect(x,y,16.0,16.0,color,ground(k,(index + 1 : U32),run,tail))
-def gameplay_rows(+run: G.Run,+rows: List<&2,G.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
+def gameplay_rows(+run: G.Run,+rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
   hud(run,world_modal(run,rows,offers,ui_paused(ui),
   Art.player(256.0,210.0,ui_character(ui),run_invuln(run),
   bodies(rows,run_px(run),run_py(run),ground(768n,0,run,[])))))
 
-def scene_screen(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image:
+def scene_screen(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image:
   match screen:
     case 1: D.image(gameplay_rows(run,rows,offers,ui,snapshots))
     case _: D.image(menu_rows(ui,profile))
 
-def scene(+ui: Ui,profile: P.Profile,run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image: scene_screen(ui_screen(ui),ui,profile,run,rows,offers,snapshots)
+def scene(+ui: Ui,profile: P.Profile,run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image: scene_screen(ui_screen(ui),ui,profile,run,rows,offers,snapshots)
 
 def view(state: Native) -> Native & Image:
   match state:
@@ -458,7 +459,7 @@ def fps_overlay(ready: Bool,value: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>
   match ready:
     case False{}: D.text("FPS --",438.0,36.0,1.0,15196103,tail)
     case True{}: D.text("FPS " ++ U32.show(value),438.0,36.0,1.0,15196103,tail)
-def scene_fps(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>,ready: Bool,value: U32) -> Image:
+def scene_fps(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>,ready: Bool,value: U32) -> Image:
   match screen:
     case 1: D.image(fps_overlay(ready,value,gameplay_rows(run,rows,offers,ui,snapshots)))
     case _: D.image(fps_overlay(ready,value,menu_rows(ui,profile)))
@@ -788,7 +789,7 @@ def sound_cue(muted: U32,damaged: Bool,levelled: Bool,killed: Bool) -> U32:
 def session_with_audio(native: Native,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Audio> & Sound.Track) -> IO(Maybe<Session>):
   (audio,music) = result
   IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health,music,fps}})
-def music_observation(due: Bool,+run: G.Run,rows: List<&2,G.Body>,cached: U32) -> U32:
+def music_observation(due: Bool,+run: G.Run,rows: List<&2,Components.Body>,cached: U32) -> U32:
   match due:
     case True{}: G.music_danger(run_hp(run),run_maxHp(run),run_px(run),run_py(run),rows)
     case False{}: cached

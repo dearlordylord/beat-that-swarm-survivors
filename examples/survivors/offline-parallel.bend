@@ -1,6 +1,7 @@
 import run-state.bend as RS
 # Independent native Bend worlds. No Node, classifier, rendering or per-job IO.
 import Base
+import game-components.bend as Components
 import game.bend as G
 import offline-policy.bend as Policy
 import offline-batch.bend as Serial
@@ -11,7 +12,7 @@ import parallel/scheduler.bend as Scheduler
 type NumericSummary is Data:
   NumericSummary{index: U32,seed: U32,profile: U32,choices: U32,requestedTicks: U32,phase: U32,tick: U32,hp: U32,level: U32,xp: U32,xpNeed: U32,kills: U32,gold: U32,xpPiles: U32,uncollectedBaseXp: U32}
 
-def capture(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,G.Body>) -> NumericSummary:
+def capture(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,Components.Body>) -> NumericSummary:
   match run:
     case G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       NumericSummary{index,seed,profile,choices,ticks,phase,tick,hp,level,xp,xpNeed,kills,gold,Serial.piles(rows),Serial.xp_sum(rows)}

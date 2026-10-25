@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import game.bend as G
 import game-encoder.bend as Encoder
 import native-economy.bend as P
@@ -23,34 +24,34 @@ def resource_metadata(kind: U32,amount: U32,generation: U32) -> String:
     case 2: ",\"resource\":{\"kind\":\"experience\",\"baseXp\":" ++ U32.show(amount) ++ ",\"generation\":" ++ U32.show(generation) ++ ",\"autoClaimTicks\":null}"
     case _: ""
 
-def entity_goal(+tick: U32,+px: F32,+py: F32,body: G.Body,+kind: String) -> String:
+def entity_goal(+tick: U32,+px: F32,+py: F32,body: Components.Body,+kind: String) -> String:
   match body:
-    case G.Body{+x,+y,+bodyKind,+variant,+hp,+generation,+age,+seed,+radius}:
-      goal_data(tick,px,py,kind,x,y,U32.show(seed) ++ ":" ++ U32.show(bodyKind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show(age),resource_metadata(bodyKind,G.xp_amount(G.Body{x,y,bodyKind,variant,hp,generation,age,seed,radius}),generation))
+    case Components.Body{+x,+y,+bodyKind,+variant,+hp,+generation,+age,+seed,+radius}:
+      goal_data(tick,px,py,kind,x,y,U32.show(seed) ++ ":" ++ U32.show(bodyKind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show(age),resource_metadata(bodyKind,G.xp_amount(Components.Body{x,y,bodyKind,variant,hp,generation,age,seed,radius}),generation))
 
-def maybe_entity(enabled: Bool,+tick: U32,+px: F32,+py: F32,body: G.Body,kind: String,tail: String) -> String:
+def maybe_entity(enabled: Bool,+tick: U32,+px: F32,+py: F32,body: Components.Body,kind: String,tail: String) -> String:
   match enabled:
     case True{}: "," ++ entity_goal(tick,px,py,body,kind) ++ tail
     case False{}: tail
 
-def entity_goals(rows: List<&2,G.Body>,+tick: U32,+px: F32,+py: F32) -> String:
+def entity_goals(rows: List<&2,Components.Body>,+tick: U32,+px: F32,+py: F32) -> String:
   match rows:
     case []: ""
-    case G.Body{+x,+y,2,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      maybe_entity(U32.is_lt(0,hp),tick,px,py,G.Body{x,y,2,variant,hp,maxHp,age,seed,radius},"approach_experience",entity_goals(rest,tick,px,py))
-    case G.Body{+x,+y,5,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      "," ++ entity_goal(tick,px,py,G.Body{x,y,5,variant,hp,maxHp,age,seed,radius},"approach_chest") ++ entity_goals(rest,tick,px,py)
-    case G.Body{+x,+y,9,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      "," ++ entity_goal(tick,px,py,G.Body{x,y,9,variant,hp,maxHp,age,seed,radius},"approach_relic") ++ entity_goals(rest,tick,px,py)
+    case Components.Body{+x,+y,2,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
+      maybe_entity(U32.is_lt(0,hp),tick,px,py,Components.Body{x,y,2,variant,hp,maxHp,age,seed,radius},"approach_experience",entity_goals(rest,tick,px,py))
+    case Components.Body{+x,+y,5,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
+      "," ++ entity_goal(tick,px,py,Components.Body{x,y,5,variant,hp,maxHp,age,seed,radius},"approach_chest") ++ entity_goals(rest,tick,px,py)
+    case Components.Body{+x,+y,9,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
+      "," ++ entity_goal(tick,px,py,Components.Body{x,y,9,variant,hp,maxHp,age,seed,radius},"approach_relic") ++ entity_goals(rest,tick,px,py)
     case _ <> rest: entity_goals(rest,tick,px,py)
 
-def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,bodies: List<&2,G.Body>) -> String:
+def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,bodies: List<&2,Components.Body>) -> String:
   match active:
     case False{}: "[]"
     case True{}:
       "[" ++ goal(tick,px,py,"move_north",px,F32.max(G.world_margin(),(py - 160.0 : F32)),"north") ++ "," ++ goal(tick,px,py,"move_east",F32.min((G.world_size() - G.world_margin() : F32),(px + 160.0 : F32)),py,"east") ++ "," ++ goal(tick,px,py,"move_south",px,F32.min((G.world_size() - G.world_margin() : F32),(py + 160.0 : F32)),"south") ++ "," ++ goal(tick,px,py,"move_west",F32.max(G.world_margin(),(px - 160.0 : F32)),py,"west") ++ entity_goals(bodies,tick,px,py) ++ "]"
 
-def catalog(run: G.Run,bodies: List<&2,G.Body>) -> String:
+def catalog(run: G.Run,bodies: List<&2,Components.Body>) -> String:
   match run:
     case G.Run{RS.Session{phase,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       catalog_live(U32.is_le(phase,2),tick,px,py,bodies)

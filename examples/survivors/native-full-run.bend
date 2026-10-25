@@ -2,6 +2,7 @@ import run-state.bend as RS
 # Native complete-run consumer: only public start/configure/choose/advance inputs.
 # No injected clock, inventory, entity, health or terminal state.
 import Base
+import game-components.bend as Components
 import game.bend as G
 import game-encoder.bend as Encoder
 import offline-policy.bend as Policy
@@ -125,11 +126,11 @@ def evolution_ready(offer: G.Offer) -> Bool:
     case _: False{}
 def chest_ready(+run: G.Run) -> Bool:
   Bool.or(starter_evolved(run),evolution_ready(G.evolution_offer(weapons(run),0,passives(run))))
-def chest_goal_keep(ready: Bool,+body: G.Body,+rest: List<&2,G.Body>) -> List<&2,G.Body>:
+def chest_goal_keep(ready: Bool,+body: Components.Body,+rest: List<&2,Components.Body>) -> List<&2,Components.Body>:
   match body:
-    case G.Body{_,_,5,_,_,_,_,_,_}: Bool.pick(List<&2,G.Body>,ready,body <> rest,rest)
+    case Components.Body{_,_,5,_,_,_,_,_,_}: Bool.pick(List<&2,Components.Body>,ready,body <> rest,rest)
     case _: body <> rest
-def movement_rows(+ready: Bool,rows: List<&2,G.Body>) -> List<&2,G.Body>:
+def movement_rows(+ready: Bool,rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
   match rows:
     case []: []
     case body <> rest: chest_goal_keep(ready,body,movement_rows(ready,rest))
@@ -140,16 +141,16 @@ def move(state: G.State,result: Policy.Memory & (F32 & F32)) -> Controlled:
   (memory,direction) = result
   (dx,dy) = direction
   Controlled{memory,G.advance(state,dx,dy)}
-def step(phase: U32,state: G.State,+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,memory: Policy.Memory) -> Controlled:
+def step(phase: U32,state: G.State,+run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,memory: Policy.Memory) -> Controlled:
   match phase:
     case 1: Controlled{memory,apply_reward(state,reward_action(offers,run))}
     case 2: Controlled{memory,apply_reward(state,reward_action(offers,run))}
     case _: move(state,Policy.movement(memory,run,movement_rows(chest_ready(run),rows)))
-def saw_boss(rows: List<&2,G.Body>) -> Bool:
+def saw_boss(rows: List<&2,Components.Body>) -> Bool:
   match rows:
     case []: False{}
-    case G.Body{_,_,+kind,variant,_,_,_,_,_} <> rest: Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_le(20,variant)),saw_boss(rest))
-def observe(stats: Stats,+run: G.Run,rows: List<&2,G.Body>) -> Stats:
+    case Components.Body{_,_,+kind,variant,_,_,_,_,_} <> rest: Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_le(20,variant)),saw_boss(rest))
+def observe(stats: Stats,+run: G.Run,rows: List<&2,Components.Body>) -> Stats:
   match stats:
     case Stats{boss,chest,level,decisions}: Stats{Bool.or(boss,saw_boss(rows)),Bool.or(chest,U32.is_eq(phase(run),2)),Bool.or(level,U32.is_eq(phase(run),1)),(decisions + Bool.to_u32(Bool.or(U32.is_eq(phase(run),1),U32.is_eq(phase(run),2))) : U32)}
 def evolved(weapons: List<&2,U32>) -> Bool:

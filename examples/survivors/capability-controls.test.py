@@ -32,23 +32,23 @@ def cpu_bound():
 # The opaque H and Ops(H) remain universally quantified, as in gameplay bodies.
 CASES = [
     ('movement-spatial-health', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
-     'write', 'G.Vitals', 'cross-family'),
-    ('movement-metadata-read', 'MoveOps', 'move_body_cap', 'G.Body',
-     'read', 'G.Body', 'read-to-write'),
+     'write', 'Components.Vitals', 'cross-family'),
+    ('movement-metadata-read', 'MoveOps', 'move_body_cap', 'Components.Body',
+     'read', 'Components.Body', 'read-to-write'),
     ('movement-spatial-identity', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
-     'write', 'G.Body', 'cross-family'),
+     'write', 'Components.Body', 'cross-family'),
     ('movement-spatial-pickup', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
-     'write', 'G.Pickup', 'cross-family'),
-    ('movement-status-read', 'MoveOps', 'move_status_cap', 'G.Status',
-     'read', 'G.Status', 'read-to-write'),
-    ('pickup-body-read', 'PickupOps', 'pickup_body_cap', 'G.Body',
-     'read', 'G.Body', 'read-to-write'),
-    ('pickup-payload-read', 'PickupOps', 'pickup_payload_cap', 'G.Pickup',
-     'read', 'G.Pickup', 'read-to-write'),
+     'write', 'Components.Pickup', 'cross-family'),
+    ('movement-status-read', 'MoveOps', 'move_status_cap', 'Components.Status',
+     'read', 'Components.Status', 'read-to-write'),
+    ('pickup-body-read', 'PickupOps', 'pickup_body_cap', 'Components.Body',
+     'read', 'Components.Body', 'read-to-write'),
+    ('pickup-payload-read', 'PickupOps', 'pickup_payload_cap', 'Components.Pickup',
+     'read', 'Components.Pickup', 'read-to-write'),
     ('projectile-role-read', 'ProjectileOps', 'projectile_role_cap', 'Role.Role',
      'read', 'Role.Role', 'read-to-write'),
-    ('projectile-body-family', 'ProjectileOps', 'projectile_body_cap', 'G.Body',
-     'write', 'G.Vitals', 'cross-family'),
+    ('projectile-body-family', 'ProjectileOps', 'projectile_body_cap', 'Components.Body',
+     'write', 'Components.Vitals', 'cross-family'),
 ]
 
 
@@ -57,6 +57,7 @@ def module(directory, case, negative):
     component = rejected if negative else field
     header = '\n'.join([
         'import Base',
+        f'import {Path(os.path.relpath(HERE / "game-components.bend", directory)).as_posix()} as Components',
         f'import {Path(os.path.relpath(HERE / "enemy-spatial.bend", directory)).as_posix()} as Space',
         f'import {Path(os.path.relpath(GAME, directory)).as_posix()} as G',
         f'import {Path(os.path.relpath(HERE / "entity-role.bend", directory)).as_posix()} as Role',

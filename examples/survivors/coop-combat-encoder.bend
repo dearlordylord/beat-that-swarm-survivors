@@ -1,4 +1,5 @@
 import Base
+import game-components.bend as Components
 import game.bend as G
 import coop-combat-prediction.bend as Prediction
 import coop-combat-codec.bend as W
@@ -45,9 +46,9 @@ def observe(own:U32,tick:U32,players:List<&2,G.PlayerSnapshot>,snapshots:List<&2
 def generation(kind:U32,seed:U32,born:U32,owner:U32,slot:U32) -> String:
   PlaybackProjection.generation(kind,seed,born,owner,slot)
 def visual_owner(kind:U32,slot:U32) -> U32: PlaybackProjection.visual_owner(kind,slot)
-def visual_body(+tick:U32,born:U32,body:G.Body,motion:G.Motion) -> String:
+def visual_body(+tick:U32,born:U32,body:Components.Body,motion:G.Motion) -> String:
   match body motion:
-    case G.Body{x,y,+kind,variant,hp,maximum,age,+seed,radius} G.Motion{_,_,_,_,_,_,_,owner,+slot}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maximum) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ ",\"" ++ generation(kind,seed,born,owner,slot) ++ "\"," ++ U32.show(visual_owner(kind,slot)) ++ "," ++ U32.show(tick) ++ "]"
+    case Components.Body{x,y,+kind,variant,hp,maximum,age,+seed,radius} G.Motion{_,_,_,_,_,_,_,owner,+slot}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maximum) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ ",\"" ++ generation(kind,seed,born,owner,slot) ++ "\"," ++ U32.show(visual_owner(kind,slot)) ++ "," ++ U32.show(tick) ++ "]"
 def visual_snapshot(tick:U32,born:U32,snapshot:G.Snapshot) -> String:
   match snapshot:
     case G.Snapshot{body,motion}: visual_body(tick,born,body,motion)

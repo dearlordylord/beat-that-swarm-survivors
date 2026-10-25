@@ -1,4 +1,5 @@
 import Base
+import game-components.bend as Components
 import game.bend as G
 import offline-policy.bend as Policy
 import native-replay-format.bend as F
@@ -28,7 +29,7 @@ def recorded_direction(direction: F32 & F32,memory: Policy.Memory,state: G.State
 def recorded_move(result: Policy.Memory & (F32 & F32),state: G.State,run: G.Run) -> Recorded:
   (memory,direction)=result
   recorded_direction(direction,memory,state,run)
-def next(phase: U32,state: G.State,+run: G.Run,+rows: List<&2,G.Body>,+offers: List<&2,G.Offer>,memory: Policy.Memory) -> Recorded:
+def next(phase: U32,state: G.State,+run: G.Run,+rows: List<&2,Components.Body>,+offers: List<&2,G.Offer>,memory: Policy.Memory) -> Recorded:
   match phase:
     case 1:
       +action : F.Action = F.ReplayUpgrade{C.tick(run),1,Policy.upgrade(run,offers)}
