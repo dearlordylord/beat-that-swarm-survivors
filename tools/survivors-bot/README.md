@@ -147,7 +147,7 @@ The failure/fuel fixture `offline-parallel-test.bend` is included in `examples/s
 bash tools/survivors-bot/check.sh
 ```
 
-Checks include offline provider/context/controller tests, a real Bend action-catalog fixture and an actual simulation integration with a fake classifier. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
+The check builds the Bend action facade and validates real fresh/advanced goal catalogs and mechanics, including rejection of malformed nested fields. The root `npm run check:typescript` gate covers types, lint, JSON boundaries and ABI contracts. These checks make no live classifier requests. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
 
 ## Visible native run and decision journal
 

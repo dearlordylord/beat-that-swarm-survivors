@@ -2,6 +2,7 @@
 """Focused ABI coverage, including real compiler exports; artifacts stay in /tmp."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -76,7 +77,7 @@ def pair() -> U32 & Bool: (9,True{})
             fixture = root / 'fixture.bend'
             fixture.write_text(source)
             emitted = root / 'fixture.mjs'
-            subprocess.run(['bend', str(fixture), '-o', str(emitted)], check=True, capture_output=True, text=True)
+            subprocess.run([os.environ.get('BEND', 'bend'), str(fixture), '-o', str(emitted)], check=True, capture_output=True, text=True)
             result = subprocess.run(['node', '--input-type=module', '-e', '''
 const {default: api} = await import(process.argv[1]);
 console.log(JSON.stringify({keys:Object.keys(api),yes:api.choose(true),no:api.choose(false),pair:api.pair()}));
