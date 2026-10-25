@@ -224,18 +224,19 @@ def observed_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest &
 def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,ids: String,qs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"shots\":[" ++ qs ++ "],\"enemyPhases\":[" ++ phases ++ "],\"identities\":[" ++ ids ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
-def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: Storage.Store & String) -> Storage.Store & String:
-  match result:
-    case (owner,es): store_phase(bs,vs,ts,ss,ps,rs,es,observed_column(~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseRest,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~enemy_phase,owner))
-def store_phase(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: Storage.Store & String) -> Storage.Store & String:
-  match result:
-    case (owner,phases): store_identity(bs,vs,ts,ss,ps,rs,es,phases,observed_column(~Components.Identity,~Components.Identity,~Storage.IdentityRest,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~identity,owner))
-def store_identity(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,result: Storage.Store & String) -> Storage.Store & String:
-  match result:
-    case (owner,ids): store_shots(bs,vs,ts,ss,ps,rs,es,phases,ids,observed_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~shot_payload,owner))
 def store_shots(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,ids: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,qs): store_logical(bs,vs,ts,ss,ps,rs,es,phases,ids,qs,logical_store(owner))
+
+def store_identity(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,result: Storage.Store & String) -> Storage.Store & String:
+  match result:
+    case (owner,ids): store_shots(bs,vs,ts,ss,ps,rs,es,phases,ids,observed_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~shot_payload,owner))
+def store_phase(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: Storage.Store & String) -> Storage.Store & String:
+  match result:
+    case (owner,phases): store_identity(bs,vs,ts,ss,ps,rs,es,phases,observed_column(~Components.Identity,~Components.Identity,~Storage.IdentityRest,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~identity,owner))
+def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: Storage.Store & String) -> Storage.Store & String:
+  match result:
+    case (owner,es): store_phase(bs,vs,ts,ss,ps,rs,es,observed_column(~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseRest,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~enemy_phase,owner))
 def store_role(bs: String,vs: String,ts: String,ss: String,ps: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,rs): store_spatial(bs,vs,ts,ss,ps,rs,observed_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~spatial,owner))
@@ -443,6 +444,9 @@ def fold_phase(value: Enemy.Phase,acc: U32) -> U32: fold_words(codes(enemy_phase
 def fold_identity(value: Components.Identity,acc: U32) -> U32:
   match value:
     case Components.Identity{slot}: mix(acc,slot)
+def force_store_shots(result: Storage.Store & U32) -> Storage.Store & U32:
+  match result:
+    case (owner,acc): force_store_routing(force_store_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~fold_shot_payload,acc,owner))
 def force_store_identity(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (owner,acc): force_store_shots(force_store_column(~Components.Identity,~Components.Identity,~Storage.IdentityRest,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~fold_identity,acc,owner))
@@ -452,9 +456,6 @@ def force_store_phase(result: Storage.Store & U32) -> Storage.Store & U32:
 def force_store_role(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (owner,acc): force_store_phase(force_store_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~fold_spatial,acc,owner))
-def force_store_shots(result: Storage.Store & U32) -> Storage.Store & U32:
-  match result:
-    case (owner,acc): force_store_routing(force_store_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~fold_shot_payload,acc,owner))
 def force_store_pickup(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (owner,acc): force_store_role(force_store_column(~GRole.Role,~GRole.Role,~Storage.RoleRest,~Storage.take_role,~Storage.put_role,~Storage.project_role,~fold_role,acc,owner))
