@@ -1,0 +1,77 @@
+{
+  "sourceCommit": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+  "parentIssue": 1,
+  "action": "Do not modify or close.",
+  "criteria": [
+    {
+      "criterion": "Overloaded objects and associated compatibility paths are removed.",
+      "status": "passed",
+      "evidence": [
+        "examples/survivors/game-components.bend",
+        "examples/survivors/game-storage.bend",
+        "examples/survivors/frame.mts",
+        "scripts/check-typescript-sources.py"
+      ]
+    },
+    {
+      "criterion": "Gameplay facts have explicit authoritative sources.",
+      "status": "passed",
+      "evidence": [
+        "examples/survivors/run-state.bend",
+        "examples/survivors/game-components.bend",
+        "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+      ]
+    },
+    {
+      "criterion": "System access matches component responsibility.",
+      "status": "passed",
+      "evidence": [
+        "examples/survivors/capability-controls.test.py",
+        "research/survivors-enemy-migration.md"
+      ]
+    },
+    {
+      "criterion": "Every affected consumer uses the current model.",
+      "status": "passed",
+      "evidence": [
+        "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+        "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+        "tools/survivors-bot/planner-objective.test.mts"
+      ]
+    },
+    {
+      "criterion": "Strict behavior, capability and lifecycle checks pass.",
+      "status": "passed",
+      "evidence": [
+        "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+        "/tmp/survivors-store-carrier-birth-control/receipt.json",
+        "/tmp/survivors-final-manual-game-c9c9ae8/receipt.json"
+      ],
+      "missing": null
+    },
+    {
+      "criterion": "No confirmed slowdown occurs in the measured scenarios.",
+      "status": "failed",
+      "approvedAlternative": {
+        "accepted": true,
+        "decision": "Accept approximately ten percent overhead and stop further performance work without a strong short lead.",
+        "approvalTranslation": "Maybe 10 percent is not that much. If you do not have any immediate leads right now, we can skip it.",
+        "translationLabel": "English translation of direct user approval on 2026-10-25.",
+        "conditionAssessment": "No high-confidence short remaining fix; coordinator stopped further optimization.",
+        "originalCriterionStatus": "failed",
+        "currentApprovedOutcome": "accepted",
+        "normalPairedMedianPercent": 6.3159810702584585,
+        "normalVerdict": "inconclusive: overlapping ranges, paired median slower, one pair faster",
+        "terminalPairedMedianPercent": 8.651064948724695,
+        "terminalVerdict": "confirmed slowdown under approved separated-range criterion"
+      },
+      "evidence": [
+        "/tmp/survivors-carrier-performance-c9c9ae8/interpreted-verdict.json"
+      ]
+    }
+  ],
+  "qualifiedCodeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+  "qualifiedBrowserSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+  "deliveredMaster": "6ce61ea940d6a4d0f78290a07affe6b1825d0070",
+  "deliveryUiGate": "passed"
+}

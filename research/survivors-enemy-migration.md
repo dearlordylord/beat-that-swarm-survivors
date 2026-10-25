@@ -27,12 +27,12 @@ actor payloads. It creates no universal Body as an initialization intermediate.
 The proved law concerns `EnemyLife.birth(candidate)`: it preserves the admitted
 candidate and constructs age zero, clean Status, zero contact damage and no
 killer. It proves neither admission policy nor the whole query pipeline.
-`enemy-birth-check.mjs` separately exercises the actual production admission
+`enemy-birth-check.mts` separately exercises the actual production admission
 continuation; the contact oracle exercises fresh and existing incarnations
 against the same prepared contact. A compiled wiring mutant that reuses dirty
 status and prior contact data must fail the production fixture.
 
-Native consumers read typed observations directly. Browser encoders emit named
+Native consumers read typed observations directly. Trusted browser adapters project named
 enemy fields and preserve source actor order explicitly; no enemy health word
 is interpreted as damage or reward data. The development physical observer
 records Phase and Identity columns and their real stamps, alongside typed

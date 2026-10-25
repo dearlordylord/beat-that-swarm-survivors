@@ -206,3 +206,28 @@ formatting, 16 boundary tests and four ABI tests, all 18 Bend entrypoint fronten
 checks, the dependency audit for 228 modules, changed tooling syntax and
 whitespace. No package or BendHub pin changed. Full runtime and performance
 qualification remains pending for this combined source.
+
+## Qualified runtime and final browser delivery
+
+The qualified native/Bend source is `c9c9ae866b161aab3627cf15c048d12813d8ced5`. Final browser delivery is
+`15b52cd4aa9c29449f93008e1529b756b1dcdd75`, including local master `6ce61ea940d6a4d0f78290a07affe6b1825d0070`. UI source is `0caf4861125111d24d5e311f5653737c49ccf978`. Its master merge changes three UI files and adds the
+reward-touch test. All 234 Bend files and 669 prior files remain identical to c9.
+The final five-file verifier change corrects only the coordinate clock and keeps
+the ordinary lifetime regression wired into the maintained test gate. Its
+675-file source manifest digest is
+`15b7a0acd2837be921a65a7cd6e62c2fe595cd85b0c74ba4d1c12703fd8bb1cb`.
+
+C9 passed 15 no-Node native checkpoints, six complete co-op worlds, all 18
+entrypoint checks and the explicit complete manual game at tick 36,786. Final
+delivery TypeScript checks and the real-browser secondary reward-touch test
+passed. Solo/UI smoke passed directly on UI source `0caf486`, which is byte-identical in the final delivery. The complete stock Iroh matrix passed directly on verifier source `15b52cd`.
+
+The original no-slowdown requirement failed. Three alternating pairs per
+scenario showed an inconclusive 6.32% normal paired-median increase and a
+confirmed 8.65% terminal increase. The user's direct instruction accepted this
+tradeoff and ended further optimization without a strong short lead. The
+original criterion remains failed; the current approved outcome is accepted.
+
+The completion commit changes only documentation and compact receipts after
+the qualified browser source. It does not change the qualified runtime or UI.
+Parent issue 1 stays open and unmodified. No release is packaged or deployed.
