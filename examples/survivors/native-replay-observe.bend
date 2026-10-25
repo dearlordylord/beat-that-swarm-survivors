@@ -162,7 +162,6 @@ def movement_roster(value: Storage.MovementRoster) -> String:
   match value:
     case Storage.MovementPrepared{handles}: "[" ++ roster_handles(handles) ++ "]"
 # Physical columns retain their actual membership and change stamps. Logical
-# Motion is a derived compatibility view only: no unified component/stamp exists.
 def shot_payload(value: Components.ShotPayload) -> String:
   match value:
     case Components.ShotPayload{weapon,damage,active}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))])
@@ -184,35 +183,6 @@ def candidate_roster(projectile: Bool,value: Storage.CandidateRoster) -> String:
   match projectile value:
     case True{} Storage.CandidatesPrepared{projectiles,_}: "[" ++ roster_handles(projectiles) ++ "]"
     case False{} Storage.CandidatesPrepared{_,pool}: "[" ++ roster_handles(pool) ++ "]"
-def logical_motion_value(trajectory: Maybe<&2,Components.Trajectory>,status: Maybe<&2,Components.Status>) -> G.Motion:
-  match trajectory status:
-    case Some{trajectory} Some{status}: G.logical_motion(trajectory,status)
-    case Some{trajectory} None{}: G.logical_motion(trajectory,G.empty_status())
-    case None{} Some{status}: G.logical_motion(G.empty_trajectory(),status)
-    case None{} None{}: G.empty_motion()
-type LogicalColumns is Type: LogicalColumns{trajectories: Col.Column<Storage.Schema,Components.Trajectory>,statuses: Col.Column<Storage.Schema,Components.Status>}
-def logical_row_status(id: U32,trajectories: Col.Column<Storage.Schema,Components.Trajectory>,value: Maybe<&2,Components.Trajectory>,result: Col.Column<Storage.Schema,Components.Status> & Maybe<&2,Components.Status>) -> LogicalColumns & String:
-  match result:
-    case (statuses,status): (LogicalColumns{trajectories,statuses},array([U32.show(id),motion(logical_motion_value(value,status)),"null"]))
-def logical_row_trajectory(+id: U32,statuses: Col.Column<Storage.Schema,Components.Status>,result: Col.Column<Storage.Schema,Components.Trajectory> & Maybe<&2,Components.Trajectory>) -> LogicalColumns & String:
-  match result:
-    case (trajectories,value): logical_row_status(id,trajectories,value,Col.view(~Storage.Schema,~Components.Status,~Components.Status,~Storage.project_status,statuses,id))
-def logical_row(+id: U32,columns: LogicalColumns) -> LogicalColumns & String:
-  match columns:
-    case LogicalColumns{trajectories,statuses}: logical_row_trajectory(id,statuses,Col.view(~Storage.Schema,~Components.Trajectory,~Components.Trajectory,~Storage.project_trajectory,trajectories,id))
-def logical_row_accumulated(reversed: List<&2,String>,result: LogicalColumns & String) -> LogicalColumns & List<&2,String>:
-  match result:
-    case (columns,value): (columns,value <> reversed)
-def logical_rows(fuel: Nat,+id: U32,state: LogicalColumns & List<&2,String>) -> LogicalColumns & String:
-  match fuel state:
-    case 0n Tuple{columns,reversed}: (columns,join(List.reverse(&2,String,reversed)))
-    case 1n+rest Tuple{columns,reversed}: logical_rows(rest,(id + 1 : U32),logical_row_accumulated(reversed,logical_row(id,columns)))
-def logical_store_done(b: Col.Column<Storage.Schema,Components.Body>,v: Col.Column<Storage.Schema,Components.Vitals>,p: Col.Column<Storage.Schema,Pickup.Payload>,r: Col.Column<Storage.Schema,GRole.Role>,movement: Storage.MovementRoster,candidates: Storage.CandidateRoster,players: Col.Column<Storage.Schema,Components.PlayerRecord>,spaces: Col.Column<Storage.Schema,Space.Spatial>,enemyPhases: Col.Column<Storage.Schema,Enemy.Phase>,identities: Col.Column<Storage.Schema,Components.Identity>,shots: Col.Column<Storage.Schema,Components.ShotPayload>,result: LogicalColumns & String) -> Storage.Store & String:
-  match result:
-    case (LogicalColumns{t,s},text): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},text)
-def logical_store(store: Storage.Store) -> Storage.Store & String:
-  match store:
-    case Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots}: logical_store_done(b,v,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
 def observed_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,rest: Rest,result: Col.Column<Storage.Schema,C> & String) -> Storage.Store & String:
   match result:
     case (column,text): (put(rest,column),text)
@@ -221,13 +191,12 @@ def observed_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column
     case (rest,column): observed_column_done(~C,~Rest,~put,rest,column_rows(~C,~V,~project,~show,PL.total_nat(),1,column))
 def observed_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest & Col.Column<Storage.Schema,C>,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~show: V -> String,store: Storage.Store) -> Storage.Store & String:
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
-def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,ids: String,qs: String,result: Storage.Store & String) -> Storage.Store & String:
-  match result:
-    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"shots\":[" ++ qs ++ "],\"enemyPhases\":[" ++ phases ++ "],\"identities\":[" ++ ids ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,qs: String,phases: String,ids: String,owner: Storage.Store) -> Storage.Store & String:
+  match owner:
+    case Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"shots\":[" ++ qs ++ "],\"enemyPhases\":[" ++ phases ++ "],\"identities\":[" ++ ids ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
 def store_shots(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,ids: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,qs): store_logical(bs,vs,ts,ss,ps,rs,es,phases,ids,qs,logical_store(owner))
-
+    case (owner,qs): store_logical(bs,vs,ts,ss,ps,rs,es,qs,phases,ids,owner)
 def store_identity(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,ids): store_shots(bs,vs,ts,ss,ps,rs,es,phases,ids,observed_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~shot_payload,owner))
