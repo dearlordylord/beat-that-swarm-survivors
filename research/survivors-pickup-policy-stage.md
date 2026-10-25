@@ -20,18 +20,45 @@ wire field is named `hp` or `maxHp`.
 
 ## Verified before ECS integration
 
-- Freshly emitted collection/pool/encoder checks pass for all reward kinds,
-  one-time collection, stable generation, free-slot allocation, marked/farthest
-  overflow, tie ordering and unsigned wraparound.
-- An external temporary oracle compared 300 seeded pool scenarios against the
-  existing production batch function. Every resulting pickup spatial value,
-  amount, active state, accumulator marker and generation matched exactly.
-  The compatibility-shaped fixtures exist only in the temporary oracle; they
-  are not runtime readers or maintained pickup inputs.
-- Two source mutants compile and are rejected by the focused checks: dropping
-  overflow credit and replacing a new pile generation with zero.
-- The BendHub dependency audit passes after initializing the existing pinned
-  proof-library submodule. No dependency pin changed.
+- Four approved laws pass kernel `--verdict`: exact collected-XP outcome,
+  arbitrary inactive pickup inertness, wrapping overflow amount, and preserved
+  overflow generation. Independent blind backtranslation preceded proof. These
+  laws do not claim universal geometric admission, every non-XP transition, or
+  all pool ordering rules.
+- Three maintained semantic mutants typecheck and fail their named proof gates:
+  lost collection XP, lost overflow amount, and replaced overflow generation.
+- `pickup-state-check.mjs` exercises all reward kinds, one-time collection,
+  generation, free-slot order, marked/farthest overflow, ties and wrapping.
+- `pickup-wiring-check.mjs` exercises actual world lifecycle/query writes and
+  subsequent collection: XP, gold, healing, no repeated grant, exact collection-to-idle
+  reset and first inactive-turn reset, typed death
+  handoffs, rejected occupied-slot turns and two-player shared XP allocation.
+  It is part of the fresh-emission co-op reliability procedure.
+- Native XP rendering passes six size/color checks, including marked overflow;
+  its five-pile capture remains outside source under
+  `/tmp/issue7-native-loot-capture/experience-piles.ppm`.
+- Native pause-map markers traverse active typed pickup snapshots. The actual
+  native UI fixture checks chest/relic coordinates, inactive chest exclusion and
+  XP exclusion; the full UI run passes with a fresh map capture under
+  `/tmp/issue7-native-map-data/map.ppm`.
+- The solo batch summary counts active typed XP snapshots and sums their explicit
+  amounts. The existing native metrics fixture preserves its 18 population cases
+  and checks two active piles totaling 13 XP, excluding inactive/non-XP data. It
+  executes the real summary writer and checks the full-run planner's chest
+  readiness filter, including relative order and other actor snapshots.
+- The corrected native co-op runner typechecks with separate session and player
+  authority. Its existing metrics executable passes 18 classification cases;
+  an actual native run reaches tick 60 with valid population/XP fields in
+  `/tmp/issue7-offline-coop-run.jsonl`.
+- `pickup_qualification.py` validates current raw payload membership, tagged
+  values, occupancy/phase and spatial facts, joining physical handles to
+  canonical identities without assuming index equals identity. Five focused
+  tests include nonmatching handles, malformed payloads/phases and authority
+  mutations. Six actual raw checkpoints pass; raw XP amount, generation, age and accumulator
+  mutations change the exported facts.
+- A temporary pre-integration oracle compared 300 seeded pure pool scenarios
+  with the frozen implementation exactly. This supports pool-policy continuity;
+  actual storage wiring is covered by the separate checks above.
 
 Artifacts are outside source under `/tmp/issue7-pure`,
 `/tmp/issue7-pure-equivalence.mjs`, and the mutation directories recorded by
