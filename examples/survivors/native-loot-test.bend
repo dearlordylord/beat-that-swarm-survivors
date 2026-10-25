@@ -13,8 +13,14 @@ def expect(ok: Bool,label: String) -> IO(Unit):
   match ok:
     case True{}: IO.print("PASS " ++ label)
     case False{}: IO.die(Unit,1,"FAIL " ++ label)
+def pile(x: F32,amount: U32,marked: Bool,slot: U32) -> Pickup.State:
+  Pickup.State{Space.Spatial{x,1800.0,1000,6.0},Pickup.Payload{Pickup.Xp{amount,marked},10,True{}},slot}
+def gems(rows: List<&2,Pickup.State>) -> List<&2,D.Rect>:
+  match rows:
+    case []: []
+    case head <> rest: N.pickup_sprite(head,1800.0,1800.0,gems(rest))
 def gem(amount: U32,variant: U32) -> List<&2,D.Rect>:
-  N.pickup_sprite(Pickup.State{Space.Spatial{1800.0,1800.0,1000,6.0},Pickup.Payload{Pickup.Xp{amount,U32.is_eq(variant,1)},10,True{}},Pool.xp_start()},1800.0,1800.0,[])
+  gems([pile(1800.0,amount,U32.is_eq(variant,1),Pool.xp_start())])
 def max_width(rows: List<&2,D.Rect>,width: F32) -> F32:
   match rows:
     case []: width
@@ -31,4 +37,4 @@ def main() -> IO(Unit):
     expect(colored(gem(6,0),V.color(6)),"native ordinary middle XP is green")
     expect(colored(gem(10,0),V.color(10)),"native ordinary high XP is red")
     expect(colored(gem(4,1),V.tier_color(2)),"native overflow is red even below ordinary red threshold")
-    Capture.save("experience-piles.ppm",D.image(N.pickup_sprite(Pickup.State{Space.Spatial{1800.0,1800.0,0,6.0},Pickup.Payload{Pickup.Xp{100,True{}},10,True{}},Pool.xp_start()},1800.0,1800.0,[])))
+    Capture.save("experience-piles.ppm",D.image(gems([pile(1650.0,2,False{},Pool.xp_start()),pile(1725.0,6,False{},(Pool.xp_start() + 1 : U32)),pile(1800.0,25,False{},(Pool.xp_start() + 2 : U32)),pile(1875.0,100,True{},(Pool.xp_start() + 3 : U32)),pile(1950.0,4000000,True{},(Pool.xp_start() + 4 : U32))])))
