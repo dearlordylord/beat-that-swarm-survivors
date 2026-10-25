@@ -96,5 +96,18 @@
       "Laziness Protocol deletes empty authority and dead adapters instead of introducing aliases."
     ],
     "independentReview": "Parent coordinates final independent Standards and Spec reviewers on frozen commit. No additional nested review fan-out in occupied agent slots."
-  }
+  },
+  "postReviewCorrections": [
+    {
+      "reviewedCommit": "11d0389dddd60dd71e60aed848aae952c3e95403",
+      "finding": "Standards review found the unused lucky_kind/normal_loot/loot_kind helper cluster left in game.bend.",
+      "verification": "An independent rg search across frozen examples, tools and scripts found only the three definitions and loot_kind calling normal_loot. Active Enemy.reward_kind and lucky_drop remain independent.",
+      "correction": "Deleted only that unused cluster. No gameplay or proof changes.",
+      "checks": {
+        "gameFrontend": "PASS timeout60 bend examples/survivors/game.bend --check-only, ordinary frontend only",
+        "dependencies": "PASS 1 example, 227 Bend modules, published package pin unchanged",
+        "diffCheck": "PASS"
+      }
+    }
+  ]
 }

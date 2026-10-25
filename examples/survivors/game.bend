@@ -315,23 +315,6 @@ def period(id: U32) -> U32:
     case 10: 100
     case 11: 600
     case +id: (35 + (id % 6) * 13 : U32)
-def lucky_kind(+seed: U32,+luck: U32) -> U32:
-  (2 + Bool.to_u32(U32.is_eq((seed % U32.max(3,(1700 / (100 + luck * 10) : U32)) : U32),0)) + 2 * Bool.to_u32(Bool.and(Bool.not(U32.is_eq((seed % U32.max(3,(1700 / (100 + luck * 10) : U32)) : U32),0)),U32.is_eq((seed % U32.max(7,(4100 / (100 + luck * 10) : U32)) : U32),0))) : U32)
-def normal_loot(+seed: U32) -> U32:
-  (2 + Bool.to_u32(U32.is_eq((seed % 17 : U32),0)) + 2 * Bool.to_u32(Bool.and(Bool.not(U32.is_eq((seed % 17 : U32),0)),U32.is_eq((seed % 41 : U32),0))) : U32)
-def loot_kind(+seed: U32,+variant: U32) -> U32:
-  match variant:
-    case 20: 5
-    case 21: 5
-    case 22: 5
-    case 23: 5
-    case 24: 5
-    case 25: 5
-    case 26: 5
-    case 27: 5
-    case 28: 5
-    case 29: 5
-    case _: normal_loot(seed)
 type HitPlan is Data: HitPlan{shot: U32,weapon: U32,damage: U32,x: F32,y: F32,radius: F32,area: Bool,targets: List<&2,U32>}
 type Args is Data: Args{run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
