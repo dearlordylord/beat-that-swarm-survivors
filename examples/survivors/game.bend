@@ -1149,6 +1149,9 @@ def enemy_effects_multiple(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F3
   match enemy:
     case Enemy.State{Space.Spatial{_,_,_,+radius},+archetype,+identity,Components.Vitals{+health,_},Components.Status{_,+burn}}:
       enemy_effects_resolved(oldX,oldY,Enemy.immune(enemy),effect_gather(players,hits,origins,oldX,oldY,radius,identity,U32.is_eq(archetype,30)),effect_burn_damage(burn,effect_stats_for_credit(players,Effect.source(burn))),effect_effect_luck(effect_stats_for_credit(players,effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,Effect.source(burn)))),effect_nearest_target(players,oldX,oldY,effect_fallback_stats()),effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,Effect.source(burn)))
+# This sole-player-zero optimization is reachable only before any guest joins.
+# Co-op views retain every joined record after disconnect, so foreign-owned
+# burns continue through the multiple-player resolver and its real owner stats.
 def enemy_effects_indexed(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+enemy: Enemy.State,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> Enemy.Outcome:
   match players enemy:
     case effect_Player{0,run,_} <> [] Enemy.State{Space.Spatial{_,_,_,radius},_,identity,_,_}: enemy_effects_single(oldX,oldY,enemy,collisions(hits,oldX,oldY,radius,identity),run)

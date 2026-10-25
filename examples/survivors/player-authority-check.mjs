@@ -104,6 +104,21 @@ assert.deepEqual(array(Game.living_views(list(views))).map(row => row.id), [0]);
 assert.equal(array(Game.effect_players(list(views))).length, 2,
   'existing projectile owners retain their actual effect inputs');
 
+// A disconnected guest's existing burn keeps its real statistics and credit.
+const burnPlayers = players.map(record => ({...record,
+  player:{...record.player,arcana:record.id === 1 ? 7 : 0}}));
+const burnViews = Core.player_views({...state.shared,tick:299},0,0,0,0,list(burnPlayers));
+const burningEnemy = {$:'State',
+  spatial:{$:'Spatial',x:1000,y:1000,age:90,radius:8},archetype:1,identity:77,
+  vitals:{$:'Vitals',health:3,maximum:100},
+  status:{$:'Status',slow:{$:'Slow',ticks:0,frozen:false},
+    burn:{$:'Burn',ticks:120,sourcePlayer:{$:'Some',value:1}}}};
+const burned = Game.enemy_effects_indexed(Game.effect_players(burnViews),1000,1000,
+  burningEnemy,list([]),{$:'Empty'});
+assert.equal(burned.$,'Killed','retained guest arcana applies its four burn damage');
+assert.deepEqual(burned.reward.killer,{$:'Some',value:1},'disconnected burn retains real owner credit');
+assert.deepEqual(burned.enemy.status.burn,{$:'Burn',ticks:119,sourcePlayer:{$:'Some',value:1}});
+
 // Personal outcome owns health/invulnerability only, with no fake XP or revival.
 const personalRun = {...observed.game.run,
   session:{...state.shared, tick:1},

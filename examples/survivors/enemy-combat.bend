@@ -108,6 +108,8 @@ def pull_x(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
 def pull_y(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
   ((sumY / U32.to_f32(U32.max(1,count)) - y) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
 type SingleHit is Data: SingleHit{damage: U32,slow: Effect.Slow,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
+# SingleOffense belongs to the sole player-zero context; shared cohorts retain
+# all joined player records and use the source-aware multiple-player resolver.
 type SingleOffense is Data: SingleOffense{tick: U32,px: F32,py: F32,knockMultiplier: F32,pullMultiplier: F32,burnMultiplier: U32,burnDamage: U32,luck: U32}
 def resolve_single(+oldX: F32,+oldY: F32,enemy: State,hit: SingleHit,offense: SingleOffense) -> Outcome:
   match enemy hit offense:
