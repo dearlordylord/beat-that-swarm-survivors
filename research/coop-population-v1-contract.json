@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "coop-population-v1",
+  "axis": "game",
+  "baseCommit": "1a26cf7c9474210fa3216066a310f64c9dff64ec",
+  "purpose": "Reduce excessive two-player ordinary enemy population, preserving other mechanics.",
+  "milestoneTicks": [
+    1800,
+    3600,
+    7200
+  ],
+  "preferredExtraPercent": 25,
+  "baselineExtraPercent": 100,
+  "developmentExtraPercents": [
+    100,
+    50,
+    25,
+    0
+  ],
+  "setups": [
+    {
+      "setupId": "fresh-fresh-stage0-standard",
+      "styleId": "resource-memory-pair",
+      "partySize": 2,
+      "profile": "fresh",
+      "stage": 0,
+      "mode": 0,
+      "arcana0": 0,
+      "arcana1": 0
+    }
+  ],
+  "cohorts": [
+    {
+      "id": "coop-pop-v1-development",
+      "kind": "development",
+      "seeds": [
+        100,
+        101,
+        102,
+        103
+      ],
+      "requestedTicks": 7200
+    },
+    {
+      "id": "coop-pop-v1-validation",
+      "kind": "validation",
+      "seeds": [
+        104729,
+        130363,
+        155921,
+        196613
+      ],
+      "requestedTicks": 7200,
+      "extraPercents": [
+        100,
+        25
+      ]
+    },
+    {
+      "id": "coop-pop-v1-final",
+      "kind": "final",
+      "seeds": [
+        982451653,
+        961748941
+      ],
+      "requestedTicks": 36000,
+      "profiles": [
+        "fresh",
+        "advanced"
+      ],
+      "extraPercents": [
+        100,
+        25
+      ]
+    }
+  ],
+  "pilot": {
+    "seed": 100,
+    "requestedTicks": 120,
+    "extraPercents": [
+      100,
+      25
+    ],
+    "purpose": "Check actual shared-world runner and cost before larger scheduling; not balance evidence."
+  },
+  "constraints": [
+    "Only party population policy differs between game arms; controller and setup remain frozen.",
+    "Zero/one living count behavior exact; health/damage/XP/time/boss rules unchanged.",
+    "No classifier, Node gameplay, graphical rendering, or network in native campaigns.",
+    "Game phases defeat3, victory4, aborted5; horizon is not victory; infrastructure errors never discarded.",
+    "Canonical evidence includes each source/artifact/config identity and explicit paired seeds/setup.",
+    "Nondefault compiled coefficient arms exercise proved configurable formula; production default25 proofs are not claimed for mutated default constants."
+  ],
+  "selectionRules": [
+    "Preferred deployment candidate is extra25 (125 percent for two living players); other development arms are diagnostic controls.",
+    "Require all correctness/proof/mutant gates and actual population admission sensitivity to coefficient.",
+    "Compare reached60s/reached120s and deaths before30s per seed; worse aggregate survival on validation requires review rather than automatic deployment.",
+    "Report level2 reached by60s and XP/progression changes explicitly; no hidden XP compensation.",
+    "Compare time-weighted population on common observed prefixes; also report raw coverage and all deaths.",
+    "Full-horizon runs are finite regression checks, not proof of late balance if episodes die early.",
+    "No candidate selection on final cohort; any use to change next candidate consumes its independence."
+  ],
+  "telemetryLimits": [
+    "HP delta is net health, not damage taken.",
+    "Kills are not DPS.",
+    "Current controller is omniscient and not a human population.",
+    "No causal attribution from one failure without additional facts."
+  ],
+  "resourcePolicy": {
+    "pilotFirst": true,
+    "workersAfterPilot": 4,
+    "threadsPerProcess": 1,
+    "wallBounds": "Chosen from measured pilot cost, recorded per launch; timeout remains an infrastructure outcome.",
+    "stopOnSourceDrift": true
+  }
+}
