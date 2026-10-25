@@ -1,3 +1,5 @@
+import enemy-combat.bend as Enemy
+import enemy-spatial.bend as Space
 # Execute the runner's actual counter on real Game.Body values, natively.
 import Base
 import game-components.bend as Components
@@ -10,15 +12,19 @@ def fixtures() -> List<&2,MetricCase>:
 def pair_matches(expectedOrdinary:U32,expectedBoss:U32,pair:U32 & U32) -> Bool:
   (ordinary,boss) = pair
   Bool.and(U32.is_eq(ordinary,expectedOrdinary),U32.is_eq(boss,expectedBoss))
+def metric_snapshot(kind: U32,variant: U32,+hp: U32) -> G.Snapshot:
+  match kind:
+    case 0: G.EnemySnapshot{Enemy.State{Space.Spatial{0.0,0.0,0,1.0},variant,1,Components.Vitals{hp,hp},Components.Status{0,0}}}
+    case _: G.Snapshot{Components.Body{0.0,0.0,kind,variant,hp,hp,0,1,1.0},G.empty_motion()}
 def case_matches(value:MetricCase) -> Bool:
   match value:
-    case MetricCase{kind,variant,+hp,ordinary,boss}: pair_matches(ordinary,boss,Batch.population_go([Components.Body{0.0,0.0,kind,variant,hp,hp,0,1,1.0}],0,0))
+    case MetricCase{kind,variant,+hp,ordinary,boss}: pair_matches(ordinary,boss,Batch.population_go([metric_snapshot(kind,variant,hp)],0,0))
 def all_match(rows:List<&2,MetricCase>) -> Bool:
   match rows:
     case []: True{}
     case row <> tail: Bool.and(case_matches(row),all_match(tail))
 def first_timed_boss_matches(+variant:U32) -> Bool:
-  Bool.and(U32.is_eq(variant,21),pair_matches(0,1,Batch.population_go([Components.Body{0.0,0.0,0,variant,10,10,0,1,1.0}],0,0)))
+  Bool.and(U32.is_eq(variant,21),pair_matches(0,1,Batch.population_go([metric_snapshot(0,variant,10)],0,0)))
 def report(ok:Bool) -> IO(Unit):
   match ok:
     case False{}: IO.die(Unit,1,"Native co-op population counter fixture failed")
