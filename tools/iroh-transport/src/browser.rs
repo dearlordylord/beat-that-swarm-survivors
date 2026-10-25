@@ -1,6 +1,6 @@
 use crate::{ALPN, MAX_MESSAGE, invitation, parse_invitation};
 use iroh::{
-    Endpoint,
+    Endpoint, RelayMode, RelayUrl,
     endpoint::{Connection, presets},
 };
 use js_sys::{Function, Object, Reflect, Uint8Array};
@@ -11,6 +11,7 @@ use wasm_bindgen_futures::spawn_local;
 
 const MAX_IN_FLIGHT: usize = 16;
 const TIMEOUT: Duration = Duration::from_secs(20);
+const RELAY_URL: &str = "https://quint-graph.fly.dev";
 
 struct Inner {
     endpoint: Endpoint,
@@ -40,6 +41,7 @@ fn emit(
     let event = Object::new();
     Reflect::set(&event, &"type".into(), &kind.into()).ok();
     Reflect::set(&event, &"path".into(), &"relay".into()).ok();
+    Reflect::set(&event, &"relayUrl".into(), &RELAY_URL.into()).ok();
     if let Some(peer) = peer {
         Reflect::set(&event, &"peerId".into(), &peer.into()).ok();
     }
@@ -118,9 +120,11 @@ impl Transport {
     #[wasm_bindgen(js_name = create)]
     pub async fn create(callback: Function) -> Result<Transport, JsValue> {
         console_error_panic_hook::set_once();
+        let relay: RelayUrl = RELAY_URL.parse().map_err(failure)?;
         let endpoint = timeout(
             TIMEOUT,
             Endpoint::builder(presets::N0)
+                .relay_mode(RelayMode::Custom([relay].into_iter().collect()))
                 .alpns(vec![ALPN.to_vec()])
                 .bind(),
         )

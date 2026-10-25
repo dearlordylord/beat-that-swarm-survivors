@@ -13,6 +13,7 @@ const endpoint = await Transport.create(event => {
   // peerId: authenticated Iroh endpoint ID when present
   // bytes: Uint8Array for message; message: diagnostic text when present
   // path: "relay" is the documented browser constraint, not a measured native path
+  // relayUrl: configured self-hosted relay URL
 });
 const invite = endpoint.invitation();
 // On the other endpoint:
@@ -43,9 +44,12 @@ stream instead.
 The adapter rejects sends above 1048576 bytes (1 MiB) and more than 16 concurrent sends.
 Creating/connecting and incomplete incoming/outgoing frames have 20-second limits;
 an idle healthy connection is not timed out by the application. Oversized or
-stalled receive streams close that connection. Browser endpoints use Iroh's public
-development relays and are relay-only; no NAT traversal/direct-connect result is
-claimed. Production relay capacity is a separate deployment choice.
+stalled receive streams close that connection. Browser endpoints use only our
+self-hosted relay at `https://quint-graph.fly.dev` (Iroh 1.4.1, Fly region `yyz`).
+The custom relay map replaces the public development relay list; there is no
+silent public-relay fallback. Browser endpoints remain relay-only; no NAT
+traversal/direct-connect result is claimed. Existing invitation links from hosts
+using public relays must be replaced after both browsers reload.
 
 ## Build and checks
 

@@ -7,6 +7,8 @@ const output = process.env.COOP_QA_DIR || '/tmp/bendvy-coop-browser-qa';
 await mkdir(output,{recursive:true});
 const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
 const errors = [];
+const relaySockets = [];
+const expectedRelay = process.env.COOP_EXPECT_RELAY;
 let host, guest, workerFailure;
 const failedWorker = new Promise(resolve => { workerFailure = resolve; });
 const healthy = promise => Promise.race([promise, failedWorker.then(error => { throw Error(error.stack || error.message); })]);
@@ -43,6 +45,7 @@ try {
   host = await hostContext.newPage(); guest = await guestContext.newPage();
   await host.exposeFunction('__coopWorkerFailed', details => workerFailure(details));
   for (const [name,page] of [['host',host],['guest',guest]]) {
+    page.on('websocket', socket => relaySockets.push({peer:name,url:socket.url()}));
     page.on('pageerror',error => errors.push(`${name}: ${error.message}`));
     page.on('console',message => { if (message.type() === 'error') errors.push(`${name}: ${message.text()}`); });
   }
@@ -93,7 +96,13 @@ try {
   await host.keyboard.up('ArrowLeft');
   assert.equal(await host.evaluate(() => globalThis.__coopError),undefined);
   assert.deepEqual(errors,[]);
-  await writeFile(`${output}/result.json`,JSON.stringify({pass:true,initial,moved,departed,timing,errors},null,2));
+  if (expectedRelay) {
+    const hostname = new URL(expectedRelay).hostname;
+    for (const peer of ['host','guest'])
+      assert.ok(relaySockets.some(socket => socket.peer === peer && new URL(socket.url).hostname === hostname),`${peer} must connect to the configured relay`);
+    assert.ok(relaySockets.every(socket => new URL(socket.url).hostname === hostname),'no public relay fallback');
+  }
+  await writeFile(`${output}/result.json`,JSON.stringify({pass:true,initial,moved,departed,timing,errors,relaySockets},null,2));
   console.log(`PASS real browser co-op: shared world, guest input, nonpausing map, host survives guest departure. ${output}`);
 } catch (error) {
   await writeFile(`${output}/failure.json`,JSON.stringify({message:error.message,errors,host:await pageState(host),guest:await pageState(guest)},null,2));
