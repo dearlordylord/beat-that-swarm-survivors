@@ -39,7 +39,7 @@ def player(value):
 def validate_row(row):
     world=row['physical']['world'];R.u32(world['namespace'],'world namespace');now=time(world['clock']['now'])
     if array(world['clock']['scopes']):raise R.ReplayError('Unclosed co-op clock scope')
-    store=world['store']['players']
+    store=C.store_fields(world['store'])['players']
     C.exact_keys(store,{'$','state'},'player column');owned=store['state'];C.exact_keys(owned,{'$','state'},'player owner')
     if store['$']!='Indexed' or owned['$']!='IndexedOrdinaryOwned':raise R.ReplayError('Unknown player storage constructor')
     state=owned['state'];C.exact_keys(state,{'$','values','metadata'},'player indexed state')
@@ -86,7 +86,7 @@ def controls(row):
     validate_row(row)
     ref=row['refs'][0];index=ref['handle']['key']['index']-1
     for label in ('payload','identity','stamp'):
-        changed=copy.deepcopy(row);state=changed['physical']['world']['store']['players']['state']['state']
+        changed=copy.deepcopy(row);state=C.store_fields(changed['physical']['world']['store'])['players']['state']['state']
         if label=='payload':state['values'][index]['value']['player']['hp']=(state['values'][index]['value']['player']['hp']+1)&0xffffffff
         elif label=='identity':changed['refs'][0]['handle']['key']['generation']=(changed['refs'][0]['handle']['key']['generation']+1)&0xffffffff
         else:state['metadata']['changed'][index]['value']['epoch']+=1

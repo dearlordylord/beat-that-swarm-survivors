@@ -13,6 +13,15 @@ def exact_keys(value, keys, label):
         raise ReplayError(f'Unknown/missing {label} fields')
 
 
+def store_fields(value):
+    exact_keys(value,{'$','state'},'store owner')
+    if value['$']!='Owned':raise ReplayError('Expected Owned store constructor')
+    fields=value['state']
+    exact_keys(fields,{'$','vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots'},'store fields')
+    if fields['$']!='StoreFields':raise ReplayError('Expected StoreFields constructor')
+    return fields
+
+
 def sequence(value, label):
     if not isinstance(value, list):
         raise ReplayError(f'Invalid {label}: expected list')

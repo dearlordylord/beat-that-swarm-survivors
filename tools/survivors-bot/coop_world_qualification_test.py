@@ -4,6 +4,7 @@ import unittest
 import current_replay_schema as C
 import current_replay_fixture as F
 import coop_world_qualification as W
+import qualification_coop_players as P
 import replay_compare as R
 
 def party():
@@ -31,8 +32,8 @@ class CoopWorldQualification(unittest.TestCase):
     def test_store_reader_opens_only_actual_canonical_owner(self):
         fields={'$':'StoreFields',**{name:object() for name in ('vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots')}}
         owner={'$':'Owned','state':fields}
-        self.assertIs(W.store_fields(owner),fields)
-        self.assertIs(W.store_fields(owner)['spaces'],fields['spaces'])
+        self.assertIs(C.store_fields(owner),fields)
+        self.assertIs(C.store_fields(owner)['spaces'],fields['spaces'])
         for invalid in (
             {'$':'Store',**{k:v for k,v in fields.items() if k!='$'}},
             fields,
@@ -42,7 +43,12 @@ class CoopWorldQualification(unittest.TestCase):
             {'$':'Owned','state':{k:v for k,v in fields.items() if k!='identities'}},
         ):
             with self.subTest(layout=invalid['$']):
-                with self.assertRaises(R.ReplayError):W.store_fields(invalid)
+                with self.assertRaises(R.ReplayError):C.store_fields(invalid)
+    def test_player_and_full_readers_reject_obsolete_store_as_replay_error(self):
+        row={'physical':{'world':{'namespace':1,'clock':{'now':{'$':'Tick','epoch':0,'low':0},'scopes':{'$':'Nil'}},'store':{'$':'Store','players':{}}}}}
+        for reader in (P.validate_row,W.extract):
+            with self.subTest(reader=reader.__name__):
+                with self.assertRaises(R.ReplayError):reader(row)
     def test_indexed_reader_rejects_authority_outside_issued_scope(self):
         none={'$':'None'};stamp={'$':'Some','value':{'$':'Tick','epoch':0,'low':1}}
         value={'$':'Indexed','state':{'$':'IndexedOrdinaryOwned','state':{'$':'IndexedOrdinaryState','values':[none,{'$':'Some','value':3}],'metadata':{'$':'Metadata','capacity':2,'depth':1,'added':[none,stamp],'changed':[none,stamp],'exceptional':{'$':'Nil'}}}}}
