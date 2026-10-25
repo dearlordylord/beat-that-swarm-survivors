@@ -433,22 +433,23 @@ def modal(phase: U32,+run: G.Run,offers: List<&2,G.Offer>,paused: U32,tail: List
 # Pause map uses world coordinates; only persistent objectives get markers.
 def map_coord(value: F32,origin: F32) -> F32:
   (origin + F32.clamp(value,0.0,G.world_size()) * 224.0 / G.world_size() : F32)
-def map_marker(kind: U32,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  match kind:
-    case 5: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,16768903,tail)
-    case 9: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,13948927,tail)
+def map_marker(item: Pickup.Item,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match item:
+    case Pickup.Chest{}: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,16768903,tail)
+    case Pickup.Relic{_}: D.rect((map_coord(x,48.0) - 2.0 : F32),(map_coord(y,96.0) - 2.0 : F32),5.0,5.0,13948927,tail)
     case _: tail
-def map_markers(rows: List<&2,Components.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def map_markers(rows: List<&2,G.Snapshot>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case Components.Body{x,y,kind,_,_,_,_,_,_} <> rest: map_marker(kind,x,y,map_markers(rest,tail))
+    case G.PickupSnapshot{Pickup.State{Space.Spatial{x,y,_,_},Pickup.Payload{item,_,True{}},_}} <> rest: map_marker(item,x,y,map_markers(rest,tail))
+    case _ <> rest: map_markers(rest,tail)
 def map_view(+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   +left = F32.max(0.0,(run_px(run) - V.native_center_x() / V.native_scale() : F32))
   +top = F32.max(0.0,(run_py(run) - V.native_center_y() / V.native_scale() : F32))
   +right = F32.min(G.world_size(),(run_px(run) + (512.0 - V.native_center_x()) / V.native_scale() : F32))
   +bottom = F32.min(G.world_size(),(run_py(run) + (384.0 - V.native_center_y()) / V.native_scale() : F32))
   border(map_coord(left,48.0),map_coord(top,96.0),((right - left) * 224.0 / G.world_size() : F32),((bottom - top) * 224.0 / G.world_size() : F32),7985384,tail)
-def pause_map(+run: G.Run,rows: List<&2,Components.Body>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def pause_map(+run: G.Run,rows: List<&2,G.Snapshot>,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   D.text("PAUSED / MAP",48.0,68.0,2.0,15584891,
   D.text("YOU",298.0,112.0,1.0,15584891,
   D.text("CHEST",298.0,140.0,1.0,16768903,
@@ -460,13 +461,13 @@ def pause_map(+run: G.Run,rows: List<&2,Components.Body>,tail: List<&2,D.Rect>) 
   D.rect((map_coord(run_px(run),48.0) - 2.0 : F32),(map_coord(run_py(run),96.0) - 2.0 : F32),5.0,5.0,15584891,
   map_markers(rows,map_view(run,border(48.0,96.0,224.0,224.0,4020038,
   D.rect(48.0,96.0,224.0,224.0,1186082,D.rect(28.0,52.0,456.0,296.0,724763,tail))))))))))))))
-def map_phase(phase: U32,+run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def map_phase(phase: U32,+run: G.Run,rows: List<&2,G.Snapshot>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match phase:
     case 0: pause_map(run,rows,tail)
     case 1: pause_map(run,rows,tail)
     case 2: pause_map(run,rows,tail)
     case phase: modal(phase,run,offers,paused,tail)
-def world_modal(+run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def world_modal(+run: G.Run,rows: List<&2,G.Snapshot>,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match paused:
     case 1: map_phase(run_phase(run),run,rows,offers,1,tail)
     case p: modal(run_phase(run),run,offers,p,tail)
@@ -493,7 +494,7 @@ def ground(fuel: Nat,+index: U32,+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D
       color = ground_color(Bool.or(Bool.or(F32.is_lt(wx,0.0),F32.is_lt(wy,0.0)),Bool.or(F32.is_lt(G.world_size(),wx),F32.is_lt(G.world_size(),wy))),ground_hazard(run_stage(run),wx,wy),U32.is_le((period - 120 : U32),(run_tick(run) % period : U32)),((F32.to_u32(F32.abs(wx)) / 64 + F32.to_u32(F32.abs(wy)) / 64) % 2 : U32))
       D.rect(x,y,16.0,16.0,color,ground(k,(index + 1 : U32),run,tail))
 def gameplay_rows(+run: G.Run,+rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,+ui: Ui,+snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
-  hud(run,world_modal(run,rows,offers,ui_paused(ui),
+  hud(run,world_modal(run,snapshots,offers,ui_paused(ui),
   Art.player(256.0,210.0,ui_character(ui),run_invuln(run),
   actors(snapshots,run_px(run),run_py(run),ground(768n,0,run,[])))))
 
