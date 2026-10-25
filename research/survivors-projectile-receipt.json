@@ -1,0 +1,103 @@
+{
+  "status": "SCOPED_QUALIFICATION_PASS",
+  "issue": 6,
+  "gameplaySourceCommit": "8080c1b9d36c7f3e68fdc169b1edb1056cc8a42b",
+  "nativeBinarySha256": "21eb8e6b9ca5f16707ea4e8ec2dd393b82cb49ac3633beb13e4a07585caf68ef",
+  "nativeSourceArchiveSha256": "c9f16ff8df55554791abac809b2808866feba148d6ae12b267f4be17c04ea3d1",
+  "bendVersion": "2.0.38",
+  "cCompiler": "Debian clang 14.0.6",
+  "nativeWithoutNode": true,
+  "nativeCheckpoints": 15,
+  "nativeScenarios": [
+    {
+      "scenario": "normal",
+      "checkpoints": 5,
+      "captureSha256": "2f2271afba70e0fb9b770de819dd2edb6e2dea329755cf84360ebc225f6122f1",
+      "receiptSha256": "e478e676d3e4b6256742bc6e7aa53a162ff431d9fcc26553df486b2b3140df63"
+    },
+    {
+      "scenario": "terminal",
+      "checkpoints": 4,
+      "captureSha256": "7fbc0d577837c463e428790fe54b9521b5c851b01e4ad0ba98796014bffa475e",
+      "receiptSha256": "70beeddd3c3fd90dfa6f1814facad397d73fcca3834d2cc2fafa78eb24572113"
+    },
+    {
+      "scenario": "advanced",
+      "checkpoints": 6,
+      "captureSha256": "fdd4a418e4778960e558a83c1f539b051ab407fdb501147d82fd333fccc3f0a5",
+      "receiptSha256": "04c99dd2819ac92541857ee28c4af37558b3ba4df849b0439b23f320513b7b5d"
+    }
+  ],
+  "coop": {
+    "checkpoints": 6,
+    "captureSha256": "8d13eeab190498d538af31125783a3f8e9012131e613830a4ae0081a4f950163",
+    "frozenFullFactsSha256": "56453e58172a87a3ae4e6117fb3cc9d98617554de37aa79f99b31c9215996165",
+    "rawSourceControls": [
+      "raw-coop-damage",
+      "raw-coop-xp",
+      "raw-coop-generation",
+      "raw-coop-status",
+      "raw-coop-identity",
+      "raw-coop-source-player",
+      "raw-coop-pickup-age",
+      "raw-coop-pickup-accumulator",
+      "raw-coop-loot-amount",
+      "raw-coop-future-stamp",
+      "raw-coop-routing-order"
+    ],
+    "scope": "Complete actual co-op pooled World and player authorities, lifecycle/allocator/clock/routing validation, exact named facts and ordered active snapshots; no tolerances or age/generation exclusions."
+  },
+  "physicalMembership": {
+    "allPoolSlots": [
+      "roles",
+      "identities",
+      "spaces"
+    ],
+    "enemySlots": [
+      "vitals",
+      "statuses"
+    ],
+    "enemyAndRelicSlots": [
+      "enemyPhases"
+    ],
+    "playerAndHostileProjectileSlots": [
+      "shots",
+      "trajectories"
+    ],
+    "enemyRelicAndXpSlots": [
+      "pickups"
+    ],
+    "removedBodyMembers": 0,
+    "nativePlayerRecords": 0,
+    "coopPlayerRecords": 2
+  },
+  "proofs": {
+    "kernelModules": 4,
+    "cpuSecondsBound": 10,
+    "wallSecondsBound": 60,
+    "blindTranslationApproved": true,
+    "laws": {
+      "projectile-state/LAWS.bend": "e75ecf004853899c68a35ea2e6ff573947dfef9c85b3fcf13e7e138200d609b1",
+      "projectile-pool/LAWS.bend": "e760f4c984158738cbd85cf55ea09309e1b073dffe7df8c63a35b8fd56101cfb",
+      "coop-playback-wire-policy-LAWS.bend": "c095c248ffa6a00b107f23fc115dc0a60932b769442dbcbe7ceb0d872c8218ee",
+      "coop-prediction-replay-LAWS.bend": "7dc79c0910a7ea0c212124a506818ce6beafea3c81ed69190606899bb65b38c4"
+    },
+    "semanticMutantsUnique": 18,
+    "constructorSourceOwnershipMutantPass": true
+  },
+  "functionalEvidence": {
+    "analyticCoreContacts": "PASS",
+    "actualTwoPlayerProjectileOwnership": "PASS",
+    "localAnticipationAssertions": 67,
+    "typedPlaybackAndActualAdapterAssertions": 141,
+    "currentReplayControls": 10,
+    "coopPhysicalScopeControls": 5,
+    "otherQualificationControls": 10,
+    "authorityPairedControls": 18,
+    "dependencyAuditModules": 228
+  },
+  "artifactDirectory": "/tmp/survivors-issue6",
+  "historicalDecoderArchive": "/tmp/survivors-issue6/export-frozen-coop.py",
+  "noPerformanceClaim": true,
+  "remaining": "Coordinated integration reviews and final combined issue 10 qualification; parent owns publication/closure."
+}
