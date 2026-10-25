@@ -145,9 +145,9 @@ function prepareDisplayFrame(now) {
   const frame = remoteFrame || {...authorityFrame,remotePresentation:{
     sourceTick:authorityFrame.tick,tick:authorityFrame.tick}};
   const targets = [];
-  for (const body of frame.bodies || []) {
-    const target = LocalProjectiles.observed_target(body[7],body[2],body[6],
-      frame.remotePresentation.sourceTick,body[0],body[1],body[8],body[4]);
+  for (const enemy of frame.enemies) {
+    const target = LocalProjectiles.observed_target(enemy.identity,0,enemy.age,
+      frame.remotePresentation.sourceTick,enemy.x,enemy.y,enemy.radius,enemy.health);
     if (target.$ === 'Some') targets.push(target.value);
   }
   localTargets = nativeList(targets);
@@ -172,9 +172,9 @@ function displayFrame(frame) {
   if (role !== 'guest' || !authorityFrame) return frame;
   remoteFrame = frame;
   const targets = [];
-  for (const body of frame.bodies || []) {
-    const target = LocalProjectiles.observed_target(body[7],body[2],body[6],
-      frame.remotePresentation.sourceTick,body[0],body[1],body[8],body[4]);
+  for (const enemy of frame.enemies) {
+    const target = LocalProjectiles.observed_target(enemy.identity,0,enemy.age,
+      frame.remotePresentation.sourceTick,enemy.x,enemy.y,enemy.radius,enemy.health);
     if (target.$ === 'Some') targets.push(target.value);
   }
   localTargets = nativeList(targets);
@@ -188,19 +188,28 @@ function displayFrame(frame) {
   }
   const visual = JSON.parse(LocalProjectiles.render(localShots,1,frame.remotePresentation.tick,localTargets));
   const visibility = LocalProjectiles.prepare_visibility(localShots);
-  const bodies = (frame.bodies || []).filter(body => LocalProjectiles.should_show_prepared(
-    visibility,1,body[2],body[10],body[9])).concat(visual.shots.map(shot =>
-      [shot.x,shot.y,shot.kind,shot.weapon,0,0,shot.age,shot.seed,shot.radius,shot.id,shot.player,0,shot.opacity]));
+  const projectiles = frame.projectiles.filter(projectile => LocalProjectiles.should_show_prepared(
+    visibility,1,projectile.hostile ? 7 : 1,projectile.owner,projectile.lifetime));
+  const localProjectiles = visual.shots.map(shot => ({
+    identity:shot.seed,lifetime:shot.id,owner:shot.player,hostile:false,weapon:shot.weapon,
+    age:shot.age,x:shot.x,y:shot.y,radius:shot.radius,life:shot.life,opacity:shot.opacity,
+  }));
+  const projectileIds = new Set(projectiles.map(projectile => projectile.identity));
+  const enemies = frame.enemies;
+  const enemyFades = [];
+  const actorOrder = frame.actorOrder.filter(reference =>
+    !Object.hasOwn(reference,'projectile') || projectileIds.has(reference.projectile));
+  for (const projectile of localProjectiles) actorOrder.push({localProjectile:projectile.lifetime});
   for (const corpse of visual.corpses) {
-    const metadata = ui.presentation.bodyMetadata(corpse.seed,corpse.id);
+    const metadata = ui.presentation.enemyMetadata(corpse.seed,corpse.id);
     if (metadata) {
-      const body = metadata.slice(); body[0] = corpse.x; body[1] = corpse.y; body[4] = 0; body[12] = .45;
-      bodies.push(body);
+      enemyFades.push({...metadata,x:corpse.x,y:corpse.y,health:0,opacity:.45,lifetime:corpse.id});
+      actorOrder.push({enemyFade:corpse.id});
     }
   }
-  return {...frame,bodies,px:point.x,py:point.y,
-    players:frame.players?.map(player => player.id === authorityFrame.ownPlayerId
-      ? {...player,...authorityFrame.players?.find(own => own.id === player.id),px:point.x,py:point.y} : player),
+  return {...frame,projectiles,localProjectiles,enemies,enemyFades,actorOrder,px:point.x,py:point.y,
+    players:frame.players.map(player => player.id === authorityFrame.ownPlayerId
+      ? {...player,...authorityFrame.players.find(own => own.id === player.id),px:point.x,py:point.y} : player),
     predictionTiming:prediction ? {anchorWorldTick:prediction.anchorWorldTick,
       displayWorldTick:prediction.displayWorldTick,lead:predictionLead,inputAckDelayMs,
       resync:lastPredictionResync,server:authorityInputTiming} : undefined};

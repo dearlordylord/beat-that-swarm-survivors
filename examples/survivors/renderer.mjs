@@ -3,8 +3,11 @@ import Game from "./dist/game.mjs";
 
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
 const TAU = Math.PI * 2;
-const shotIdentity = body => typeof body[9] === "string"
-  ? `generation:${body[9]}` : `slot:${body[7]}:${body[9] ?? ""}`;
+const shotIdentity = projectile => {
+  if (typeof projectile.lifetime !== "string" || !projectile.lifetime.length)
+    throw Error("A projectile observation requires its explicit lifetime.");
+  return projectile.lifetime;
+};
 const THEMES = [
   ["#121c20", "#1c2b2b", "#334139", "#76917a"],
   ["#211d26", "#302835", "#534452", "#b79b79"],
@@ -105,19 +108,37 @@ export class Renderer {
     const bodies = Array.isArray(frame.bodies) ? frame.bodies : [];
     // A forecast may reconcile a volley into another physical pool slot.
     // Heading belongs to its semantic lifetime, and expires with that lifetime.
-    const shotKeys = new Set(bodies.filter(b => b[2] === 1 || b[2] === 7).map(shotIdentity));
+    const projectiles = frame.projectiles;
+    const localProjectiles = frame.localProjectiles || [];
+    const shotKeys = new Set(projectiles.concat(localProjectiles).map(shotIdentity));
     for (const key of this.shotPositions?.keys() || [])
       if (!shotKeys.has(key)) this.shotPositions.delete(key);
     for (const b of bodies) if (b[2] === 6) this.effect(b, true);
     const enemies = frame.enemies;
     const bodyByIdentity = new Map(bodies.map(body => [body[7], body]));
     const enemyByIdentity = new Map(enemies.map(enemy => [enemy.identity, enemy]));
+    const enemyFades = frame.enemyFades || [];
+    const fadeByLifetime = new Map(enemyFades.map(enemy => [enemy.lifetime, enemy]));
+    const projectileByIdentity = new Map(projectiles.map(projectile => [projectile.identity, projectile]));
+    const localByLifetime = new Map(localProjectiles.map(projectile => [projectile.lifetime, projectile]));
     // Resolve explicit phase-order references before the stable depth sort.
     // This preserves ties and overlap across separate typed observations.
     const ordered = frame.actorOrder.map(reference => {
       if (Object.hasOwn(reference, "enemy")) {
         const enemy = enemyByIdentity.get(reference.enemy);
         return {kind: "enemy", value: enemy, y: enemy.y};
+      }
+      if (Object.hasOwn(reference, "enemyFade")) {
+        const enemy = fadeByLifetime.get(reference.enemyFade);
+        return {kind: "enemy", value: enemy, y: enemy.y};
+      }
+      if (Object.hasOwn(reference, "projectile")) {
+        const projectile = projectileByIdentity.get(reference.projectile);
+        return {kind: "projectile", value: projectile, y: projectile.y};
+      }
+      if (Object.hasOwn(reference, "localProjectile")) {
+        const projectile = localByLifetime.get(reference.localProjectile);
+        return {kind: "projectile", value: projectile, y: projectile.y};
       }
       const body = bodyByIdentity.get(reference.body);
       return {kind: "body", value: body, y: body[1]};
@@ -129,13 +150,14 @@ export class Renderer {
       while (playerIndex < players.length && actor.y > players[playerIndex].py)
         this.observedPlayer(players[playerIndex++], players.length > 1);
       if (actor.kind === "enemy") this.drawEnemy(actor.value);
+      else if (actor.kind === "projectile") this.drawProjectile(actor.value);
       else this.drawBody(actor.value);
     }
     while (playerIndex < players.length)
       this.observedPlayer(players[playerIndex++], players.length > 1);
     for (const b of bodies) if (b[2] === 6) this.effect(b, false);
     for (const enemy of enemies) this.enemyHealthBar(enemy);
-    if (options.showDamage !== false) this.damage(enemies, dt);
+    if (options.showDamage !== false) this.damage(enemies.concat(enemyFades), dt);
     this.contactEffects(frame.combatImpacts || []);
     const shade = c.createRadialGradient(
       this.width / 2,
@@ -476,6 +498,15 @@ export class Renderer {
     this.enemy(enemy);
     this.ctx.restore(); this.bodyOpacity = 1;
   }
+  drawProjectile(projectile) {
+    const [x, y] = this.xy(projectile.x, projectile.y);
+    const margin = Math.max(100, projectile.radius);
+    if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return;
+    this.bodyOpacity = Number.isFinite(projectile.opacity) ? Math.max(0, Math.min(1, projectile.opacity)) : 1;
+    this.ctx.save(); this.setAlpha(1);
+    this.projectile(projectile);
+    this.ctx.restore(); this.bodyOpacity = 1;
+  }
   setAlpha(opacity) { this.ctx.globalAlpha = opacity * (this.bodyOpacity ?? 1); }
   drawBody(body) {
     this.bodyOpacity = Number.isFinite(body[12]) ? Math.max(0,Math.min(1,body[12])) : 1;
@@ -507,10 +538,6 @@ export class Renderer {
       v = b[3] || 0,
       t = this.time,
       c = this.ctx;
-    if (k === 1 || k === 7) {
-      this.projectile(x, y, v, b, k === 7);
-      return;
-    }
     const bob = this.options.reducedMotion
       ? 0
       : Math.sin(t * 3 + (b[7] || 0)) * 2;
@@ -851,12 +878,14 @@ export class Renderer {
       );
     }
   }
-  projectile(x, y, v, b, hostile) {
+  projectile(projectile) {
+    const [x, y] = this.xy(projectile.x, projectile.y);
+    const hostile = projectile.hostile;
     const c = this.ctx,
-      id = v % 24,
+      id = projectile.weapon % 24,
       col = hostile ? "#f97678" : COLORS[id];
-    const radius = Math.max(1, Number(b[8]) || 5),
-      age = Number(b[6]) || 0;
+    const radius = Math.max(1, Number(projectile.radius) || 5),
+      age = Number(projectile.age) || 0;
     const area =
       !hostile &&
       ([4, 5, 7, 9, 11, 20, 22].includes(id) ||
@@ -934,14 +963,14 @@ export class Renderer {
       return;
     }
     const r = radius,
-      a = (this.options.reducedMotion ? 0 : age * 0.15) + (b[7] || 0);
-    const key = shotIdentity(b);
+      a = (this.options.reducedMotion ? 0 : age * 0.15) + (projectile.identity || 0);
+    const key = shotIdentity(projectile);
     const previous = this.shotPositions.get(key);
-    const moved = previous && (previous.x !== b[0] || previous.y !== b[1]);
+    const moved = previous && (previous.x !== projectile.x || previous.y !== projectile.y);
     const heading = moved
-      ? Math.atan2(b[1] - previous.y, b[0] - previous.x)
+      ? Math.atan2(projectile.y - previous.y, projectile.x - previous.x)
       : previous?.angle || 0;
-    this.shotPositions.set(key, { x: b[0], y: b[1], angle: heading });
+    this.shotPositions.set(key, { x: projectile.x, y: projectile.y, angle: heading });
     c.rotate([1, 10, 13, 18].includes(id) || hostile ? heading : a);
     c.shadowColor = col;
     c.shadowBlur = hostile ? 4 : 5;
