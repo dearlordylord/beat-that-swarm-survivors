@@ -1,3 +1,4 @@
+import run-state.bend as RS
 # Native, unpaced simulation. No browser, Node, classifier, or frame parsing.
 import Base
 import game.bend as G
@@ -28,7 +29,7 @@ def start(+profile: U32,+seed: U32) -> G.Packet:
     case _: B.fresh_start_seed(seed)
 def tick(+run: G.Run) -> U32:
   match run:
-    case G.Run{_,value,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: value
+    case G.Run{RS.Session{_,value,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: value
 def outcome(terminal: Bool) -> String:
   match terminal:
     case True{}: "terminal"
@@ -44,7 +45,7 @@ def xp_sum(+rows: List<&2,G.Body>) -> U32:
     case G.Body{_,_,kind,_,value,_,_,_,_} <> rest: (value * Bool.to_u32(U32.is_eq(kind,2)) + xp_sum(rest) : U32)
 def report(+index: U32,+seed: U32,+profile: U32,+choices: U32,+started: Nat,+ticks: U32,+run: G.Run,+rows: List<&2,G.Body>) -> IO(Unit):
   match run:
-    case G.Run{+phase,+tick,_,_,hp,_,xp,xpNeed,level,kills,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
+    case G.Run{RS.Session{+phase,+tick,xp,xpNeed,level,kills,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       do IO<Unit>:
         now : Nat <- IO.now()
         IO.print("{\"type\":\"summary\",\"backend\":\"native\",\"policy\":\"bend-resource-memory-v1\",\"index\":" ++ U32.show(index) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"profile\":\"" ++ profile_name(profile) ++ "\",\"status\":\"completed\",\"tick\":" ++ U32.show(tick) ++ ",\"requestedTicks\":" ++ U32.show(ticks) ++ ",\"outcome\":\"" ++ outcome(U32.is_le(3,phase)) ++ "\",\"phase\":" ++ U32.show(phase) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"level\":" ++ U32.show(level) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(xpNeed) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"choices\":" ++ U32.show(choices) ++ ",\"xpPiles\":" ++ U32.show(piles(rows)) ++ ",\"uncollectedBaseXp\":" ++ U32.show(xp_sum(rows)) ++ ",\"wallMs\":" ++ Nat.show(Nat.sub(now,started)) ++ "}")

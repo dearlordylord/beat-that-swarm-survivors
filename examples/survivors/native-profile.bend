@@ -1,3 +1,4 @@
+import run-state.bend as RS
 # Native run observations and file IO adapt the proved profile economy.
 import Base
 import game.bend as G
@@ -7,7 +8,7 @@ import native-profile-codec.bend as Codec
 
 def receipt(run: G.Run) -> R.Receipt:
   match run:
-    case G.Run{phase,tick,_,_,_,_,_,_,level,kills,gained,character,weapons,_,_,seed,stage,_,_,revivals,bosses,_,_,_,_,_,_,enemies,relic}:
+    case G.Run{RS.Session{phase,tick,_,_,level,kills,gained,seed,stage,bosses,_,enemies,relic},RS.PlayerState{_,_,_,_,character,weapons,_,_,_,_,revivals,_,_,_,_,_}}:
       R.Receipt{phase,tick,level,kills,gained,character,weapons,seed,stage,revivals,bosses,enemies,relic}
 def record(profile: E.Profile,run: G.Run) -> E.Profile: R.record(profile,receipt(run))
 def loaded_text(result: Result<&1,&1,U32 & String,String>) -> E.Profile:

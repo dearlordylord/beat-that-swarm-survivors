@@ -1,3 +1,4 @@
+import run-state.bend as RS
 # Native complete-run consumer: only public start/configure/choose/advance inputs.
 # No injected clock, inventory, entity, health or terminal state.
 import Base
@@ -9,31 +10,31 @@ type Stats is Data: Stats{boss: Bool,chest: Bool,level: Bool,decisions: U32}
 type Controlled is Type: Controlled{memory: Policy.Memory,packet: G.Packet}
 def phase(run: G.Run) -> U32:
   match run:
-    case G.Run{phase,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: phase
+    case G.Run{RS.Session{phase,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: phase
 def tick(run: G.Run) -> U32:
   match run:
-    case G.Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: tick
+    case G.Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: tick
 def hp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: hp
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}: hp
 def maxHp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,maxHp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: maxHp
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,maxHp,_,_,_,_,_,_,_,_,_,_,_,_}}: maxHp
 def weapons(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,weapons,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: weapons
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,weapons,_,_,_,_,_,_,_,_,_,_}}: weapons
 def passives(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,passives,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: passives
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,passives,_,_,_,_,_,_,_,_,_}}: passives
 def level(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,level,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: level
+    case G.Run{RS.Session{_,_,_,_,level,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: level
 def kills(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,kills,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: kills
+    case G.Run{RS.Session{_,_,_,_,_,kills,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: kills
 def gold(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: gold
+    case G.Run{RS.Session{_,_,_,_,_,_,gold,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: gold
 def contains(values: List<&2,U32>,+id: U32) -> Bool:
   match values:
     case []: False{}
@@ -47,16 +48,16 @@ def starter_evolved(run: G.Run) -> Bool: U32.is_le(9,G.at(weapons(run),witness_w
 def missing_prerequisite(run: G.Run) -> Bool: U32.is_eq(G.at(passives(run),required_passive()),0)
 def seed(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,seed,_,_,_,_,_,_,_,_,_,_,_,_,_}: seed
+    case G.Run{RS.Session{_,_,_,_,_,_,_,seed,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: seed
 def banned_weapons(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned,_,_,_}: banned
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned,_}}: banned
 def banned_passives(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned,_,_}: banned
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned}}: banned
 def rerolls(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,rerolls,_,_,_,_,_,_}: rerolls
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,rerolls,_,_,_,_}}: rerolls
 def preferred_weapon(id: U32) -> Bool: contains([4,19,10,0,2,17],id)
 def passive_rank(id: U32) -> U32: G.at([4,1,3,99,99,99,2,5,99,99,99,0,99,99,99,99,99,99],id)
 def broad_offer_score(offer: G.Offer,+run: G.Run) -> U32:

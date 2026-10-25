@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import bot-actions.bend as B
@@ -146,7 +147,7 @@ def tick_closed(closed: Bool,state: Bot) -> IO(Maybe<Bot>):
 def tick(events: List<Event>,state: Bot) -> IO(Maybe<Bot>): tick_closed(closes(events),state)
 def rendering_run(run: G.Run,packet: G.Packet) -> N.Native:
   match run:
-    case G.Run{+phase,_,_,_,_,_,_,_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: N.Native{packet,N.set_character(N.set_paused(N.set_screen(N.initial_ui(),1),(Bool.to_u32(Bool.or(U32.is_eq(phase,1),U32.is_eq(phase,2))) * 2 : U32)),character),P.fresh()}
+    case G.Run{RS.Session{+phase,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_}}: N.Native{packet,N.set_character(N.set_paused(N.set_screen(N.initial_ui(),1),(Bool.to_u32(Bool.or(U32.is_eq(phase,1),U32.is_eq(phase,2))) * 2 : U32)),character),P.fresh()}
 def rendering_native(packet: G.Packet) -> N.Native:
   match packet:
     case G.Packet{G.State{world,+run,rows,offers,snapshots,pending}}:

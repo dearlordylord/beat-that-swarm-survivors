@@ -1,3 +1,4 @@
+import run-state.bend as RS
 # Real native UI event flow; upgrade/terminal boundaries are explicitly fabricated.
 import Base
 import native.bend as N
@@ -49,7 +50,7 @@ def busy(fuel: Nat,state: N.Native) -> N.Native:
 def release(code: U32,state: N.Native) -> N.Native: N.reduce([Key{code,False{}}],state)
 def phase_run(run: G.Run,+newPhase: U32,+newGold: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{newPhase,tick,px,py,hp,maxHp,xp,need,level,kills,newGold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{newPhase,tick,xp,need,level,kills,newGold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def boundary(state: N.Native,phase: U32,gold: U32) -> N.Native:
   match state:
     case N.Native{G.Packet{G.State{world,+run,rows,_,snapshots,_}},ui,profile}:
@@ -57,7 +58,7 @@ def boundary(state: N.Native,phase: U32,gold: U32) -> N.Native:
     case state: state
 def paid_run(run: G.Run) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,_,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{0,tick,px,py,hp,maxHp,need,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,_,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{0,tick,need,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def earned_panel_test(state: N.Native) -> IO(Unit):
   match state:
     case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},u,p}:

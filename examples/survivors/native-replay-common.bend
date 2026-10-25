@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import bot-actions.bend as B
@@ -23,7 +24,7 @@ def start(profile: U32,seed: U32) -> G.Packet:
     case _: B.fresh_start_seed(seed)
 def tick(run: G.Run) -> U32:
   match run:
-    case G.Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: tick
+    case G.Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: tick
 def is_terminal(run: G.Run) -> Bool: U32.is_le(3,G.run_phase(run))
 def action_tick(action: F.Action) -> U32:
   match action:

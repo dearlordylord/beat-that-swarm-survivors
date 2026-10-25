@@ -83,7 +83,8 @@ function coreContacts(tick, snapshots) {
 
 function preparedTeam(tick, snapshots) {
   const state = coreSeedState();
-  const run = { ...state.shared, tick };
+  const observedRun = Core.core_observe(state, 0).observation.game.run;
+  const run = { ...observedRun, session: { ...observedRun.session, tick } };
   const args = {
     $: 'Args', run, bodies: nil(), dx: 0, dy: 0,
     snapshots: list(snapshots), hits: nil(),

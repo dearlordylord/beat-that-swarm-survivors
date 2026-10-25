@@ -13,7 +13,7 @@ const record=(state,key,value)=>({...state,[key]:value});
 const prediction=(lead=54,enabled=true,anchor=0)=>C['coop-prediction:fresh_prepared'](128,128,2.5,enabled,anchor,lead);
 const run=(weapon=0,tick=0,x=128,y=128)=>{
   const weapons=Array(24).fill(0);if(weapon)weapons[weapon]=1;else weapons[0]=1;
-  return {$:'Run',phase:0,tick,px:x,py:y,hp:10,maxHp:10,xp:0,xpNeed:20,level:1,kills:0,gold:0,character:0,weapons:list(weapons),passives:list(Array(18).fill(0)),invuln:0,seed:12345,stage:0,arcana:0,meta:0,revivals:0,bosses:0,mode:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0,enemyKinds:list([]),relicCollected:0};
+  return {$:'Run',session:{$:'Session',phase:0,tick,xp:0,xpNeed:20,level:1,kills:0,gold:0,seed:12345,stage:0,bosses:0,mode:0,enemyKinds:list([]),relicCollected:0},player:{$:'PlayerState',px:x,py:y,hp:10,maxHp:10,character:0,weapons:list(weapons),passives:list(Array(18).fill(0)),invuln:0,arcana:0,meta:0,revivals:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0}};
 };
 const target=(seed,generation,x,y,radius=12,hp=10)=>{
   const out=C.observed_target(seed,0,1,(generation+1)>>>0,x,y,radius,hp);

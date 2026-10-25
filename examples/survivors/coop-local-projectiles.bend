@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import ./game.bend as G
 import ./projectile.bend as Projectile
@@ -83,7 +84,7 @@ def origin_y(value:Visual) -> F32:
     case Visual{_,_,_,_,_,_,_,y,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: y
 def run_point(run:G.Run) -> Point:
   match run:
-    case G.Run{_,_,x,y,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: Point{x,y}
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{x,y,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: Point{x,y}
 def shot_id(value:Visual) -> String:
   match value:
     case Visual{id,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: id
@@ -319,8 +320,8 @@ def reposition_attached_rows(rows:List<&2,Visual>,+x:F32,+y:F32) -> List<&2,Visu
     case head <> tail: reposition_attached(head,x,y) <> reposition_attached_rows(tail,x,y)
 def released_run(+value:Visual,+run:G.Run) -> G.Run:
   match value run:
-    case Visual{_,_,_,_,_,_,+originX,+originY,_,_,_,_,_,_,_,_,_,_,_,_,_,_} G.Run{phase,tick,_,_,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}:
-      G.Run{phase,tick,originX,originY,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case Visual{_,_,_,_,_,_,+originX,+originY,_,_,_,_,_,_,_,_,_,_,_,_,_,_} G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{_,_,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}:
+      G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{originX,originY,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def owner_run(attached:Bool,+value:Visual,run:G.Run) -> G.Run:
   match attached value:
     case True{} _: run

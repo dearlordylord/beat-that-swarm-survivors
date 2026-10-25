@@ -103,17 +103,17 @@ if (process.argv.includes('--journal-only')) {
 
   const weapons = Array.from({ length: 24 }, (_, index) => index === 11 ? 8 : 0);
   const passives = Array.from({ length: 18 }, (_, index) => index === 4 ? 5 : 0);
+  const observedRun = Core.core_observe(started.state, 0).observation.game.run;
   const run = {
-    ...started.state.shared,
-    tick: contactTick,
-    weapons: list(weapons),
-    passives: list(passives),
+    ...observedRun,
+    session: { ...observedRun.session, tick: contactTick },
+    player: { ...observedRun.player, weapons: list(weapons), passives: list(passives) },
   };
-  const fireRun = { ...run, tick: fireTick };
-  const cooldown = Game.cooldown_for(11, run.passives, run.meta, run.arcana, run.character);
+  const fireRun = { ...run, session: { ...run.session, tick: fireTick } };
+  const cooldown = Game.cooldown_for(11, run.player.passives, run.player.meta, run.player.arcana, run.player.character);
   assert.equal(cooldown, 600);
   assert.equal(fireTick % cooldown, 1, 'weapon 11 fires on the preceding tick');
-  assert.equal(Game.projectile_amount(11, 8, run.passives, run.arcana), 8);
+  assert.equal(Game.projectile_amount(11, 8, run.player.passives, run.player.arcana), 8);
 
   const requestCount = candidateRun => array(Game.shot_requests(
     24,
@@ -128,8 +128,8 @@ if (process.argv.includes('--journal-only')) {
     $: 'Snapshot',
     body: {
       $: 'Body',
-      x: run.px + (seed % 25) * 3,
-      y: run.py + Math.floor(seed / 25) * 3,
+      x: run.player.px + (seed % 25) * 3,
+      y: run.player.py + Math.floor(seed / 25) * 3,
       kind: 0,
       variant: 1,
       hp: 10000,

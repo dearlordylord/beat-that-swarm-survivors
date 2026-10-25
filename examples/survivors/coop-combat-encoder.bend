@@ -19,10 +19,10 @@ def native_snapshots(rows:List<&2,G.Snapshot>) -> String:
   match rows:
     case []: "{\"$\":\"Nil\"}"
     case head <> tail: "{\"$\":\"Con\",\"head\":" ++ native_snapshot(head) ++ ",\"tail\":" ++ native_snapshots(tail) ++ "}"
-def native_player(value:G.PlayerRecord) -> String:
+def native_player(value:G.PlayerSnapshot) -> String:
   match value:
-    case G.PlayerRecord{id,run,connected}: "{\"$\":\"PlayerRecord\",\"id\":" ++ U32.show(id) ++ ",\"run\":" ++ W.native_run(run) ++ ",\"connected\":" ++ Bool.pick(String,connected,"true","false") ++ "}"
-def native_players(rows:List<&2,G.PlayerRecord>) -> String:
+    case G.PlayerSnapshot{id,run,connected}: "{\"$\":\"PlayerSnapshot\",\"id\":" ++ U32.show(id) ++ ",\"run\":" ++ W.native_run(run) ++ ",\"connected\":" ++ Bool.pick(String,connected,"true","false") ++ "}"
+def native_players(rows:List<&2,G.PlayerSnapshot>) -> String:
   match rows:
     case []: "{\"$\":\"Nil\"}"
     case head <> tail: "{\"$\":\"Con\",\"head\":" ++ native_player(head) ++ ",\"tail\":" ++ native_players(tail) ++ "}"
@@ -41,7 +41,7 @@ def native_contacts(rows:List<&2,Policy.Witness>) -> String:
 def native_scene(scene:Prediction.Scene) -> String:
   match scene:
     case Prediction.Scene{own,players,snapshots,births,directions,contacts,tick,diagnostics}: "{\"$\":\"Scene\",\"own\":" ++ U32.show(own) ++ ",\"players\":" ++ native_players(players) ++ ",\"snapshots\":" ++ native_snapshots(snapshots) ++ ",\"births\":" ++ W.native_births(births) ++ ",\"directions\":" ++ native_directions(directions) ++ ",\"contacts\":" ++ native_contacts(contacts) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"diagnostics\":" ++ Bool.pick(String,diagnostics,"true","false") ++ "}"
-def observe(own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>) -> String: native_scene(Prediction.initialize(own,players,snapshots))
+def observe(own:U32,tick:U32,players:List<&2,G.PlayerSnapshot>,snapshots:List<&2,G.Snapshot>) -> String: native_scene(Prediction.initialize(own,tick,players,snapshots))
 def generation(kind:U32,seed:U32,born:U32,owner:U32,slot:U32) -> String:
   PlaybackProjection.generation(kind,seed,born,owner,slot)
 def visual_owner(kind:U32,slot:U32) -> U32: PlaybackProjection.visual_owner(kind,slot)
@@ -57,10 +57,10 @@ def visual_rows(rows:List<&2,G.Snapshot>,+tick:U32,+births:BI.Index<U32>) -> Str
     case []: ""
     case head <> []: visual_row(tick,births,head)
     case head <> tail: visual_row(tick,births,head) ++ "," ++ visual_rows(tail,tick,births)
-def visual_player(value:G.PlayerRecord) -> String:
+def visual_player(value:G.PlayerSnapshot) -> String:
   match value:
-    case G.PlayerRecord{id,+run,+connected}: "{\"id\":" ++ U32.show(id) ++ ",\"px\":" ++ F32.show(G.run_px(run)) ++ ",\"py\":" ++ F32.show(G.run_py(run)) ++ ",\"hp\":" ++ U32.show(G.run_hp(run)) ++ ",\"maxHp\":" ++ U32.show(G.run_maxHp(run)) ++ ",\"character\":" ++ U32.show(G.run_character(run)) ++ ",\"connected\":" ++ Bool.pick(String,connected,"true","false") ++ ",\"alive\":" ++ Bool.pick(String,Bool.and(connected,U32.is_gt(G.run_hp(run),0)),"true","false") ++ "}"
-def visual_players(rows:List<&2,G.PlayerRecord>) -> String:
+    case G.PlayerSnapshot{id,+run,+connected}: "{\"id\":" ++ U32.show(id) ++ ",\"px\":" ++ F32.show(G.run_px(run)) ++ ",\"py\":" ++ F32.show(G.run_py(run)) ++ ",\"hp\":" ++ U32.show(G.run_hp(run)) ++ ",\"maxHp\":" ++ U32.show(G.run_maxHp(run)) ++ ",\"character\":" ++ U32.show(G.run_character(run)) ++ ",\"connected\":" ++ Bool.pick(String,connected,"true","false") ++ ",\"alive\":" ++ Bool.pick(String,Bool.and(connected,U32.is_gt(G.run_hp(run),0)),"true","false") ++ "}"
+def visual_players(rows:List<&2,G.PlayerSnapshot>) -> String:
   match rows:
     case []: ""
     case head <> []: visual_player(head)

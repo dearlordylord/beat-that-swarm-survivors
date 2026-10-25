@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import pools.bend as PL
@@ -80,7 +81,7 @@ def snapshots_items(rows: List<&2,G.Snapshot>) -> String:
 def snapshots(rows: List<&2,G.Snapshot>) -> String: "[" ++ snapshots_items(rows) ++ "]"
 def run(value: G.Run) -> String:
   match value:
-    case G.Run{phase,tick,px,py,hp,maximum,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}: array([U32.show(phase),U32.show(tick),fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(xp),U32.show(need),U32.show(level),U32.show(kills),U32.show(gold),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(seed),U32.show(stage),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(bosses),U32.show(mode),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives),u32s(enemyKinds),U32.show(relicCollected)])
+    case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: array([U32.show(phase),U32.show(tick),fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(xp),U32.show(need),U32.show(level),U32.show(kills),U32.show(gold),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(seed),U32.show(stage),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(bosses),U32.show(mode),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives),u32s(enemyKinds),U32.show(relicCollected)])
 def maybe_value(~T: Data,~show: T -> String,value: Maybe<&2,T>) -> String:
   match value:
     case None{}: "null"
@@ -314,7 +315,7 @@ def fold_snapshots(rows: List<&2,G.Snapshot>,acc: U32) -> U32:
     case value <> rest: fold_snapshots(rest,fold_snapshot(value,mix(acc,1)))
 def fold_run(value: G.Run,acc: U32) -> U32:
   match value:
-    case G.Run{phase,tick,px,py,hp,maximum,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}: fold_words(enemyKinds,fold_words(passives,fold_words(weapons,fold_words([phase,tick,F32.bits(px),F32.bits(py),hp,maximum,xp,need,level,kills,gold,character,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,relicCollected],acc))))
+    case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: fold_words(enemyKinds,fold_words(passives,fold_words(weapons,fold_words([phase,tick,F32.bits(px),F32.bits(py),hp,maximum,xp,need,level,kills,gold,character,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,relicCollected],acc))))
 def fold_present(~V: Data,~fold: V -> U32 -> U32,value: Maybe<&2,V>,acc: U32) -> U32:
   match value:
     case None{}: mix(acc,0)

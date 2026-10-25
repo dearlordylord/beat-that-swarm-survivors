@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import arena.bend as A
@@ -21,7 +22,7 @@ def batch_reachable(batch:G.XpBatch) -> Bool:
   match batch:
     case G.XpBatch{_,+body,index,_}: reachable(G.xp_batch_body(body,index,PL.xp_start(),0))
 def run() -> G.Run:
-  G.Run{0,1,1000.0,1000.0,100,100,0,20,1,0,0,0,[],[],0,12345,0,0,0,0,0,0,3,3,3,0,0,[],0}
+  G.Run{RS.Session{0,1,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{1000.0,1000.0,100,100,0,[],[],0,0,0,0,3,3,3,0,0}}
 def enemy(x:F32,seed:U32) -> G.Snapshot:
   G.Snapshot{G.Body{x,1000.0,0,17,100,100,0,seed,6.0},G.empty_motion()}
 def shot() -> G.Snapshot:

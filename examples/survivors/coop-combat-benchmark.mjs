@@ -64,9 +64,9 @@ const shots = Array.from({ length: 100 }, (_, i) => ({
     logicalSlot: (i % 2) * 65536 + (Math.floor(i / 2) % 8),
   },
 }));
-const scene = C.receive(C.initialize(1, initial.players, list([...enemies, ...shots])), S.fresh(123));
+const scene = C.receive(C.initialize(1, initial.tick, initial.players, list([...enemies, ...shots])), S.fresh(123));
 const own = array(scene.players).find(player => player.id === 1).run;
-let input = P.fresh(own.px, own.py, 2.5, true, scene.tick, 0);
+let input = P.fresh(own.player.px, own.player.py, 2.5, true, scene.tick, 0);
 for (let i = 1; i <= 30; i++) input = P.tick(P.command(input, i, 2, 1));
 const forecastMs = [];
 let warmupForecastMs;

@@ -8,10 +8,10 @@ import ./body-index.bend as BI
 import ./list-map.bend as LM
 
 type BodyContext is Data: BodyContext{tick:U32,births:BI.Index<U32>}
-def player_actor(player:G.PlayerRecord) -> P.Actor:
+def player_actor(player:G.PlayerSnapshot) -> P.Actor:
   match player:
-    case G.PlayerRecord{id,+run,connected}: Projection.player_actor(id,G.run_character(run),G.run_px(run),G.run_py(run),G.run_hp(run),connected)
-def mapped_player(context:Unit,player:G.PlayerRecord) -> P.Actor: player_actor(player)
+    case G.PlayerSnapshot{id,+run,connected}: Projection.player_actor(id,G.run_character(run),G.run_px(run),G.run_py(run),G.run_hp(run),connected)
+def mapped_player(context:Unit,player:G.PlayerSnapshot) -> P.Actor: player_actor(player)
 def body_liveness(kind:U32,hp:U32,life:U32,pierce:U32) -> U32: Projection.body_liveness(kind,hp,life,pierce)
 def body_actor(body:G.Body,motion:G.Motion,born:U32) -> P.Actor:
   match body motion:
@@ -26,7 +26,7 @@ def extra_actor(key:U32,kind:U32,variant:U32,x:F32,y:F32,age:U32,hp:U32,tick:U32
 def join(first:List<&2,P.Actor>,second:List<&2,P.Actor>) -> List<&2,P.Actor>: Projection.join(first,second)
 def project(scene:Wire.Scene,observation:U32,receivedAt:Nat,extras:List<&2,P.Actor>) -> P.Frame:
   match scene:
-    case Wire.Scene{_,players,snapshots,births,_,_,+tick,_}: Projection.frame(observation,tick,receivedAt,LM.map(~G.PlayerRecord,~P.Actor,~Unit,~mapped_player,Unit{},players),LM.map(~G.Snapshot,~P.Actor,~BodyContext,~snapshot_actor,BodyContext{tick,births},snapshots),extras)
+    case Wire.Scene{_,players,snapshots,births,_,_,+tick,_}: Projection.frame(observation,tick,receivedAt,LM.map(~G.PlayerSnapshot,~P.Actor,~Unit,~mapped_player,Unit{},players),LM.map(~G.Snapshot,~P.Actor,~BodyContext,~snapshot_actor,BodyContext{tick,births},snapshots),extras)
 def own_run(scene:Wire.Scene) -> Maybe<&2,G.Run>:
   match scene:
     case Wire.Scene{own,players,_,_,_,_,_,_}: Wire.find_run(players,own)

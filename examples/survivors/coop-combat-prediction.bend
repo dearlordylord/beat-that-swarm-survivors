@@ -17,7 +17,7 @@ import ./coop-combat-broadphase.bend as Broadphase
 # All currently known combat actors advance together from one received anchor.
 # Only sampled directions cross this boundary; admission clocks and leases stay
 # authoritative. Speculative world time cannot expire a remote input heartbeat.
-type Scene is Data: Scene{own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool}
+type Scene is Data: Scene{own:U32,players:List<&2,G.PlayerSnapshot>,snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool}
 def active(snapshot:G.Snapshot) -> Bool:
   match snapshot:
     case G.Snapshot{G.Body{_,_,+kind,_,hp,_,_,_,_},G.Motion{_,_,life,pierce,_,_,_,_,_}}:
@@ -30,20 +30,17 @@ def active_snapshots(rows:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
     case +head <> tail: add_snapshot(active(head),head,active_snapshots(tail))
-def player_tick(players:List<&2,G.PlayerRecord>) -> U32:
-  match players:
-    case []: 0
-    case G.PlayerRecord{_,run,_} <> _: G.run_tick(run)
-def initialize_active(own:U32,+players:List<&2,G.PlayerRecord>,+snapshots:List<&2,G.Snapshot>) -> Scene:
-  Scene{own,players,snapshots,W.birth_map(snapshots,player_tick(players),BI.Empty{},BI.Empty{},BI.Empty{}),Session.Directions{0.0,0.0,0.0,0.0},[],player_tick(players),False{}}
-def initialize(own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>) -> Scene:
-  initialize_active(own,players,active_snapshots(snapshots))
+
+def initialize_active(own:U32,+tick:U32,players:List<&2,G.PlayerSnapshot>,+snapshots:List<&2,G.Snapshot>) -> Scene:
+  Scene{own,players,snapshots,W.birth_map(snapshots,tick,BI.Empty{},BI.Empty{},BI.Empty{}),Session.Directions{0.0,0.0,0.0,0.0},[],tick,False{}}
+def initialize(own:U32,tick:U32,players:List<&2,G.PlayerSnapshot>,snapshots:List<&2,G.Snapshot>) -> Scene:
+  initialize_active(own,tick,players,active_snapshots(snapshots))
 def normalize_run(+run:G.Run) -> G.Run:
   G.with_py(G.with_px(run,Policy.normalize(G.run_px(run))),Policy.normalize(G.run_py(run)))
-def normalize_players(rows:List<&2,G.PlayerRecord>) -> List<&2,G.PlayerRecord>:
+def normalize_players(rows:List<&2,G.PlayerSnapshot>) -> List<&2,G.PlayerSnapshot>:
   match rows:
     case []: []
-    case G.PlayerRecord{id,run,connected} <> tail: G.PlayerRecord{id,normalize_run(run),connected} <> normalize_players(tail)
+    case G.PlayerSnapshot{id,run,connected} <> tail: G.PlayerSnapshot{id,normalize_run(run),connected} <> normalize_players(tail)
 def normalize_snapshot(value:G.Snapshot) -> G.Snapshot:
   match value:
     case G.Snapshot{G.Body{x,y,kind,variant,hp,maximum,age,seed,radius},G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}}:
@@ -72,10 +69,10 @@ def body_seed(body:G.Body) -> U32:
 def snapshot_body(snapshot:G.Snapshot) -> G.Body:
   match snapshot:
     case G.Snapshot{body,_}: body
-def find_run(players:List<&2,G.PlayerRecord>,+id:U32) -> Maybe<&2,G.Run>:
+def find_run(players:List<&2,G.PlayerSnapshot>,+id:U32) -> Maybe<&2,G.Run>:
   match players:
     case []: None{}
-    case G.PlayerRecord{+player,run,_} <> tail: Bool.pick(Maybe<&2,G.Run>,U32.is_eq(player,id),Some{run},find_run(tail,id))
+    case G.PlayerSnapshot{+player,run,_} <> tail: Bool.pick(Maybe<&2,G.Run>,U32.is_eq(player,id),Some{run},find_run(tail,id))
 def allowed_run(run:Maybe<&2,G.Run>,x:U32,y:U32) -> Bool:
   match run:
     case None{}: False{}
@@ -89,14 +86,21 @@ def hinted_x(player:U32,directions:Session.Directions) -> F32:
 def hinted_y(player:U32,directions:Session.Directions) -> F32:
   match directions:
     case Session.Directions{_,y0,_,y1}: Bool.pick(F32,U32.is_eq(player,0),y0,y1)
-def view(+own:U32,+x:U32,+y:U32,+directions:Session.Directions,tick:U32,player:G.PlayerRecord) -> G.PlayerView:
+def view(+own:U32,+x:U32,+y:U32,+directions:Session.Directions,tick:U32,player:G.PlayerSnapshot) -> G.PlayerView:
   match player:
-    case G.PlayerRecord{+id,+run,connected}:
-      G.PlayerView{id,G.with_tick(Bool.pick(G.Run,connected,run,G.with_hp(run,0)),tick),Bool.pick(F32,U32.is_eq(id,own),Session.axis(x),hinted_x(id,directions)),Bool.pick(F32,U32.is_eq(id,own),Session.axis(y),hinted_y(id,directions))}
-def views(rows:List<&2,G.PlayerRecord>,+own:U32,+x:U32,+y:U32,+directions:Session.Directions,+tick:U32) -> List<&2,G.PlayerView>:
+    case G.PlayerSnapshot{+id,+run,connected}:
+      G.PlayerView{id,G.with_tick(run,tick),Bool.pick(F32,U32.is_eq(id,own),Session.axis(x),hinted_x(id,directions)),Bool.pick(F32,U32.is_eq(id,own),Session.axis(y),hinted_y(id,directions))}
+def connected_view(connected:Bool,view:G.PlayerView,tail:List<&2,G.PlayerView>) -> List<&2,G.PlayerView>:
+  match connected:
+    case True{}: view <> tail
+    case False{}: tail
+def snapshot_connected(player:G.PlayerSnapshot) -> Bool:
+  match player:
+    case G.PlayerSnapshot{_,_,connected}: connected
+def views(rows:List<&2,G.PlayerSnapshot>,+own:U32,+x:U32,+y:U32,+directions:Session.Directions,+tick:U32) -> List<&2,G.PlayerView>:
   match rows:
     case []: []
-    case head <> tail: view(own,x,y,directions,tick,head) <> views(tail,own,x,y,directions,tick)
+    case +head <> tail: connected_view(snapshot_connected(head),view(own,x,y,directions,tick,head),views(tail,own,x,y,directions,tick))
 def any_request(rows:List<&2,SP.Request>) -> Bool:
   match rows:
     case []: False{}
@@ -329,11 +333,18 @@ def existing_enemies_cached(rows:List<&2,G.Snapshot>,+team:G.Team,+recipients:Re
     case []: []
     case G.Snapshot{G.Body{+x,+y,0,+variant,+hp,+maximum,+age,+seed,+radius},motion} <> tail: row_snapshot(enemy_cached(BI.find(~G.Body,moved,seed),team,G.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion,recipients),existing_enemies_cached(tail,team,recipients,moved))
     case _ <> tail: existing_enemies_cached(tail,team,recipients,moved)
-def moved_players(players:List<&2,G.PlayerRecord>,+views:List<&2,G.PlayerView>) -> List<&2,G.PlayerRecord>:
-  match players views:
-    case [] _: []
-    case G.PlayerRecord{id,_,connected} <> tail view <> rest: G.PlayerRecord{id,G.moved_run(view),connected} <> moved_players(tail,rest)
-    case left Nil{}: left
+def moved_view_for(views:List<&2,G.PlayerView>,+id:U32) -> Maybe<&2,G.Run>:
+  match views:
+    case []: None{}
+    case +view <> rest: Bool.pick(Maybe<&2,G.Run>,U32.is_eq(G.view_id(view),id),Some{G.moved_run(view)},moved_view_for(rest,id))
+def player_after_movement(+player:G.PlayerSnapshot,moved:Maybe<&2,G.Run>) -> G.PlayerSnapshot:
+  match player moved:
+    case G.PlayerSnapshot{id,_,connected} Some{run}: G.PlayerSnapshot{id,run,connected}
+    case player None{}: player
+def moved_players(players:List<&2,G.PlayerSnapshot>,+views:List<&2,G.PlayerView>) -> List<&2,G.PlayerSnapshot>:
+  match players:
+    case []: []
+    case G.PlayerSnapshot{+id,+run,+connected} <> tail: player_after_movement(G.PlayerSnapshot{id,run,connected},moved_view_for(views,id)) <> moved_players(tail,views)
 def team_plan(team:G.Team) -> SP.Plan:
   match team:
     case G.Team{_,_,plan,_}: plan
@@ -424,14 +435,14 @@ def diagnostic_contacts(enabled:Bool,step:Prepared,+tick:U32,previous:List<&2,G.
   match enabled:
     case False{}: []
     case True{}: List.append(&2,Policy.Witness,recent_witnesses(contacts,tick),step_witnesses(step,tick,previous,births))
-def advanced_rows(own:U32,+players:List<&2,G.PlayerRecord>,+previous:List<&2,G.Snapshot>,+births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,+diagnostics:Bool,+step:Prepared,+updated:List<&2,G.Snapshot>) -> Scene:
+def advanced_rows(own:U32,+players:List<&2,G.PlayerSnapshot>,+previous:List<&2,G.Snapshot>,+births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,+diagnostics:Bool,+step:Prepared,+updated:List<&2,G.Snapshot>) -> Scene:
   Scene{own,moved_players(players,team_views(prepared_team(step))),updated,W.birth_map(updated,tick,births,W.plan_births(team_plan(prepared_team(step)),tick),BI.Empty{}),directions,diagnostic_contacts(diagnostics,step,tick,previous,births,contacts),tick,diagnostics}
-def advanced_team(+reference:Bool,own:U32,players:List<&2,G.PlayerRecord>,+previous:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool,+step:Prepared) -> Scene:
+def advanced_team(+reference:Bool,own:U32,players:List<&2,G.PlayerSnapshot>,+previous:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool,+step:Prepared) -> Scene:
   advanced_rows(own,players,previous,births,directions,contacts,tick,diagnostics,step,List.append(&2,G.Snapshot,choose_enemies(reference,previous,prepared_team(step),prepared_moved(step)),List.append(&2,G.Snapshot,choose_projectiles(reference,previous,prepared_team(step),prepared_next(step)),spawned_projectiles(prepared_team(step)))))
-def clocked_scene(+reference:Bool,+own:U32,+players:List<&2,G.PlayerRecord>,+snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,+directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,diagnostics:Bool,+x:U32,+y:U32) -> Scene:
+def clocked_scene(+reference:Bool,+own:U32,+players:List<&2,G.PlayerSnapshot>,+snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,+directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,diagnostics:Bool,+x:U32,+y:U32) -> Scene:
   match players:
     case []: Scene{own,[],snapshots,births,directions,contacts,tick,diagnostics}
-    case G.PlayerRecord{+id,+run,+connected} <> +tail: advanced_team(reference,own,G.PlayerRecord{id,run,connected} <> tail,snapshots,births,directions,contacts,tick,diagnostics,make_team(reference,views(G.PlayerRecord{id,run,connected} <> tail,own,x,y,directions,tick),snapshots,own,run))
+    case G.PlayerSnapshot{+id,+run,+connected} <> +tail: advanced_team(reference,own,G.PlayerSnapshot{id,run,connected} <> tail,snapshots,births,directions,contacts,tick,diagnostics,make_team(reference,views(G.PlayerSnapshot{id,run,connected} <> tail,own,x,y,directions,tick),snapshots,own,run))
 def advance_unchecked_mode(reference:Bool,scene:Scene,x:U32,y:U32) -> Scene:
   match scene:
     case Scene{own,players,snapshots,births,directions,contacts,tick,diagnostics}: clocked_scene(reference,own,players,snapshots,births,directions,contacts,Policy.next_tick(tick),diagnostics,x,y)

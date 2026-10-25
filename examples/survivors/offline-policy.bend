@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import bot-actions.bend as A
@@ -60,7 +61,7 @@ def best_offer(+rows: List<&2,G.Offer>,+weapons: List<&2,U32>,+passives: List<&2
       ))
 def upgrade(+run: G.Run,+offers: List<&2,G.Offer>) -> U32:
   match run:
-    case G.Run{_,_,_,_,hp,maxHp,_,_,_,_,_,_,weapons,passives,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: best_offer(offers,weapons,passives,hp,maxHp,0,0,(0.0 - 10000.0 : F32))
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,hp,maxHp,_,weapons,passives,_,_,_,_,_,_,_,_,_}}: best_offer(offers,weapons,passives,hp,maxHp,0,0,(0.0 - 10000.0 : F32))
 
 def goal_point(+goal: Goal) -> Point:
   match goal:
@@ -555,7 +556,7 @@ def steer_enemy(+enemy: G.Body,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>,+
       ))
 def steer(+run: G.Run,+rows: List<&2,G.Body>,+target: Maybe<&2,Point>) -> F32 & F32:
   match run:
-    case G.Run{_,_,+px,+py,_,_,_,_,_,_,_,_,weapons,+passives,_,_,_,+arcana,_,_,_,_,_,_,_,_,_,_,_}:
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,_,weapons,+passives,_,+arcana,_,_,_,_,_,_,_}}:
       +here : Point = Point{px,py}
       bind(~(G.Body),~(U32),~(F32 & F32),nearest(rows,here,G.Body{(px + 300.0 : F32),py,0,0,1,1,0,0,12.0},1000000.0,0),(+enemy => +count =>
         bind(~(Bool),~(F32),~(F32 & F32),aura(weapons,0,passives,arcana,True{},0.0,0),(+fields => +radius =>
@@ -577,7 +578,7 @@ def invalidated(+old: Maybe<&2,Choice>,+fresh: Maybe<&2,Choice>) -> Bool:
     case _ _: False{}
 def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,G.Body>) -> Memory & (F32 & F32):
   match memory run:
-    case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{_,+tick,+px,+py,+hp,+maxHp,_,_,_,_,_,+character,_,+passives,_,_,_,+arcana,+meta,_,_,_,_,_,_,_,_,_,_}:
+    case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
       +here : Point = Point{px,py}
       +moved=F32.is_lt(12.0,distance(here,anchor))
       +since=branch(~(U32),Bool.or(moved,Bool.not(initialized)),(_ =>

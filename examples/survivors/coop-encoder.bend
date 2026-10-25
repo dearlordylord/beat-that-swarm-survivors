@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import game-encoder.bend as GameEncoder
@@ -8,7 +9,7 @@ import coop-hit-journal.bend as Journal
 
 def player_json(player: G.PlayerRecord) -> String:
   match player:
-    case G.PlayerRecord{+id,+run,connected}: "{\"id\":" ++ U32.show(id) ++ ",\"px\":" ++ F32.show(Core.run_px(run)) ++ ",\"py\":" ++ F32.show(Core.run_py(run)) ++ ",\"hp\":" ++ U32.show(Core.run_hp(run)) ++ ",\"maxHp\":" ++ U32.show(Core.run_maxHp(run)) ++ ",\"character\":" ++ U32.show(Core.run_character(run)) ++ ",\"connected\":" ++ Bool.pick(String,connected,"true","false") ++ ",\"alive\":" ++ Bool.pick(String,U32.is_lt(0,Core.run_hp(run)),"true","false") ++ "}"
+    case G.PlayerRecord{+id,+run,connected}: "{\"id\":" ++ U32.show(id) ++ ",\"px\":" ++ F32.show(RS.player_px(run)) ++ ",\"py\":" ++ F32.show(RS.player_py(run)) ++ ",\"hp\":" ++ U32.show(RS.player_hp(run)) ++ ",\"maxHp\":" ++ U32.show(RS.player_maxHp(run)) ++ ",\"character\":" ++ U32.show(RS.player_character(run)) ++ ",\"connected\":" ++ Bool.pick(String,connected,"true","false") ++ ",\"alive\":" ++ Bool.pick(String,U32.is_lt(0,RS.player_hp(run)),"true","false") ++ "}"
 def players_json(players: List<&2,G.PlayerRecord>) -> String:
   match players:
     case []: ""

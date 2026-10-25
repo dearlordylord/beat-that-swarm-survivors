@@ -1,3 +1,4 @@
+import run-state.bend as RS
 # Independent native Bend worlds. No Node, classifier, rendering or per-job IO.
 import Base
 import game.bend as G
@@ -12,7 +13,7 @@ type NumericSummary is Data:
 
 def capture(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,G.Body>) -> NumericSummary:
   match run:
-    case G.Run{phase,tick,_,_,hp,_,xp,xpNeed,level,kills,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
+    case G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       NumericSummary{index,seed,profile,choices,ticks,phase,tick,hp,level,xp,xpNeed,kills,gold,Serial.piles(rows),Serial.xp_sum(rows)}
 def summary(result: NumericSummary) -> String:
   match result:

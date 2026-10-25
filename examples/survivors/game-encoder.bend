@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 
@@ -29,7 +30,7 @@ def visible_bodies(rows: List<&2,G.Body>) -> List<&2,G.Body>:
     case body <> rest: body <> visible_bodies(rest)
 def encode_extra(observation: G.Observation,extra: String) -> String:
   match observation:
-    case G.Observation{G.Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,+stage,arcana,meta,revivals,bosses,+mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers}:
+    case G.Observation{G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,+stage,bosses,+mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers}:
       "{\"worldSize\":" ++ F32.show(G.world_size()) ++ ",\"worldMargin\":" ++ F32.show(G.world_margin()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(G.relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(G.relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(G.run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "]" ++ extra ++ "}"
 def encode(observation: G.Observation) -> String: encode_extra(observation,"")
 type Encoded is Type: Encoded{state: G.State,frame: String}

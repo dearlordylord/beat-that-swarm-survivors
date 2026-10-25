@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import game-encoder.bend as Encoder
@@ -51,7 +52,7 @@ def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,bodies: List<&2,G.Bod
 
 def catalog(run: G.Run,bodies: List<&2,G.Body>) -> String:
   match run:
-    case G.Run{phase,tick,px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
+    case G.Run{RS.Session{phase,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       catalog_live(U32.is_le(phase,2),tick,px,py,bodies)
 
 # Mechanical context comes from the exact functions used by live gameplay.
@@ -82,7 +83,7 @@ def weapon_stats(rows: List<&2,U32>,+id: U32,+passives: List<&2,U32>,+meta: U32,
 
 def engine_stats(run: G.Run) -> String:
   match run:
-    case G.Run{_,_,_,_,hp,maxHp,_,_,_,_,gold,+character,+weapons,+passives,_,_,_,+arcana,+meta,_,_,_,_,_,_,_,_,_,_}:
+    case G.Run{RS.Session{_,_,_,_,_,_,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,maxHp,+character,+weapons,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
       "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ Encoder.nums_json(weapons) ++ "],\"passives\":[" ++ Encoder.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"pickupRadius\":" ++ F32.show(G.pickup_radius(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
 
 def preview_stats(offer: G.Offer,run: G.Run) -> String: engine_stats(G.upgrade(offer,run))

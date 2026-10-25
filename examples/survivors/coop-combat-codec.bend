@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import ./game.bend as G
 import ./projectile-pool.bend as SP
@@ -33,9 +34,17 @@ def native_nums(rows:List<&2,U32>) -> String:
     case []: "{\"$\":\"Nil\"}"
     case head <> tail: "{\"$\":\"Con\",\"head\":" ++ U32.show(head) ++ ",\"tail\":" ++ native_nums(tail) ++ "}"
 
+def native_session(value:RS.Session) -> String:
+  match value:
+    case RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected}: "{\"$\":\"Session\"" ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(xpNeed) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"bosses\":" ++ U32.show(bosses) ++ ",\"mode\":" ++ U32.show(mode) ++ ",\"enemyKinds\":" ++ native_nums(enemyKinds) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ "}"
+
+def native_personal(value:RS.PlayerState) -> String:
+  match value:
+    case RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}: "{\"$\":\"PlayerState\"" ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":" ++ native_nums(weapons) ++ ",\"passives\":" ++ native_nums(passives) ++ ",\"invuln\":" ++ U32.show(invuln) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"meta\":" ++ U32.show(meta) ++ ",\"revivals\":" ++ U32.show(revivals) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"bannedWeapons\":" ++ U32.show(bannedWeapons) ++ ",\"bannedPassives\":" ++ U32.show(bannedPassives) ++ "}"
+
 def native_run(value:G.Run) -> String:
   match value:
-    case G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}: "{\"$\":\"Run\"" ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(xpNeed) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":" ++ native_nums(weapons) ++ ",\"passives\":" ++ native_nums(passives) ++ ",\"invuln\":" ++ U32.show(invuln) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"meta\":" ++ U32.show(meta) ++ ",\"revivals\":" ++ U32.show(revivals) ++ ",\"bosses\":" ++ U32.show(bosses) ++ ",\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"bannedWeapons\":" ++ U32.show(bannedWeapons) ++ ",\"bannedPassives\":" ++ U32.show(bannedPassives) ++ ",\"enemyKinds\":" ++ native_nums(enemyKinds) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ "}"
+    case G.Run{session,personal}: "{\"$\":\"Run\",\"session\":" ++ native_session(session) ++ ",\"player\":" ++ native_personal(personal) ++ "}"
 
 def native_body(value:G.Body) -> String:
   match value:

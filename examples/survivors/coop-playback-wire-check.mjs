@@ -11,14 +11,14 @@ const {default:W}=await import(pathToFileURL(wirePath));
 const {default:P}=await import(pathToFileURL(join(moduleDir,'coop-playback.mjs')));
 const list=rows=>rows.reduceRight((tail,head)=>({$:'Con',head,tail}),{$:'Nil'});
 const array=rows=>{const out=[];for(;rows.$==='Con';rows=rows.tail)out.push(rows.head);return out;};
-const run=(extra={})=>({$:'Run',phase:0,tick:100,px:.1,py:-.2,hp:100,maxHp:100,xp:0,xpNeed:1,level:1,kills:0,gold:0,character:1,weapons:list([]),passives:list([]),invuln:0,seed:1,stage:0,arcana:0,meta:0,revivals:0,bosses:0,mode:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0,enemyKinds:list([]),relicCollected:0,...extra});
+const run=({tick=100,character=1,hp=100}={})=>({$:'Run',session:{$:'Session',phase:0,tick,xp:0,xpNeed:1,level:1,kills:0,gold:0,seed:1,stage:0,bosses:0,mode:0,enemyKinds:list([]),relicCollected:0},player:{$:'PlayerState',px:.1,py:-.2,hp,maxHp:100,character,weapons:list([]),passives:list([]),invuln:0,arcana:0,meta:0,revivals:0,rerolls:0,banishes:0,skips:0,bannedWeapons:0,bannedPassives:0}});
 const body=(extra={})=>({$:'Body',x:.1,y:-.2,kind:1,variant:2,hp:0,maxHp:0,age:10,seed:42,radius:3,...extra});
 const motion=(extra={})=>({$:'Motion',vx:1,vy:0,life:20,pierce:2,visited:list([]),slow:0,burn:0,ownerBase:3,logicalSlot:65540,...extra});
-const scene=(tick,b,extra={})=>({$:'Scene',own:0,players:list([{$:'PlayerRecord',id:0,run:run({tick}),connected:true}]),snapshots:list([{$:'Snapshot',body:b,motion:motion()}]),births:{$:'Item',key:b.seed,value:90},directions:{$:'Directions',hostX:0,hostY:0,guestX:0,guestY:0},contacts:list([]),tick,diagnostics:false,...extra});
+const scene=(tick,b,extra={})=>({$:'Scene',own:0,players:list([{$:'PlayerSnapshot',id:0,run:run({tick}),connected:true}]),snapshots:list([{$:'Snapshot',body:b,motion:motion()}]),births:{$:'Item',key:b.seed,value:90},directions:{$:'Directions',hostX:0,hostY:0,guestX:0,guestY:0},contacts:list([]),tick,diagnostics:false,...extra});
 const raw=(observation,tick,b,extra={})=>({observationSeq:observation,tick,ownPlayerId:0,px:0,py:0,players:[{id:0,px:.1,py:-.2,hp:100}],bodies:[[b.x,b.y,b.kind,b.variant,b.hp,b.maxHp,b.age,b.seed,b.radius]],combatForecast:scene(tick,b),...extra});
 let checks=0;const check=(v,message)=>{assert.ok(v,message);checks++;};
 for(const connected of [true,false]){
- const actor=W.player_actor({$:'PlayerRecord',id:1,run:run(),connected});
+ const actor=W.player_actor({$:'PlayerSnapshot',id:1,run:run(),connected});
  check(actor.key===1&&actor.owner===1&&actor.generation==='player:1:1','player identity projected');
  check(actor.x===Math.fround(.1)&&actor.y===Math.fround(-.2),'nested player F32 normalized');
  check(actor.hp===(connected?100:0),'player health follows connection without projectile-kind collision');
@@ -40,7 +40,7 @@ state={...state,cursor:{$:'Cursor',tick:103,fraction:0,lastAt:100000,mode:{$:'Pl
 check(array(P.sample(state).value.bodies)[0].x===3,'real HP-zero projectile interpolates between canonical frames');
 check(body().hp===0,'presentation liveness does not mutate gameplay body HP');
 const owned=run({character:7,hp:0});
-check(W.own_run(scene(100,body(),{own:8,players:list([{$:'PlayerRecord',id:3,run:run(),connected:true},{$:'PlayerRecord',id:8,run:owned,connected:false}])})).value===owned,'own run follows ID rather than list position');
+check(W.own_run(scene(100,body(),{own:8,players:list([{$:'PlayerSnapshot',id:3,run:run(),connected:true},{$:'PlayerSnapshot',id:8,run:owned,connected:false}])})).value===owned,'own run follows ID rather than list position');
 const extra=Array.from({length:12000},(_,key)=>({$:'Actor',key,kind:2,generation:`extra:${key}`,x:0,y:0,age:0,hp:0,owner:4294967295}));
 check(array(W.join(list(extra),list(extra))).length===24000,'large ordered join remains stack safe');
 const scratch=await mkdtemp(join(tmpdir(),'coop-wire-adapter-'));
