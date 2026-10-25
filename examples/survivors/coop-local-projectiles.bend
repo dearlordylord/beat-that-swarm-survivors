@@ -1,6 +1,8 @@
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
+import projectile-state.bend as Shot
+import enemy-spatial.bend as Space
 import ./game.bend as G
 import ./enemy-targets.bend as Targets
 import ./projectile.bend as Projectile
@@ -328,14 +330,9 @@ def owner_run(attached:Bool,+value:Visual,run:G.Run) -> G.Run:
   match attached value:
     case True{} _: run
     case False{} _: released_run(value,run)
-def shot_body(value:Visual) -> Components.Body:
+def shot_state(value:Visual) -> Shot.State:
   match value:
-    case Visual{_,_,_,weapon,_,age,_,_,Projectile.Shot{x,y,_,_,radius,_,_},_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      Components.Body{x,y,1,weapon,0,0,age,0,radius}
-def shot_motion(value:Visual) -> G.Motion:
-  match value:
-    case Visual{_,owner,slot,_,_,_,_,_,Projectile.Shot{_,_,vx,vy,_,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      G.Motion{vx,vy,life,pierce,[],0,0,owner,slot}
+    case Visual{_,owner,slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}: Shot.State{Space.Spatial{x,y,age,radius},poolSeed,Shot.PlayerShot{},Components.ShotPayload{weapon,0,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,slot}}
 def shot_pierce(value:Projectile.Shot) -> U32:
   match value:
     case Projectile.Shot{_,_,_,_,_,_,pierce}: pierce
@@ -349,7 +346,7 @@ def step_point(+value:Visual,run:G.Run,+geometry:Geometry) -> Projectile.Shot:
   match geometry:
     case Geometry{_,bodies,_,_,_}:
       +args:G.Args = G.Args{run,bodies,0.0,0.0,[],[]}
-      G.contact_shot_next(shot_body(value),shot_motion(value),args,aim_for_shot(requires_nearest(visual_weapon(value)),args,value))
+      Shot.next(shot_state(value),G.contact_shot_input(args,aim_for_shot(requires_nearest(visual_weapon(value)),args,value)))
 def live_contact_target(alive:Bool,target:Contact.Target,tail:List<&2,Contact.Target>) -> List<&2,Contact.Target>:
   match alive:
     case True{}: target <> tail
@@ -493,24 +490,25 @@ def advance_visuals(rows:List<&2,Visual>,+run:G.Run,+tick:U32,+geometry:Geometry
 
 def shot_from_row(row:G.EntityRow) -> Projectile.Shot:
   match row:
-    case G.EntityRow{G.Row{Components.Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},G.Motion{vx,vy,life,pierce,_,_,_,_,_}}:
-      Projectile.Shot{x,y,vx,vy,radius,life,pierce}
+    case G.ProjectileRow{Shot.Outcome{Shot.State{Space.Spatial{x,y,_,radius},_,_,_,Components.Trajectory{vx,vy,life,pierce,_,_,_}},_}}: Projectile.Shot{x,y,vx,vy,radius,life,pierce}
+    case _: Projectile.Shot{0.0,0.0,0.0,0.0,0.0,0,0}
+
 def row_weapon(row:G.EntityRow) -> U32:
   match row:
-    case G.EntityRow{G.Row{Components.Body{_,_,_,weapon,_,_,_,_,_},_,_,_,_,_,_,_},_}: weapon
+    case G.ProjectileRow{Shot.Outcome{Shot.State{_,_,_,Components.ShotPayload{weapon,_,_},_},_}}: weapon
+    case _: 0
+
 def canonical_visual_match(+player:U32,sourceTick:U32,+visual:Visual,snapshot:G.Snapshot) -> Bool:
   match snapshot:
-    case G.Snapshot{Components.Body{_,_,1,_,_,_,age,_,_},G.Motion{_,_,_,_,_,_,_,owner,+slot}}:
-      Bool.and(U32.is_eq(player,(slot / 65536 : U32)),String.eq(shot_id(visual),identity(player,(sourceTick - age : U32),owner,slot)))
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{_,_,age,_},_,Shot.PlayerShot{},_,Components.Trajectory{_,_,_,_,_,owner,+slot}}}: Bool.and(U32.is_eq(player,(slot / 65536 : U32)),String.eq(shot_id(visual),identity(player,(sourceTick - age : U32),owner,slot)))
     case _: False{}
+
 def canonical_visual_present(rows:List<&2,G.Snapshot>,+player:U32,+sourceTick:U32,+visual:Visual) -> Bool:
   match rows:
     case []: False{}
     case head <> tail: Bool.or(canonical_visual_match(player,sourceTick,visual,head),canonical_visual_present(tail,player,sourceTick,visual))
-def planned_snapshot(value:Visual) -> G.Snapshot:
-  match value:
-    case Visual{_,owner,slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      G.Snapshot{Components.Body{x,y,1,weapon,0,0,age,poolSeed,radius},G.Motion{vx,vy,life,pierce,[],0,0,owner,slot}}
+def planned_snapshot(value:Visual) -> G.Snapshot: G.ProjectileSnapshot{shot_state(value)}
+
 def planned_visual(keep:Bool,value:Visual,+tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match keep:
     case False{}: tail
