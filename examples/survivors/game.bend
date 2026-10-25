@@ -31,9 +31,8 @@ def take(store: Store) -> BodyRest & Col.Column<Schema,Body>:
 def put(rest: BodyRest,bodies: Col.Column<Schema,Body>) -> Store:
   match rest:
     case BodyRest{vitals,motions}: Store{bodies,vitals,motions}
-def project(body: Body) -> Body & Body:
-  match body:
-    case Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: (Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Body{x,y,kind,variant,hp,maxHp,age,seed,radius})
+def duplicate_body(+body: Body) -> Body & Body: (body,body)
+def project(body: Body) -> Body & Body: duplicate_body(body)
 def family() -> C.Family<Schema,Store,BodyRest,Body,Body,Token,take,put,project>: C.Family{"body"}
 def empty(unit: Unit) -> Store: Store{Col.empty_indexed(~Schema,~Body),Col.empty_indexed(~Schema,~Vitals),Col.empty_indexed(~Schema,~Motion)}
 def World() -> Type: W.World<Schema,Store,Unit,Unit>
@@ -43,9 +42,8 @@ def take_vitals(store: Store) -> VitalRest & Col.Column<Schema,Vitals>:
 def put_vitals(rest: VitalRest,vitals: Col.Column<Schema,Vitals>) -> Store:
   match rest:
     case VitalRest{bodies,motions}: Store{bodies,vitals,motions}
-def project_vitals(vitals: Vitals) -> Vitals & Vitals:
-  match vitals:
-    case Vitals{+health,+maximum}: (Vitals{health,maximum},Vitals{health,maximum})
+def duplicate_vitals(+vitals: Vitals) -> Vitals & Vitals: (vitals,vitals)
+def project_vitals(vitals: Vitals) -> Vitals & Vitals: duplicate_vitals(vitals)
 def vital_family() -> C.Family<Schema,Store,VitalRest,Vitals,Vitals,VitalToken,take_vitals,put_vitals,project_vitals>: C.Family{"vitals"}
 def take_motion(store: Store) -> MotionRest & Col.Column<Schema,Motion>:
   match store:
@@ -53,9 +51,8 @@ def take_motion(store: Store) -> MotionRest & Col.Column<Schema,Motion>:
 def put_motion(rest: MotionRest,motions: Col.Column<Schema,Motion>) -> Store:
   match rest:
     case MotionRest{bodies,vitals}: Store{bodies,vitals,motions}
-def project_motion(motion: Motion) -> Motion & Motion:
-  match motion:
-    case Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn}: (Motion{vx,vy,life,pierce,visited,slow,burn},Motion{vx,vy,life,pierce,visited,slow,burn})
+def duplicate_motion(+motion: Motion) -> Motion & Motion: (motion,motion)
+def project_motion(motion: Motion) -> Motion & Motion: duplicate_motion(motion)
 def motion_family() -> C.Family<Schema,Store,MotionRest,Motion,Motion,MotionToken,take_motion,put_motion,project_motion>: C.Family{"motion"}
 def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0}
 def populate_result(result: C.Replacement<World(),Body>) -> World():
