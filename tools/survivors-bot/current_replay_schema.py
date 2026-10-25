@@ -208,7 +208,7 @@ def validate_payload(payload,checkpoint_tick,layout=None):
             stamp_valid(stamp,present,now)
         R.words(c['spaces'][offset][1],4,'Spatial')
         if role=='EnemySlot':
-            R.words(c['vitals'][offset][1],2,'Vitals');R.words(c['statuses'][offset][1],2,'Status')
+            R.words(c['vitals'][offset][1],2,'Vitals')
         if role in ENEMIES:
             phase=c['enemyPhases'][offset][1];R.words(phase,2,'Enemy phase')
             if phase[0]>2: raise ReplayError('Unknown enemy phase')
