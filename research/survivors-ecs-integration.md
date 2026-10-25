@@ -30,6 +30,7 @@ or publication is performed without a subsequent coordinator instruction.
 | Issue 2: baseline and qualification contract | `278cde1` | Standards and Spec reviewers passed round 1; coordinator verified 39 artifact hashes, 546 archived source files, raw mutation controls and six co-op snapshots | `94adec5` | Python syntax, receipt JSON parsing, both capture-module Node syntax checks, dependency audit and whitespace checks passed | Completed worker worktree and branch removed; external baseline retained |
 | Issue 3: typed simulation/encoding boundary | `3267660`, `86c4b16`, `104e044` | Standards and Spec reviewers passed round 2 after diagnostic callers and benchmark timing were repaired | `50f62d5`, `c0b38f3`, `2ec740c` | Coordinator's native receipt: 15 checkpoints across three traces exactly matched baseline sparse ECS payloads, with Node unavailable and stable native source fingerprint; full co-op reliability, 43 UI checks, typed boundary, dense contacts, five rejoin mutants and attach proof passed. Integration reran changed JavaScript syntax, dependency audit (199 Bend modules) and whitespace checks | Completed worker worktree and branch removed; external receipts retained |
 | Issue 8: explicit player/session authority | `38f0f6b`, `9f2a949`, `a3d2bc9` | Standards and Spec reviewers passed formal round 1 with no unresolved findings | `8bc3d2f`, `8bff3d9`, `bccc187` | Tracked authority receipt: 15 native checkpoints across three traces exactly matched baseline, six co-op states matched after explicit authority partition/tag changes with physical metadata retained, five raw authority controls detected mutations, public journeys and full co-op checks passed. Integration verified changed tooling syntax, all five external artifact hashes, dependency audit (200 modules) and whitespace | Worker stopped; clean completed worktree and branch removed; external receipts retained |
+| Issue 4: spatial movement and targeting | `a4819af`, `9a73716`, `25fcf65`, `afdffe6`, `1ea25d7`, `0ee404e` | Standards and Spec reviewers passed round 2 and final receipt inspection, no unresolved findings | `ba31af7`, `73244bd`, `20a5d3b`, `faa20fc`, `8689d39`, `99d2842` | Tracked spatial receipt: 15 native checkpoints matched baseline facts with strict current physical checks; six co-op states passed closed authority/spatial projection and raw controls; fresh co-op suite, nine capability pairs, two kernel laws, two semantic mutants and comparator controls passed. Integration verified changed tooling/JSON syntax, all recorded external artifact hashes, dependency audit (206 modules), and whitespace | Worker stopped; clean completed worktree and branch removed; external captures retained |
 
 Issue 2's baseline remains at
 `/tmp/bendvy-survivors-ecs-baseline-01b4164`. The integration check initially
@@ -53,6 +54,13 @@ commit, `42f72b5`, was explicitly excluded: the worker reported an incorrect
 revival assertion in that unapproved follow-up. Only the three reviewed commits
 authorized by the coordinator were integrated. The failed optional experiment
 does not replace or qualify the recorded passing production checks.
+
+Issue 4 evidence is tracked in `survivors-spatial-receipt.json` and explained in
+`survivors-spatial-migration.md`; preserved captures are under
+`/tmp/survivors-issue4/qualified`. The receipt identifies frozen gameplay source
+`1ea25d7790e695759ea26f51afd71a5a17f2abf6`, its authored-source fingerprint and
+the explicit cross-schema projection. Ordinary current-schema replay remains
+strict. Integration did not repeat the already qualified heavy builds/suites.
 
 ## Completion status
 
