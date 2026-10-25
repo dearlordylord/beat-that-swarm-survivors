@@ -28,24 +28,12 @@ function array(rows) {
   return result;
 }
 
-function snapshot({ x, y = 1000, kind, variant, hp, maxHp = hp, age, seed, radius, motion = {} }) {
-  return {
-    $: 'Snapshot',
-    body: { $: 'Body', x, y, kind, variant, hp, maxHp, age, seed, radius },
-    motion: {
-      $: 'Motion', vx: 0, vy: 0, life: 0, pierce: 0, visited: nil(),
-      slow: 0, burn: 0, ownerBase: 0, logicalSlot: 0, ...motion,
-    },
-  };
-}
-
-function target(x, seed, { age = 90, hp = 100, radius = 8, y = 1000 } = {}) {
-  // 65536 means fully frozen in this fixture, so the independently known path
-  // is the constant point (x,y); the normal Game movement/resolver still runs.
-  return snapshot({
-    x, y, kind: 0, variant: 1, hp, age, seed, radius,
-    motion: { slow: 65536 },
-  });
+function target(x, seed, { age = 90, hp = 100, radius = 8, y = 1000, archetype = 1 } = {}) {
+  return {$: 'EnemySnapshot', enemy: {
+    $: 'State', spatial: {$: 'Spatial', x, y, age, radius}, archetype, identity: seed,
+    vitals: {$: 'Vitals', health: hp, maximum: hp},
+    status: {$: 'Status', slow: 65536, burn: 0},
+  }};
 }
 
 function shot({
@@ -63,21 +51,20 @@ function shot({
 // words never enter aiming; hostile firing still reads actual archetype/age.
 {
   const source = [
-    snapshot({x: 100, y: 100, kind: 0, variant: 9, age: 120, seed: 11}).body,
-    snapshot({x: 100, y: 100, kind: 0, variant: 0, age: 120, seed: 12}).body,
-    snapshot({x: 0, y: 0, kind: 2, variant: 0, age: 0, seed: 13}).body,
+    target(100,11,{y:100,archetype:9,age:120}),
+    target(100,12,{y:100,archetype:0,age:120}),
+    shot({x:0,y:0,seed:13}),
   ];
   const targets = Game.enemy_targets(list(source));
   assert.deepEqual(array(targets.aims), [
     {$: 'Target', x: 100, y: 100, identity: 11},
     {$: 'Target', x: 100, y: 100, identity: 12},
   ]);
-  assert.deepEqual(Game.enemy_targets(list(source.map(body =>
-    ({...body, hp: body.hp + 1000, maxHp: body.maxHp + 2000})))), targets);
+  assert.deepEqual(Game.enemy_targets(list(source.map(value => value.enemy ? ({...value,enemy:{...value.enemy,vitals:{$:'Vitals',health:1000,maximum:2000}}}) : value))), targets);
   const fallback = {$: 'Aim', x: 0, y: 0, id: 0, distance: 10000000};
   assert.equal(Game.nearest(targets, 0, 0, fallback).id, 11, 'first equal-distance target wins');
   assert.equal(Game.nearest_shooter(targets, 0, 0, fallback).id, 11, 'ranged source fires at its actual age');
-  source[0] = {...source[0], age: 119};
+  source[0] = {...source[0],enemy:{...source[0].enemy,spatial:{...source[0].enemy.spatial,age:119}}};
   assert.equal(Game.nearest_shooter(Game.enemy_targets(list(source)), 0, 0, fallback).id, 0,
     'a nonfiring age cannot borrow another source eligibility');
 }
@@ -121,14 +108,12 @@ function hitPlans(team) {
 }
 
 function resolveMovedEnemy(team, value) {
-  const { body, motion } = value;
-  const nearest = Game.team_nearest(team, body.x, body.y);
-  const args = Game.team_args(team, nearest);
-  const space = Game.team_move_space(team, Game.spatial_of_body(body), body.variant, motion.slow);
-  const moved = Game.body_at_spatial(body, space);
-  const row = Game.enemy_update(moved, args.run);
-  const result = Game.team_enemy_updated(team, moved, { $: 'Status', slow: motion.slow, burn: motion.burn }, row);
-  return { moved, row, result };
+  const enemy = value.enemy;
+  const space = Game.team_move_space(team, enemy.spatial, enemy.archetype, enemy.status.slow);
+  const moved = {...enemy, spatial: space};
+  const decision = Game.team_enemy_updated(team, {$:'ActiveEnemy',archetype:enemy.archetype}, moved, {$:'None'});
+  assert.equal(decision.$,'Resolved');
+  return { moved, result: decision.outcome };
 }
 
 function eventFor(events, seed) {
@@ -186,8 +171,8 @@ function close(actual, expected, label, epsilon = 0.0001) {
   assert.deepEqual(array(plan.targets), [40, 42, 41]);
   for (const value of targets) {
     const { result } = resolveMovedEnemy(team, value);
-    const expectedHp = [40, 42, 41].includes(value.body.seed) ? 93 : 100;
-    assert.equal(result.row.body.hp, expectedHp, `actual prepared enemy resolver for seed ${value.body.seed}`);
+    const expectedHp = [40, 42, 41].includes(value.enemy.identity) ? 93 : 100;
+    assert.equal(result.enemy.vitals.health, expectedHp, `actual prepared enemy resolver for seed ${value.enemy.identity}`);
   }
 }
 
@@ -213,8 +198,8 @@ function close(actual, expected, label, epsilon = 0.0001) {
   const [plan] = hitPlans(team);
   assert.equal(plan.area, true);
   assert.deepEqual(array(plan.targets), []);
-  assert.equal(resolveMovedEnemy(team, edge).result.row.body.hp, 93, 'actual resolver includes the exact AoE edge');
-  assert.equal(resolveMovedEnemy(team, outside).result.row.body.hp, 100, 'actual resolver excludes the outside target');
+  assert.equal(resolveMovedEnemy(team, edge).result.enemy.vitals.health, 93, 'actual resolver includes the exact AoE edge');
+  assert.equal(resolveMovedEnemy(team, outside).result.enemy.vitals.health, 100, 'actual resolver excludes the outside target');
 }
 
 // One hit from a three-hit budget continues; terminal classification is per
@@ -242,15 +227,15 @@ function close(actual, expected, label, epsilon = 0.0001) {
 
   const team = preparedTeam(101, snapshots);
   const { result } = resolveMovedEnemy(team, victim);
-  assert.equal(result.row.body.hp, 0);
-  assert.notEqual(result.row.body.kind, 0, 'lethal resolver produced a loot incarnation');
-  assert.equal(result.row.body.x, 14272, 'actual loot placement clamps to the player upper edge');
-  assert.notEqual(result.row.body.x, events[0].targetAtImpactX, 'receipt does not use the post-loot coordinate');
+  assert.equal(result.enemy.vitals.health, 0);
+  assert.equal(result.$, 'Killed', 'lethal resolver produced a typed death reward');
+  assert.equal(result.reward.x, 14272, 'actual loot placement clamps to the player upper edge');
+  assert.notEqual(result.reward.x, events[0].targetAtImpactX, 'receipt does not use the post-loot coordinate');
 }
 
 // The same pooled target seed denotes a distinct incarnation at a new birth
 // tick. A fresh spawn routed through Game's SL.Fresh branch bypasses old contact
-// effects and receives clean Motion, while an existing incarnation is damaged.
+// effects and receives clean status/contact data; an existing incarnation is damaged.
 {
   const source = shot({ x: 500, seed: 904, age: 10, pierce: 1 });
   const oldIncarnation = target(545, 77, { age: 90, hp: 100 });
@@ -263,26 +248,16 @@ function close(actual, expected, label, epsilon = 0.0001) {
 
   const team = preparedTeam(101, [source, newborn]);
   assert.deepEqual(array(hitPlans(team)[0].targets), [77]);
-  const previousDormant = { ...newborn.body, kind: 8, age: 5, hp: 0 };
-  const freshRow = { $: 'Row', body: newborn.body, hit: 0, xp: 0, gold: 0, heal: 0, chest: 0, killed: 0, relic: 0 };
-  const fresh = Game.team_enemy_updated(
-    team, previousDormant, { $: 'Status', slow: 65536, burn: 37 }, freshRow,
-  );
-  assert.equal(fresh.row.body.hp, 100, 'SL.Fresh bypasses the prepared old-incarnation hit');
-  assert.deepEqual(fresh.motion, {
-    $: 'Motion', vx: 0, vy: 0, life: 0, pierce: 0, visited: nil(),
-    slow: 0, burn: 0, ownerBase: 0, logicalSlot: 0,
-  }, 'newborn does not inherit stale contact status');
-
-  const previousLive = { ...newborn.body, kind: 0, age: 0 };
-  const existingRow = {
-    $: 'Row', body: { ...newborn.body, kind: 0, age: 1 },
-    hit: 0, xp: 0, gold: 0, heal: 0, chest: 0, killed: 0, relic: 0,
-  };
-  const existing = Game.team_enemy_updated(
-    team, previousLive, { $: 'Status', slow: 65536, burn: 37 }, existingRow,
-  );
-  assert.equal(existing.row.body.hp, 93, 'the same prepared hit applies to an existing incarnation');
+  const previousDormant = {...newborn.enemy,spatial:{...newborn.enemy.spatial,age:5},vitals:{$:'Vitals',health:0,maximum:100},status:{$:'Status',slow:65536,burn:37}};
+  const candidate = {$:'Candidate',x:545,y:1000,archetype:1,identity:77,vitals:newborn.enemy.vitals,radius:8};
+  const fresh = Game.team_enemy_updated(team, {$:'Dormant',archetype:1}, previousDormant, {$:'Some',value:candidate});
+  assert.equal(fresh.outcome.$,'Born');
+  assert.equal(fresh.outcome.newborn.candidate.vitals.health,100,'fresh birth bypasses prepared old-incarnation hit');
+  assert.deepEqual(fresh.outcome.newborn.status,{$:'Status',slow:0,burn:0});
+  assert.equal(fresh.outcome.newborn.contactDamage,0);
+  assert.deepEqual(fresh.outcome.newborn.killer,{$:'None'});
+  const existing = Game.team_enemy_updated(team, {$:'ActiveEnemy',archetype:1}, {...newborn.enemy,status:{$:'Status',slow:65536,burn:37}}, {$:'Some',value:candidate});
+  assert.equal(existing.outcome.enemy.vitals.health,93,'the same prepared hit applies to an existing incarnation');
 }
 
 console.log('PASS Core contact receipts against analytic sweep, AoE edge, lethal pre-loot geometry, and reused-seed newborn fixtures');
