@@ -16,6 +16,7 @@ import pools.bend as PL
 import party-difficulty.bend as PartyDifficulty
 import movement-membership.bend as MM
 import enemy-spatial.bend as Space
+import enemy-targets.bend as Targets
 import game-components.bend as Components
 import game-storage.bend as Storage
 import entity-role.bend as Role
@@ -315,7 +316,7 @@ def loot_kind(+seed: U32,+variant: U32) -> U32:
     case 29: 5
     case _: normal_loot(seed)
 type HitPlan is Data: HitPlan{shot: U32,weapon: U32,damage: U32,x: F32,y: F32,radius: F32,area: Bool,targets: List<&2,U32>}
-type Args is Data: Args{run: Run,bodies: List<&2,Components.Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
+type Args is Data: Args{run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
 type Row is Data: Row{body: Components.Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
 type Error is Data: MissingBody{}
@@ -413,26 +414,28 @@ def prefer_aim(closer: Bool,+x: F32,+y: F32,+id: U32,+distance: F32,rest: Aim) -
 def aim_distance(aim: Aim) -> F32:
   match aim:
     case Aim{_,_,_,distance}: distance
-def nearest(rows: List<&2,Components.Body>,+x: F32,+y: F32,+best: Aim) -> Aim:
+def nearest_targets(rows: List<&2,Targets.Target>,+x: F32,+y: F32,+best: Aim) -> Aim:
   match rows:
     case []: best
-    case Components.Body{+tx,+ty,0,_,_,_,_,+seed,_} <> rest: nearest(rest,x,y,prefer_aim(F32.is_lt(distance2(x,y,tx,ty),aim_distance(best)),tx,ty,seed,distance2(x,y,tx,ty),best))
-    case _ <> rest: nearest(rest,x,y,best)
+    case Targets.Target{+tx,+ty,seed} <> rest: nearest_targets(rest,x,y,prefer_aim(F32.is_lt(distance2(x,y,tx,ty),aim_distance(best)),tx,ty,seed,distance2(x,y,tx,ty),best))
+def nearest(targets: Targets.Targets,x: F32,y: F32,best: Aim) -> Aim:
+  match targets:
+    case Targets.Targets{aims,_}: nearest_targets(aims,x,y,best)
 def contains(rows: List<&2,U32>,+id: U32) -> Bool:
   match rows:
     case []: False{}
     case head <> rest: Bool.or(U32.is_eq(head,id),contains(rest,id))
-# Frozen targeting inputs contain enemies only. XP, shots and dormant
-# bodies remain in the full frame/snapshots, without multiplying aim/contact work.
-def enemy_geometry(rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
+# Frozen phase targets contain only the facts actually read by aiming/firing.
+# This boundary projects the existing observation; actor slices replace its input.
+def enemy_targets(rows: List<&2,Components.Body>) -> Targets.Targets:
   match rows:
-    case []: []
-    case Components.Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest: Components.Body{x,y,0,variant,hp,maxHp,age,seed,radius} <> enemy_geometry(rest)
-    case _ <> rest: enemy_geometry(rest)
-def combat_args_enemies(run: Run,+enemies: List<&2,Components.Body>,dx: F32,dy: F32,+snapshots: List<&2,Snapshot>) -> Args:
-  Args{run,enemies,dx,dy,snapshots,[]}
+    case []: Targets.empty()
+    case Components.Body{x,y,0,variant,_,_,age,seed,_} <> rest: Targets.add_enemy(x,y,seed,variant,age,enemy_targets(rest))
+    case _ <> rest: enemy_targets(rest)
+def combat_args_enemies(run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapshots: List<&2,Snapshot>) -> Args:
+  Args{run,targets,dx,dy,snapshots,[]}
 def combat_args(run: Run,bodies: List<&2,Components.Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>) -> Args:
-  combat_args_enemies(run,enemy_geometry(bodies),dx,dy,snapshots)
+  combat_args_enemies(run,enemy_targets(bodies),dx,dy,snapshots)
 def select_hit_targets(selected: Bool,targets: List<&2,U32>) -> List<&2,U32>:
   match selected:
     case True{}: targets
@@ -656,11 +659,13 @@ def xp_entity(body: Components.Body,args: Args) -> EntityRow:
 def intent_fire(intent: E.Intent) -> Bool:
   match intent:
     case E.Intent{_,_,fire}: fire
-def nearest_shooter(rows: List<&2,Components.Body>,+x: F32,+y: F32,+best: Aim) -> Aim:
+def nearest_shooter_targets(rows: List<&2,Targets.Shooter>,+x: F32,+y: F32,+best: Aim) -> Aim:
   match rows:
     case []: best
-    case Components.Body{+tx,+ty,0,+variant,_,_,+age,+seed,_} <> rest: nearest_shooter(rest,x,y,prefer_aim(Bool.and(intent_fire(E.intent(variant,age,tx,ty,x,y)),F32.is_lt(distance2(x,y,tx,ty),aim_distance(best))),tx,ty,seed,distance2(x,y,tx,ty),best))
-    case _ <> rest: nearest_shooter(rest,x,y,best)
+    case Targets.Shooter{Targets.Target{+tx,+ty,seed},variant,age} <> rest: nearest_shooter_targets(rest,x,y,prefer_aim(Bool.and(intent_fire(E.intent(variant,age,tx,ty,x,y)),F32.is_lt(distance2(x,y,tx,ty),aim_distance(best))),tx,ty,seed,distance2(x,y,tx,ty),best))
+def nearest_shooter(targets: Targets.Targets,x: F32,y: F32,best: Aim) -> Aim:
+  match targets:
+    case Targets.Targets{_,shooters}: nearest_shooter_targets(shooters,x,y,best)
 def hostile_created(fire: Bool,+seed: U32,+px: F32,+py: F32,aim: Aim) -> EntityRow:
   match fire aim:
     case True{} Aim{+x,+y,_,_}: EntityRow{Row{Components.Body{x,y,7,0,8,8,0,seed,6.0},0,0,0,0,0,0,0},Motion{((px - x) / F32.max(1.0,F32.sqrt(distance2(x,y,px,py))) * 3.5 : F32),((py - y) / F32.max(1.0,F32.sqrt(distance2(x,y,px,py))) * 3.5 : F32),240,1,[],0,0,0,0}}

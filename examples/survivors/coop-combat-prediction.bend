@@ -121,7 +121,7 @@ def future_plan(reference:Bool,+players:List<&2,G.PlayerView>,snapshots:List<&2,
     case True{}: G.team_plan(players,snapshots)
     case False{}: future_plan_selected(may_fire_any(G.living_views(players)),players,snapshots)
 def raw_team(reference:Bool,+players:List<&2,G.PlayerView>,+snapshots:List<&2,G.Snapshot>,own:U32,+fallback:G.Run) -> G.Team:
-  G.Team{players,G.Args{G.view_run(G.first_view(players,fallback)),G.enemy_geometry(bodies(snapshots)),0.0,0.0,snapshots,[]},future_plan(reference,players,snapshots),G.effect_origin_index(snapshots)}
+  G.Team{players,G.Args{G.view_run(G.first_view(players,fallback)),G.enemy_targets(bodies(snapshots)),0.0,0.0,snapshots,[]},future_plan(reference,players,snapshots),G.effect_origin_index(snapshots)}
 type Moving is Data: Moving{targets:List<&2,Contact.Target>,bodies:BI.Index<Space.Spatial>}
 type Prepared is Data: Prepared{team:G.Team,targets:List<&2,Contact.Target>,moved:BI.Index<Space.Spatial>,next:BI.Index<Projectile.Shot>}
 def freeze_moved(+seed:U32,+previous:Space.Spatial,+moved:Space.Spatial,state:Moving) -> Moving:

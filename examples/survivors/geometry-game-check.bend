@@ -29,7 +29,7 @@ def enemy(x:F32,seed:U32) -> G.Snapshot:
 def shot() -> G.Snapshot:
   G.Snapshot{Components.Body{1000.0,1000.0,1,1,10,10,0,PL.player_start(),1.0},G.Motion{100.0,0.0,10,1,[],0,0,0,0}}
 def team(rows:List<&2,G.Snapshot>) -> G.Team:
-  G.Team{[G.PlayerView{0,run(),0.0,0.0,True{}}],G.Args{run(),[Components.Body{1080.0,1000.0,0,17,100,100,0,2,6.0},Components.Body{1040.0,1000.0,0,17,100,100,0,1,6.0}],0.0,0.0,rows,[]},G.empty_shot_plan(),BI.Empty{}}
+  G.Team{[G.PlayerView{0,run(),0.0,0.0,True{}}],G.Args{run(),G.enemy_targets([Components.Body{1080.0,1000.0,0,17,100,100,0,2,6.0},Components.Body{1040.0,1000.0,0,17,100,100,0,1,6.0}]),0.0,0.0,rows,[]},G.empty_shot_plan(),BI.Empty{}}
 def selected(team:G.Team) -> List<&2,U32>:
   match team:
     case G.Team{_,G.Args{_,_,_,_,_,hits},_,_}: G.hit_targets(hits,PL.player_start())

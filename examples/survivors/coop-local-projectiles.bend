@@ -2,6 +2,7 @@ import run-state.bend as RS
 import Base
 import game-components.bend as Components
 import ./game.bend as G
+import ./enemy-targets.bend as Targets
 import ./projectile.bend as Projectile
 import ./projectile-contact.bend as Contact
 import ./projectile-pool.bend as SP
@@ -18,7 +19,7 @@ import ./coop-local-projectiles-policy.bend as Policy
 # reachable here. Remote targets are observations from one displayed cohort.
 type Target is Data: Target{seed:U32,generation:U32,x:F32,y:F32,radius:F32,alive:Bool}
 type Point is Data: Point{x:F32,y:F32}
-type Geometry is Data: Geometry{targets:List<&2,Target>,bodies:List<&2,Components.Body>,contacts:List<&2,Contact.Target>,index:Broadphase.Index,policyTargets:List<&2,Policy.Target>}
+type Geometry is Data: Geometry{targets:List<&2,Target>,aims:Targets.Targets,contacts:List<&2,Contact.Target>,index:Broadphase.Index,policyTargets:List<&2,Policy.Target>}
 type Visual is Data:
   Visual{id:String,owner:U32,slot:U32,weapon:U32,poolSeed:U32,age:U32,originX:F32,originY:F32,shot:Projectile.Shot,pending:Bool,predictedSeed:U32,predictedGeneration:U32,predictedX:F32,predictedY:F32,pendingAge:U32,confirmed:Bool,late:Bool,event:Maybe<&2,Journal.HitEvent>,guideTick:U32,guideX:F32,guideY:F32,fade:U32}
 type RenderShot is Data: RenderShot{id:String,player:U32,kind:U32,weapon:U32,seed:U32,age:U32,x:F32,y:F32,radius:F32,life:U32,fade:U32,opacity:F32}
@@ -287,14 +288,14 @@ def shown_shot_prepared(+value:Visual,presentationTick:U32,+targets:List<&2,Poli
 
 # Pool-backed plan is rebuilt from the current local Run and latest observed
 # projectile occupancy, with exactly one PlayerView. Nothing is replayed.
-def live_target_body(target:Target,+tail:List<&2,Components.Body>) -> List<&2,Components.Body>:
+def live_aim_target(target:Target,tail:Targets.Targets) -> Targets.Targets:
   match target:
-    case Target{seed,_,x,y,radius,alive}:
-      Bool.pick(List<&2,Components.Body>,alive,Components.Body{x,y,0,0,1,1,0,seed,radius} <> tail,tail)
-def target_bodies(rows:List<&2,Target>) -> List<&2,Components.Body>:
+    case Target{seed,_,x,y,_,True{}}: Targets.add_aim(Targets.Target{x,y,seed},tail)
+    case _: tail
+def aim_targets(rows:List<&2,Target>) -> Targets.Targets:
   match rows:
-    case []: []
-    case head <> tail: live_target_body(head,target_bodies(tail))
+    case []: Targets.empty()
+    case head <> tail: live_aim_target(head,aim_targets(tail))
 def attached_weapon(id:U32) -> Bool:
   match id:
     case 3: True{}
@@ -360,8 +361,8 @@ def contact_targets(rows:List<&2,Target>) -> List<&2,Contact.Target>:
       live_contact_target(alive,Contact.Target{seed,x,y,x,y,radius},contact_targets(tail))
 def prepare_geometry(+rows:List<&2,Target>) -> Geometry:
   +contacts:List<&2,Contact.Target> = contact_targets(rows)
-  Geometry{rows,target_bodies(rows),contacts,Broadphase.prepare(contacts),policy_targets(rows)}
-def geometry_bodies(geometry:Geometry) -> List<&2,Components.Body>:
+  Geometry{rows,aim_targets(rows),contacts,Broadphase.prepare(contacts),policy_targets(rows)}
+def geometry_aims(geometry:Geometry) -> Targets.Targets:
   match geometry:
     case Geometry{_,bodies,_,_,_}: bodies
 def first_contact(rows:List<&2,Contact.Contact>) -> Maybe<&2,Contact.Contact>:
@@ -541,7 +542,7 @@ def local_team(+player:U32,run:G.Run,+dx:F32,+dy:F32,+originX:F32,+originY:F32,+
   +positioned = G.with_py(G.with_px(G.with_tick(run,worldTick),originX),originY)
   +occupied = planning_snapshots(player,sourceTick,snapshots,visuals)
   +view: G.PlayerView = G.PlayerView{player,positioned,dx,dy,True{}}
-  +args: G.Args = G.Args{positioned,geometry_bodies(geometry),dx,dy,occupied,[]}
+  +args: G.Args = G.Args{positioned,geometry_aims(geometry),dx,dy,occupied,[]}
   G.Team{[view],args,G.team_plan([view],occupied),BI.Empty{}}
 def spawn_from_team(+team:G.Team,+bornTick:U32,+originX:F32,+originY:F32) -> List<&2,Visual>:
   match team:

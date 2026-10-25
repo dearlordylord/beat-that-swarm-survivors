@@ -21,7 +21,7 @@ def step(phase: U32,state: G.State,+run: G.Run,+rows: List<&2,Components.Body>,o
   match phase:
     case 1: G.choose(state,F.best_offer(offers,run,0,0,0))
     case 2: G.choose(state,F.best_offer(offers,run,0,0,0))
-    case _: F.move(state,steer_nearest(rows,run,G.nearest(rows,F.px(run),F.py(run),G.Aim{(G.world_center() + 300.0 : F32),G.world_center(),0,100000000.0})))
+    case _: F.move(state,steer_nearest(rows,run,G.nearest(G.enemy_targets(rows),F.px(run),F.py(run),G.Aim{(G.world_center() + 300.0 : F32),G.world_center(),0,100000000.0})))
 def report(+run: G.Run,stats: Stats) -> IO(Unit):
   match stats:
     case Stats{firstReward,decisions,maxLiving,firstDamage,hitEvents,minHp,_}: IO.print("OBSERVED fresh kiting tick=" ++ U32.show(F.tick(run)) ++ " phase=" ++ U32.show(F.phase(run)) ++ " hp=" ++ U32.show(F.hp(run)) ++ " level=" ++ U32.show(F.level(run)) ++ " kills=" ++ U32.show(F.kills(run)) ++ " firstRewardTick=" ++ U32.show(firstReward) ++ " decisions=" ++ U32.show(decisions) ++ " maxLiving=" ++ U32.show(maxLiving) ++ " firstDamageTick=" ++ U32.show(firstDamage) ++ " hitEvents=" ++ U32.show(hitEvents) ++ " minHp=" ++ U32.show(minHp))

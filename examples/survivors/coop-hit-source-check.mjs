@@ -86,7 +86,7 @@ function preparedTeam(tick, snapshots) {
   const observedRun = Core.core_observe(state, 0).observation.game.run;
   const run = { ...observedRun, session: { ...observedRun.session, tick } };
   const args = {
-    $: 'Args', run, bodies: nil(), dx: 0, dy: 0,
+    $: 'Args', run, targets: Game.enemy_targets(nil()), dx: 0, dy: 0,
     snapshots: list(snapshots), hits: nil(),
   };
   return Game.contact_team(Game.solo_team(args));

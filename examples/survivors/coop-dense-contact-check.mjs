@@ -160,7 +160,7 @@ if (process.argv.includes('--journal-only')) {
   const spawnTeam = {
     $: 'Team',
     players: views,
-    base: { $: 'Args', run, bodies: targetBodies, dx: 0, dy: 0, snapshots: targetRows, hits: nil() },
+    base: { $: 'Args', run, targets: Game.enemy_targets(targetBodies), dx: 0, dy: 0, snapshots: targetRows, hits: nil() },
     plan: Game.empty_shot_plan(),
     origins: Game.effect_origin_index(targetRows),
   };
@@ -193,7 +193,7 @@ if (process.argv.includes('--journal-only')) {
     $: 'Team',
     players: views,
     base: {
-      $: 'Args', run, bodies: targetBodies, dx: 0, dy: 0, snapshots, hits: nil(),
+      $: 'Args', run, targets: Game.enemy_targets(targetBodies), dx: 0, dy: 0, snapshots, hits: nil(),
     },
     plan: Game.team_plan(views, snapshots),
     origins: Game.effect_origin_index(snapshots),
