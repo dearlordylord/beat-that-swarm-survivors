@@ -13,7 +13,7 @@ def player_actor(player:G.PlayerSnapshot) -> P.Actor:
   match player:
     case G.PlayerSnapshot{id,+run,connected}: Projection.player_actor(id,G.run_character(run),G.run_px(run),G.run_py(run),G.run_hp(run),connected)
 def mapped_player(context:Unit,player:G.PlayerSnapshot) -> P.Actor: player_actor(player)
-def body_liveness(kind:U32,hp:U32,life:U32,pierce:U32) -> U32: Projection.body_liveness(kind,hp,life,pierce)
+def body_liveness(kind:U32,hp:U32,life:U32,pierce:U32) -> Bool: Projection.body_liveness(kind,hp,life,pierce)
 def body_actor(body:Components.Body,motion:G.Motion,born:U32) -> P.Actor:
   match body motion:
     case Components.Body{x,y,kind,_,hp,_,age,seed,_} G.Motion{_,_,life,pierce,_,_,_,weapon,slot}: Projection.body_actor(seed,kind,born,weapon,slot,x,y,age,hp,life,pierce)

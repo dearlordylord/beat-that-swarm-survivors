@@ -8,7 +8,7 @@ import {resolve} from 'node:path';
 const {default:P}=await import(pathToFileURL(resolve(process.argv[2]??'examples/survivors/dist/coop-playback.mjs')));
 const list=rows=>rows.reduceRight((tail,head)=>({$: 'Con',head,tail}),{$:'Nil'});
 const array=rows=>{const out=[];for(;rows.$==='Con';rows=rows.tail)out.push(rows.head);return out;};
-const actor=(key,x,extra={})=>({$:'Actor',key,kind:1,generation:`generation-${key}`,x,y:x/2,age:1,hp:1,owner:0,...extra});
+const actor=(key,x,extra={})=>({$:'Actor',key,kind:1,generation:`generation-${key}`,x,y:x/2,age:1,alive:true,owner:0,...extra});
 const frame=(observation,tick,receivedAt,players=[],bodies=[])=>({$:'Frame',observation,tick,receivedAt,players:list(players),bodies:list(bodies)});
 const sample=state=>{const out=P.sample(state);assert.equal(out.$,'Some');return out.value;};
 const time=state=>Number(state.cursor.tick)*1000000+state.cursor.fraction;
@@ -41,7 +41,7 @@ v=sample(s);
 check(v.tick===6&&P.is_buffering(s),'underrun clamps latest');
 check(array(v.bodies).length===2,'birth visible at authority time');
 assert.deepEqual(P.push(s,frame(4,5,210000)),s);checks++;
-s=P.push(s,frame(4,6,210000,[actor(0,6)],[actor(42,6,{hp:0})]));
+s=P.push(s,frame(4,6,210000,[actor(0,6)],[actor(42,6,{alive:false})]));
 check(sample(s).baseObservation===4,'paused same-tick metadata refreshes');
 check(array(P.observations(s)).length===3,'same-tick replacement does not grow queue');
 for(let observation=5;observation<=50;observation++){
@@ -50,7 +50,7 @@ for(let observation=5;observation<=50;observation++){
 }
 check(s.recovered,'eviction diagnosed');
 check(s.cursor.tick===129,'evicted cursor moves forward to oldest retained tick');
-const identities=[{generation:'replacement'},{kind:2},{owner:1},{key:43},{hp:0}];
+const identities=[{generation:'replacement'},{kind:2},{owner:1},{key:43},{alive:false}];
 for(const diff of identities){assert.deepEqual(P.matched({$:'Some',value:actor(42,99,diff)},actor(42,1),0.5),actor(42,1));checks++;}
 // Emitted Bend 2.0.38 Nat ABI is an exact integer Number up to 2^53.
 // Timestamp above the 49-day U32 millisecond boundary remains exact.
