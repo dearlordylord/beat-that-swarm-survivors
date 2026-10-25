@@ -231,7 +231,7 @@
 #menu #tabs a.menu-route{text-decoration:none;text-align:center;display:block}
 /* Keep the six shared navigation tabs in one scrollable row on touch screens. */
 @media(max-width:600px){
-  #menu #tabs{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;gap:4px;padding-top:10px;scrollbar-width:thin}
+  #menu #tabs{display:flex;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;gap:4px;padding-top:10px;scrollbar-width:thin}
   #menu #tabs :is(button,a.menu-route){flex:0 0 76px;min-width:76px}
   #menu #tabs .tab-label{font-size:10px}
 }
