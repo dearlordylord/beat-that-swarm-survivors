@@ -228,9 +228,9 @@ type HitPlan is Data: HitPlan{shot: U32,weapon: U32,damage: U32,x: F32,y: F32,ra
 type Args is Data: Args{run: Run,bodies: List<&2,Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
 type Row is Data: Row{body: Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
 type Error is Data: MissingBody{}
-type Ops<-H: Type> is Type: Ops{body: Cap.Read<H,Body>,vitals: Cap.Write<H,Vitals,Vitals>,motion: Cap.Write<H,Motion,Motion>}
+type Ops<-H: Type> is Type: Ops{body: Cap.Write<H,Body,Body>,vitals: Cap.Write<H,Vitals,Vitals>,motion: Cap.Write<H,Motion,Motion>}
 def OpsType(H: Type) -> Type: Ops<H>
-def body_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Body>:
+def body_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Body,Body>:
   match ops:
     case Ops{body,_,_}: body
 def vital_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Vitals,Vitals>:
@@ -629,18 +629,53 @@ def move_body_observed(~H: Type,~ops: MoveOps<H>,+args: Args,result: H & C.Acces
 def move_system(~H: Type,~ops: MoveOps<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & Unit): move_body_observed(~H,~ops,args,Cap.get(~H,~Body,~Body,~move_body_cap(~H,ops),ctx))
 def move_plan() -> Q.Plan<Schema,Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.read_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_enemy}
 
-# Combat only observes geometry. Independent health/status columns own its decisions.
-def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
+# Combat reads frozen cross-entity geometry. Its disjoint capabilities own each
+# entity's Body, Vitals and Motion; only XP deposits need later reconciliation.
+def stored_combat_body(row: Row) -> Body:
+  match row:
+    case Row{Body{+x,+y,2,+variant,_,+maximum,_,+seed,_},_,_,_,_,_,1,_}: Body{x,y,8,variant,0,maximum,0,seed,0.0}
+    case Row{body,_,_,_,_,_,_,_}: body
+def combat_body_write(~H: Type,~ops: Ops<H>,selected: Bool,row: Row,ctx: H) -> H:
+  match selected:
+    case True{}: Cap.set(~H,~Body,~Body,~body_cap(~H,ops),ctx,stored_combat_body(row))
+    case False{}: ctx
+def visited_same(xs: List<&2,U32>,ys: List<&2,U32>) -> Bool:
+  match xs ys:
+    case Nil{} Nil{}: True{}
+    case Con{+x,xr} Con{+y,yr}: Bool.and(U32.is_eq(x,y),visited_same(xr,yr))
+    case _ _: False{}
+def vitals_same(old: Vitals,+hp: U32,+maximum: U32) -> Bool:
+  match old:
+    case Vitals{health,maxHp}: Bool.and(U32.is_eq(health,hp),U32.is_eq(maxHp,maximum))
+def motion_same(old: Motion,new: Motion) -> Bool:
+  match old new:
+    case Motion{+vx,+vy,+life,+pierce,visited,+slow,+burn} Motion{+nx,+ny,+nl,+np,newVisited,+ns,+nb}: Bool.and(Bool.and(U32.is_eq(F32.bits(vx),F32.bits(nx)),U32.is_eq(F32.bits(vy),F32.bits(ny))),Bool.and(Bool.and(U32.is_eq(life,nl),U32.is_eq(pierce,np)),Bool.and(visited_same(visited,newVisited),Bool.and(U32.is_eq(slow,ns),U32.is_eq(burn,nb)))))
+def combat_vitals_write(~H: Type,~ops: Ops<H>,changed: Bool,hp: U32,maximum: U32,ctx: H) -> H:
+  match changed:
+    case True{}: Cap.set(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx,Vitals{hp,maximum})
+    case False{}: ctx
+def combat_motion_write(~H: Type,~ops: Ops<H>,changed: Bool,motion: Motion,ctx: H) -> H:
+  match changed:
+    case True{}: Cap.set(~H,~Motion,~Motion,~motion_cap(~H,ops),ctx,motion)
+    case False{}: ctx
+def write_row_changed(~H: Type,~ops: Ops<H>,+writeVitals: Bool,+writeMotion: Bool,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
     case EntityRow{Row{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
-      (Cap.set(~H,~Motion,~Motion,~motion_cap(~H,ops),Cap.set(~H,~Vitals,~Vitals,~vital_cap(~H,ops),ctx,Vitals{hp,maxHp}),motion),(T.Success{},EntityRow{Row{Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}))
-def observed_motion(~H: Type,~ops: Ops<H>,+args: Args,body: Body,result: H & C.Access<Motion>) -> H & (T.Outcome<Error> & EntityRow):
+      (combat_motion_write(~H,~ops,writeMotion,motion,combat_vitals_write(~H,~ops,writeVitals,hp,maxHp,combat_body_write(~H,~ops,U32.is_lt(seed,748),Row{Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},ctx))),(T.Success{},EntityRow{Row{Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}))
+# XP retains its original writes; non-XP equality checks use actual components,
+# not the Body observation (which may legitimately lag a component).
+def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
+  write_row_changed(~H,~ops,True{},True{},ctx,row)
+def write_row_observed(~H: Type,~ops: Ops<H>,oldVitals: Vitals,oldMotion: Motion,ctx: H,+row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
+  match row:
+    case EntityRow{Row{Body{_,_,_,_,+hp,+maxHp,_,_,_},_,_,_,_,_,_,_},+motion}: write_row_changed(~H,~ops,Bool.not(vitals_same(oldVitals,hp,maxHp)),Bool.not(motion_same(oldMotion,motion)),ctx,row)
+def observed_motion(~H: Type,~ops: Ops<H>,+args: Args,oldVitals: Vitals,body: Body,result: H & C.Access<Motion>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{motion}): write_row(~H,~ops,ctx,normal_entity(body,motion,args))
+    case (ctx,C.Found{+motion}): write_row_observed(~H,~ops,oldVitals,motion,ctx,normal_entity(body,motion,args))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def observed_vitals(~H: Type,~ops: Ops<H>,+args: Args,body: Body,result: H & C.Access<Vitals>) -> H & (T.Outcome<Error> & EntityRow):
   match body result:
-    case Body{+x,+y,+kind,+variant,_,_,+age,+seed,+radius} Tuple{ctx,C.Found{Vitals{+health,+maximum}}}: observed_motion(~H,~ops,args,Body{x,y,kind,variant,health,maximum,age,seed,radius},Cap.get(~H,~Motion,~Motion,~motion_cap(~H,ops),ctx))
+    case Body{+x,+y,+kind,+variant,_,_,+age,+seed,+radius} Tuple{ctx,C.Found{Vitals{+health,+maximum}}}: observed_motion(~H,~ops,args,Vitals{health,maximum},Body{x,y,kind,variant,health,maximum,age,seed,radius},Cap.get(~H,~Motion,~Motion,~motion_cap(~H,ops),ctx))
     case _ Tuple{ctx,_}: (ctx,(T.Failure{MissingBody{}},missing_row()))
 def observed_pool_selected(~H: Type,~ops: Ops<H>,xp: Bool,+args: Args,+body: Body,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
   match xp:
@@ -653,10 +688,11 @@ def observed(~H: Type,~ops: Ops<H>,+args: Args,result: H & C.Access<Body>) -> H 
   match result:
     case (ctx,C.Found{body}): observed_pool(~H,~ops,args,body,ctx)
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def body_system(~H: Type,~ops: Ops<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): observed(~H,~ops,args,Cap.read(~H,~Body,~body_cap(~H,ops),ctx))
-def plan() -> Q.Plan<Schema,Store,Unit,Unit,OpsType>: Q.Plan{Ops{Q.read_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,~vital_family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_pool}
+def body_system(~H: Type,~ops: Ops<H>,args: Args,ctx: H) -> H & (T.Outcome<Error> & EntityRow): observed(~H,~ops,args,Cap.get(~H,~Body,~Body,~body_cap(~H,ops),ctx))
+def plan() -> Q.Plan<Schema,Store,Unit,Unit,OpsType>: Q.Plan{Ops{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~VitalRest,~Vitals,~Vitals,~VitalToken,~take_vitals,~put_vitals,~project_vitals,~vital_family()),Q.write_family(~Schema,~Store,~Unit,~Unit,~MotionRest,~Motion,~Motion,~MotionToken,~take_motion,~put_motion,~project_motion,~motion_family())},selected_pool}
 
-# The final lifecycle pass applies spawn/death/drop observations and owns only Body.
+# The final lifecycle pass reconciles the 256 XP bodies after deposit routing.
+# Ordinary pool entities already committed their own Body during combat.
 type LootOps<-H: Type> is Type: LootOps{body: Cap.Write<H,Body,Body>}
 def LootOpsType(H: Type) -> Type: LootOps<H>
 def loot_body_cap(~H: Type,ops: LootOps<H>) -> Cap.Write<H,Body,Body>:
@@ -680,7 +716,13 @@ def loot_observed(~H: Type,~ops: LootOps<H>,+rows: List<&2,EntityRow>,result: H 
     case (ctx,C.Found{Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}}): (Cap.set(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx,planned_body(rows,seed,Body{x,y,kind,variant,hp,maxHp,age,seed,radius})),(T.Success{},Unit{}))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
 def loot_system(~H: Type,~ops: LootOps<H>,rows: List<&2,EntityRow>,ctx: H) -> H & (T.Outcome<Error> & Unit): loot_observed(~H,~ops,rows,Cap.get(~H,~Body,~Body,~loot_body_cap(~H,ops),ctx))
-def loot_plan() -> Q.Plan<Schema,Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family())},selected_pool}
+def selected_xp_observed(result: Frame() & C.Access<Body>) -> Frame() & Bool:
+  match result:
+    case (frame,C.Found{Body{_,_,_,_,_,_,_,+seed,_}}): (frame,U32.is_le(748,seed))
+    case (frame,_): (frame,False{})
+def selected_xp(frame: Frame()) -> Frame() & Bool:
+  selected_xp_observed(Q.get(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family(),frame))
+def loot_plan() -> Q.Plan<Schema,Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.write_family(~Schema,~Store,~Unit,~Unit,~BodyRest,~Body,~Body,~Token,~take,~put,~project,~family())},selected_xp}
 
 # All collision inputs are frozen once per tick; no pass sees partly updated shots.
 def lifecycle_done(+rows: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,Unit>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
@@ -733,7 +775,7 @@ def args_tick(args: Args) -> U32:
   match args:
     case Args{Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_}: tick
 def xp_lifecycle(+projectiles: List<&2,EntityRow>,+rows: List<&2,EntityRow>,world: World()) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
-  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~List<&2,EntityRow>,~Error,~Unit,~loot_plan(),~loot_system,rows,world))
+  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),Q.each(~Schema,~Store,~Unit,~Unit,~LootOpsType,~List<&2,EntityRow>,~Error,~Unit,~loot_plan(),~loot_system,xp_pool_rows(rows,True{}),world))
 def combat_done(+args: Args,+projectiles: List<&2,EntityRow>,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   match result:
     case Q.Executed{world,T.Success{},+rows}: xp_lifecycle(projectiles,xp_route_rows(rows,args_tick(args)),world)
