@@ -23,6 +23,15 @@ def dormant(x: F32,y: F32,identity: U32) -> State: State{Space.Spatial{x,y,0,0.0
 def identity(state: State) -> U32:
   match state:
     case State{_,identity,_,_}: identity
+def age(state: State) -> U32:
+  match state:
+    case State{Space.Spatial{_,_,age,_},_,_,_}: age
+def damage(state: State) -> U32:
+  match state:
+    case State{_,_,Components.ShotPayload{_,damage,_},_}: damage
+def visited(state: State) -> List<&2,U32>:
+  match state:
+    case State{_,_,_,Components.Trajectory{_,_,_,_,visited,_,_}}: visited
 def active(state: State) -> Bool:
   match state:
     case State{_,_,Components.ShotPayload{_,_,active},Components.Trajectory{_,_,life,pierce,_,_,_}}: Bool.and(active,Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)))
