@@ -27,7 +27,7 @@ class PickupAuthority(unittest.TestCase):
         self.assertEqual(facts[7]['spatial']['xBits'], 1)
 
     def test_raw_authority_controls(self):
-        self.assertEqual(P.controls(self.c,{},self.layout), ['pickup-amount','pickup-generation'])
+        self.assertEqual(P.controls(self.c,{},self.layout), ['pickup-amount','pickup-generation','pickup-age','pickup-accumulator'])
 
     def test_payload_membership(self):
         changed = copy.deepcopy(self.c)

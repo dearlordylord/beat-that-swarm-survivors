@@ -86,13 +86,19 @@ def controls(c, metadata, layout):
     target = next(i for i, row in enumerate(c['pickups'])
                   if row[1] is not None and row[1][0][0] == 0
                   and column(c['roles'], 'roles')[row[0]] == 'XpSlot')
-    for field in ('amount', 'generation'):
+    for field in ('amount', 'generation', 'age', 'accumulator'):
         changed = copy.deepcopy(c)
         payload = changed['pickups'][target][1]
         if field == 'amount':
             payload[0][1] = (payload[0][1] + 1) & 0xffffffff
-        else:
+        elif field == 'generation':
             payload[1] = (payload[1] + 1) & 0xffffffff
+        elif field == 'age':
+            handle=changed['pickups'][target][0]
+            space=next(row[1] for row in changed['spaces'] if row[0] == handle)
+            space[2] = (space[2] + 1) & 0xffffffff
+        else:
+            payload[0][2] = 1 - payload[0][2]
         require(validate_and_project(changed, metadata, layout) != original,
                 field + ' source mutation escaped projection')
-    return ['pickup-amount', 'pickup-generation']
+    return ['pickup-amount', 'pickup-generation', 'pickup-age', 'pickup-accumulator']
