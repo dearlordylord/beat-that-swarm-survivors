@@ -32,6 +32,11 @@ function actorMetadata(actor, frame) {
     if (!projectile) throw Error('A projectile actor has no named render metadata.');
     return {type:'projectile', value:{...projectile,x:actor.x,y:actor.y,lifetime:actor.generation,owner:actor.owner,tick:frame.tick}};
   }
+  if ([2,3,4,5,9].includes(actor.kind)) {
+    const pickup = frame.pickups.find(value => value.slot === actor.key);
+    if (!pickup) throw Error('A pickup actor has no named render metadata.');
+    return {type:'pickup',value:{...pickup,x:actor.x,y:actor.y,lifetime:actor.generation,tick:frame.tick}};
+  }
   const body = frame.bodies.find(value => value[7] === actor.key);
   if (!body) throw Error('An item actor has no render metadata.');
   const value=body.slice(); value[0]=actor.x; value[1]=actor.y;
@@ -46,18 +51,21 @@ function positionedMetadata(metadata, point) {
   return {type:metadata.type,value:{...metadata.value,x:point.x,y:point.y}};
 }
 function observations(records, order) {
-  const bodies=[],enemies=[],projectiles=[];
+  const bodies=[],enemies=[],projectiles=[],pickups=[];
   for(const record of records) {
     if(record.type==='body') bodies.push(record.value);
     else if(record.type==='enemy') enemies.push(record.value);
+    else if(record.type==='pickup') pickups.push(record.value);
     else projectiles.push(record.value);
   }
   const bodyIds=new Set(bodies.map(value=>value[7]));
   const enemyIds=new Set(enemies.map(value=>value.identity));
+  const pickupIds=new Set(pickups.map(value=>value.slot));
   const projectileIds=new Set(projectiles.map(value=>value.identity));
   const actorOrder=order.filter(reference=>Object.hasOwn(reference,'enemy')?enemyIds.has(reference.enemy):
-    Object.hasOwn(reference,'projectile')?projectileIds.has(reference.projectile):bodyIds.has(reference.body));
-  return {bodies,enemies,projectiles,actorOrder};
+    Object.hasOwn(reference,'projectile')?projectileIds.has(reference.projectile):
+    Object.hasOwn(reference,'pickup')?pickupIds.has(reference.pickup):bodyIds.has(reference.body));
+  return {bodies,enemies,projectiles,pickups,actorOrder};
 }
 export class ObservationPresentation {
   constructor() { this.reset(); }
@@ -74,6 +82,15 @@ export class ObservationPresentation {
     for (const body of frame.bodies || []) {
       const projected = Wire.extra_actor(body[7],body[2],body[3],body[0],body[1],body[6],body[4],frame.tick);
       if (projected.$ === 'Some') extras.push(projected.value);
+    }
+    for (const pickup of frame.pickups) {
+      const item=pickup.item;
+      const payload=item.kind==='xp'?{$:'Xp',amount:item.amount,accumulator:item.accumulator}:
+        item.kind==='gold'?{$:'Gold',coins:item.coins}:
+        item.kind==='healing'?{$:'Healing',health:item.health}:
+        item.kind==='chest'?{$:'Chest'}:{$:'Relic',stage:item.stage};
+      extras.push(Wire.pickup_actor({$:'State',spatial:{$:'Spatial',x:pickup.x,y:pickup.y,age:pickup.age,radius:pickup.radius},
+        payload:{$:'Payload',item:payload,generation:pickup.generation,active:pickup.active},identity:pickup.slot}));
     }
     const projected = Wire.project(frame.combatForecast,frame.observationSeq,micros(receivedAt),list(extras));
     if (!Playback.accepts(this.state,projected)) return;

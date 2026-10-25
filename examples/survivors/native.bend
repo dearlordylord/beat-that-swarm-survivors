@@ -274,19 +274,13 @@ def healthbar_visible(visible: Bool,kind: U32,hp: U32,maxHp: U32,x: F32,y: F32,r
     case True{}: Art.health_bar(kind,hp,maxHp,x,y,radius,tail)
     case False{}: tail
 
-def body_xp_visible(visible: Bool,+kind: U32,+variant: U32,+x: F32,+y: F32,+radius: F32,+amount: U32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  match visible kind:
-    case False{} _: tail
-    case True{} 2: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,U32.is_eq(variant,1)),tail)
-    case True{} _: Art.sprite(kind,variant,x,y,radius,color,tail)
-
 def body_sprite(body: Components.Body,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match body:
     case Components.Body{x,y,+kind,+variant,+hp,_,_,_,radius}:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
-      body_xp_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,hp,body_color(kind,variant),tail)
+      body_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,body_color(kind,variant),tail)
 def body_sprites(rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
@@ -300,20 +294,22 @@ def enemy_sprite(enemy: Enemy.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> 
       body_visible(Bool.and(U32.is_lt(0,health),body_on_screen(sx,sy,scaled)),0,archetype,sx,sy,scaled,enemy_color(archetype),tail)
 def pickup_item_sprite(item: Pickup.Item,+x: F32,+y: F32,+radius: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match item:
-    case Pickup.Xp{amount,marked}: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,marked),tail)
+    case Pickup.Xp{+amount,marked}: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,marked),tail)
     case Pickup.Gold{_}: Art.sprite(3,0,x,y,radius,body_color(3,0),tail)
     case Pickup.Healing{_}: Art.sprite(4,0,x,y,radius,body_color(4,0),tail)
     case Pickup.Chest{}: Art.sprite(5,0,x,y,radius,body_color(5,0),tail)
-    case Pickup.Relic{stage}: Art.sprite(9,stage,x,y,radius,body_color(9,stage),tail)
+    case Pickup.Relic{+stage}: Art.sprite(9,stage,x,y,radius,body_color(9,stage),tail)
+def pickup_visible(visible: Bool,item: Pickup.Item,x: F32,y: F32,radius: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match visible:
+    case True{}: pickup_item_sprite(item,x,y,radius,tail)
+    case False{}: tail
 def pickup_sprite(pickup: Pickup.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match pickup:
     case Pickup.State{Space.Spatial{x,y,_,radius},Pickup.Payload{item,_,active},_}:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
-      match Bool.and(active,body_on_screen(sx,sy,scaled)):
-        case True{}: pickup_item_sprite(item,sx,sy,scaled,tail)
-        case False{}: tail
+      pickup_visible(Bool.and(active,body_on_screen(sx,sy,scaled)),item,sx,sy,scaled,tail)
 def enemy_sprites(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
@@ -324,7 +320,7 @@ def projectile_kind(side: Shot.Side) -> U32:
     case Shot.HostileShot{}: 7
 def projectile_sprite(projectile: Shot.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match projectile:
-    case Shot.State{Space.Spatial{x,y,_,radius},_,side,Components.ShotPayload{weapon,_,True{}},_}:
+    case Shot.State{Space.Spatial{x,y,_,radius},_,side,Components.ShotPayload{+weapon,_,True{}},_}:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))

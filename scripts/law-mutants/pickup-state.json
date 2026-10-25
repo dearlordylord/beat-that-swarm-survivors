@@ -1,0 +1,26 @@
+[
+  {
+    "label": "pickup collection pays exact XP",
+    "source": "examples/survivors/pickup-state.bend",
+    "old": "case Xp{amount,_}: Reward{amount,0,0,0,0}",
+    "new": "case Xp{_,_}: Reward{0,0,0,0,0}",
+    "proof": "examples/survivors/pickup-state/PROOF.bend",
+    "law": "collected_xp_is_exact"
+  },
+  {
+    "label": "pickup overflow preserves exact unsigned amount",
+    "source": "examples/survivors/pickup-xp-pool.bend",
+    "old": "Pickup.Xp{Xp.merge(amount,incoming),True{}}",
+    "new": "Pickup.Xp{amount,True{}}",
+    "proof": "examples/survivors/pickup-state/PROOF.bend",
+    "law": "overflow_amount_is_exact"
+  },
+  {
+    "label": "pickup overflow preserves generation",
+    "source": "examples/survivors/pickup-xp-pool.bend",
+    "old": "Pickup.Xp{Xp.merge(amount,incoming),True{}},generation,True{}",
+    "new": "Pickup.Xp{Xp.merge(amount,incoming),True{}},0,True{}",
+    "proof": "examples/survivors/pickup-state/PROOF.bend",
+    "law": "overflow_generation_is_preserved"
+  }
+]
