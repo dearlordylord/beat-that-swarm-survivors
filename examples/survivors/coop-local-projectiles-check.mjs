@@ -24,7 +24,7 @@ const event=(shotId='1:9:0:0',kind=0,tick=10,targetGeneration=5)=>({
   fraction:0.5,impactX:10,impactY:20,targetAtImpactX:8,targetAtImpactY:18,radius:6,outcome:0
 });
 const visual=(options={})=>({
-  $:'Visual',id:'1:1:0:0',owner:0,slot:65536,weapon:0,poolSeed:512,age:0,originX:100,originY:100,
+  $:'Visual',id:'1:1:0:0',weaponOwner:0,slot:{$:'Emission',sourcePlayer:1,logicalSlot:0},weapon:0,poolSeed:512,age:0,originX:100,originY:100,
   shot:{$:'Shot',x:100,y:100,vx:8,vy:0,radius:5,life:20,pierce:1},pending:false,
   predictedSeed:0,predictedGeneration:0,predictedX:0,predictedY:0,pendingAge:0,confirmed:false,late:false,
   event:{$:'None'},guideTick:0,guideX:0,guideY:0,fade:0,...options

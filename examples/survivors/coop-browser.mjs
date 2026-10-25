@@ -189,9 +189,9 @@ function displayFrame(frame) {
   const visual = JSON.parse(LocalProjectiles.render(localShots,1,frame.remotePresentation.tick,localTargets));
   const visibility = LocalProjectiles.prepare_visibility(localShots);
   const projectiles = frame.projectiles.filter(projectile => LocalProjectiles.should_show_prepared(
-    visibility,1,projectile.hostile ? 7 : 1,projectile.owner,projectile.lifetime));
+    visibility,1,projectile.hostile ? 7 : 1,(projectile.sourcePlayer === null ? 4294967295 : projectile.sourcePlayer),projectile.lifetime));
   const localProjectiles = visual.shots.map(shot => ({
-    identity:shot.seed,lifetime:shot.id,owner:shot.player,hostile:false,weapon:shot.weapon,
+    identity:shot.seed,lifetime:shot.id,sourcePlayer:shot.player,hostile:false,weapon:shot.weapon,
     age:shot.age,x:shot.x,y:shot.y,radius:shot.radius,life:shot.life,opacity:shot.opacity,
   }));
   const projectileIds = new Set(projectiles.map(projectile => projectile.identity));
