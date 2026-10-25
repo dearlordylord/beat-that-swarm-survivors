@@ -20,6 +20,7 @@ type Outcome is Data:
   Alive{enemy: State,contactDamage: U32}
   Killed{enemy: State,reward: DeathReward}
   Born{newborn: Life.Newborn}
+  Sleeping{enemy: State}
 type Effects is Data: Effects{damage: U32,freshSlow: U32,dx: F32,dy: F32}
 def distance2(+x: F32,+y: F32,+px: F32,+py: F32) -> F32:
   ((x - px) * (x - px) + (y - py) * (y - py) : F32)
@@ -62,3 +63,33 @@ def resolve(enemy: State,+oldX: F32,+oldY: F32,effects: Effects,nextStatus: Comp
     case State{Space.Spatial{x,y,age,+radius},archetype,identity,Components.Vitals{health,maximum},Components.Status{+slow,_}} Effects{damage,+freshSlow,dx,dy}:
       resolved_health(Combat.lose(health,(damage + oldBurnDamage : U32)),Space.Spatial{Arena.constrain((oldX + (x - oldX) * Space.slow_factor(U32.max(slow,freshSlow)) + dx : F32),radius),Arena.constrain((oldY + (y - oldY) * Space.slow_factor(U32.max(slow,freshSlow)) + dy : F32),radius),age,radius},archetype,identity,maximum,nextStatus,luck,px,py,killer)
 def born(candidate: Life.Candidate) -> Outcome: Born{Life.birth(candidate)}
+
+type Credit is Data: Credit{contactDamage: U32,kills: U32}
+def newborn_state(newborn: Life.Newborn) -> State:
+  match newborn:
+    case Life.Newborn{Life.Candidate{x,y,archetype,identity,vitals,radius},age,status,_,_}: State{Space.Spatial{x,y,age,radius},archetype,identity,vitals,status}
+def state(outcome: Outcome) -> State:
+  match outcome:
+    case Alive{enemy,_}: enemy
+    case Killed{enemy,_}: enemy
+    case Born{newborn}: newborn_state(newborn)
+    case Sleeping{enemy}: enemy
+def credit(outcome: Outcome) -> Credit:
+  match outcome:
+    case Alive{_,contactDamage}: Credit{contactDamage,0}
+    case Killed{_,_}: Credit{0,1}
+    case Born{Life.Newborn{_,_,_,contactDamage,_}}: Credit{contactDamage,0}
+    case Sleeping{_}: Credit{0,0}
+def active(phase: Phase) -> Bool:
+  match phase:
+    case ActiveEnemy{_}: True{}
+    case _: False{}
+def dormant(phase: Phase) -> Bool:
+  match phase:
+    case Dormant{_}: True{}
+    case _: False{}
+def archetype(phase: Phase) -> U32:
+  match phase:
+    case Dormant{archetype}: archetype
+    case ActiveEnemy{archetype}: archetype
+    case OccupiedByLoot{}: 0

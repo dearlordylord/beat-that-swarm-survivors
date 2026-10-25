@@ -1,5 +1,8 @@
 import run-state.bend as RS
 import Base
+import enemy-combat.bend as Enemy
+import enemy-lifecycle.bend as EnemyLife
+import enemy-spawn.bend as EnemySpawn
 import list-index.bend as ListIndex
 import combat-policy.bend as Combat
 import music.bend as Music
@@ -122,9 +125,27 @@ def pickup_populated(result: C.Replacement<Storage.World(),Components.Pickup>) -
     case C.ReplaceRejected{world,_,_}: world
 def populate_pickup(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
   pickup_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Components.Pickup,~Components.Pickup,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,Storage.pickup_family(),world,handle,Some{pickup_from_body(body)}))
+def identity_populated(result: C.Replacement<Storage.World(),Components.Identity>) -> Storage.World():
+  match result:
+    case C.Replaced{world,_}: world
+    case C.ReplaceRejected{world,_,_}: world
+def populate_identity(world: Storage.World(),handle: W.Handle<Storage.Schema>,slot: U32) -> Storage.World():
+  identity_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,Storage.identity_family(),world,handle,Some{Components.Identity{slot}}))
+def phase_populated(result: C.Replacement<Storage.World(),Enemy.Phase>) -> Storage.World():
+  match result:
+    case C.Replaced{world,_}: world
+    case C.ReplaceRejected{world,_,_}: world
+def initial_enemy_phase(kind: U32,archetype: U32) -> Enemy.Phase:
+  match kind:
+    case 0: Enemy.ActiveEnemy{archetype}
+    case 8: Enemy.Dormant{archetype}
+    case _: Enemy.OccupiedByLoot{}
+def populate_enemy_slot(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
+  match body:
+    case Components.Body{_,_,kind,archetype,_,_,_,_,_}: phase_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,Storage.phase_family(),populate_enemy(world,handle,body),handle,Some{initial_enemy_phase(kind,archetype)}))
 def populate_components(role: Role.Role,world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
   match role:
-    case Role.EnemySlot{}: populate_enemy(world,handle,body)
+    case Role.EnemySlot{}: populate_enemy_slot(world,handle,body)
     case Role.RelicSlot{}: populate_enemy(world,handle,body)
     case Role.PlayerProjectileSlot{}: populate_projectile(world,handle)
     case Role.HostileProjectileSlot{}: populate_projectile(world,handle)
@@ -133,8 +154,11 @@ def populate_components(role: Role.Role,world: Storage.World(),handle: W.Handle<
 def initial_role(body: Components.Body) -> Role.Role:
   match body:
     case Components.Body{_,_,_,_,_,_,_,seed,_}: Role.assigned(seed)
+def initial_identity(body: Components.Body) -> U32:
+  match body:
+    case Components.Body{_,_,_,_,_,_,_,slot,_}: slot
 def populate_shared(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
-  populate_components(initial_role(body),role_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,Storage.role_family(),populate_body(world,handle,body),handle,Some{initial_role(body)})),handle,body)
+  populate_components(initial_role(body),role_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,Storage.role_family(),populate_identity(populate_body(world,handle,body),handle,initial_identity(body)),handle,Some{initial_role(body)})),handle,body)
 def populate_all(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World(): populate_shared(world,handle,body)
 def populate(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World(): populate_all(world,handle,body)
 def spawn_finish(result: T.Tx<Storage.World(),Unit> & W.Reservation<Storage.Schema>) -> Storage.World():
@@ -160,6 +184,19 @@ def run_player(value: Run) -> RS.PlayerState:
 type PlayerSnapshot is Data: PlayerSnapshot{id: U32,run: Run,connected: Bool}
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
 type Snapshot is Data: Snapshot{body: Components.Body,motion: Motion}
+# Common geometry contains no overloaded health, damage or reward payload.
+type SnapshotGeometry is Data: SnapshotGeometry{identity: U32,x: F32,y: F32,age: U32,radius: F32}
+def snapshot_geometry(snapshot: Snapshot) -> SnapshotGeometry:
+  match snapshot:
+    case Snapshot{Components.Body{x,y,_,_,_,_,age,identity,radius},_}: SnapshotGeometry{identity,x,y,age,radius}
+def geometry_identity(geometry: SnapshotGeometry) -> U32:
+  match geometry:
+    case SnapshotGeometry{identity,_,_,_,_}: identity
+def snapshot_identity(snapshot: Snapshot) -> U32: geometry_identity(snapshot_geometry(snapshot))
+def geometry_age(geometry: SnapshotGeometry) -> U32:
+  match geometry:
+    case SnapshotGeometry{_,_,_,age,_}: age
+def snapshot_age(snapshot: Snapshot) -> U32: geometry_age(snapshot_geometry(snapshot))
 type State is Type: State{world: Storage.World(),run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
 type Observation is Data: Observation{run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>}
 type Packet is Type: Packet{state: State}
@@ -213,7 +250,7 @@ def boot_pool(remaining: Nat,+slot: U32,world: Storage.World()) -> Storage.World
 # Lifecycle later refreshes active membership during its existing traversal.
 def movement_roster_store(handles: List<&2,W.Handle<Storage.Schema>>,store: Storage.Store) -> Storage.Store & Unit:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,candidates,players,spaces}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces},Unit{})
+    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities},Unit{})
 def movement_roster_save(world: Storage.World(),handles: List<&2,W.Handle<Storage.Schema>>) -> Storage.World():
   routing_world(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Unit,movement_roster_store(handles),world))
 def movement_roster_keep(selected: Bool,handle: W.Handle<Storage.Schema>,reversed: List<&2,W.Handle<Storage.Schema>>) -> List<&2,W.Handle<Storage.Schema>>:
@@ -226,7 +263,7 @@ def role_active(role: Role.Role,body: Components.Body) -> Bool:
 type RoutingCapture is Data: RoutingCapture{projectiles: List<&2,W.Handle<Storage.Schema>>,pool: List<&2,W.Handle<Storage.Schema>>,active: List<&2,W.Handle<Storage.Schema>>}
 def routing_capture_store(capture: RoutingCapture,store: Storage.Store) -> Storage.Store & Unit:
   match capture store:
-    case RoutingCapture{projectiles,pool,active} Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,_,players,spaces}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces},Unit{})
+    case RoutingCapture{projectiles,pool,active} Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities},Unit{})
 def routing_capture_keep(+role: Role.Role,+handle: W.Handle<Storage.Schema>,active: Bool,capture: RoutingCapture) -> RoutingCapture:
   match capture:
     case RoutingCapture{projectiles,pool,movement}: RoutingCapture{movement_roster_keep(Role.projectile(role),handle,projectiles),movement_roster_keep(Role.pool(role),handle,pool),movement_roster_keep(active,handle,movement)}
@@ -748,7 +785,7 @@ def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q
 
 def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces},movement)
+    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities},movement)
 def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
     case EntityRow{Row{Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
@@ -954,7 +991,7 @@ def xp_route_args(rows: List<&2,EntityRow>,args: Args) -> List<&2,EntityRow>:
 # transaction finish, rollback and mixed allocator order remain the public query's.
 def candidate_roster_read(store: Storage.Store) -> Storage.Store & Storage.CandidateRoster:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces},candidates)
+    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities},candidates)
 def candidate_roster_handles(projectile: Bool,roster: Storage.CandidateRoster) -> List<&2,W.Handle<Storage.Schema>>:
   match projectile roster:
     case True{} Storage.CandidatesPrepared{projectiles,_}: projectiles
