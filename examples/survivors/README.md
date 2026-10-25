@@ -12,6 +12,10 @@ query membership has [its own policy](movement-membership.bend) and
 this guide does not duplicate their component layouts or dispatch rules.
 
 The authoritative pool layout and admission limits are in [`pools.bend`](pools.bend).
+Party-size difficulty belongs to [`party-difficulty.bend`](party-difficulty.bend):
+ordinary spawn slots scale by living, connected players, up to the existing
+500-enemy ceiling. The six-tick refill cadence, enemy stats and boss schedule
+are unchanged; losing a player reduces future admission without deleting mobs.
 See [pool sources and proof boundaries](pools/README.md) for allocation, pickup
 and lifecycle implementation. Weapon behavior belongs to
 [`projectile.bend`](projectile.bend), and pickup appearance belongs to

@@ -12,6 +12,7 @@ import spawn-lifecycle.bend as SL
 import persistent-xp.bend as X
 import body-index.bend as BI
 import pools.bend as PL
+import party-difficulty.bend as PartyDifficulty
 import movement-membership.bend as MM
 import entity-role.bend as Role
 import projectile-pool.bend as SP
@@ -468,15 +469,18 @@ def dormant_admitted(active: Bool,+seed: U32,+body: Body,run: Run) -> Row:
     case False{} _: Row{body,0,0,0,0,0,0,0}
     case True{} Run{_,+tick,+px,+py,_,_,_,_,_,_,_,+character,_,+passives,_,+rng,+stage,+arcana,_,_,_,+mode,_,_,_,_,_,_,_}:
       dormant_spawn(True{},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,E.variant(stage,wave_tick(mode,tick),seed),stage,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),body)
-def dormant_scheduled(scheduled: Bool,+seed: U32,+body: Body,+run: Run) -> Row:
+def dormant_scheduled_for(players: U32,scheduled: Bool,+seed: U32,+body: Body,+run: Run) -> Row:
   match scheduled run:
     case False{} _: Row{body,0,0,0,0,0,0,0}
     case True{} Run{_,+tick,_,_,_,_,_,_,_,_,_,_,_,+passives,_,_,_,+arcana,_,_,_,+mode,_,_,_,_,_,_,_}:
-      dormant_admitted(U32.is_lt((seed % PL.player_start() : U32),U32.min(PL.max_regular_enemies(),(active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32))),seed,body,run)
-def dormant(body: Body,+run: Run) -> Row:
+      dormant_admitted(U32.is_lt((seed % PL.player_start() : U32),PartyDifficulty.spawn_limit((active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32),players)),seed,body,run)
+def dormant_scheduled(scheduled: Bool,seed: U32,body: Body,run: Run) -> Row:
+  dormant_scheduled_for(1,scheduled,seed,body,run)
+def dormant_for(players: U32,body: Body,+run: Run) -> Row:
   match body run:
     case Body{+x,+y,_,+variant,_,+maxHp,+age,+seed,_} Run{_,+tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      dormant_scheduled(U32.is_eq(((tick + seed) % 6 : U32),0),seed,Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0},run)
+      dormant_scheduled_for(players,U32.is_eq(((tick + seed) % 6 : U32),0),seed,Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0},run)
+def dormant(body: Body,run: Run) -> Row: dormant_for(1,body,run)
 def update_body(body: Body,run: Run) -> Row:
   match body:
     case Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius}: enemy_update(Body{x,y,0,variant,hp,maxHp,age,seed,radius},run)
@@ -1608,10 +1612,24 @@ def team_enemy_applied(+team: Team,oldX: F32,oldY: F32,motion: Motion,routed: SL
 def team_enemy_updated(+team: Team,+body: Body,status: Status,+row: Row) -> EntityRow:
   match body row:
     case Body{oldX,oldY,previousKind,_,_,_,previousAge,_,_} Row{Body{_,_,kind,_,_,_,age,_,_},_,_,_,_,_,_,_}: team_enemy_applied(team,oldX,oldY,logical_motion(empty_trajectory(),status),SL.route(~Row,previousKind,previousAge,kind,age,row))
+def living_views(views: List<&2,PlayerView>) -> List<&2,PlayerView>:
+  match views:
+    case []: []
+    case +view <> rest: add_view(U32.is_lt(0,run_hp(view_run(view))),view,living_views(rest))
+# Disconnected records become zero-HP views in the co-op projection; solo
+# supplies one view. Keep seed zero's existing boss schedule independent of size.
+def party_spawn_players(team: Team) -> U32:
+  match team:
+    case Team{views,_,_,_}: U32.from_nat(List.length(&2,PlayerView,living_views(views)))
+def party_update(team: Team,+body: Body,run: Run) -> Row:
+  match body:
+    case Body{_,_,8,_,_,_,_,0,_}: update(body,run)
+    case Body{_,_,8,_,_,_,_,_,_}: dormant_for(party_spawn_players(team),body,run)
+    case _: update(body,run)
 def team_enemy_role(role: Role.Role,+team: Team,+body: Body,status: Status) -> EntityRow:
   match role:
     case Role.RelicSlot{}: relic_entity(team_args(team,team_body_view(team,body)))
-    case _: team_spawn_gate(team,body,team_enemy_updated(team,body,status,update(body,view_run(team_body_view(team,body)))))
+    case _: team_spawn_gate(team,body,team_enemy_updated(team,body,status,party_update(team,body,view_run(team_body_view(team,body)))))
 def team_enemy_status(~H: Type,~ops: Ops<H>,role: Role.Role,+team: Team,body: Body,result: H & C.Access<Status>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{status}): write_row(~H,~ops,ctx,team_enemy_role(role,team,body,status))
@@ -1709,10 +1727,6 @@ def team_execute_contacts(world: World(),+team: Team) -> Q.Executed<World(),Q.Er
 def team_execute(world: World(),team: Team) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   team_execute_contacts(world,contact_team(team))
 
-def living_views(views: List<&2,PlayerView>) -> List<&2,PlayerView>:
-  match views:
-    case []: []
-    case +view <> rest: add_view(U32.is_lt(0,run_hp(view_run(view))),view,living_views(rest))
 def full_player_inventory(+id: U32,+run: Run,all: ShotInventory,own: ShotInventory) -> SP.Plan:
   match all own:
     case ShotInventory{occupied,_,_} ShotInventory{_,counts,locks}: merge_player_plan(id,SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(run_tick(run) % PL.owner_count() : U32),run,locks)),empty_shot_plan())

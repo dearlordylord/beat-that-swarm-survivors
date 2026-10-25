@@ -1,0 +1,26 @@
+[
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "spawn_limit_exact",
+    "label": "party-spawn-ignores-player-count",
+    "old": "U32.min(Pools.max_regular_enemies(),(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32))",
+    "new": "U32.min(base,Pools.max_regular_enemies())"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "spawn_limit_exact",
+    "label": "party-spawn-exceeds-pool",
+    "old": "U32.min(Pools.max_regular_enemies(),(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32))",
+    "new": "(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32)"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "spawn_limit_exact",
+    "label": "party-spawn-multiplies-unbounded-inputs",
+    "old": "U32.min(Pools.max_regular_enemies(),(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32))",
+    "new": "U32.min(Pools.max_regular_enemies(),(base * players : U32))"
+  }
+]
