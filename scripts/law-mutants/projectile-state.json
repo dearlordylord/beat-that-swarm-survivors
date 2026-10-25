@@ -2,8 +2,8 @@
   {
     "label": "projectile birth preserves explicit damage",
     "source": "examples/survivors/projectile-state.bend",
-    "old": "created(identity: U32,weapon: U32,damage: U32,owner: U32,logicalSlot: U32,shot: P.Shot) -> State:\n  match shot:\n    case P.Shot{x,y,vx,vy,radius,life,pierce}: State{Space.Spatial{x,y,0,radius},identity,Components.ShotPayload{weapon,damage,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}}",
-    "new": "created(identity: U32,weapon: U32,damage: U32,owner: U32,logicalSlot: U32,shot: P.Shot) -> State:\n  match shot:\n    case P.Shot{x,y,vx,vy,radius,life,pierce}: State{Space.Spatial{x,y,0,radius},identity,Components.ShotPayload{weapon,(damage + 1 : U32),True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}}",
+    "old": "State{Space.Spatial{x,y,0,radius},identity,side,Components.ShotPayload{weapon,damage,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}}",
+    "new": "State{Space.Spatial{x,y,0,radius},identity,side,Components.ShotPayload{weapon,(damage + 1 : U32),True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}}",
     "proof": "examples/survivors/projectile-state/PROOF.bend",
     "law": "created_damage"
   },
