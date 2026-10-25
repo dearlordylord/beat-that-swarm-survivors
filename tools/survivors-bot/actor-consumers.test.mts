@@ -155,29 +155,4 @@ vm.runInNewContext(drawSource + ";draw(frame,undefined)", {
 })
 assert.equal(arcs.length, 5)
 assert.deepEqual(colors, ["#eeeeee", "#75bfff", "#f47579", "#eeeeee", "#fff"])
-const browser = ts.transpileModule(
-  await readFile(new URL("./coop-reliability-browser-check.mts", import.meta.url), "utf8"),
-  { compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext } }
-).outputText
-const motionSource = browser.slice(
-  browser.indexOf("function motionOracle("),
-  browser.indexOf("function inputCoverage(")
-)
-const diagnostic: unknown = vm.runInNewContext(motionSource + ";motionOracle(rows,0)", {
-  assert,
-  defined,
-  p95: () => 0,
-  rows: [
-    { wall: 6000, phase: 0, runId: 1, round: 1, enemies: [{ identity: 5, lifetime: "born1", x: 10, y: 10 }] },
-    { wall: 6100, phase: 0, runId: 1, round: 1, enemies: [{ identity: 5, lifetime: "born2", x: 100, y: 100 }] },
-    { wall: 6200, phase: 0, runId: 1, round: 1, enemies: [{ identity: 5, lifetime: "born2", x: 106, y: 100 }] }
-  ]
-})
-assert.ok(typeof diagnostic === "object" && diagnostic !== null && "enemies" in diagnostic)
-assert.deepEqual(JSON.parse(JSON.stringify(diagnostic.enemies)), {
-  samples: 1,
-  maxUnitsPerWallTick: 1,
-  p95UnitsPerWallTick: 0,
-  scope: "same-generation diagnostics; monster dash mechanics have no asserted speed bound"
-})
 console.log("Actor consumer fixtures passed with the actual typed runner boundary")

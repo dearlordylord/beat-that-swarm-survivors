@@ -1,3 +1,4 @@
+import { motionOracle } from "./coop-motion-oracle.mts"
 import type { Page } from "playwright"
 import { loadChromium } from "./playwright-module.mts"
 import type {
@@ -191,89 +192,6 @@ function authorityLag(hostRows: InputResolution[], guestRows: RenderRow[], start
     maxTicks: lagRows.length ? Math.max(...lagRows.map((row) => row.lag)) : 0,
     p95Ticks: p95(lagRows.map((row) => row.lag)),
     windows
-  }
-}
-// Fixed default-character trajectory oracle, not a universal enemy physics bound.
-function motionOracle(rows: RenderRow[], startWall: number) {
-  const warmAt = startWall + 5000,
-    hostSteps: number[] = [],
-    enemySteps: number[] = [],
-    violations: unknown[] = []
-  let activeSamples = 0,
-    bufferedSamples = 0,
-    bufferEntries = 0,
-    bufferExits = 0,
-    recoveryEntries = 0
-  for (let index = 0; index < rows.length; index++) {
-    const row = defined(rows[index]),
-      previous = rows[index - 1]
-    if (row.wall < warmAt || row.phase !== 0) continue
-    activeSamples++
-    if (row.remotePresentation?.buffering) bufferedSamples++
-    const continuous =
-      previous &&
-      previous.wall >= warmAt &&
-      previous.phase === 0 &&
-      previous.runId === row.runId &&
-      previous.round === row.round
-    if (!continuous) continue
-    if (row.remotePresentation?.buffering && !previous.remotePresentation?.buffering) bufferEntries++
-    if (!row.remotePresentation?.buffering && previous.remotePresentation?.buffering) bufferExits++
-    if (row.remotePresentation?.recovered && !previous.remotePresentation?.recovered) recoveryEntries++
-    const elapsedMs = row.wall - previous.wall
-    if (!(elapsedMs > 0 && elapsedMs <= 250)) continue
-    const oldHost = previous.players?.find((player) => player.id === 0),
-      host = row.players?.find((player) => player.id === 0)
-    if (
-      host &&
-      oldHost &&
-      host.character === oldHost.character &&
-      host.character === 0 &&
-      host.alive &&
-      oldHost.alive
-    ) {
-      const distance = Math.hypot(host.px - oldHost.px, host.py - oldHost.py),
-        allowed = 4 * ((elapsedMs * 60) / 1000) + 1
-      assert.ok(Number.isFinite(distance), "remote host coordinates must be finite")
-      hostSteps.push(distance / ((elapsedMs * 60) / 1000))
-      if (distance > allowed)
-        violations.push({
-          wall: row.wall,
-          elapsedMs,
-          distance,
-          allowed,
-          previousTick: previous.tick,
-          tick: row.tick,
-          previousPresentation: previous.remotePresentation,
-          presentation: row.remotePresentation
-        })
-    }
-    const oldEnemies = new Map((previous.enemies || []).map((enemy) => [`${enemy.identity}:${enemy.lifetime}`, enemy]))
-    for (const enemy of row.enemies || []) {
-      const old = oldEnemies.get(`${enemy.identity}:${enemy.lifetime}`)
-      if (old) {
-        const distance = Math.hypot(enemy.x - old.x, enemy.y - old.y)
-        if (Number.isFinite(distance)) enemySteps.push(distance / ((elapsedMs * 60) / 1000))
-      }
-    }
-  }
-  return {
-    warmupMs: 5000,
-    maxPairGapMs: 250,
-    host: {
-      samples: hostSteps.length,
-      maxUnitsPerWallTick: hostSteps.length ? Math.max(...hostSteps) : 0,
-      p95UnitsPerWallTick: p95(hostSteps),
-      violationCount: violations.length,
-      violations: violations.slice(0, 12)
-    },
-    enemies: {
-      samples: enemySteps.length,
-      maxUnitsPerWallTick: enemySteps.length ? Math.max(...enemySteps) : 0,
-      p95UnitsPerWallTick: p95(enemySteps),
-      scope: "same-generation diagnostics; monster dash mechanics have no asserted speed bound"
-    },
-    buffer: { activeSamples, bufferedSamples, bufferEntries, bufferExits, recoveryEntries }
   }
 }
 function inputCoverage(rows: InputResolution[], rejections: { reason: number }[]) {
