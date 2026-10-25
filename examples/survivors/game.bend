@@ -7,6 +7,7 @@ import arena.bend as A
 import player-movement.bend as PlayerMovement
 import prediction-spawn.bend as PredictionSpawn
 import projectile.bend as P
+import projectile-state.bend as Shot
 import encounters.bend as E
 import spawn-policy.bend as S
 import spawn-lifecycle.bend as SL
@@ -475,11 +476,17 @@ def aim_direction_x(+dx: F32,+dy: F32,+px: F32,+py: F32,+tx: F32,+ty: F32) -> F3
   E.choose_float(F32.is_lt((dx * dx + dy * dy : F32),0.01),P.aim_x(px,py,tx,ty),direction_x(dx,dy))
 def aim_direction_y(+dx: F32,+dy: F32,+px: F32,+py: F32,+tx: F32,+ty: F32) -> F32:
   E.choose_float(F32.is_lt((dx * dx + dy * dy : F32),0.01),P.aim_y(px,py,tx,ty),direction_y(dx,dy))
-def shot_spawn_aim(+owner: U32,fire: Bool,+seed: U32,+id: U32,+slot: U32,+level: U32,+run: Run,+dx: F32,+dy: F32,aim: Aim) -> EntityRow:
-  match fire run aim:
-    case False{} _ _: dormant_entity(0.0,0.0,seed)
-    case True{} Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,+character,_,+passives,_,+arcana,+meta,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}} Aim{+tx,+ty,_,_}:
-      shot_created(id,seed,weapon_damage(id,level,passives,meta,arcana,character),P.spawn(id,level,(slot * 2 : U32),familiar_x(id,owner,slot,px,tick),familiar_y(id,owner,slot,py,tick),tx,ty,aim_direction_x(dx,dy,px,py,tx,ty),aim_direction_y(dx,dy,px,py,tx,ty),projectile_speed(passives,arcana),area_bonus(passives,arcana,level),duration_bonus(passives,arcana)))
+def shot_spawn_aim(+owner: U32,fire: Bool,+seed: U32,+id: U32,+slot: U32,+level: U32,input: Shot.SpawnInput) -> EntityRow:
+  match fire input:
+    case False{} _: dormant_entity(0.0,0.0,seed)
+    case True{} Shot.SpawnInput{+tick,+px,+py,+dx,+dy,+tx,+ty,damage,speed,area,duration}:
+      shot_created(id,seed,damage,P.spawn(id,level,(slot * 2 : U32),familiar_x(id,owner,slot,px,tick),familiar_y(id,owner,slot,py,tick),tx,ty,aim_direction_x(dx,dy,px,py,tx,ty),aim_direction_y(dx,dy,px,py,tx,ty),speed,area,duration))
+def shot_spawn_at(tick: U32,px: F32,py: F32,dx: F32,dy: F32,damage: U32,speed: F32,area: F32,duration: F32,aim: Aim) -> Shot.SpawnInput:
+  match aim:
+    case Aim{tx,ty,_,_}: Shot.SpawnInput{tick,px,py,dx,dy,tx,ty,damage,speed,area,duration}
+def shot_spawn_input(+id: U32,+level: U32,run: Run,dx: F32,dy: F32,targets: Targets.Targets) -> Shot.SpawnInput:
+  match run:
+    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_}}: shot_spawn_at(tick,px,py,dx,dy,weapon_damage(id,level,passives,meta,arcana,character),projectile_speed(passives,arcana),area_bonus(passives,arcana,level),duration_bonus(passives,arcana),nearest(targets,px,py,Aim{(px + 180.0 : F32),py,0,10000000.0}))
 # Ballistic volleys rotate through the whole pool; long-lived fields keep their slots.
 def rotates_pool(id: U32) -> Bool:
   match id:
@@ -528,24 +535,27 @@ def request_if(fire: Bool,owner: U32,slot: U32,level: U32,tail: List<&2,SP.Reque
     case True{}: SP.Request{owner,slot,level} <> tail
 def requested_slot(+owner: U32,+slot: U32,+level: U32,+passives: List<&2,U32>,+tick: U32,+meta: U32,+arcana: U32,+character: U32,+invuln: U32,+locks: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   request_if(Bool.and(Bool.or(rotates_pool(owner),U32.is_eq(U32.and(locks,U32.shln(1,U32.to_nat(slot))),0)),Bool.or(scheduled_shot(owner,slot,level,passives,tick,meta,arcana,character),Bool.and(U32.is_eq(arcana,4),Bool.and(U32.is_eq(owner,19),Bool.and(U32.is_eq(slot,0),Bool.and(U32.is_lt(30,invuln),U32.is_eq((tick % 12 : U32),0))))))),owner,slot,level,tail)
-def request_slots(fuel: Nat,+owner: U32,+slot: U32,+run: Run,+locks: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
-  match fuel run:
+def shot_schedule(run: Run) -> Shot.Schedule:
+  match run:
+    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,weapons,passives,invuln,arcana,meta,_,_,_,_,_,_}}: Shot.Schedule{tick,character,weapons,passives,invuln,arcana,meta}
+def request_slots(fuel: Nat,+owner: U32,+slot: U32,+schedule: Shot.Schedule,+locks: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
+  match fuel schedule:
     case 0n _: tail
-    case 1n+rest Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,+character,+weapons,+passives,+invuln,+arcana,+meta,_,_,_,_,_,_}}: requested_slot(owner,slot,at(weapons,owner),passives,tick,meta,arcana,character,invuln,locks,request_slots(rest,owner,(slot + 1 : U32),Run{RS.Session{0,tick,0,0,0,0,0,0,0,0,0,[],0},RS.PlayerState{0.0,0.0,0,0,character,weapons,passives,invuln,arcana,meta,0,0,0,0,0,0}},locks,tail))
-def owner_requests_needed(needed: Bool,+owner: U32,run: Run,locks: List<&2,U32>,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
+    case 1n+rest Shot.Schedule{+tick,+character,+weapons,+passives,+invuln,+arcana,+meta}: requested_slot(owner,slot,at(weapons,owner),passives,tick,meta,arcana,character,invuln,locks,request_slots(rest,owner,(slot + 1 : U32),Shot.Schedule{tick,character,weapons,passives,invuln,arcana,meta},locks,tail))
+def owner_requests_needed(needed: Bool,+owner: U32,schedule: Shot.Schedule,locks: List<&2,U32>,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   match needed:
     case False{}: tail
-    case True{}: request_slots(8n,owner,0,run,at(locks,owner),tail)
-def owner_requests(+owner: U32,+run: Run,locks: List<&2,U32>,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
-  match run:
-    case Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,weapons,_,_,arcana,_,_,_,_,_,_,_}}: owner_requests_needed(Bool.or(U32.is_lt(0,at(weapons,owner)),Bool.and(U32.is_eq(arcana,4),U32.is_eq(owner,19))),owner,run,locks,tail)
-def shot_requests(fuel: Nat,+owner: U32,+run: Run,+locks: List<&2,U32>) -> List<&2,SP.Request>:
+    case True{}: request_slots(8n,owner,0,schedule,at(locks,owner),tail)
+def owner_requests(+owner: U32,+schedule: Shot.Schedule,locks: List<&2,U32>,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
+  match schedule:
+    case Shot.Schedule{_,_,weapons,_,_,arcana,_}: owner_requests_needed(Bool.or(U32.is_lt(0,at(weapons,owner)),Bool.and(U32.is_eq(arcana,4),U32.is_eq(owner,19))),owner,schedule,locks,tail)
+def shot_requests(fuel: Nat,+owner: U32,+schedule: Shot.Schedule,+locks: List<&2,U32>) -> List<&2,SP.Request>:
   match fuel:
     case 0n: []
-    case 1n+rest: owner_requests(owner,run,locks,shot_requests(rest,((owner + 1) % PL.owner_count() : U32),run,locks))
+    case 1n+rest: owner_requests(owner,schedule,locks,shot_requests(rest,((owner + 1) % PL.owner_count() : U32),schedule,locks))
 def shot_plan_inventory(+run: Run,inventory: ShotInventory) -> SP.Plan:
-  match run inventory:
-    case Run{RS.Session{_,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+kinds,+relic},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}} ShotInventory{occupied,counts,locks}: SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(tick % PL.owner_count() : U32),Run{RS.Session{0,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,kinds,relic},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},locks))
+  match inventory:
+    case ShotInventory{occupied,counts,locks}: SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule(run)) % PL.owner_count() : U32),shot_schedule(run),locks))
 def prepare_shot_plan(args: Args) -> SP.Plan:
   match args:
     case Args{run,_,_,_,snapshots,_}: shot_plan_inventory(run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
@@ -558,8 +568,7 @@ def with_shot_owner(row: EntityRow,+owner: U32,+slot: U32) -> EntityRow:
 def shot_spawn_ready(fire: Bool,+seed: U32,+base: U32,+slot: U32,+level: U32,args: Args) -> EntityRow:
   match fire args:
     case False{} _: dormant_entity(0.0,0.0,seed)
-    case True{} Args{Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,+character,+weapons,+passives,_,+arcana,+meta,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+dx,+dy,_,_}:
-      shot_spawn_aim(base,True{},seed,effective_weapon(base,level,slot),slot,level,Run{RS.Session{0,tick,0,0,0,0,0,0,0,0,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,0,0,character,weapons,passives,0,arcana,meta,0,rerolls,banishes,skips,bannedWeapons,bannedPassives}},dx,dy,nearest(bodies,px,py,Aim{(px + 180.0 : F32),py,0,10000000.0}))
+    case True{} Args{+run,bodies,dx,dy,_,_}: shot_spawn_aim(base,True{},seed,effective_weapon(base,level,slot),slot,level,shot_spawn_input(effective_weapon(base,level,slot),level,run,dx,dy,bodies))
 def shot_surviving(alive: Bool,+x: F32,+y: F32,+id: U32,+damage: U32,+age: U32,+seed: U32,+radius: F32,+vx: F32,+vy: F32,+life: U32,+pierce: U32,+visited: List<&2,U32>) -> EntityRow:
   match alive:
     case True{}: EntityRow{Row{Components.Body{x,y,1,id,damage,damage,age,seed,radius},0,0,0,0,0,0,0},Motion{vx,vy,life,pierce,visited,0,0,0,0}}
@@ -1400,7 +1409,7 @@ def parity_slots(rows: List<&2,U32>,+id: U32) -> List<&2,U32>:
     case +seed <> rest: free_slot(U32.is_eq((seed % 2 : U32),id),seed,parity_slots(rest,id))
 def assigned_plan(+id: U32,+run: Run,inventory: ShotInventory) -> SP.Plan:
   match inventory:
-    case ShotInventory{occupied,counts,locks}: SP.allocate(parity_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),counts,PL.caps(),shot_requests(24n,(run_tick(run) % PL.owner_count() : U32),run,locks))
+    case ShotInventory{occupied,counts,locks}: SP.allocate(parity_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule(run)) % PL.owner_count() : U32),shot_schedule(run),locks))
 def merge_assignments(index: BI.Index<SP.Request>,+id: U32,into: BI.Index<SP.Request>) -> BI.Index<SP.Request>:
   match index:
     case BI.Empty{}: into
@@ -1674,7 +1683,7 @@ def team_execute(world: Storage.World(),team: Team) -> Q.Executed<Storage.World(
 
 def full_player_inventory(+id: U32,+run: Run,all: ShotInventory,own: ShotInventory) -> SP.Plan:
   match all own:
-    case ShotInventory{occupied,_,_} ShotInventory{_,counts,locks}: merge_player_plan(id,SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(run_tick(run) % PL.owner_count() : U32),run,locks)),empty_shot_plan())
+    case ShotInventory{occupied,_,_} ShotInventory{_,counts,locks}: merge_player_plan(id,SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule(run)) % PL.owner_count() : U32),shot_schedule(run),locks)),empty_shot_plan())
 def full_player_plan(view: PlayerView,+snapshots: List<&2,Snapshot>) -> SP.Plan:
   match view:
     case PlayerView{+id,run,_,_,_}: full_player_inventory(id,run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}),shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
