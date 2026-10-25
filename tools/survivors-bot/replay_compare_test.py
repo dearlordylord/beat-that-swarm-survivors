@@ -61,6 +61,14 @@ class CompareTest(unittest.TestCase):
         for text in ['{"type":"start","type":"summary"}\n','{"type":"start","n":NaN}\n']:
             self.a.write_text(text);self.b.write_text(text)
             with self.assertRaises(R.ReplayError):self.compare()
+    def test_actual_world_clock_cannot_regress(self):
+        a=F.replay();p=a[2]['payload'];p['metadata']['clock'][0]=[0,0]
+        for records in p['components']['actorColumns'].values():
+            if records and isinstance(records[0],list) and len(records[0])==3 and isinstance(records[0][2],list):
+                for row in records:
+                    if row[1] is not None:row[2]=[[0,0],[0,0]]
+        self.write(a,a)
+        with self.assertRaises(R.ReplayError):self.compare()
     def test_trace_binds_actual_schedule(self):
         trace=Path(self.directory.name)/'trace';trace.write_text('1313231410 1 0 100 0 1 1 0 1 0 0 0 0 0')
         self.write(F.replay(),F.replay());R.compare(self.a,self.b,layout=F.LAYOUT,trace=trace)
