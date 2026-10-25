@@ -106,6 +106,7 @@ test('an older RAF timestamp cannot rewind a prediction clock sampled by a netwo
 test('weapon forecast replaces only own visuals after interpolation and never mutates received gameplay',async()=>{
  const calls=[];
  const WeaponForecast={
+  receive:metadata=>metadata,
   forecast:(metadata,prediction)=>{calls.push({type:'forecast',metadata,age:prediction.age});return {metadata,steps:0};},
   advance:(state,x,y)=>{calls.push({type:'advance',x,y});return {...state,steps:state.steps+1};},
   render:state=>JSON.stringify({ownSeeds:[900],bodies:[[7200+state.steps,7200,1,0,8,8,state.steps,901,6,'player1:volley7:slot0',1]]}),
@@ -134,6 +135,7 @@ test('weapon forecast replaces only own visuals after interpolation and never mu
 test('weapon forecast is rebuilt from each accepted anchor and only the reconciled pending suffix',async()=>{
  const replayed=[];
  const WeaponForecast={
+  receive:metadata=>metadata,
   forecast:(metadata,prediction)=>{replayed.push({metadata,age:prediction.age});return {metadata};},
   advance:state=>state,
   render:()=>JSON.stringify({ownSeeds:[],bodies:[]}),
@@ -152,6 +154,7 @@ test('weapon forecast is rebuilt from each accepted anchor and only the reconcil
 test('continuing weapon trajectories are reconciled in Bend only within the same active prediction epoch',async()=>{
  const rebased=[];
  const WeaponForecast={
+  receive:metadata=>metadata,
   forecast:(metadata,prediction)=>({anchor:metadata.anchor,steps:prediction.age}),
   advance:state=>({...state,steps:state.steps+1}),
   render:()=>JSON.stringify({ownSeeds:[],bodies:[]}),

@@ -161,3 +161,30 @@ site already contains the fix. Local build previews do not have a release
 `version.json`; the harness records that metadata as unavailable instead of
 mistaking an HTML fallback for release provenance. Fresh prepared deployment
 assets still require the repository's publication guard.
+
+## Release transport qualification
+
+The first prepared-release latency run exposed excessive delay in its CDP test
+link: transferring Uint8Arrays as arrays of individual numbers made a larger
+forecast observation back up behind test-driver serialization. The same prepared
+build passed unchanged thresholds after encoding the fixture bytes as base64:
+at nominal 500 ms RTT plus ±40 ms ordered variation, both actual one-way p95s
+were about 297 ms, pending input stayed below 40 ticks and reversal was 19 ms.
+This was an instrumentation control, not a faster-game claim.
+
+The production wire format was also reduced: the static 256-ID ownership list is
+reconstructed by `WeaponPrediction.receive` in Bend instead of sent on every
+observation. A startup metadata sample decreased from 9362 to 1670 bytes; decoding
+restores all ownership IDs while preserving the run, shots, targets and births.
+The runtime gate checks that omission and roundtrip.
+
+Both fixture harnesses now transfer exact bytes as chunked base64 strings across
+CDP and report actual delivery delays for both directions and maximum frame
+size. Binary roundtrip controls covered 0, 256, 131073 and 1048576 bytes without
+changes. Timings, ordering rules and acceptance thresholds were unchanged.
+
+The compact candidate passed the full nominal RTT 100/250/500 ms plus ±40 ms
+jitter cohort: zero backward frames, zero reconciliation jumps, zero release
+drift and exact final position; pending input maxima 13/23/37, below the 60-tick
+horizon. Actual frame one-way p95s were 96.5/171.0/297.7 ms. Artifacts:
+`/tmp/bendvy-coop-jitter-base64-compact`.

@@ -4,7 +4,7 @@ import path from 'node:path';import {pathToFileURL,fileURLToPath} from 'node:url
 const dir=process.env.COOP_LATENCY_MODULE_DIR||fileURLToPath(new URL('./dist/web/dist',import.meta.url));
 const load=async name=>(await import(pathToFileURL(path.join(dir,name+'.mjs')))).default;
 const [Core,Forecast,Prediction]=await Promise.all(['coop-core','coop-weapon-prediction','coop-prediction'].map(load));
-function observation(ticks){let state=Core.core_start(0,0,1).state;state=Core.core_configure(state,0,0,0).state;state=Core.core_join(state,0,0,0).state;for(let i=0;i<ticks;i++)state=Core.core_step(state,0,0,0,0).state;return JSON.parse(Core.core_observe(state,1).frame);}
+function observation(ticks){let state=Core.core_start(0,0,1).state;state=Core.core_configure(state,0,0,0).state;state=Core.core_join(state,0,0,0).state;for(let i=0;i<ticks;i++)state=Core.core_step(state,0,0,0,0).state;const frame=JSON.parse(Core.core_observe(state,1).frame);frame.weaponForecast=Forecast.receive(frame.weaponForecast);return frame;}
 const render=s=>JSON.parse(Forecast.render(s));
 function freeze(v){if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;}
 test('replayed local movement forecasts a new volley at the displayed owner, not the old server position',()=>{
@@ -83,4 +83,11 @@ test('recycling a physical projectile slot creates a new immutable birth identit
  frame={...frame,run:{...frame.run,tick:80},shots:nativeList(fromNative(frame.shots).map(s=>({...s,motion:{...s.motion,life:1}})))};
  const output=render(Forecast.advance(frame,2,1));
  const recycled=output.bodies.find(b=>b[7]===513);assert.ok(recycled);assert.ok(recycled[9].includes(':81:'),'new life must not inherit the first insertion at birth1');
+});
+test('wire metadata omits static ownership and Bend restores it without changing the snapshot',()=>{
+ let state=Core.core_start(0,0,1).state;state=Core.core_join(state,0,0,0).state;
+ const wire=JSON.parse(Core.core_observe(state,1).frame).weaponForecast;
+ assert.equal(wire.ownSeeds.$,'Nil');assert.ok(JSON.stringify(wire).length<5000,'startup metadata must not transmit the static ownership table');
+ const decoded=Forecast.receive(wire);assert.equal(render(decoded).ownSeeds.length,256);
+ const {ownSeeds:wireIds,...a}=wire,{ownSeeds:decodedIds,...b}=decoded;assert.deepEqual(a,b,'hydration changes only the derived ownership field');
 });

@@ -31,7 +31,9 @@ export class CoopTransport {
  static async create(callback){
   globalThis.__latencyReceive = event => {
    if(event.type==='message'){
-    try{const value=JSON.parse(new TextDecoder().decode(new Uint8Array(event.bytes)));if(value.type==='frame'){globalThis.__latencyReceives.push({at:performance.now(),admission:value.admission,receipt:value.receipt,tick:value.frame.tick,phase:value.frame.phase});if(globalThis.__latencyReceives.length>200)globalThis.__latencyReceives.shift();}}catch{}
+    globalThis.__fixtureDeliveryTrace.push({at:performance.now(),sendIndex:event.sendIndex,bytes:event.bytes.length,oneWayMs:performance.timeOrigin+performance.now()-event.sentOrigin-event.sentAt});
+    const wire=new TextDecoder().decode(new Uint8Array(event.bytes));
+    try{const value=JSON.parse(wire);if(value.type==='frame'){globalThis.__latencyReceives.push({at:performance.now(),admission:value.admission,receipt:value.receipt,tick:value.frame.tick,phase:value.frame.phase});if(globalThis.__latencyReceives.length>200)globalThis.__latencyReceives.shift();}}catch{}
    }
    callback(event.type==='message'?{...event,bytes:new Uint8Array(event.bytes)}:event);
   };
@@ -40,11 +42,16 @@ export class CoopTransport {
  endpointId(){return 'latency-fixture';}
  invitation(){return 'latency-fixture';}
  async join(ticket){await globalThis.__latencyConnect();}
- async send(payload){const bytes=typeof payload==='string'?new TextEncoder().encode(payload):payload;await globalThis.__latencySend(Array.from(bytes),performance.now(),performance.timeOrigin);}
+ async send(payload){
+  const at=performance.now(),bytes=typeof payload==='string'?new TextEncoder().encode(payload):payload;
+  let binary='';for(let offset=0;offset<bytes.length;offset+=32768)binary+=String.fromCharCode(...bytes.subarray(offset,offset+32768));
+  await globalThis.__latencySend(btoa(binary),at,performance.timeOrigin);
+ }
  close(){}
 }
 `;
 function percentile(rows,fraction){const sorted=rows.slice().sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.floor(sorted.length*fraction))];}
+function deliveryStats(rows){return {samples:rows.length,p50Ms:percentile(rows.map(row=>row.oneWayMs),.5),p95Ms:percentile(rows.map(row=>row.oneWayMs),.95),maxMs:Math.max(0,...rows.map(row=>row.oneWayMs)),maxBytes:Math.max(0,...rows.map(row=>row.bytes))};}
 try {
   for (const rtt of rtts) {
     assert.ok(Number.isFinite(rtt)&&rtt>=0&&rtt<=2000,'bounded injected RTT');
@@ -73,12 +80,12 @@ try {
         if(joined)return;joined=true;
         await Promise.all(pages.map((p,i)=>p.evaluate(id=>globalThis.__latencyReceive({type:'connected',peerId:'fixture-'+id}),1-i)));
       });
-      await page.exposeFunction('__latencySend',(bytes,at,origin)=>{
-        const wire=new TextDecoder().decode(new Uint8Array(bytes));
+      await page.exposeFunction('__latencySend',(encoded,at,origin)=>{
+        const bytes=Buffer.from(encoded,'base64'),wire=new TextDecoder().decode(bytes);
         events.push({kind:'send',peer:index,at,origin,wire:wire.length<200?wire:undefined});
         const sendIndex=sendCount[index]++,now=performance.now(),variation=0;
         deliveryAt[index]=Math.max(deliveryAt[index],now+Math.max(0,rtt/2+variation));
-        deliveryQueues[index].push({arrival:deliveryAt[index],bytes,peerId:'fixture-'+index,sendIndex,wire:wire.length<200?wire:undefined});
+        deliveryQueues[index].push({arrival:deliveryAt[index],encoded,peerId:'fixture-'+index,sendIndex,sentAt:at,sentOrigin:origin,wire:wire.length<200?wire:undefined});
         if(!deliveryActive[index]){
           deliveryActive[index]=true;
           // Batch already-due messages: one CDP roundtrip per byte would create
@@ -94,14 +101,17 @@ try {
               while(deliveryQueues[index].length&&deliveryQueues[index][0].arrival<=due)batch.push(deliveryQueues[index].shift());
               if(!batch.length)continue;
               for(const row of batch)events.push({kind:'deliver',peer:index,sendIndex:row.sendIndex,wire:row.wire,driverAt:due});
-              await peer.evaluate(rows=>{for(const {bytes,peerId}of rows)globalThis.__latencyReceive?.({type:'message',bytes,peerId});},batch);
+              await peer.evaluate(rows=>{for(const {encoded,peerId,sendIndex,sentAt,sentOrigin}of rows){
+                const binary=atob(encoded),bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
+                globalThis.__latencyReceive?.({type:'message',bytes,peerId,sendIndex,sentAt,sentOrigin});
+              }},batch);
             }
           };
           pump().catch(error=>{if(!peer.isClosed())errors.push(error.message);}).finally(()=>{deliveryActive[index]=false;});
         }
       });
       await page.addInitScript(()=>{
-        globalThis.__latencyRenders=[];globalThis.__latencyInputs=[];globalThis.__latencyFrames=[];globalThis.__latencyReceives=[];globalThis.__latencyAcks=[];
+        globalThis.__fixtureDeliveryTrace=[];globalThis.__latencyRenders=[];globalThis.__latencyInputs=[];globalThis.__latencyFrames=[];globalThis.__latencyReceives=[];globalThis.__latencyAcks=[];
         globalThis.__latencyRender=frame=>{
           const own=frame.players?.find(player=>player.id===frame.ownPlayerId);
           if(own){globalThis.__latencyRenders.push({at:performance.now(),x:own.px,y:own.py,cameraX:frame.px,cameraY:frame.py,tick:frame.tick,phase:frame.phase});if(globalThis.__latencyRenders.length>2000)globalThis.__latencyRenders.shift();}
@@ -129,8 +139,8 @@ try {
       await guest.keyboard.down('ArrowRight');await guest.waitForTimeout(350);
       await guest.keyboard.up('ArrowRight');await guest.keyboard.down('ArrowLeft');await guest.waitForTimeout(350);
       await guest.keyboard.up('ArrowLeft');await guest.waitForTimeout(rtt+600);
-      const trace=await guest.evaluate(()=>({renders:globalThis.__latencyRenders,inputs:globalThis.__latencyInputs,receives:globalThis.__latencyReceives,origin:performance.timeOrigin,status:document.querySelector('#coop-play-status')?.textContent}));
-      const authoritative=await host.evaluate(()=>({frame:globalThis.__latencyAuthoritative,error:globalThis.__latencyWorkerError,frames:globalThis.__latencyFrames,acks:globalThis.__latencyAcks}));
+      const trace=await guest.evaluate(()=>({renders:globalThis.__latencyRenders,inputs:globalThis.__latencyInputs,receives:globalThis.__latencyReceives,deliveries:globalThis.__fixtureDeliveryTrace,origin:performance.timeOrigin,status:document.querySelector('#coop-play-status')?.textContent}));
+      const authoritative=await host.evaluate(()=>({frame:globalThis.__latencyAuthoritative,error:globalThis.__latencyWorkerError,frames:globalThis.__latencyFrames,deliveries:globalThis.__fixtureDeliveryTrace,acks:globalThis.__latencyAcks}));
       await writeFile(`${output}/raw-rtt-${rtt}.json`,JSON.stringify({trace,authoritative,events,errors},null,2));
       for(let peer=0;peer<2;peer++){const order=events.filter(event=>event.kind==='deliver'&&event.peer===peer).map(event=>event.sendIndex);assert.deepEqual(order,order.map((_,index)=>index),'fixture must deliver a strict send-order prefix');}
       assert.equal(authoritative.error,undefined,'real Bend worker must not fail');assert.deepEqual(errors,[]);
@@ -153,7 +163,7 @@ try {
       const stable=afterStop.find((render,i)=>i>=2&&Math.abs(render.x-afterStop[i-1].x)<.05&&Math.abs(afterStop[i-1].x-afterStop[i-2].x)<.05);
       assert.ok(stable,'stop eventually renders without movement');
       const final=trace.renders.at(-1),own=authoritative.frame.players.find(player=>player.id===1);
-      const outcome={rttMs:rtt,moves,firstRenderP95Ms:percentile(moves.map(move=>move.latencyMs),.95),stopMs:stable.at-released.at,finalError:Math.hypot(final.x-own.px,final.y-own.py),phase:authoritative.frame.phase,transportSends:events.filter(event=>event.kind==='send').length,errors};
+      const outcome={rttMs:rtt,hostToGuestOWD:deliveryStats(trace.deliveries),guestToHostOWD:deliveryStats(authoritative.deliveries),moves,firstRenderP95Ms:percentile(moves.map(move=>move.latencyMs),.95),stopMs:stable.at-released.at,finalError:Math.hypot(final.x-own.px,final.y-own.py),phase:authoritative.frame.phase,transportSends:events.filter(event=>event.kind==='send').length,errors};
       // Trusted fixture changes real Bend XP, never a fabricated pause observation.
       await host.evaluate(()=>globalThis.__latencyWorker.postMessage({type:'latency-fixture-level'}));
       await guest.waitForFunction(()=>globalThis.__latencyReceives.some(frame=>frame.phase===1),null,{timeout:10000});

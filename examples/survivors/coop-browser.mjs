@@ -51,7 +51,7 @@ function reconcilePrediction(envelope) {
   if (prediction.observation !== envelope.observationSeq) return false;
   authorityFrame = frame;
   const freshWeapons = frame.predictionAllowed && frame.weaponForecast
-    ? WeaponForecast.forecast(frame.weaponForecast,prediction) : null;
+    ? WeaponForecast.forecast(WeaponForecast.receive(frame.weaponForecast),prediction) : null;
   weaponForecast = freshWeapons && weaponForecast && !reset && wasEnabled
     ? WeaponReconcile.rebase(weaponForecast,freshWeapons) : freshWeapons;
   if (!frame.predictionAllowed || !wasEnabled) { predictionAt = now; predictionRemainder = 0; }

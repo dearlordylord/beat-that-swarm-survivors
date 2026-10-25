@@ -137,7 +137,15 @@ def native_births(index:BI.Index<U32>) -> String:
 def native_frame(frame:Frame) -> String:
   match frame:
     case Frame{player,run,shots,targets,ids,births}: "{\"$\":\"Frame\",\"player\":" ++ U32.show(player) ++ ",\"run\":" ++ native_run(run) ++ ",\"shots\":" ++ native_shots(shots) ++ ",\"targets\":" ++ native_bodies(targets) ++ ",\"ownSeeds\":" ++ native_nums(ids) ++ ",\"births\":" ++ native_births(births) ++ "}"
-def observe(run:G.Run,player:U32,snapshots:List<&2,G.Snapshot>,bodies:List<&2,G.Body>) -> String: native_frame(initialize(player,run,snapshots,bodies))
+# The ownership layout is constant for this player and never belongs on each
+# network snapshot. Reconstruct it in Bend at the receiving IO boundary.
+def wire(frame:Frame) -> Frame:
+  match frame:
+    case Frame{player,run,shots,targets,_,births}: Frame{player,run,shots,targets,[],births}
+def receive(frame:Frame) -> Frame:
+  match frame:
+    case Frame{+player,run,shots,targets,_,births}: Frame{player,run,shots,targets,owned_seeds(player),births}
+def observe(run:G.Run,player:U32,snapshots:List<&2,G.Snapshot>,bodies:List<&2,G.Body>) -> String: native_frame(wire(initialize(player,run,snapshots,bodies)))
 def generation(player:U32,born:U32,body:G.Body,motion:G.Motion) -> String:
   match body motion:
     case G.Body{_,_,_,_,_,_,_,_,_} G.Motion{_,_,_,_,_,_,_,owner,slot}: Kernel.generation(player,born,0,owner,slot)
