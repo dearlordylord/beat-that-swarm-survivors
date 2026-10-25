@@ -45,11 +45,9 @@ function hash(x, y = 0) {
 }
 // Observed player positions only; this helper never advances or predicts gameplay.
 export function framePlayers(frame) {
-  return Array.isArray(frame.players) && frame.players.length
-    ? frame.players
-    : [{ id: frame.ownPlayerId ?? 0, px: frame.px, py: frame.py, hp: frame.hp,
-      maxHp: frame.maxHp, character: frame.character }];
+  return frame.players;
 }
+
 function rect(c, x, y, w, h, col) {
   c.fillStyle = col;
   c.fillRect(Math.round(x), Math.round(y), w, h);

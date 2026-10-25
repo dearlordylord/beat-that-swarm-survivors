@@ -61,11 +61,11 @@ type BatchReady is Type: BatchReady{finished: Bool,progress: Progress}
 def moved(result: Policy.Memory & G.Packet,+choices: U32) -> Progress:
   (memory,packet) = result
   Progress{memory,packet,choices}
-def next(+currentPhase: U32,state: G.State,+run: G.Run,+rows: List<&2,Components.Body>,+offers: List<&2,G.Offer>,+memory: Policy.Memory,+choices: U32) -> Progress:
+def next(+currentPhase: U32,state: G.State,+run: G.Run,+rows: List<&2,Components.Body>,+offers: List<&2,G.Offer>,+memory: Policy.Memory,+choices: U32,snapshots: List<&2,G.Snapshot>) -> Progress:
   match currentPhase:
     case 1: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
     case 2: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
-    case _: moved(move(state,Policy.movement(memory,run,rows)),choices)
+    case _: moved(move(state,Policy.movement(memory,run,rows,snapshots)),choices)
 def gate(+ticks: U32,result: Progress) -> BatchReady:
   match result:
     case Progress{memory,G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},choices}: BatchReady{Bool.or(U32.is_le(ticks,tick(run)),U32.is_le(3,phase(run))),Progress{memory,G.Packet{G.State{world,run,rows,offers,snapshots,pending}},choices}}
@@ -75,8 +75,8 @@ def loop(+fuel: Nat,+ticks: U32,+index: U32,+seed: U32,+profile: U32,+started: N
     case _ BatchReady{_,Progress{_,G.Failed{error},_}}: IO.die(Unit,1,"Native batch game failure: " ++ error)
     case _ BatchReady{True{},Progress{_,G.Packet{G.State{_,run,rows,_,_,_}},choices}}: report(index,seed,profile,choices,started,ticks,run,rows)
     case 0n _: IO.die(Unit,1,"Native batch exhausted safety fuel before requested tick horizon")
-    case 1n+rest BatchReady{False{},Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending}},choices}}:
-      loop(rest,ticks,index,seed,profile,started,gate(ticks,next(phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,choices)))
+    case 1n+rest BatchReady{False{},Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending}},choices}}:
+      loop(rest,ticks,index,seed,profile,started,gate(ticks,next(phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,choices,snapshots)))
 def batch(+left: Nat,+index: U32,+stride: U32,+seed: U32,+profile: String,+ticks: U32) -> IO(Unit):
   match left:
     case 0n:

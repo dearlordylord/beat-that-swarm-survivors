@@ -2,6 +2,9 @@ import run-state.bend as RS
 import Base
 import game-components.bend as Components
 import game.bend as G
+import enemy-combat.bend as Enemy
+import enemy-spatial.bend as Space
+import offline-threats.bend as Threats
 import bot-actions.bend as A
 import offline-policy/risk-grid.bend as R
 import offline-policy/primitives.bend as Primitive
@@ -185,17 +188,22 @@ def cell_point(+index: U32) -> Point: Point{(U32.to_f32((index % 60 : U32)) * 60
 def cell_index(+point: Point) -> U32:
   match point:
     case Point{x,y}: (U32.min(59,F32.to_u32((F32.max(0.0,y) / 60.0 : F32))) * 60 + U32.min(59,F32.to_u32((F32.max(0.0,x) / 60.0 : F32))) : U32)
-def danger(+rows: List<&2,Components.Body>,+point: Point,+blocked: Bool,+risk: F32) -> Bool & F32:
+# The completed snapshot supplies threat order exactly; separate enemy and
+# projectile lists are never concatenated or sorted into a guessed order.
+def threats(rows: List<&2,G.Snapshot>) -> List<&2,Threats.Threat>:
+  match rows:
+    case []: []
+    case G.EnemySnapshot{Enemy.State{Space.Spatial{x,y,_,radius},_,_,Components.Vitals{health,_},_}} <> rest:
+      Threats.keep(U32.is_lt(0,health),Threats.Threat{x,y,radius,False{}},threats(rest))
+    case G.Snapshot{Components.Body{x,y,7,_,_,_,_,_,radius},_} <> rest: Threats.Threat{x,y,radius,True{}} <> threats(rest)
+    case _ <> rest: threats(rest)
+def danger(+rows: List<&2,Threats.Threat>,+point: Point,+blocked: Bool,+risk: F32) -> Bool & F32:
   match rows:
     case []: (blocked,risk)
-    case Components.Body{+x,+y,+kind,_,+hp,_,_,_,+radius} <> rest:
-      branch(~(Bool & F32),Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),U32.is_eq(kind,7)),(_ =>
-          +r=(radius + yes(U32.is_eq(kind,7),12.0,18.0) : F32)
-          +d=distance(point,Point{x,y})
-          danger(rest,point,Bool.or(blocked,F32.is_lt(d,(r + 21.0 : F32))),(risk + F32.max(0.0,(1.0 - d / (r + 120.0) : F32)) * yes(U32.is_eq(kind,7),8.0,4.0) : F32))
-      ),(_ =>
-          danger(rest,point,blocked,risk)
-      ))
+    case Threats.Threat{+x,+y,+radius,+hostile} <> rest:
+      +r=(radius + yes(hostile,12.0,18.0) : F32)
+      +d=distance(point,Point{x,y})
+      danger(rest,point,Bool.or(blocked,F32.is_lt(d,(r + 21.0 : F32))),(risk + F32.max(0.0,(1.0 - d / (r + 120.0) : F32)) * yes(hostile,8.0,4.0) : F32))
 def node_priority(+node: Node) -> F32:
   match node:
     case Node{_,_,priority}: priority
@@ -344,10 +352,10 @@ def route_window(+here:Point,+target:Point,window:R.RiskWindow,budget:U32) -> Ro
       +localTarget=shifted_point(target,x,y)
       +projected=projected_point(localTarget)
       world_route(route_grid(shifted_point(here,x,y),projected,cells,budget),x,y,distance(localTarget,projected))
-def here_window(here:Point,rows:List<&2,Components.Body>) -> R.RiskWindow:
+def here_window(here:Point,rows:List<&2,Threats.Threat>) -> R.RiskWindow:
   match here:
     case Point{x,y}: R.window(rows,x,y,G.world_size(),G.world_margin())
-def route(+here: Point,+target: Point,rows: List<&2,Components.Body>,budget: U32) -> Route: route_window(here,target,here_window(here,rows),budget)
+def route(+here: Point,+target: Point,rows: List<&2,Threats.Threat>,budget: U32) -> Route: route_window(here,target,here_window(here,rows),budget)
 
 type Attempt is Data: Attempt{result: Route,goal: Goal,expanded: U32}
 def insert_near(+goal: Goal,+rows: List<&2,Goal>,+here: Point) -> List<&2,Goal>:
@@ -489,23 +497,20 @@ def suppress_cardinal(+choice: Maybe<&2,Choice>,+damaged: Bool,+fragile: Bool) -
     case None{}: None{}
     case Some{+candidate}: branch(~Maybe<&2,Choice>,Bool.and(U32.is_le(12,goal_kind(choice_goal(candidate))),Bool.not(Bool.or(damaged,fragile))),(_ => None{}),(_ => Some{candidate}))
 
-def nearest(+rows: List<&2,Components.Body>,+here: Point,+best: Components.Body,+bestDistance: F32,+count: U32) -> Components.Body & U32:
+def nearest(+rows: List<&2,Enemy.State>,+here: Point,+best: Space.Spatial,+bestDistance: F32,+count: U32) -> Space.Spatial & U32:
   match rows:
     case []: (best,count)
-    case +body <> rest:
-      match body:
-        case Components.Body{+x,+y,+kind,_,hp,_,_,_,_}:
-          branch(~(Components.Body & U32),Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),(_ =>
+    case Enemy.State{+space,_,_,Components.Vitals{health,_},_} <> rest:
+      match space:
+        case Space.Spatial{x,y,_,_}:
+          branch(~(Space.Spatial & U32),U32.is_lt(0,health),(_ =>
               +d=distance(here,Point{x,y})
-              branch(~(Components.Body & U32),F32.is_lt(d,bestDistance),(_ =>
-                  nearest(rest,here,body,d,(count + 1 : U32))
+              branch(~(Space.Spatial & U32),F32.is_lt(d,bestDistance),(_ =>
+                  nearest(rest,here,space,d,(count + 1 : U32))
               ),(_ =>
                   nearest(rest,here,best,bestDistance,(count + 1 : U32))
-
               ))
-          ),(_ =>
-              nearest(rest,here,best,bestDistance,count)
-          ))
+          ),(_ => nearest(rest,here,best,bestDistance,count)))
 def aura(+rows: List<&2,U32>,+index: U32,+passives: List<&2,U32>,+arcana: U32,+all: Bool,+maximum: F32,+count: U32) -> Bool & F32:
   match rows:
     case []: (Bool.and(all,U32.is_lt(0,count)),maximum)
@@ -519,29 +524,25 @@ def point_x(+point: Point) -> F32:
 def point_y(+point: Point) -> F32:
   match point:
     case Point{_,y}: y
-def avoid(+rows: List<&2,Components.Body>,+here: Point,+close: Bool,+dx: F32,+dy: F32) -> F32 & F32:
+def avoid(+rows: List<&2,Threats.Threat>,+here: Point,+close: Bool,+dx: F32,+dy: F32) -> F32 & F32:
   match rows:
     case []: (dx,dy)
-    case Components.Body{+x,+y,+kind,_,_,_,_,_,+radius} <> rest:
-      branch(~(F32 & F32),Bool.or(U32.is_eq(kind,0),U32.is_eq(kind,7)),(_ =>
-          +px=point_x(here)
-          +py=point_y(here)
-          +u=(px - x : F32)
-          +v=(py - y : F32)
-          +d=F32.max(1.0,hypot(u,v))
-          +contact=Bool.and(close,U32.is_eq(kind,0))
-          +force=(F32.max(0.0,(yes(contact,(radius + 26.0 : F32),140.0) - d : F32)) * yes(contact,12.0,4.0) : F32)
-          avoid(rest,here,close,(dx + u / d * force : F32),(dy + v / d * force : F32))
-      ),(_ =>
-          avoid(rest,here,close,dx,dy)
-      ))
+    case Threats.Threat{+x,+y,+radius,hostile} <> rest:
+      +px=point_x(here)
+      +py=point_y(here)
+      +u=(px - x : F32)
+      +v=(py - y : F32)
+      +d=F32.max(1.0,hypot(u,v))
+      +contact=Bool.and(close,Bool.not(hostile))
+      +force=(F32.max(0.0,(yes(contact,(radius + 26.0 : F32),140.0) - d : F32)) * yes(contact,12.0,4.0) : F32)
+      avoid(rest,here,close,(dx + u / d * force : F32),(dy + v / d * force : F32))
 def initial_vector(+target: Maybe<&2,Point>,+px: F32,+py: F32,+nx: F32,+ny: F32,+nd: F32,+radial: F32,+close: Bool) -> F32 & F32:
   match target:
     case Some{Point{tx,ty}}: ((tx - px : F32),(ty - py : F32))
     case None{}: ((nx / nd * radial * 6.0 + ny / nd * yes(close,12.0,35.0) + (G.world_center() - px) * 0.05 : F32),(ny / nd * radial * 6.0 - nx / nd * yes(close,12.0,35.0) + (G.world_center() - py) * 0.05 : F32))
-def steer_enemy(+enemy: Components.Body,+rows: List<&2,Components.Body>,+target: Maybe<&2,Point>,+px: F32,+py: F32,+here: Point,+close: Bool,+radius: F32) -> F32 & F32:
+def steer_enemy(+enemy: Space.Spatial,+rows: List<&2,Threats.Threat>,+target: Maybe<&2,Point>,+px: F32,+py: F32,+here: Point,+close: Bool,+radius: F32) -> F32 & F32:
   match enemy:
-    case Components.Body{x,y,_,_,_,_,_,_,r}:
+    case Space.Spatial{x,y,_,r}:
       +nx=(px - x : F32)
       +ny=(py - y : F32)
       +nd=F32.max(1.0,hypot(nx,ny))
@@ -555,11 +556,11 @@ def steer_enemy(+enemy: Components.Body,+rows: List<&2,Components.Body>,+target:
           ((dx / length : F32),(dy / length : F32))
       ))
       ))
-def steer(+run: G.Run,+rows: List<&2,Components.Body>,+target: Maybe<&2,Point>) -> F32 & F32:
+def steer(+run: G.Run,+rows: List<&2,Threats.Threat>,enemies: List<&2,Enemy.State>,+target: Maybe<&2,Point>) -> F32 & F32:
   match run:
     case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,_,weapons,+passives,_,+arcana,_,_,_,_,_,_,_}}:
       +here : Point = Point{px,py}
-      bind(~(Components.Body),~(U32),~(F32 & F32),nearest(rows,here,Components.Body{(px + 300.0 : F32),py,0,0,1,1,0,0,12.0},1000000.0,0),(+enemy => +count =>
+      bind(~(Space.Spatial),~(U32),~(F32 & F32),nearest(enemies,here,Space.Spatial{(px + 300.0 : F32),py,0,12.0},1000000.0,0),(+enemy => +count =>
         bind(~(Bool),~(F32),~(F32 & F32),aura(weapons,0,passives,arcana,True{},0.0,0),(+fields => +radius =>
           +close=Bool.and(fields,U32.is_lt(0,count))
           steer_enemy(enemy,rows,target,px,py,here,close,radius)
@@ -577,9 +578,11 @@ def invalidated(+old: Maybe<&2,Choice>,+fresh: Maybe<&2,Choice>) -> Bool:
   match old fresh:
     case Some{_} None{}: True{}
     case _ _: False{}
-def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>) -> Memory & (F32 & F32):
+def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>,+snapshots: List<&2,G.Snapshot>) -> Memory & (F32 & F32):
   match memory run:
     case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
+      +dangerRows = threats(snapshots)
+      +enemies = G.enemy_observations(snapshots)
       +here : Point = Point{px,py}
       +moved=F32.is_lt(12.0,distance(here,anchor))
       +since=branch(~(U32),Bool.or(moved,Bool.not(initialized)),(_ =>
@@ -603,7 +606,7 @@ def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>) -> M
       +plan=branch(~Plan,due,(_ =>
           +pool=sort_goals(clusters(observed,[],here),[],here)
           +pool=reserve(current_pool(pool,current_goal(fresh)),reserve(first_non_xp(pool),reserve(first_cardinal(pool),pool)))
-          candidates(8n,pool,here,observed,here_window(here,bodies),G.speed_bonus(passives,meta,arcana,character),fragile,stuck,fresh,None{},None{},[])
+          candidates(8n,pool,here,observed,here_window(here,dangerRows),G.speed_bonus(passives,meta,arcana,character),fragile,stuck,fresh,None{},None{},[])
       ),(_ => Plan{fresh,None{},prepared}))
       +chosen=suppress_cardinal(select_retained(plan_best(plan),plan_retained(plan),Bool.or(damaged,stuck)),damaged,fragile)
       +nextPlan=branch(~(U32),due,(_ =>
@@ -616,4 +619,4 @@ def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>) -> M
       ),(_ =>
           since
       ))
-      (Memory{chosen,nextPlan,hp,branch(~Point,stuck,(_ => here),(_ => anchor)),nextSince,True{},keys,plan_choices(plan)},steer(run,bodies,target(chosen)))
+      (Memory{chosen,nextPlan,hp,branch(~Point,stuck,(_ => here),(_ => anchor)),nextSince,True{},keys,plan_choices(plan)},steer(run,dangerRows,enemies,target(chosen)))
