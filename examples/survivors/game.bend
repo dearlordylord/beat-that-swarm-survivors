@@ -250,7 +250,7 @@ def boot_pool(remaining: Nat,+slot: U32,world: Storage.World()) -> Storage.World
 # Lifecycle later refreshes active membership during its existing traversal.
 def movement_roster_store(handles: List<&2,W.Handle<Storage.Schema>>,store: Storage.Store) -> Storage.Store & Unit:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities},Unit{})
+    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities,shots},Unit{})
 def movement_roster_save(world: Storage.World(),handles: List<&2,W.Handle<Storage.Schema>>) -> Storage.World():
   routing_world(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Unit,movement_roster_store(handles),world))
 def movement_roster_keep(selected: Bool,handle: W.Handle<Storage.Schema>,reversed: List<&2,W.Handle<Storage.Schema>>) -> List<&2,W.Handle<Storage.Schema>>:
@@ -263,7 +263,7 @@ def role_active(role: Role.Role,body: Components.Body) -> Bool:
 type RoutingCapture is Data: RoutingCapture{projectiles: List<&2,W.Handle<Storage.Schema>>,pool: List<&2,W.Handle<Storage.Schema>>,active: List<&2,W.Handle<Storage.Schema>>}
 def routing_capture_store(capture: RoutingCapture,store: Storage.Store) -> Storage.Store & Unit:
   match capture store:
-    case RoutingCapture{projectiles,pool,active} Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities},Unit{})
+    case RoutingCapture{projectiles,pool,active} Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities,shots},Unit{})
 def routing_capture_keep(+role: Role.Role,+handle: W.Handle<Storage.Schema>,active: Bool,capture: RoutingCapture) -> RoutingCapture:
   match capture:
     case RoutingCapture{projectiles,pool,movement}: RoutingCapture{movement_roster_keep(Role.projectile(role),handle,projectiles),movement_roster_keep(Role.pool(role),handle,pool),movement_roster_keep(active,handle,movement)}
@@ -785,7 +785,7 @@ def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q
 
 def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities},movement)
+    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},movement)
 def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
     case EntityRow{Row{Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
@@ -991,7 +991,7 @@ def xp_route_args(rows: List<&2,EntityRow>,args: Args) -> List<&2,EntityRow>:
 # transaction finish, rollback and mixed allocator order remain the public query's.
 def candidate_roster_read(store: Storage.Store) -> Storage.Store & Storage.CandidateRoster:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities},candidates)
+    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},candidates)
 def candidate_roster_handles(projectile: Bool,roster: Storage.CandidateRoster) -> List<&2,W.Handle<Storage.Schema>>:
   match projectile roster:
     case True{} Storage.CandidatesPrepared{projectiles,_}: projectiles
