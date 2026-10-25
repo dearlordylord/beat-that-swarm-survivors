@@ -229,7 +229,7 @@ def forecast_players(+shared: RS.Session,players: List<&2,Components.PlayerRecor
 def observe_player(+shared: RS.Session,+refs: List<&2,PlayerRef>,+bodies: List<&2,Components.Body>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,own: Maybe<&2,RS.PlayerState>) -> CorePacket:
   match own:
     case None{}: CoreRejected{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},"Unknown observing player"}
-    case Some{+personal}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},ViewObservation{G.Observation{observer_context(shared,players,personal),bodies,offers_for(offers,id),G.enemy_observations(snapshots),G.render_order(snapshots),G.pickup_observations(snapshots)},Prediction.allowed(RS.session_phase(shared),RS.player_hp(personal),player_connected(players,id)),G.run_step_distance(player_step_context(shared,personal)),id,G.contains(required,id),round,required,players,CombatPrediction.initialize(id,RS.session_tick(shared),forecast_players(shared,players),snapshots)}}
+    case Some{+personal}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},ViewObservation{G.Observation{observer_context(shared,players,personal),bodies,offers_for(offers,id),G.enemy_observations(snapshots),G.render_order(snapshots),G.projectile_observations(snapshots),G.pickup_observations(snapshots)},Prediction.allowed(RS.session_phase(shared),RS.player_hp(personal),player_connected(players,id)),G.run_step_distance(player_step_context(shared,personal)),id,G.contains(required,id),round,required,players,CombatPrediction.initialize(id,RS.session_tick(shared),forecast_players(shared,players),snapshots)}}
 def observe_loaded(+shared: RS.Session,+refs: List<&2,PlayerRef>,+bodies: List<&2,Components.Body>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
     case (world,+players): observe_player(shared,refs,bodies,snapshots,round,required,offers,pending,id,world,players,find_player(players,id))
@@ -349,7 +349,7 @@ def pickup_owner(+team: G.Team,+body: Components.Body,events: U32) -> U32:
     case Components.Body{x,y,_,_,_,_,_,_,_} _: G.view_id(G.collector(team,x,y))
 def owned_row_credit(body: Components.Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32,motion: G.Motion,+own: U32) -> G.EntityRow:
   G.EntityRow{G.Row{body,hit,(xp * own : U32),(gold * own : U32),(heal * own : U32),(chest * own : U32),killed,(relic * own : U32)},motion}
-def projectile_contact(run: G.Run,projectile: Shot.State) -> U32:
+def projectile_contact(+run: G.Run,projectile: Shot.State) -> U32:
   match projectile:
     case Shot.State{Space.Spatial{x,y,_,radius},_,Shot.HostileShot{},_,_}: Bool.to_u32(G.close(x,y,run_px(run),run_py(run),(radius + 10.0 : F32)))
     case _: 0
@@ -388,8 +388,8 @@ def owned_row(+team: G.Team,id: U32,run: G.Run,+row: G.EntityRow) -> G.EntityRow
     case G.EntityRow{G.Row{body,_,xp,gold,heal,chest,_,relic},_}: owned_row_values(id,run,row,pickup_owner(team,body,U32.or(U32.or(xp,gold),U32.or(U32.or(heal,chest),relic))))
     case G.EnemyRow{+outcome,credit}: G.EnemyRow{outcome,enemy_personal_credit(run,id,outcome,credit)}
     case G.PickupRow{Pickup.Outcome{state,reward}}: pickup_credit(team,id,state,reward)
-type OwnedRowsContext is Data: OwnedRowsContext{team:G.Team,id:U32,run:G.Run}
     case G.ProjectileRow{_}: owned_row_values(id,run,row,0)
+type OwnedRowsContext is Data: OwnedRowsContext{team:G.Team,id:U32,run:G.Run}
 def owned_row_context(context:OwnedRowsContext,row:G.EntityRow) -> G.EntityRow:
   match context:
     case OwnedRowsContext{team,id,run}: owned_row(team,id,run,row)
