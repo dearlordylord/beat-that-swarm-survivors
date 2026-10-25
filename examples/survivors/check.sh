@@ -7,7 +7,7 @@ example_timeout 30 "$NODE" scripts/generate-native-survivor-art.mts --check
 consumer_dir="$(mktemp -d "${TMPDIR:-/tmp}/bendvy-actor-consumers.XXXXXX")"
 trap 'rm -rf "$consumer_dir"; example_cleanup_lock' EXIT
 example_emit examples/survivors/bot-actions.bend "$consumer_dir/bot-actions.mjs"
-BOT_ACTIONS_MODULE="$consumer_dir/bot-actions.mjs" example_timeout 30 "$NODE" --test tools/survivors-bot/actor-consumers.test.mts tools/survivors-bot/planner-objective.test.mts
+BOT_ACTIONS_MODULE="$consumer_dir/bot-actions.mjs" example_timeout 30 "$NODE" --test tools/survivors-bot/actor-consumers.test.mts tools/survivors-bot/planner-objective.test.mts tools/survivors-bot/coop-motion-oracle.test.mts
 python3 -B scripts/check-bend-laws.py
 bash examples/survivors/check-coop-reliability.sh
 bash examples/survivors/check-geometry.sh

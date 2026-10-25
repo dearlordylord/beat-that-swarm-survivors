@@ -89,3 +89,25 @@ await test("missing sample clocks fail instead of silently using draw timestamps
   b.presentationMeasurement = undefined
   assert.throws(() => motionOracle([a, b], startWall), /Missing required value/)
 })
+
+await test("a finite telemetry wrapper cannot replace a missing remote sample clock", () => {
+  const a = row(6000, 6000, 0),
+    b = row(6100, 6100, 0)
+  b.remotePresentation = undefined
+  assert.throws(() => motionOracle([a, b], startWall), /Missing required value/)
+})
+
+await test("telemetry and remote sample clocks must match", () => {
+  const a = row(6000, 6000, 0),
+    b = row(6100, 6100, 0)
+  b.presentationMeasurement = { sampledAt: 6101, callbackEntry: 6100, onDisplayEnd: 6100 }
+  assert.throws(() => motionOracle([a, b], startWall), /must retain the actual remote presentation sample clock/)
+})
+
+await test("a nonfinite actual remote clock is rejected despite finite telemetry", () => {
+  const a = row(6000, 6000, 0),
+    b = row(6100, 6100, 0)
+  assert.ok(b.remotePresentation)
+  b.remotePresentation.sampledAt = Number.NaN
+  assert.throws(() => motionOracle([a, b], startWall), /actual remote presentation sample clock/)
+})

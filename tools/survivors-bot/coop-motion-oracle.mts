@@ -4,8 +4,13 @@ import type { RenderRow } from "./coop-browser-trace.mts"
 
 type CoordinateSample = Pick<RenderRow, "players" | "enemies"> & { sampledAt: number }
 function coordinates(row: RenderRow): CoordinateSample {
-  const sampledAt = defined(row.presentationMeasurement).sampledAt
-  assert.ok(Number.isFinite(sampledAt), "motion coordinates require their presentation sample clock")
+  const sampledAt = defined(row.remotePresentation).sampledAt
+  assert.ok(Number.isFinite(sampledAt), "motion coordinates require their actual remote presentation sample clock")
+  assert.equal(
+    defined(row.presentationMeasurement).sampledAt,
+    sampledAt,
+    "motion telemetry must retain the actual remote presentation sample clock"
+  )
   return { sampledAt, players: row.players, enemies: row.enemies }
 }
 function p95(values: number[]) {
