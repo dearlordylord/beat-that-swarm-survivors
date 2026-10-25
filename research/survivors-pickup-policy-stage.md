@@ -9,7 +9,11 @@ generation interpretation through health fields.
 shared spatial column throughout occupancy; the persistent XP pool has its own
 spatial membership. The pickup query reads spatial state, payload and identity;
 the lifecycle query writes spatial state and payload, and enemy/relic lifecycle
-also writes the explicit enemy-slot phase. Co-op assigns each collected reward
+also writes the explicit enemy-slot phase. Collection retains the completed
+XP incarnation generation and marker for that tick; its next inactive pool turn
+clears amount, marker, generation, age and radius while retaining position and
+identity. This pool idle transition is separate from the inert collection helper.
+Co-op assigns each collected reward
 to one eligible collector and reduces shared progression once.
 
 Typed enemy death rewards feed non-XP payload creation or the persistent XP
@@ -38,7 +42,8 @@ reward values.
 - `pickup-state-check.mjs` exercises all reward kinds, one-time collection,
   generation, free-slot order, marked/farthest overflow, ties and wrapping.
 - `pickup-wiring-check.mjs` exercises actual world lifecycle/query writes and
-  subsequent collection: XP, gold, healing, no repeated grant, typed death
+  subsequent collection: XP, gold, healing, no repeated grant, exact collection-to-idle
+  reset and first inactive-turn reset, typed death
   handoffs, rejected occupied-slot turns and two-player shared XP allocation.
   It is part of the fresh-emission co-op reliability procedure.
 - Native XP rendering passes six size/color checks, including marked overflow;
@@ -52,7 +57,7 @@ reward values.
   values, occupancy/phase and spatial facts, joining physical handles to
   canonical identities without assuming index equals identity. Five focused
   tests include nonmatching handles, malformed payloads/phases and authority
-  mutations. Six actual raw checkpoints pass; raw XP amount and generation
+  mutations. Six actual raw checkpoints pass; raw XP amount, generation, age and accumulator
   mutations change the exported facts.
 - A temporary pre-integration oracle compared 300 seeded pure pool scenarios
   with the frozen implementation exactly. This supports pool-policy continuity;
