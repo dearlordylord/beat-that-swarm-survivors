@@ -100,8 +100,8 @@ def mechanics(+run: G.Run,offers: List<&2,G.Offer>) -> String:
 
 def observed_state(state: G.State) -> Observed:
   match state:
-    case G.State{world,+run,+bodies,+offers,snapshots,pending}:
-      Observed{G.State{world,run,bodies,offers,snapshots,pending},Encoder.encode(G.Observation{run,bodies,offers}),catalog(run,bodies),mechanics(run,offers)}
+    case G.State{world,+run,+bodies,+offers,+snapshots,pending}:
+      Observed{G.State{world,run,bodies,offers,snapshots,pending},Encoder.encode(G.Observation{run,bodies,offers,G.enemy_observations(snapshots),G.render_order(snapshots)}),catalog(run,bodies),mechanics(run,offers)}
 
 def observed_packet(packet: G.Packet) -> Observed:
   match packet:

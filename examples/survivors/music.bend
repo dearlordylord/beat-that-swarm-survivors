@@ -119,3 +119,17 @@ def commit(step: U32,active: U32,latest: U32) -> U32:
   boundary(U32.is_eq((step % 16 : U32),0),active,latest)
 def danger(+hp: U32,maxHp: U32,pressure: U32) -> U32:
   U32.min(1000,((100 - U32.min(100,(hp * 100 / U32.max(1,maxHp) : U32))) * 5 / 2 + U32.min(1000,pressure) : U32))
+
+# Narrow read-only enemy observation for host-cadence music decisions.
+type Threat is Data: Threat{x: F32,y: F32,archetype: U32}
+def enemy_weight(+archetype: U32) -> U32:
+  (1 + 3 * Bool.to_u32(U32.is_le(20,archetype)) + 32 * Bool.to_u32(U32.is_eq(archetype,30)) + Bool.to_u32(Bool.or(U32.is_eq(archetype,4),Bool.or(U32.is_eq(archetype,12),U32.is_eq(archetype,19)))) : U32)
+def threat_distance(+x: F32,+y: F32,+px: F32,+py: F32) -> F32:
+  ((x - px) * (x - px) + (y - py) * (y - py) : F32)
+def enemy_pressure_at(archetype: U32,+range: F32) -> U32:
+  (enemy_weight(archetype) * (3 * Bool.to_u32(F32.is_le(range,102400.0)) + 27 * Bool.to_u32(F32.is_le(range,10000.0))) : U32)
+def enemy_pressure(rows: List<&2,Threat>,+px: F32,+py: F32) -> U32:
+  match rows:
+    case []: 0
+    case Threat{x,y,archetype} <> rest:
+      U32.min(1000,(enemy_pressure_at(archetype,threat_distance(x,y,px,py)) + enemy_pressure(rest,px,py) : U32))
