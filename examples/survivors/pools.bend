@@ -1,5 +1,11 @@
 import Base
 
+# TODO: Investigate whether fixed pools are needed. Their origin may be copying
+# the reference game's architecture rather than a Bend/Bendvy requirement;
+# verify that hypothesis against project history. Try dynamic entity creation
+# and removal while preserving gameplay limits, lifetime identity and behavior.
+# Check native/browser/co-op correctness and measure allocation/step costs before
+# deciding whether to retain pools; no comparative speed advantage is established.
 # Application allocation layout. Enemy pool includes the reserved relic seed.
 def enemy_count() -> U32: 512
 def enemy_end() -> U32: enemy_count()
