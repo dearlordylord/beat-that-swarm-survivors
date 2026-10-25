@@ -1,56 +1,65 @@
-# Pickup migration: pure policy stage
+# Pickup and reward migration (GH7)
 
-Status: prerequisite work for GH7, not a completed gameplay migration.
+The gameplay path stores `Pickup.Payload` separately from canonical spatial
+state and immutable slot identity. Tagged XP, gold, healing, chest and relic
+payloads carry their actual reward values. The runtime has no pickup amount or
+generation interpretation through health fields.
 
-The pure pickup module defines tagged XP, gold, healing, chest and relic
-payloads, explicit occupancy and lifetime generation, scoped collection rewards,
-and immutable spatial observations. XP amount and generation have no health
-aliases. The authoritative shared slot identity remains the identity component;
-the immutable pickup observation projects its number without storing it again
-in the pickup payload.
+`Pickup.State` is an immutable phase observation. Enemy/relic loot keeps its
+shared spatial column throughout occupancy; the persistent XP pool has its own
+spatial membership. The pickup query reads spatial state, payload and identity;
+the lifecycle query writes spatial state and payload, and enemy/relic lifecycle
+also writes the explicit enemy-slot phase. Co-op assigns each collected reward
+to one eligible collector and reduces shared progression once.
 
-The XP pool module accepts ordered explicit death drops and pickup observations.
-It preserves ascending free-slot allocation, the first marked accumulator,
-otherwise the farthest pile with stable tie order, ordinary U32 merge behavior,
-and the selected accumulator's existing location/generation/age. New pile
-locations use the existing placement policy.
+Typed enemy death rewards feed non-XP payload creation or the persistent XP
+pool. The pool preserves ascending free-slot allocation, the first marked
+accumulator, otherwise the farthest pile with stable tie order, U32 wrapping
+merge, and the accumulator's position/generation/age. New locations use the
+existing placement policy. Boss proposals still precede occupied-loot updates;
+a rejected fresh spawn retains loot age, clears enemy status, and cannot collect.
 
-The pickup encoder emits named objects with a tagged `item` payload. No pickup
-wire field is named `hp` or `maxHp`.
+Native rendering, browser rendering/maps, playback metadata and controller goals
+consume typed pickup observations. Named frame pickups expose `slot`,
+`generation`, `active`, geometry and tagged `item`; they expose no `hp` or
+`maxHp` aliases. Audio pickup cues use authoritative progression totals. Playback
+carries a boolean liveness fact and an explicit pickup lifetime, separately from
+reward values.
 
-## Verified before ECS integration
+## Evidence
 
-- Freshly emitted collection/pool/encoder checks pass for all reward kinds,
-  one-time collection, stable generation, free-slot allocation, marked/farthest
-  overflow, tie ordering and unsigned wraparound.
-- An external temporary oracle compared 300 seeded pool scenarios against the
-  existing production batch function. Every resulting pickup spatial value,
-  amount, active state, accumulator marker and generation matched exactly.
-  The compatibility-shaped fixtures exist only in the temporary oracle; they
-  are not runtime readers or maintained pickup inputs.
-- Two source mutants compile and are rejected by the focused checks: dropping
-  overflow credit and replacing a new pile generation with zero.
-- The BendHub dependency audit passes after initializing the existing pinned
-  proof-library submodule. No dependency pin changed.
+- Four approved laws pass kernel `--verdict`: exact collected-XP outcome,
+  arbitrary inactive pickup inertness, wrapping overflow amount, and preserved
+  overflow generation. Independent blind backtranslation preceded proof. These
+  laws do not claim universal geometric admission, every non-XP transition, or
+  all pool ordering rules.
+- Three maintained semantic mutants typecheck and fail their named proof gates:
+  lost collection XP, lost overflow amount, and replaced overflow generation.
+- `pickup-state-check.mjs` exercises all reward kinds, one-time collection,
+  generation, free-slot order, marked/farthest overflow, ties and wrapping.
+- `pickup-wiring-check.mjs` exercises actual world lifecycle/query writes and
+  subsequent collection: XP, gold, healing, no repeated grant, typed death
+  handoffs, rejected occupied-slot turns and two-player shared XP allocation.
+  It is part of the fresh-emission co-op reliability procedure.
+- Native XP rendering passes six size/color checks, including marked overflow;
+  its five-pile capture remains outside source under
+  `/tmp/issue7-native-loot-capture/experience-piles.ppm`.
+- The corrected native co-op runner typechecks with separate session and player
+  authority. Its existing metrics executable passes 18 classification cases;
+  an actual native run reaches tick 60 with valid population/XP fields in
+  `/tmp/issue7-offline-coop-run.jsonl`.
+- `pickup_qualification.py` validates current raw payload membership, tagged
+  values, occupancy/phase and spatial facts, joining physical handles to
+  canonical identities without assuming index equals identity. Five focused
+  tests include nonmatching handles, malformed payloads/phases and authority
+  mutations. Six actual raw checkpoints pass; raw XP amount and generation
+  mutations change the exported facts.
+- A temporary pre-integration oracle compared 300 seeded pure pool scenarios
+  with the frozen implementation exactly. This supports pool-policy continuity;
+  actual storage wiring is covered by the separate checks above.
 
-Artifacts are outside source under `/tmp/issue7-pure`,
-`/tmp/issue7-pure-equivalence.mjs`, and the mutation directories recorded by
-`/tmp/issue7-pure-mutation-receipt.json`.
-
-## Remaining GH7 work after the enemy handoff is available
-
-1. Store only the explicit pickup payload in the pickup column. Read canonical
-   identity and shared spatial state through declared query contracts. Extend
-   spatial membership to XP slots; enemy/relic slots retain their actual spatial
-   state while occupied by loot.
-2. Consume typed enemy death rewards, including non-XP loot. Preserve relic
-   placement and collection coordinates as well as XP pooling/admission.
-3. Add typed pickup snapshot and row cases and named frame pickup observations;
-   remove every pickup reconstruction through the remaining actor aggregate.
-4. Migrate native drawing/maps, browser drawing/maps, co-op allocation and
-   playback metadata, bot/offline inputs, audio observations, and exact replay
-   output together. Remove the former health-slot interpretation from the wire.
-5. Prove applicable concrete transitions after the decision/law mapping is
-   checked; add production integration and capability controls and run strict
-   current-schema plus frozen-baseline comparisons. The pure stage does not
-   establish that the new policies are connected to gameplay yet.
+Combined GH5/6/7 qualification owns complete current-schema validation, strict
+same-schema replay, frozen-baseline comparison, all entrypoint checks and final
+review. Individual local receipts do not replace those combined gates. Generated
+modules, binaries, captures and profiles remain outside tracked source. No
+package pin, pool budget or gameplay balance changed.
