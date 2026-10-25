@@ -2,6 +2,8 @@
 set -euo pipefail
 source "$(dirname -- "$0")/../common.sh"
 cd "$example_repo"
+example_timeout 30 "$NODE" --test examples/survivors/survivor-art.test.mjs examples/survivors/expedition-menu.test.mjs
+example_timeout 30 "$NODE" scripts/generate-native-survivor-art.mjs --check
 python3 -B scripts/check-bend-laws.py
 python3 -B scripts/check-bend-mutants.py
 bash examples/survivors/check-coop-reliability.sh

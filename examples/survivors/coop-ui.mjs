@@ -134,6 +134,14 @@ export class CoopUI {
       if (button && !button.disabled) this.choose(Number(button.dataset.choice));
     });
     on(window, 'keydown', event => {
+      if (event.code === 'Escape' && this.pendingUnlock) {
+        event.preventDefault();
+        const inspected = this.pendingUnlock;
+        this.pendingUnlock = null;
+        this.updateSetup();
+        this.$('#coop-setup-preview').querySelector(`[data-${inspected.kind}="${inspected.id}"]`)?.focus({preventScroll:true});
+        return;
+      }
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName)) return;
       if (movementKeys.has(event.code)) {
         event.preventDefault(); this.keys.add(event.code); this.emitInput();
@@ -216,6 +224,12 @@ export class CoopUI {
     if (button.dataset.menuPanel) {
       this.openPanel = this.openPanel === button.dataset.menuPanel ? null : button.dataset.menuPanel;
       this.pendingUnlock = null;
+    } else if (button.hasAttribute('data-close-unlock')) {
+      const inspected = this.pendingUnlock;
+      this.pendingUnlock = null;
+      this.updateSetup();
+      if (inspected) this.$('#coop-setup-preview').querySelector(`[data-${inspected.kind}="${inspected.id}"]`)?.focus({preventScroll:true});
+      return;
     } else if (button.dataset.buyKind) {
       if (unlock(this.profile,button.dataset.buyKind,Number(button.dataset.buyId))) {
         const kind = button.dataset.buyKind, id = Number(button.dataset.buyId);
@@ -228,7 +242,7 @@ export class CoopUI {
       const id = Number(button.dataset[kind]);
       if (isUnlocked(this.profile,kind,id)) {
         this.$(`#coop-${kind}`).value = id; this.openPanel = null; this.pendingUnlock = null;
-      } else this.pendingUnlock = {kind,id};
+      } else this.pendingUnlock = this.pendingUnlock?.kind === kind && this.pendingUnlock.id === id ? null : {kind,id};
       break;
     }
     this.updateSetup();
