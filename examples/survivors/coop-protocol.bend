@@ -24,6 +24,16 @@ def parse_fields(rows: List<String>) -> Maybe<&2,S.Command>:
         e : U32 <- number(x)
         f : U32 <- number(y)
         return S.Command{a,b,c,d,S.Movement{e,f}}
+    case ["BSC1",session,player,seq,tick,"T",round,x,y]:
+      do Maybe<&2,S.Command>:
+        a : U32 <- number(session)
+        b : U32 <- number(player)
+        c : U32 <- number(seq)
+        d : U32 <- number(tick)
+        e : U32 <- number(round)
+        f : U32 <- number(x)
+        g : U32 <- number(y)
+        return S.Command{a,b,c,d,S.MovementTick{e,f,g}}
     case ["BSC1",session,player,seq,tick,"C",round,index]:
       do Maybe<&2,S.Command>:
         a : U32 <- number(session)
@@ -53,6 +63,7 @@ def decode(+text: String) -> Maybe<&2,S.Command>: decode_bounded(Nat.is_le(Strin
 def encode_action(action: S.Action) -> String:
   match action:
     case S.Movement{x,y}: "I|" ++ U32.show(x) ++ "|" ++ U32.show(y)
+    case S.MovementTick{round,x,y}: "T|" ++ U32.show(round) ++ "|" ++ U32.show(x) ++ "|" ++ U32.show(y)
     case S.Choice{round,index}: "C|" ++ U32.show(round) ++ "|" ++ U32.show(index)
     case S.Setup{character,arcana,meta,weapons}: "S|" ++ U32.show(character) ++ "|" ++ U32.show(arcana) ++ "|" ++ U32.show(meta) ++ "|" ++ U32.show(weapons)
 def encode(command: S.Command) -> String:

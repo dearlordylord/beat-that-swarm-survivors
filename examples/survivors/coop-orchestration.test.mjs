@@ -9,8 +9,8 @@ function workerHarness() {
   let now = 0, coreTick = 0;
   const calls = [], output = [], timers = new Map();
   let id = 0;
-  const options = { rejectJoin:false, rejectUnlocks:false, accept:true, paused:false };
-  const result = () => ({ $:'CorePacket', state:{tick:coreTick}, frame:JSON.stringify({tick:coreTick}) });
+  const options = { rejectJoin:false, rejectUnlocks:false, accept:true, paused:false, round:0 };
+  const result = () => ({ $:'CorePacket', state:{tick:coreTick}, frame:JSON.stringify({tick:coreTick,phase:options.paused?1:0,roundId:options.round,predictionAllowed:!options.paused}) });
   const Game = Object.fromEntries(['core_start','core_configure','core_configure_unlocks','core_observe','core_choose','core_disconnect'].map(name => [name,(...args)=> {
     calls.push({name,args});
     if (name==='core_configure_unlocks' && args[1]===1 && options.rejectUnlocks)
@@ -21,18 +21,27 @@ function workerHarness() {
   Game.core_step = (...args) => { calls.push({name:'core_step',args}); if (!options.paused) coreTick++; return {...result(),frame:JSON.stringify({tick:coreTick,phase:options.paused?1:0,advanced:!options.paused})}; };
   const Session = {
     receipt_fresh:()=>({$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false}),
-    receipt_step:(receipt,state,player)=>{calls.push({name:'receipt_step',args:[receipt,state,player]});return {...receipt,steps:receipt.steps+1};},
+    axis:value=>value-1,
     fresh:session=>({session}), receive:(state,peer,command)=> {
       calls.push({name:'receive',args:[peer,command]}); return {state,accepted:options.accept};
     }, clock:state=>state, directions:()=>({x0:0,y0:0,x1:0,y1:0}),
     applied:(tick,state)=> {calls.push({name:'applied',args:[tick]});return state;}, disconnect:(player,state)=> { calls.push({name:'session_disconnect',args:[player]}); return state; },
   };
-  const context = vm.createContext({Game,Session,Protocol:{decode:text=> {try{return {$:'Some',value:JSON.parse(text)};}catch{return {$:'None'};}}},
+  const InputQueue = {
+    fresh:round=>({round,last:0,pending:[]}), full:state=>state.pending.length>=128,
+    push:(state,round,seq,x,y)=>{const accepted=round===state.round&&seq>state.last&&state.pending.length<128;return {accepted,state:accepted?{round,last:seq,pending:[...state.pending,{seq,x,y}]}:state};},
+    push_active(state,phase,enabled,round,seq,x,y){return phase===0&&enabled?this.push(state,round,seq,x,y):{state,accepted:false};},
+    overflowed:(state,phase,enabled,round,seq,x,y)=>phase===0&&enabled&&round===state.round&&seq>state.last&&x<=2&&y<=2&&state.pending.length>=128,
+    take:state=>({state:{...state,pending:state.pending.slice(1)},tick:state.pending.length?{$:'Some',value:state.pending[0]}:{$:'None'}}),
+    receipt:(prior,tick)=>tick.$==='Some'?{$:'Receipt',...tick.value,steps:1,expired:false}:prior,
+  };
+  const context = vm.createContext({Game,Session,InputQueue,Protocol:{decode:text=> {try{return {$:'Some',value:JSON.parse(text)};}catch{return {$:'None'};}}},
     performance:{now:()=>now}, postMessage:message=>output.push(message), close(){},
     setInterval:callback=> {timers.set(++id,callback);return id;}, clearInterval:key=>timers.delete(key)});
   vm.runInContext(workerSource,context);
   const send = data=>context.onmessage({data});
-  const command = action=>send({type:'command',player:1,text:JSON.stringify({action})});
+  let sequence=0;
+  const command = action=>send({type:'command',player:1,text:JSON.stringify({seq:++sequence,action})});
   return {options,calls,output,timers,send,command,
     init:()=>send({type:'init',setup,session:1,seed:2}),
     advance:elapsed=> {now+=elapsed;for(const callback of [...timers.values()])callback();},
@@ -196,11 +205,25 @@ test('input change dispatches immediately without advancing the heartbeat timer'
  assert.equal(released.length,2);
  assert.deepEqual(JSON.parse(released[1].text).action,{$:'Movement',x:1,y:1});
 });
-test('only actual simulation steps advance guest prediction receipts',()=>{
- const h=workerHarness();h.init();h.command({$:'Setup',...setup});h.advance(34);
- const before=h.calls.filter(call=>call.name==='receipt_step').length;assert.ok(before>0);
- h.options.paused=true;h.advance(34);
- assert.equal(h.calls.filter(call=>call.name==='receipt_step').length,before);
+test('each advanced world step consumes at most one numbered input and neutral underrun retains the ACK',()=>{
+ const h=workerHarness();h.init();h.command({$:'Setup',...setup});
+ h.command({$:'MovementTick',round:0,x:2,y:1});h.command({$:'MovementTick',round:0,x:0,y:1});
+ h.advance(51);
+ const steps=h.calls.filter(call=>call.name==='core_step');
+ assert.deepEqual(steps.map(call=>call.args.slice(3)),[[1,0],[-1,0],[0,0]]);
+ h.advance(51);
+ const remote=h.output.filter(message=>message.type==='remote-frame').at(-1);
+ assert.equal(remote.receipt.seq,3);assert.equal(remote.receipt.steps,1);
+ h.advance(51);
+ assert.equal(h.output.filter(message=>message.type==='remote-frame').at(-1).receipt.seq,3,'empty queue cannot invent a new acknowledgement');
+});
+test('paused and obsolete-round input never enters the authoritative queue',()=>{
+ const h=workerHarness();h.init();h.command({$:'Setup',...setup});
+ h.options.paused=true;h.options.round=1;h.advance(17);
+ h.command({$:'MovementTick',round:1,x:2,y:1});
+ h.options.paused=false;h.command({$:'Choice',round:1,index:0});
+ h.command({$:'MovementTick',round:0,x:2,y:1});h.advance(51);
+ assert.ok(h.calls.filter(call=>call.name==='core_step').every(call=>call.args[3]===0));
 });
 
 test('pause and resume observations have unique ordered IDs even without a gameplay tick',()=>{

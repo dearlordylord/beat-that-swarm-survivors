@@ -21,6 +21,7 @@ def L.receive_accepts_exactly(state,peer,command): decided_accepts(S.valid_comma
 def L.action_domain_exact(action):
   match action:
     case S.Movement{x,y}: {==}
+    case S.MovementTick{round,x,y}: {==}
     case S.Choice{round,index}: {==}
     case S.Setup{character,arcana,meta,weapons}: {==}
 
@@ -58,6 +59,7 @@ def L.applied_exact(tick,last,input,applied,prior,received,x,y): {==}
 def update_exact(command: S.Command,state: S.State) -> {S.admitted(command,state) == L.updated_state(command,state) : S.State}:
   match command state:
     case S.Command{s,p,q,t,S.Movement{x,y}} S.State{session,clock,S.Lane{a,b,c,d,e,f,g},S.Lane{h,i,j,k,l,m,n},connected,ended}: {==}
+    case S.Command{s,p,q,t,S.MovementTick{r,x,y}} S.State{session,clock,S.Lane{a,b,c,d,e,f,g},S.Lane{h,i,j,k,l,m,n},connected,ended}: {==}
     case S.Command{s,p,q,t,S.Choice{r,z}} S.State{session,clock,S.Lane{a,b,c,d,e,f,g},S.Lane{h,i,j,k,l,m,n},connected,ended}: {==}
     case S.Command{s,p,q,t,S.Setup{x,y,z,w}} S.State{session,clock,S.Lane{a,b,c,d,e,f,g},S.Lane{h,i,j,k,l,m,n},connected,ended}: {==}
 
@@ -82,11 +84,15 @@ def self_sequence_false(+seq: U32) -> {False{} == U32.is_gt(seq,seq) : Bool}:
 def L.host_replay_refused(state,session,seq,tick,action):
   match state action:
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Movement{x,y}: sequence_false(s,c,S.update_lane(S.Movement{x,y},seq,c,S.Lane{a,b,d,e,f,g,h}),S.Lane{i,j,k,l,m,n,o},connected,ended,0,session,0,seq,tick,S.Movement{x,y},self_sequence_false(seq))
+    case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.MovementTick{r,x,y}: sequence_false(s,c,S.update_lane(S.MovementTick{r,x,y},seq,c,S.Lane{a,b,d,e,f,g,h}),S.Lane{i,j,k,l,m,n,o},connected,ended,0,session,0,seq,tick,S.MovementTick{r,x,y},self_sequence_false(seq))
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Choice{r,z}: sequence_false(s,c,S.update_lane(S.Choice{r,z},seq,c,S.Lane{a,b,d,e,f,g,h}),S.Lane{i,j,k,l,m,n,o},connected,ended,0,session,0,seq,tick,S.Choice{r,z},self_sequence_false(seq))
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Setup{x,y,z,w}: sequence_false(s,c,S.update_lane(S.Setup{x,y,z,w},seq,c,S.Lane{a,b,d,e,f,g,h}),S.Lane{i,j,k,l,m,n,o},connected,ended,0,session,0,seq,tick,S.Setup{x,y,z,w},self_sequence_false(seq))
 
 def L.guest_replay_refused(state,session,seq,tick,action):
   match state action:
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Movement{x,y}: sequence_false(s,c,S.Lane{a,b,d,e,f,g,h},S.update_lane(S.Movement{x,y},seq,c,S.Lane{i,j,k,l,m,n,o}),connected,ended,1,session,1,seq,tick,S.Movement{x,y},self_sequence_false(seq))
+    case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.MovementTick{r,x,y}: sequence_false(s,c,S.Lane{a,b,d,e,f,g,h},S.update_lane(S.MovementTick{r,x,y},seq,c,S.Lane{i,j,k,l,m,n,o}),connected,ended,1,session,1,seq,tick,S.MovementTick{r,x,y},self_sequence_false(seq))
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Choice{r,z}: sequence_false(s,c,S.Lane{a,b,d,e,f,g,h},S.update_lane(S.Choice{r,z},seq,c,S.Lane{i,j,k,l,m,n,o}),connected,ended,1,session,1,seq,tick,S.Choice{r,z},self_sequence_false(seq))
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Setup{x,y,z,w}: sequence_false(s,c,S.Lane{a,b,d,e,f,g,h},S.update_lane(S.Setup{x,y,z,w},seq,c,S.Lane{i,j,k,l,m,n,o}),connected,ended,1,session,1,seq,tick,S.Setup{x,y,z,w},self_sequence_false(seq))
+
+def L.tick_does_not_hold(round,x,y,seq,clock,last,input,applied,tick,received,dx,dy): {==}

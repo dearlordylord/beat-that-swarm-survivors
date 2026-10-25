@@ -20,7 +20,7 @@ function harness(){
   location:{href:'https://fixture.invalid/coop.html?session=123'},setInterval:()=>1,clearInterval(){},addEventListener(){},console});
  vm.runInContext(source,context);
  return {displayed,sent,get callbacks(){return callbacks;},async join(){await callbacks.onJoin('ticket',{character:0,arcana:0,meta:0,allowedWeapons:1},{session:123});},
-  observe(frame,observationSeq,receipt={$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false}){receive({type:'message',bytes:new TextEncoder().encode(JSON.stringify({type:'frame',frame,observationSeq,receipt}))});},
+  observe(frame,observationSeq,receipt={$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false}){receive({type:'message',bytes:new TextEncoder().encode(JSON.stringify({type:'frame',predictionModel:'input-ticks-v1',frame,observationSeq,receipt}))});},
   draw(at){now=at;return callbacks.onDisplay(displayed.at(-1),now);},at(value){now=value;},
  };
 }
@@ -67,4 +67,38 @@ test('a new reward round resets pre-pause history even when the paused snapshot 
  const display=h.draw(35);assert.equal(display.px,7210,'resumed authority is the new anchor without old pending replay');
  assert.equal(display.players[1].px,7210);
  const next=h.draw(52);assert.ok(next.px>7210,'fresh current input can resume on the next local tick');
+});
+
+test('guest sends one numbered movement per fixed step, never a held-state heartbeat segment',async()=>{
+ const h=harness();await h.join();h.observe(frame({roundId:4}),1);
+ h.callbacks.onInput({x:1,y:0});
+ assert.equal(h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick').length,0,'keydown does not invent an extra simulation tick');
+ h.draw(17);h.draw(20);h.draw(34);
+ const ticks=h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick');
+ assert.equal(ticks.length,2);assert.equal(ticks[1].seq,ticks[0].seq+1);
+ for(const command of ticks)assert.deepEqual(command.action,{$:'MovementTick',round:4,x:2,y:1});
+ assert.equal(h.sent.map(JSON.parse).filter(command=>command.action.$==='Movement').length,0);
+ const before=h.draw(34).px;
+ h.at(35);h.observe(frame({roundId:4,px:7202.5}),2,{$:'Receipt',seq:ticks[0].seq,steps:1,x:2,y:1,expired:false});
+ assert.equal(h.draw(35).px,before,'consumed exact prefix plus pending suffix preserves displayed position');
+ h.at(36);h.observe(frame({roundId:4,px:7205}),3,{$:'Receipt',seq:ticks[1].seq,steps:1,x:2,y:1,expired:false});
+ assert.equal(h.draw(36).px,before,'a batched ACK also leaves position unchanged');
+});
+test('disabled prediction and exhausted horizon send no new numbered input ticks',async()=>{
+ const h=harness();await h.join();h.observe(frame(),1);h.callbacks.onInput({x:1,y:0});
+ for(let now=17;now<1500;now+=17)h.draw(now);
+ const ticks=h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick');
+ assert.equal(ticks.length,Prediction.horizon(),'unacknowledged horizon bounds both local and wire ticks');
+ h.observe(frame({phase:1,predictionAllowed:false}),2);h.draw(1600);h.draw(1700);
+ assert.equal(h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick').length,ticks.length);
+});
+
+test('an older RAF timestamp cannot rewind a prediction clock sampled by a network message',async()=>{
+ const h=harness();await h.join();h.observe(frame(),1);h.callbacks.onInput({x:1,y:0});
+ h.draw(17);
+ h.at(25);h.observe(frame(),2);
+ h.draw(18); // Same browser frame's RAF can carry an older timestamp than the message handler.
+ assert.equal(h.draw(33).px,7202.5,'only one fixed input tick fits in 33 milliseconds');
+ assert.equal(h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick').length,1);
+ assert.equal(h.draw(34).px,7205,'the second input tick appears only at its actual fixed-step boundary');
 });

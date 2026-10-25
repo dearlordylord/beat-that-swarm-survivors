@@ -8,3 +8,6 @@ def L.oversized_refused(text,oversized):
   {==}
 def L.parsed_number_exact(n,digits): {==}
 def L.malformed_number_refused(digits): {==}
+
+def L.tick_encoding_exact(round,x,y): {==}
+def L.tick_fields_exact(session,player,seq,tick,round,x,y): {==}

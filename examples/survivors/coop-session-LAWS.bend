@@ -31,6 +31,7 @@ def lane_sequence(lane: S.Lane) -> U32:
 def action_domain(action: S.Action) -> Bool:
   match action:
     case S.Movement{x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
+    case S.MovementTick{_,x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
     case S.Choice{round,index}: Bool.and(U32.is_gt(round,0),U32.is_lt(index,16))
     case S.Setup{character,arcana,_,weapons}: Bool.and(U32.is_lt(character,8),Bool.and(U32.is_lt(arcana,12),U32.is_le(weapons,16777215)))
 
@@ -128,6 +129,7 @@ law applied_exact:
 def lane_update(action: S.Action,+seq: U32,clock: U32,lane: S.Lane) -> S.Lane:
   match action lane:
     case S.Movement{x,y} S.Lane{_,_,applied,tick,_,_,_}: S.Lane{seq,seq,applied,tick,clock,x,y}
+    case S.MovementTick{_,_,_} S.Lane{_,input,applied,tick,received,x,y}: S.Lane{seq,input,applied,tick,received,x,y}
     case S.Choice{_,_} S.Lane{_,input,applied,tick,received,x,y}: S.Lane{seq,input,applied,tick,received,x,y}
     case S.Setup{_,_,_,_} S.Lane{_,input,applied,tick,received,x,y}: S.Lane{seq,input,applied,tick,received,x,y}
 def updated_state(command: S.Command,state: S.State) -> S.State:
@@ -163,3 +165,20 @@ law guest_replay_refused:
   for +tick: U32
   for +action: S.Action
   {S.valid_command(S.admitted(S.Command{session,1,seq,tick,action},state),1,S.Command{session,1,seq,tick,action}) == False{} : Bool}
+
+# Guarantees: admitting a numbered movement tick advances packet freshness without changing held input or claiming it was applied.
+# Why it matters: the worker must acknowledge the queued tick only after its own authoritative world step.
+law tick_does_not_hold:
+  for round: U32
+  for x: U32
+  for y: U32
+  for +seq: U32
+  for clock: U32
+  for last: U32
+  for +input: U32
+  for +applied: U32
+  for +tick: U32
+  for +received: U32
+  for +dx: U32
+  for +dy: U32
+  {S.update_lane(S.MovementTick{round,x,y},seq,clock,S.Lane{last,input,applied,tick,received,dx,dy}) == S.Lane{seq,input,applied,tick,received,dx,dy} : S.Lane}

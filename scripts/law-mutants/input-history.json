@@ -1,0 +1,37 @@
+[
+  {
+    "label": "reconciliation discards pending fixed ticks",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "replay(List.reverse(&2,Segment,segments),distance,Replay{M.Point{x,y},horizon()})",
+    "new": "replay([],distance,Replay{M.Point{x,y},horizon()})",
+    "proof": "examples/survivors/coop-input-history-PROOF.bend",
+    "law": "one_pending_tick_preserves_path",
+    "fails_in": "pending_point"
+  },
+  {
+    "label": "pending fixed tick replays the wrong direction",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "move_steps(U32.to_nat(count),distance,S.axis(x),S.axis(y),point)",
+    "new": "move_steps(U32.to_nat(count),distance,S.axis(y),S.axis(x),point)",
+    "proof": "examples/survivors/coop-input-history-PROOF.bend",
+    "law": "one_pending_tick_preserves_path",
+    "fails_in": "replay_one"
+  },
+  {
+    "label": "FIFO pending replay reverses tick order",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "case row <> rest: replay(rest,distance,replay_segment(distance,row,state))",
+    "new": "case row <> rest: replay_segment(distance,row,replay(rest,distance,state))",
+    "proof": "examples/survivors/coop-input-history-PROOF.bend",
+    "law": "pending_replay_preserves_path"
+  },
+  {
+    "label": "pending fixed tick replay applies two steps",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "move_steps(U32.to_nat(count),distance,S.axis(x),S.axis(y),point)",
+    "new": "move_steps(U32.to_nat((count * 2 : U32)),distance,S.axis(x),S.axis(y),point)",
+    "proof": "examples/survivors/coop-input-history-PROOF.bend",
+    "law": "pending_replay_preserves_path",
+    "fails_in": "replay_one"
+  }
+]

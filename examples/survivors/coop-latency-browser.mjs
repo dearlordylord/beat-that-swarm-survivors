@@ -31,7 +31,7 @@ export class CoopTransport {
  static async create(callback){
   globalThis.__latencyReceive = event => {
    if(event.type==='message'){
-    try{const value=JSON.parse(new TextDecoder().decode(new Uint8Array(event.bytes)));if(value.type==='frame'){globalThis.__latencyReceives.push({at:performance.now(),admission:value.admission,tick:value.frame.tick,phase:value.frame.phase});if(globalThis.__latencyReceives.length>200)globalThis.__latencyReceives.shift();}}catch{}
+    try{const value=JSON.parse(new TextDecoder().decode(new Uint8Array(event.bytes)));if(value.type==='frame'){globalThis.__latencyReceives.push({at:performance.now(),admission:value.admission,receipt:value.receipt,tick:value.frame.tick,phase:value.frame.phase});if(globalThis.__latencyReceives.length>200)globalThis.__latencyReceives.shift();}}catch{}
    }
    callback(event.type==='message'?{...event,bytes:new Uint8Array(event.bytes)}:event);
   };
@@ -52,6 +52,7 @@ try {
     const pages = await Promise.all(contexts.map(context=>context.newPage()));
     const [host,guest]=pages, events=[],errors=[],deliveries=new Set();
     let joined=false;
+    const deliveryAt=[0,0],deliveryQueues=[[],[]],deliveryActive=[false,false],sendCount=[0,0];
     for(let index=0;index<pages.length;index++){
       const page=pages[index],peer=pages[1-index];
       page.on('pageerror',error=>errors.push(error.message));
@@ -63,9 +64,9 @@ try {
       });
       await page.route('**/coop-worker.mjs',async route=>{
         const response=await route.fetch();const source=await response.text();
-        const marker="import Protocol from './dist/coop-protocol.mjs';";
-        assert.ok(source.includes(marker),'worker admission instrumentation target');
-        const instrumented=source.replace(marker,marker+`\nconst originalApply=Session.applied;Session.applied=(tick,state)=>{const result=originalApply(tick,state);postMessage({type:'latency-ack',at:performance.now(),origin:performance.timeOrigin,admission:result,tick});return result;};`);
+        const marker='session = Session.applied(frame.tick, session);';
+        assert.ok(source.includes(marker),'worker consumed-receipt instrumentation target');
+        const instrumented=source.replace(marker,marker+`\npostMessage({type:'latency-ack',at:performance.now(),origin:performance.timeOrigin,receipt:guestReceipt,tick:frame.tick});`);
         await route.fulfill({response,body:instrumented+`\nconst originalMessage=onmessage;onmessage=event=>{if(event.data.type==='latency-fixture-level'){core.shared.xp=core.shared.xpNeed;return;}originalMessage(event);};`});
       });
       await page.exposeFunction('__latencyConnect',async()=>{
@@ -75,12 +76,29 @@ try {
       await page.exposeFunction('__latencySend',(bytes,at,origin)=>{
         const wire=new TextDecoder().decode(new Uint8Array(bytes));
         events.push({kind:'send',peer:index,at,origin,wire:wire.length<200?wire:undefined});
-        const timer=setTimeout(async()=>{
-          deliveries.delete(timer);
-          try{await peer.evaluate(({bytes,peerId})=>globalThis.__latencyReceive?.({type:'message',bytes,peerId}),{bytes,peerId:'fixture-'+index});}
-          catch(error){if(!peer.isClosed())errors.push(error.message);}
-        },rtt/2);
-        deliveries.add(timer);
+        const sendIndex=sendCount[index]++,now=performance.now(),variation=0;
+        deliveryAt[index]=Math.max(deliveryAt[index],now+Math.max(0,rtt/2+variation));
+        deliveryQueues[index].push({arrival:deliveryAt[index],bytes,peerId:'fixture-'+index,sendIndex,wire:wire.length<200?wire:undefined});
+        if(!deliveryActive[index]){
+          deliveryActive[index]=true;
+          // Batch already-due messages: one CDP roundtrip per byte would create
+          // fake network backpressure at 60 commands/s on a busy test machine.
+          const pump=async()=>{
+            while(deliveryQueues[index].length&&!peer.isClosed()){
+              const delay=deliveryQueues[index][0].arrival-performance.now();
+              if(delay>0)await new Promise(resolve=>{
+                const timer=setTimeout(()=>{deliveries.delete(timer);resolve();},delay);deliveries.add(timer);
+              });
+              if(peer.isClosed())return;
+              const due=performance.now(),batch=[];
+              while(deliveryQueues[index].length&&deliveryQueues[index][0].arrival<=due)batch.push(deliveryQueues[index].shift());
+              if(!batch.length)continue;
+              for(const row of batch)events.push({kind:'deliver',peer:index,sendIndex:row.sendIndex,wire:row.wire,driverAt:due});
+              await peer.evaluate(rows=>{for(const {bytes,peerId}of rows)globalThis.__latencyReceive?.({type:'message',bytes,peerId});},batch);
+            }
+          };
+          pump().catch(error=>{if(!peer.isClosed())errors.push(error.message);}).finally(()=>{deliveryActive[index]=false;});
+        }
       });
       await page.addInitScript(()=>{
         globalThis.__latencyRenders=[];globalThis.__latencyInputs=[];globalThis.__latencyFrames=[];globalThis.__latencyReceives=[];globalThis.__latencyAcks=[];
@@ -114,6 +132,7 @@ try {
       const trace=await guest.evaluate(()=>({renders:globalThis.__latencyRenders,inputs:globalThis.__latencyInputs,receives:globalThis.__latencyReceives,origin:performance.timeOrigin,status:document.querySelector('#coop-play-status')?.textContent}));
       const authoritative=await host.evaluate(()=>({frame:globalThis.__latencyAuthoritative,error:globalThis.__latencyWorkerError,frames:globalThis.__latencyFrames,acks:globalThis.__latencyAcks}));
       await writeFile(`${output}/raw-rtt-${rtt}.json`,JSON.stringify({trace,authoritative,events,errors},null,2));
+      for(let peer=0;peer<2;peer++){const order=events.filter(event=>event.kind==='deliver'&&event.peer===peer).map(event=>event.sendIndex);assert.deepEqual(order,order.map((_,index)=>index),'fixture must deliver a strict send-order prefix');}
       assert.equal(authoritative.error,undefined,'real Bend worker must not fail');assert.deepEqual(errors,[]);
       const moves=trace.inputs.filter(input=>input.type==='down'&&['ArrowRight','ArrowLeft'].includes(input.code)).map(input=>{
         const before=trace.renders.findLast(render=>render.at<=input.at);
@@ -122,10 +141,10 @@ try {
         const seen=trace.renders[seenIndex],prior=trace.renders[seenIndex-1];
         assert.ok(seen,'rendered movement after '+input.code);
         const axis=sign===1?'2':'0';
-        const sent=events.find(event=>event.peer===1&&event.at>=input.at&&event.wire?.endsWith('|I|'+axis+'|1'));
+        const sent=events.find(event=>{const fields=event.wire?.split('|');return event.peer===1&&event.at>=input.at&&['T','I'].includes(fields?.[5])&&fields.at(-2)===axis&&fields.at(-1)==='1';});
         const seq=sent?Number(sent.wire.split('|')[3]):null;
-        const ack=seq===null?null:authoritative.acks.find(event=>event.admission.guest.appliedSeq>=seq);
-        const received=seq===null?null:trace.receives.find(event=>event.admission?.guest?.appliedSeq>=seq);
+        const ack=seq===null?null:authoritative.acks.find(event=>event.receipt.seq>=seq);
+        const received=seq===null?null:trace.receives.find(event=>event.receipt?.seq>=seq);
         const appliedAt=ack?ack.origin+ack.at-trace.origin:null;
         return {code:input.code,inputAt:input.at,firstRenderAt:seen.at,latencyMs:seen.at-input.at,seq,inputToSendMs:sent?sent.at-input.at:null,sendToHostApplyMs:sent&&ack?appliedAt-sent.at:null,hostApplyToReceiveMs:ack&&received?received.at-appliedAt:null,receiveToRenderMs:received?seen.at-received.at:null,renderedBeforeAuthority:received?seen.at<received.at:null,cameraLag:Math.abs((seen.cameraX-prior.cameraX)-(seen.x-prior.x))};
       });
@@ -134,7 +153,7 @@ try {
       const stable=afterStop.find((render,i)=>i>=2&&Math.abs(render.x-afterStop[i-1].x)<.05&&Math.abs(afterStop[i-1].x-afterStop[i-2].x)<.05);
       assert.ok(stable,'stop eventually renders without movement');
       const final=trace.renders.at(-1),own=authoritative.frame.players.find(player=>player.id===1);
-      const outcome={rttMs:rtt,moves,firstRenderP95Ms:percentile(moves.map(move=>move.latencyMs),.95),stopMs:stable.at-released.at,finalError:Math.hypot(final.x-own.px,final.y-own.py),phase:authoritative.frame.phase,transportSends:events.length,errors};
+      const outcome={rttMs:rtt,moves,firstRenderP95Ms:percentile(moves.map(move=>move.latencyMs),.95),stopMs:stable.at-released.at,finalError:Math.hypot(final.x-own.px,final.y-own.py),phase:authoritative.frame.phase,transportSends:events.filter(event=>event.kind==='send').length,errors};
       // Trusted fixture changes real Bend XP, never a fabricated pause observation.
       await host.evaluate(()=>globalThis.__latencyWorker.postMessage({type:'latency-fixture-level'}));
       await guest.waitForFunction(()=>globalThis.__latencyReceives.some(frame=>frame.phase===1),null,{timeout:10000});
@@ -150,7 +169,7 @@ try {
       console.log(JSON.stringify(outcome));
       assert.ok(pause.samples>=3&&pause.maxMotion<.5,'observed global reward pause must disable local prediction');
       if(enforce){
-        for(const move of moves){assert.ok(move.latencyMs<=limit,`${rtt}ms RTT ${move.code} input-to-render ${move.latencyMs.toFixed(1)}ms exceeds ${limit}ms`);assert.ok(move.cameraLag<1,'camera must respond with local player');}
+        for(const move of moves){assert.ok(move.seq!==null&&move.sendToHostApplyMs!==null&&move.hostApplyToReceiveMs!==null,'trace must include send, consumed receipt, and received ACK');assert.ok(move.renderedBeforeAuthority,'first motion must precede authoritative ACK');assert.ok(move.latencyMs<=limit,`${rtt}ms RTT ${move.code} input-to-render ${move.latencyMs.toFixed(1)}ms exceeds ${limit}ms`);assert.ok(move.cameraLag<1,'camera must respond with local player');}
         assert.ok(outcome.stopMs<=limit+34,`${rtt}ms RTT local stop delayed`);
         assert.ok(outcome.finalError<1,`${rtt}ms RTT prediction must converge after ACK/stop`);
       }

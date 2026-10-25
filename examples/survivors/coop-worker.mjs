@@ -2,9 +2,11 @@
 import Game from './dist/coop-core.mjs';
 import Session from './dist/coop-session.mjs';
 import Protocol from './dist/coop-protocol.mjs';
+import InputQueue from './dist/coop-input-queue.mjs';
 let core, session, timer, last = 0, accumulator = 0, active = false;
 let lastSnapshot = 0, observationSeq = 0, lastPhase;
-let guestReceipt = Session.receipt_fresh();
+let guestReceipt = Session.receipt_fresh(), guestQueue = InputQueue.fresh(0);
+let currentRound = 0, currentPhase = 0, guestEligible = false;
 const STEP = 1000 / 60;
 function packet(result) {
   if (result.state) core = result.state;
@@ -15,9 +17,15 @@ function packet(result) {
 function publish(remote = true) {
   const observation = ++observationSeq;
   const local = packet(Game.core_observe(core, 0));
+  currentPhase = local.phase ?? currentPhase;
+  const round = local.roundId ?? currentRound;
+  if (round !== currentRound || currentPhase !== 0) guestQueue = InputQueue.fresh(round);
+  currentRound = round;
   postMessage({type:'frame', frame:local});
   if (remote) {
     const guest = packet(Game.core_observe(core, 1));
+    guestEligible = guest.predictionAllowed === true;
+    if (!guestEligible) guestQueue = InputQueue.fresh(currentRound);
     postMessage({type:'remote-frame', frame:guest, admission:session, receipt:guestReceipt, observationSeq:observation});
   }
 }
@@ -29,7 +37,17 @@ function accept(text, peer) {
   session = admission.state;
   if (!admission.accepted) return;
   const action = command.action;
-  if (action.$ === 'Choice') {
+  if (action.$ === 'Movement' && peer === 1) {
+    postMessage({type:'guest-protocol-mismatch'}); return;
+  } else if (action.$ === 'MovementTick' && peer === 1) {
+    const admission = InputQueue.push_active(guestQueue,currentPhase,guestEligible,action.round,command.seq,action.x,action.y);
+    if (InputQueue.overflowed(guestQueue,currentPhase,guestEligible,action.round,command.seq,action.x,action.y)) {
+      session = Session.disconnect(1,session);
+      packet(Game.core_disconnect(core,1)); guestQueue = InputQueue.fresh(currentRound);
+      postMessage({type:'guest-input-overflow'}); publish(false); return;
+    }
+    guestQueue = admission.state;
+  } else if (action.$ === 'Choice') {
     packet(Game.core_choose(core, peer, action.round, action.index));
     publish();
   } else if (action.$ === 'Setup' && peer === 1) {
@@ -53,9 +71,13 @@ function schedule() {
   while (active && accumulator >= STEP && steps++ < 4) {
     session = Session.clock(session);
     const move = Session.directions(session);
-    const frame = packet(Game.core_step(core, move.x0, move.y0, move.x1, move.y1));
+    const pending = InputQueue.take(guestQueue);
+    const input = pending.tick.$ === 'Some' ? pending.tick.value : null;
+    const frame = packet(Game.core_step(core,move.x0,move.y0,
+      input ? Session.axis(input.x) : 0,input ? Session.axis(input.y) : 0));
     if (frame?.advanced) {
-      guestReceipt = Session.receipt_step(guestReceipt,session,1);
+      guestQueue = pending.state;
+      guestReceipt = InputQueue.receipt(guestReceipt,pending.tick);
       session = Session.applied(frame.tick, session);
     }
     if (frame && frame.phase !== lastPhase) { lastPhase = frame.phase; lastSnapshot = now; publish(); }
@@ -70,6 +92,7 @@ onmessage = event => {
       case 'init': {
         clearInterval(timer); active = false; accumulator = 0;
         observationSeq = 0; lastPhase = undefined; guestReceipt = Session.receipt_fresh();
+        currentRound = 0; currentPhase = 0; guestEligible = false; guestQueue = InputQueue.fresh(0);
         const s = message.setup;
         session = Session.fresh(message.session);
         packet(Game.core_start(s.character, s.meta, message.seed));
@@ -85,6 +108,7 @@ onmessage = event => {
       }
       case 'command': accept(message.text, message.player); break;
       case 'disconnect':
+        guestQueue = InputQueue.fresh(currentRound); guestEligible = false;
         session = Session.disconnect(1, session);
         packet(Game.core_disconnect(core, 1)); publish(false); break;
       case 'stop': clearInterval(timer); active = false; close(); break;

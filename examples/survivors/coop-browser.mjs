@@ -14,11 +14,18 @@ const PREDICTION_STEP = 1000 / 60;
 const bendBool = value => Boolean(value);
 function advancePrediction(now = performance.now()) {
   if (role !== 'guest' || !prediction) return;
-  predictionRemainder += Math.min(4 * PREDICTION_STEP, Math.max(0, now - predictionAt));
+  // rAF timestamps may precede a performance.now() sampled by a message handler.
+  // Never rewind the shared local clock and count that interval twice.
+  now = Math.max(now,predictionAt);
+  predictionRemainder += Math.min(4 * PREDICTION_STEP,now - predictionAt);
   predictionAt = now;
   let count = 0;
   while (predictionRemainder >= PREDICTION_STEP && count++ < 4) {
-    prediction = Prediction.tick(prediction);
+    if (prediction.enabled && prediction.age < Prediction.horizon() && connected) {
+      sendAction({$:'MovementTick',round:predictionRound ?? 0,
+        x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
+      prediction = Prediction.tick(prediction);
+    }
     predictionRemainder -= PREDICTION_STEP;
   }
 }
@@ -39,8 +46,6 @@ function reconcilePrediction(envelope) {
   if (prediction.observation !== envelope.observationSeq) return false;
   authorityFrame = frame;
   if (!frame.predictionAllowed || !wasEnabled) { predictionAt = now; predictionRemainder = 0; }
-  if (frame.predictionAllowed && (reset || !wasEnabled))
-    sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
   return true;
 }
 function displayFrame(frame, now) {
@@ -69,9 +74,8 @@ const decoder = new TextDecoder('utf-8', {fatal:true});
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
 function command(action) {
   const seq = ++sequence;
-  if (role === 'guest' && prediction && action.$ === 'Movement') {
-    advancePrediction(); prediction = Prediction.command(prediction,seq,action.x,action.y);
-  }
+  if (role === 'guest' && prediction && action.$ === 'MovementTick')
+    prediction = Prediction.command(prediction,seq,action.x,action.y);
   return Protocol.encode({$: 'Command', session:sessionId, player:role === 'host' ? 0 : 1,
     seq, intendedTick:tick, action});
 }
@@ -87,6 +91,10 @@ function sendAction(action) {
     transport.send(text).catch(error => {
       if (generation !== epoch) return;
       if (action.$ === 'Choice') ui.setChoicePending(false);
+      if (action.$ === 'MovementTick') {
+        connected = false; prediction = null; authorityFrame = null;
+        clearInterval(inputTimer); transport?.close();
+      }
       ui.status(error.message,{error:true});
     });
   }
@@ -119,8 +127,10 @@ async function connect(kind, ticket, setup, invitation = {}) {
       ui.status(kind === 'host' ? 'Guest connected. Preparing shared world…' : 'Connected. Waiting for the host…');
       if (kind === 'guest') transport.send(command({$:'Setup', character:setup.character,
         arcana:setup.arcana, meta:setup.meta, allowedWeapons:setup.allowedWeapons})).catch(showError);
-      inputTimer = setInterval(() => sendAction({$:'Movement',
-        x:Math.sign(input.x) + 1, y:Math.sign(input.y) + 1}), 50);
+      inputTimer = setInterval(() => {
+        if (kind === 'guest') advancePrediction();
+        else sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
+      }, 50);
     } else if (event.type === 'message') {
       try {
         if (kind === 'host' && event.bytes.byteLength > MAX_COMMAND_BYTES) {
@@ -133,7 +143,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         else {
           const envelope = JSON.parse(text);
           if (envelope.type !== 'frame') return;
-          if (!Number.isInteger(envelope.observationSeq) || !envelope.receipt
+          if (envelope.predictionModel !== 'input-ticks-v1' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
               || typeof envelope.frame?.predictionAllowed !== 'boolean') {
             cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
           }
@@ -161,7 +171,11 @@ async function connect(kind, ticket, setup, invitation = {}) {
       if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
       else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
       else if (message.type === 'remote-frame') {
-        latestSnapshot = {type:'frame',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,observationSeq:message.observationSeq}; flushSnapshot();
+        latestSnapshot = {type:'frame',predictionModel:'input-ticks-v1',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,observationSeq:message.observationSeq}; flushSnapshot();
+      } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
+        refuseGuest(message.type === 'guest-input-overflow'
+          ? 'Guest input queue overflowed. The guest was disconnected.'
+          : 'Reload both pages and create a new invitation to use the current guest version.');
       } else if (message.type === 'ready') {
         const link = new URL(location.href); link.search = '';
         link.searchParams.set('session',String(sessionId)); link.searchParams.set('join',transport.invitation());
@@ -186,7 +200,8 @@ const ui = new CoopUI({
   onJoin: (ticket,setup,invitation) => connect('guest',ticket,setup,invitation).catch(showError),
   onInput: value => {
     advancePrediction(); input = value;
-    sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
+    if (role === 'host')
+      sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
   },
   onDisplay: displayFrame,
   onChoice: ({round,index}) => sendAction({$:'Choice',round,index}),

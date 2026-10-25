@@ -88,7 +88,7 @@ law axis_exact:
   for +code: U32
   {S.axis(code) == Bool.pick(F32,U32.is_eq(code,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(code,2),1.0,0.0)) : F32}
 
-# Guarantees: the speculative movement horizon is exactly thirty fixed steps.
+# Guarantees: the speculative movement horizon is exactly sixty fixed steps.
 # Why it matters: the safety bound must not move with its implementation.
 law horizon_exact:
   {P.horizon() == 60 : U32}
@@ -112,7 +112,7 @@ law command_exact:
   {P.command(state,seq,x,y) == command_spec(state,seq,x,y) : P.State}
 
 # Guarantees: every local tick matches the stateful reference transition, including
-# counter progress, disabled states, empty history and every age at or beyond30.
+# counter progress, disabled states, empty history and every age at or beyond60.
 # Why it matters: no old input or accumulated pause time may control the next tick.
 law tick_exact:
   for +state: P.State
@@ -138,7 +138,7 @@ law replay_exact:
   {P.replay(rows,distance,state) == replay_spec(rows,distance,state) : P.Replay}
 
 # Guarantees: reconciliation starts at authority, replays only remaining history
-# oldest-first with budget30, ignores nonnew snapshots, clears disabled history,
+# oldest-first with budget60, ignores nonnew snapshots, clears disabled history,
 # and resumes from a fresh anchor rather than replaying pre-pause segments.
 # Why it matters: no correction may accumulate movement over an old local pose.
 law reconciliation_exact:

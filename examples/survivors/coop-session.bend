@@ -3,6 +3,7 @@ import Base
 
 type Action is Data:
   Movement{x: U32,y: U32}
+  MovementTick{round: U32,x: U32,y: U32}
   Choice{round: U32,index: U32}
   Setup{character: U32,arcana: U32,meta: U32,allowedWeapons: U32}
 type Command is Data: Command{session: U32,player: U32,seq: U32,intendedTick: U32,action: Action}
@@ -20,6 +21,7 @@ def last_seq(lane: Lane) -> U32:
 def action_allowed(action: Action) -> Bool:
   match action:
     case Movement{x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
+    case MovementTick{_,x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
     case Choice{round,index}: Bool.and(U32.is_gt(round,0),U32.is_lt(index,16))
     case Setup{character,arcana,_,allowed}: Bool.and(U32.is_lt(character,8),Bool.and(U32.is_lt(arcana,12),U32.is_le(allowed,16777215)))
 def command_player(command: Command) -> U32:

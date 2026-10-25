@@ -118,7 +118,8 @@
     "old": "U32.is_le(x,2)",
     "new": "True{}",
     "proof": "examples/survivors/coop-session-PROOF.bend",
-    "law": "action_domain_exact"
+    "law": "action_domain_exact",
+    "occurrences": 2
   },
   {
     "label": "session-zero-choice-round",
