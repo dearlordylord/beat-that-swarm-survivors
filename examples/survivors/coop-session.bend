@@ -78,6 +78,13 @@ def disconnect(player: U32,state: State) -> State:
     case 1 State{session,now,host,_,_,ended}: State{session,now,host,neutral(),False{},ended}
     case _ state: state
 
+# Called once for a new authenticated transport connection, never for a packet.
+# The previous connection must already be fenced out by the IO adapter.
+def reconnect(state: State) -> State:
+  match state:
+    case State{session,now,host,_,_,False{}}: State{session,now,host,neutral(),True{},False{}}
+    case state: state
+
 # A receipt identifies a resolved authoritative world tick. Missing input is an
 # explicit neutral fallback, not an invitation to shift a late packet forward.
 type Receipt is Data: Receipt{seq: U32,worldTick: U32,x: U32,y: U32,applied: Bool}

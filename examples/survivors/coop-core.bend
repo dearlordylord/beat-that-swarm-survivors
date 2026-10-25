@@ -1,5 +1,6 @@
 import Base
 import coop-reward-policy.bend as RP
+import coop-attach.bend as Attach
 import game.bend as G
 import coop-prediction.bend as Prediction
 import coop-combat-prediction.bend as CombatPrediction
@@ -307,6 +308,18 @@ def join_allowed(allowed: Bool,state: CoreState,character: U32,meta: U32,arcana:
 def core_join(state: CoreState,character: U32,meta: U32,arcana: U32) -> CorePacket:
   match state:
     case CoreState{world,+shared,+refs,bodies,snapshots,round,required,offers,pending}: join_allowed(Bool.and(U32.is_eq(run_tick(shared),0),Nat.is_eq(List.length(&2,PlayerRef,refs),1n)),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},U32.min(7,character),meta,U32.min(11,arcana))
+
+# A returning guest occupies the existing player record. Setup belongs only to
+# the first attachment: reload must not replace equipment, health or reward state.
+def attach_configured(mask: U32,packet: CorePacket) -> CorePacket:
+  match packet:
+    case CorePacket{state,_}: core_configure_unlocks(state,1,mask)
+    case packet: packet
+def attach_initial(state: CoreState,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
+  attach_configured(mask,core_join(state,character,meta,arcana))
+def core_attach(state: CoreState,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
+  match state:
+    case CoreState{world,shared,+refs,bodies,snapshots,round,required,offers,pending}: Attach.dispatch(~CoreState,~CorePacket,~quiet,~attach_initial,List.length(&2,PlayerRef,refs),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},character,meta,arcana,mask)
 
 # Views are immutable per-tick projections, never another gameplay authority.
 def player_view(+shared: G.Run,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,player: G.PlayerRecord) -> G.PlayerView:

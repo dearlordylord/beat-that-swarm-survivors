@@ -1,4 +1,8 @@
 /* Co-op hall: production Moon Seal shell and shared expedition components. */
+/* A paused reward owns touch input. The movement pad is a later positioned
+   sibling and would otherwise intercept taps on the lower reward cards. */
+#coop-reward:not([hidden]) ~ #coop-touch{display:none}
+#coop-offers .reward-offer{touch-action:manipulation}
 html[data-entry=guest] [data-host-ui],html[data-entry=host] [data-guest-ui]{display:none!important}
 .coop-app #menu{grid-template-rows:minmax(0,1fr)}
 .coop-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:24px 0}

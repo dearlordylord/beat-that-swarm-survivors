@@ -7,7 +7,7 @@ let core, session, timer, last = 0, accumulator = 0, active = false;
 let lastSnapshot = 0, observationSeq = 0, lastPhase;
 let guestReceipt = Session.receipt_fresh(), guestQueue = InputQueue.fresh(0,0);
 let currentRound = 0, currentPhase = 0, currentWorldTick = 0, guestEligible = false;
-let lastInputRejection = null;
+let lastInputRejection = null, connectionEpoch = 0, awaitingSetup = false;
 const STEP = 1000 / 60;
 function packet(result) {
   if (result.state) core = result.state;
@@ -29,19 +29,20 @@ function publish(remote = true) {
     const guest = packet(Game.core_observe(core, 1));
     guestEligible = guest.predictionAllowed === true;
     if (!guestEligible) guestQueue = InputQueue.fresh(currentRound,currentWorldTick);
-    postMessage({type:'remote-frame', frame:guest, admission:session, receipt:guestReceipt, observationSeq:observation,inputTiming:{worldTick:currentWorldTick,lastRejected:lastInputRejection}});
+    postMessage({type:'remote-frame', frame:guest, admission:session, receipt:guestReceipt, observationSeq:observation,connectionEpoch,inputTiming:{worldTick:currentWorldTick,lastRejected:lastInputRejection}});
   }
 }
 function accept(text, peer) {
   const decoded = Protocol.decode(text);
   if (decoded.$ !== 'Some') return;
   const command = decoded.value;
+  if (peer === 1 && awaitingSetup && command.action.$ !== 'Setup') return;
   const admission = Session.receive(session, peer, command);
   session = admission.state;
   if (!admission.accepted) return;
   const action = command.action;
   if (action.$ === 'Movement' && peer === 1) {
-    postMessage({type:'guest-protocol-mismatch'}); return;
+    postMessage({type:'guest-protocol-mismatch',connectionEpoch}); return;
   } else if (action.$ === 'MovementTick' && peer === 1) {
     const admission = InputQueue.push_active(guestQueue,currentPhase,guestEligible,action.round,command.seq,command.intendedTick,action.x,action.y);
     if (!admission.accepted) {
@@ -51,22 +52,20 @@ function accept(text, peer) {
     if (admission.reason === 8) {
       session = Session.disconnect(1,session);
       packet(Game.core_disconnect(core,1)); guestQueue = InputQueue.fresh(currentRound,currentWorldTick);
-      postMessage({type:'guest-input-overflow'}); publish(false); return;
+      postMessage({type:'guest-input-overflow',connectionEpoch}); publish(false); return;
     }
     guestQueue = admission.state;
   } else if (action.$ === 'Choice') {
     packet(Game.core_choose(core, peer, action.round, action.index));
     publish();
-  } else if (action.$ === 'Setup' && peer === 1) {
-    const joined = Game.core_join(core, action.character, action.meta, action.arcana);
+  } else if (action.$ === 'Setup' && peer === 1 && awaitingSetup) {
+    const joined = Game.core_attach(core, action.character, action.meta, action.arcana, action.allowedWeapons);
     packet(joined);
     if (joined.$ !== 'CorePacket') return;
-    const configured = Game.core_configure_unlocks(core, 1, action.allowedWeapons);
-    packet(configured);
-    if (configured.$ !== 'CorePacket') return;
+    awaitingSetup = false;
     active = true;
     last = performance.now(); accumulator = 0;
-    postMessage({type:'started'});
+    postMessage({type:'started',connectionEpoch});
     publish();
   }
 }
@@ -102,6 +101,7 @@ onmessage = event => {
         observationSeq = 0; lastPhase = undefined; guestReceipt = Session.receipt_fresh();
         currentRound = 0; currentPhase = 0; currentWorldTick = 0; guestEligible = false; guestQueue = InputQueue.fresh(0,0); lastInputRejection = null;
         const s = message.setup;
+        connectionEpoch = 0; awaitingSetup = false;
         session = Session.fresh(message.session);
         packet(Game.core_start(s.character, s.meta, message.seed));
         packet(Game.core_configure(core, s.stage, s.mode, s.arcana));
@@ -114,11 +114,23 @@ onmessage = event => {
         postMessage({type:'ready'});
         break;
       }
-      case 'command': accept(message.text, message.player); break;
+      case 'connected':
+        connectionEpoch = message.connectionEpoch;
+        active = false; accumulator = 0; awaitingSetup = true;
+        session = Session.reconnect(session);
+        guestQueue = InputQueue.fresh(currentRound,currentWorldTick);
+        guestReceipt = Session.receipt_fresh(); lastInputRejection = null;
+        break;
+      case 'command':
+        if (message.player === 0 || message.connectionEpoch === connectionEpoch) accept(message.text, message.player);
+        break;
       case 'disconnect':
+        connectionEpoch = message.connectionEpoch ?? connectionEpoch;
+        active = false; accumulator = 0; awaitingSetup = false;
         guestQueue = InputQueue.fresh(currentRound,currentWorldTick); guestEligible = false;
         session = Session.disconnect(1, session);
-        packet(Game.core_disconnect(core, 1)); publish(false); break;
+        // Connection loss is suspension, not player death or reward forfeiture.
+        publish(false); break;
       case 'stop': clearInterval(timer); active = false; close(); break;
     }
   } catch (error) { clearInterval(timer); active = false; postMessage({type:'error', message:error.message, stack:error.stack}); }

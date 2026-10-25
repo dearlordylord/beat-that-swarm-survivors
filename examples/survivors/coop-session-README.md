@@ -12,10 +12,34 @@ identity from the message payload. Admission and game application are separate:
 [Reward policy](coop-reward-policy.bend) supplies the admission decision and
 remaining obligations used by that core.
 
-The host advances the admission clock during gameplay pauses and acknowledges
-input only after an actual game step. Intended tick is diagnostic. Disconnect
-and terminal behavior belong to the session transition, while character death
-belongs to gameplay. The [worker](coop-worker.mjs) connects these boundaries.
+The host advances the admission clock during reward pauses and acknowledges
+input only after an actual game step. A movement command's intended tick is its
+exact target world tick: a late command is rejected rather than shifted forward.
+Transport sequence numbers and world ticks are different clocks. The
+[worker](coop-worker.mjs) connects these boundaries.
+
+A guest transport departure suspends the shared run without disconnecting the
+stored player record or discarding its reward choice. The host keeps its Iroh
+endpoint and invitation open. A new connection resets only the guest command
+lane, receipt and queued inputs; the host lane, session ID and simulation state
+remain intact. Setup creates and configures the guest only on the first join.
+Rejoining returns the existing character, health, equipment and reward state,
+regardless of the setup selected on the reloaded page. The snapshot rebuilds the
+guest's prediction from current authority instead of replaying old local input.
+
+The invitation is a bearer capability for the single guest slot, not a durable
+account identity: whoever holds it may fill that slot once its connection is
+free. A connected guest cannot be replaced concurrently. Closing or reloading
+the host destroys the in-memory world and endpoint; an old invitation cannot
+restore that run. An ended admission session cannot be revived by reconnect.
+
+The reconnect laws pin the complete session transition. The generic
+[attachment dispatcher laws](coop-attach-LAWS.bend) prove that a two-player
+attachment sends the original affine state directly to its resume adapter,
+ignoring new setup. Production wires that adapter to `Core.quiet`, which returns
+the unchanged state; the full core wiring is checked by source review and
+executed state equality. This is not a kernel proof of all game/core functions
+or of browser/Iroh lifecycle behavior.
 
 The [session laws](coop-session-LAWS.bend), [reward laws](coop-reward-policy-LAWS.bend),
 [protocol laws](coop-protocol-LAWS.bend) and [pickup laws](pickup-selection-LAWS.bend)

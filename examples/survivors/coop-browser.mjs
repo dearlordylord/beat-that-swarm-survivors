@@ -9,7 +9,7 @@ let runId = '', receivedFrame = false, stalled = false;
 let input = {x:0,y:0}, inputTimer, lastFrameAt = 0, connected = false;
 let latestSnapshot, sendingSnapshot = false;
 const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
-let deliverySequence = 0;
+let deliverySequence = 0, connectionEpoch = 0, connectDeadline;
 let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
 let predictionLead = 4, lastRoundTripMs = 0, lastPredictionResync, authorityInputTiming;
 const sentCommandTimes = new Map();
@@ -114,7 +114,7 @@ function postCommand(text, player) {
   if (!worker || pendingCommands.size >= MAX_COMMANDS) return false;
   const deliveryId = ++deliverySequence;
   pendingCommands.add(deliveryId);
-  worker.postMessage({type:'command',player,text,deliveryId});
+  worker.postMessage({type:'command',player,text,deliveryId,connectionEpoch});
   return true;
 }
 function refuseGuest(message) {
@@ -160,14 +160,14 @@ function sendAction(action) {
 async function flushSnapshot() {
   if (sendingSnapshot || !connected || role !== 'host') return;
   sendingSnapshot = true;
-  const generation = epoch, channel = transport;
+  const generation = epoch, connection = connectionEpoch, channel = transport;
   try {
-    while (latestSnapshot && connected && generation === epoch) {
+    while (latestSnapshot && connected && generation === epoch && connection === connectionEpoch) {
       const message = latestSnapshot; latestSnapshot = null;
       await channel.send(JSON.stringify(message));
     }
-  } catch (error) { if (generation === epoch && connected) ui.status(error.message,{error:true}); }
-  finally { if (generation === epoch) sendingSnapshot = false; }
+  } catch (error) { if (generation === epoch && connection === connectionEpoch && connected) ui.status(error.message,{error:true}); }
+  finally { if (generation === epoch && connection === connectionEpoch) sendingSnapshot = false; }
 }
 async function connect(kind, ticket, setup, invitation = {}) {
   cleanup(); const generation = epoch; role = kind; ui.role(kind); sequence = 0;
@@ -178,76 +178,103 @@ async function connect(kind, ticket, setup, invitation = {}) {
   if (!Number.isInteger(sessionId) || sessionId < 0 || sessionId > 0xffffffff)
     throw Error('Open the complete invitation link.');
   ui.status('Connecting to Iroh…',{busy:true});
-  const created = await CoopTransport.create(event => {
+  // Bound the entire attempt, including relay creation and the first game frame.
+  connectDeadline = setTimeout(() => {
     if (generation !== epoch) return;
-    if (event.type === 'connected') {
-      connected = true; lastFrameAt = performance.now();
-      ui.status(kind === 'host' ? 'Guest connected. Preparing shared world…' : 'Connected. Waiting for the host…');
-      if (kind === 'guest') transport.send(command({$:'Setup', character:setup.character,
-        arcana:setup.arcana, meta:setup.meta, allowedWeapons:setup.allowedWeapons})).catch(showError);
-      inputTimer = setInterval(() => {
-        if (kind === 'guest') advancePrediction();
-        else sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
-      }, 50);
-    } else if (event.type === 'message') {
-      try {
-        if (kind === 'host' && event.bytes.byteLength > MAX_COMMAND_BYTES) {
-          refuseGuest('Guest command exceeded the transport limit. The guest was disconnected.'); return;
-        }
-        const text = decoder.decode(event.bytes);
-        if (kind === 'host') {
-          if (!postCommand(text,1)) refuseGuest('Guest command queue overflowed. The guest was disconnected.');
-        }
-        else {
-          const envelope = JSON.parse(text);
-          if (envelope.type !== 'frame') return;
-          if (envelope.predictionModel !== 'world-input-combat-v2' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
-              || typeof envelope.frame?.predictionAllowed !== 'boolean') {
-            cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
-          }
-          if (!reconcilePrediction(envelope)) return;
-          lastFrameAt = performance.now(); tick = envelope.frame.tick;
-          if (!receivedFrame || stalled) ui.status('');
-          receivedFrame = true; stalled = false;
-          ui.present(envelope.frame);
-        }
-      } catch (error) { showError(error); }
-    } else if (event.type === 'disconnected') {
-      connected = false; prediction = null; authorityFrame = null; combatForecast = null;
-      if (kind !== 'host') clearInterval(inputTimer);
-      if (kind === 'host') { transport?.close(); worker?.postMessage({type:'disconnect'}); ui.status('Guest left. The run continues.'); }
-      else ui.status('Host disconnected. Session ended.',{error:true});
-    } else if (event.type === 'error') ui.status(event.message,{error:true});
-  });
-  if (generation !== epoch) { created.close(); return; }
-  transport = created;
-  if (kind === 'host') {
-    worker = new Worker('./coop-worker.mjs',{type:'module'});
-    worker.onmessage = event => {
+    cleanup();
+    ui.status('Connection timed out. Check that the host still has this party open, then join again.',{error:true});
+  },45000);
+  try {
+    const created = await CoopTransport.create(event => {
       if (generation !== epoch) return;
-      const message = event.data;
-      if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
-      else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
-      else if (message.type === 'remote-frame') {
-        latestSnapshot = {type:'frame',predictionModel:'world-input-combat-v2',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
-      } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
-        refuseGuest(message.type === 'guest-input-overflow'
-          ? 'Guest input queue overflowed. The guest was disconnected.'
-          : 'Reload both pages and create a new invitation to use the current guest version.');
-      } else if (message.type === 'ready') {
-        const link = new URL(location.href); link.search = '';
-        link.searchParams.set('session',String(sessionId)); link.searchParams.set('join',transport.invitation());
-        ui.invitation(link.href); ui.status('Send the invitation. Keep this host tab open.');
-      } else if (message.type === 'started') ui.status('');
-      else if (message.type === 'error') showError(Error(message.message));
-    };
-    worker.onerror = event => { if (generation === epoch) showError(Error(event.message || 'Host worker failed.')); };
-    worker.postMessage({type:'init',session:sessionId,seed:random(),setup});
-  } else await transport.join(ticket);
+      if (event.type === 'connected') {
+        connectionEpoch = event.connectionEpoch;
+        connected = true; lastFrameAt = performance.now();
+        clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
+        if (kind === 'host') worker?.postMessage({type:'connected',connectionEpoch});
+        ui.status(kind === 'host' ? 'Guest connected. Preparing shared world…' : 'Connected. Waiting for the host…');
+        if (kind === 'guest') transport.send(command({$:'Setup', character:setup.character,
+          arcana:setup.arcana, meta:setup.meta, allowedWeapons:setup.allowedWeapons})).catch(error => {
+            if (generation === epoch) { cleanup(); showError(error); }
+          });
+        inputTimer = setInterval(() => {
+          if (kind === 'guest') advancePrediction();
+          else sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
+        }, 50);
+      } else if (event.type === 'message') {
+        try {
+          if (kind === 'host' && event.bytes.byteLength > MAX_COMMAND_BYTES) {
+            refuseGuest('Guest command exceeded the transport limit. The guest was disconnected.'); return;
+          }
+          const text = decoder.decode(event.bytes);
+          if (kind === 'host') {
+            if (!postCommand(text,1)) refuseGuest('Guest command queue overflowed. The guest was disconnected.');
+          }
+          else {
+            const envelope = JSON.parse(text);
+            if (envelope.type !== 'frame') return;
+            if (envelope.predictionModel !== 'world-input-combat-v2' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
+                || typeof envelope.frame?.predictionAllowed !== 'boolean') {
+              cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
+            }
+            if (!reconcilePrediction(envelope)) return;
+            clearTimeout(connectDeadline);
+            lastFrameAt = performance.now(); tick = envelope.frame.tick;
+            if (!receivedFrame || stalled) ui.status('');
+            receivedFrame = true; stalled = false;
+            ui.present(envelope.frame);
+          }
+        } catch (error) { showError(error); }
+      } else if (event.type === 'disconnected') {
+        connectionEpoch = event.connectionEpoch;
+        connected = false; prediction = null; authorityFrame = null; combatForecast = null;
+        clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
+        ui.clearInput();
+        if (kind === 'host') {
+          // Keep the endpoint and invitation alive. The worker retains the world.
+          worker?.postMessage({type:'disconnect',connectionEpoch});
+          ui.status('Waiting for your teammate to rejoin. The run is paused.');
+        } else {
+          clearTimeout(connectDeadline);
+          ui.status('Host disconnected. Rejoin using the invitation if the party is still open.',{error:true});
+        }
+      } else if (event.type === 'error') ui.status(event.message,{error:true});
+    });
+    if (generation !== epoch) { created.close(); return; }
+    transport = created;
+    if (kind === 'host') {
+      worker = new Worker('./coop-worker.mjs',{type:'module'});
+      worker.onmessage = event => {
+        if (generation !== epoch) return;
+        const message = event.data;
+        if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
+        else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
+        else if (message.type === 'remote-frame') {
+          if (!connected || message.connectionEpoch !== connectionEpoch) return;
+          latestSnapshot = {type:'frame',predictionModel:'world-input-combat-v2',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
+        } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
+          if (!connected || message.connectionEpoch !== connectionEpoch) return;
+          refuseGuest(message.type === 'guest-input-overflow'
+            ? 'Guest input queue overflowed. The guest was disconnected.'
+            : 'Reload both pages and create a new invitation to use the current guest version.');
+        } else if (message.type === 'ready') {
+          clearTimeout(connectDeadline);
+          const link = new URL(location.href); link.search = '';
+          link.searchParams.set('session',String(sessionId)); link.searchParams.set('join',transport.invitation());
+          ui.invitation(link.href); ui.status('Send the invitation. Keep this host tab open.');
+        } else if (message.type === 'started' && connected && message.connectionEpoch === connectionEpoch) ui.status('');
+        else if (message.type === 'error') showError(Error(message.message));
+      };
+      worker.onerror = event => { if (generation === epoch) showError(Error(event.message || 'Host worker failed.')); };
+      worker.postMessage({type:'init',session:sessionId,seed:random(),setup});
+    } else await transport.join(ticket);
+  } catch (error) {
+    if (generation === epoch) { cleanup(); showError(error); }
+  }
 }
 function showError(error) { ui.status(error.message || String(error),{error:true}); console.error(error); }
 function cleanup() {
-  epoch++; pendingCommands.clear(); sentCommandTimes.clear(); receivedFrame = false; stalled = false;
+  epoch++; clearTimeout(connectDeadline); connectionEpoch = 0; pendingCommands.clear(); sentCommandTimes.clear(); receivedFrame = false; stalled = false;
   predictionLead = 4; lastRoundTripMs = 0; lastPredictionResync = null; authorityInputTiming = null;
   prediction = null; authorityFrame = null; combatForecast = null; combatPresentation = null;
   combatPresentationState = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;

@@ -187,3 +187,34 @@ law tick_does_not_hold:
 # Why it matters: a setup ACK cannot be mistaken for an applied gameplay input.
 law fresh_receipt_exact:
   {S.receipt_fresh() == S.Receipt{0,0,1,1,False{}} : S.Receipt}
+
+# Guarantees: a new guest connection clears only its command lane and restores admission in a live session.
+# Why it matters: after reload the guest restarts command numbering while the host keeps its current lane and clock.
+law reconnect_live_exact:
+  for +session: U32
+  for +clock: U32
+  for +host: S.Lane
+  for guest: S.Lane
+  for connected: Bool
+  {S.reconnect(S.State{session,clock,host,guest,connected,False{}}) == S.State{session,clock,host,S.Lane{0,0,0,0,0,1,1},True{},False{}} : S.State}
+
+# Guarantees: reconnect cannot reopen or otherwise change a terminated session.
+# Why it matters: a late connection after host exit cannot resurrect the game.
+law reconnect_ended_unchanged:
+  for +session: U32
+  for +clock: U32
+  for +host: S.Lane
+  for +guest: S.Lane
+  for +connected: Bool
+  {S.reconnect(S.State{session,clock,host,guest,connected,True{}}) == S.State{session,clock,host,guest,connected,True{}} : S.State}
+
+# Guarantees: a first setup command is admitted after a live guest disconnect and reconnect, regardless of previous guest sequence numbers.
+# Why it matters: reload starts at sequence one instead of inheriting an unreachable freshness threshold.
+law reloaded_guest_setup_accepted:
+  for +session: U32
+  for clock: U32
+  for host: S.Lane
+  for guest: S.Lane
+  for connected: Bool
+  for tick: U32
+  {S.accepted(S.receive(S.reconnect(S.disconnect(1,S.State{session,clock,host,guest,connected,False{}})),1,S.Command{session,1,1,tick,S.Setup{0,0,0,0}})) == True{} : Bool}

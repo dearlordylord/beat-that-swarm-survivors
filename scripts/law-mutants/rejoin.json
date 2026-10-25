@@ -1,0 +1,42 @@
+[
+  {
+    "label": "reconnect-retains-stale-guest-sequence",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "case State{session,now,host,_,_,False{}}: State{session,now,host,neutral(),True{},False{}}",
+    "new": "case State{session,now,host,guest,_,False{}}: State{session,now,host,guest,True{},False{}}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "reconnect_live_exact"
+  },
+  {
+    "label": "reconnect-resets-host-lane",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "case State{session,now,host,_,_,False{}}: State{session,now,host,neutral(),True{},False{}}",
+    "new": "case State{session,now,host,_,_,False{}}: State{session,now,neutral(),neutral(),True{},False{}}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "reconnect_live_exact"
+  },
+  {
+    "label": "reconnect-reopens-ended-session",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "case State{session,now,host,_,_,False{}}: State{session,now,host,neutral(),True{},False{}}\n    case state: state",
+    "new": "case State{session,now,host,_,_,False{}}: State{session,now,host,neutral(),True{},False{}}\n    case State{session,now,host,guest,connected,True{}}: State{session,now,host,guest,connected,False{}}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "reconnect_ended_unchanged"
+  },
+  {
+    "label": "attach-recreates-returning-player",
+    "source": "examples/survivors/coop-attach.bend",
+    "old": "case 2n: resume(state)",
+    "new": "case 2n: initial(state,character,meta,arcana,mask)",
+    "proof": "examples/survivors/coop-attach-PROOF.bend",
+    "law": "returning_guest_uses_original_state"
+  },
+  {
+    "label": "attach-discards-first-guest-setup",
+    "source": "examples/survivors/coop-attach.bend",
+    "old": "case _: initial(state,character,meta,arcana,mask)",
+    "new": "case _: resume(state)",
+    "proof": "examples/survivors/coop-attach-PROOF.bend",
+    "law": "first_guest_uses_initial_setup"
+  }
+]

@@ -98,3 +98,9 @@ def L.guest_replay_refused(state,session,seq,tick,action):
 def L.tick_does_not_hold(round,x,y,seq,clock,last,input,applied,tick,received,dx,dy): {==}
 
 def L.fresh_receipt_exact(): {==}
+
+def L.reconnect_live_exact(session,clock,host,guest,connected): {==}
+def L.reconnect_ended_unchanged(session,clock,host,guest,connected): {==}
+def L.reloaded_guest_setup_accepted(session,clock,host,guest,connected,tick):
+  %Equal.sym(Bool,U32.is_eq(session,session),True{},F.u32_eq_refl(session)) : {S.accepted(S.receive_decided(Bool.and(Bool.and(_,True{}),True{}),S.State{session,clock,host,S.neutral(),True{},False{}},S.Command{session,1,1,tick,S.Setup{0,0,0,0}})) == True{} : Bool}
+  {==}
