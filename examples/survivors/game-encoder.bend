@@ -4,6 +4,7 @@ import game-components.bend as Components
 import game.bend as G
 import projectile-state.bend as Shot
 import projectile-encoder.bend as ShotEncoder
+import pickup-encoder.bend as PickupEncoder
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
 import player-presentation.bend as Players
@@ -38,6 +39,7 @@ def actor_ref_json(reference: G.ActorRef) -> String:
   match reference:
     case G.EnemyRef{identity}: "{\"enemy\":" ++ U32.show(identity) ++ "}"
     case G.ProjectileRef{identity}: "{\"projectile\":" ++ U32.show(identity) ++ "}"
+    case G.PickupRef{identity}: "{\"pickup\":" ++ U32.show(identity) ++ "}"
     case G.BodyRef{identity}: "{\"body\":" ++ U32.show(identity) ++ "}"
 def actor_order_json(rows: List<&2,G.ActorRef>) -> String:
   match rows:
@@ -69,12 +71,12 @@ def visible_bodies(rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
     case body <> rest: body <> visible_bodies(rest)
 def encode_extra(observation: G.Observation,players: List<&2,Players.Player>,extra: String) -> String:
   match observation:
-    case G.Observation{G.Run{RS.Session{phase,+tick,xp,need,level,kills,gold,seed,+stage,bosses,+mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,enemies,order,projectiles}:
+    case G.Observation{G.Run{RS.Session{phase,+tick,xp,need,level,kills,gold,seed,+stage,bosses,+mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,enemies,order,projectiles,pickups}:
       "{\"worldSize\":" ++ F32.show(G.world_size()) ++ ",\"worldMargin\":" ++ F32.show(G.world_margin()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(G.relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(G.relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(G.run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "],\"enemies\":[" ++ enemies_json(enemies) ++ "],\"actorOrder\":[" ++ actor_order_json(order) ++ "],\"projectiles\":[" ++ projectiles_json(projectiles,tick) ++ "],\"players\":[" ++ players_json(players) ++ "]" ++ extra ++ "}"
 def encode(+observation: G.Observation) -> String:
   match observation:
-    case G.Observation{run,_,_,_,_,_}: encode_extra(observation,Players.solo(G.run_player(run)),"")
+    case G.Observation{run,_,_,_,_,_,_}: encode_extra(observation,Players.solo(G.run_player(run)),"")
 type Encoded is Type: Encoded{state: G.State,frame: String}
 def observe(state: G.State) -> Encoded:
   match state:
-    case G.State{world,+run,+bodies,+offers,+snapshots,pending}: Encoded{G.State{world,run,bodies,offers,snapshots,pending},encode(G.Observation{run,bodies,offers,G.enemy_observations(snapshots),G.render_order(snapshots),G.projectile_observations(snapshots)})}
+    case G.State{world,+run,+bodies,+offers,+snapshots,pending}: Encoded{G.State{world,run,bodies,offers,snapshots,pending},encode(G.Observation{run,bodies,offers,G.enemy_observations(snapshots),G.render_order(snapshots),G.projectile_observations(snapshots),G.pickup_observations(snapshots)})}
