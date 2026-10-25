@@ -126,7 +126,7 @@ function card(item, attributes = "", extra = "", selected = false) {
   const pressed = /data-(stage|arcana|mode)=/.test(attributes)
     ? `aria-pressed="${selected}"`
     : "";
-  return `<button class="card ${selected ? "selected" : ""}" ${attributes} ${pressed}><span class="icon" style="color:${item.color || "var(--gold)"}">${item.icon || "✦"}</span><h3>${esc(item.name)}</h3><p>${esc(item.description)}</p>${extra}</button>`;
+  return `<button class="card banner-panel ${selected ? "selected" : ""}" ${attributes} ${pressed}><div class="banner-heading"><span class="icon" style="color:${item.color || "var(--gold)"}">${item.icon || "✦"}</span><h3>${esc(item.name)}</h3></div><p>${esc(item.description)}</p>${extra}</button>`;
 }
 function menu() {
   const previousFocus = $("#menu").contains(document.activeElement)
@@ -157,7 +157,7 @@ function menu() {
       '<div class="section-title">Power that outlives the night</div><div class="grid shop">' +
       META_UPGRADES.map((u) => {
         const { rank, cost, maxed, canBuy } = upgradeStatus(profile, u.id);
-        return `<article class="card"><h3>${u.name}</h3><p>${u.description}</p><span class="progress">${"◆".repeat(rank)}${"◇".repeat(u.maxLevel - rank)}</span><button data-upgrade="${u.id}" ${canBuy ? "" : "disabled"}>${maxed ? "Fully upgraded" : `Upgrade · ${cost} ◈`}</button></article>`;
+        return `<article class="card banner-panel"><div class="banner-heading"><h3>${u.name}</h3></div><p>${u.description}</p><span class="progress">${"◆".repeat(rank)}${"◇".repeat(u.maxLevel - rank)}</span><button data-upgrade="${u.id}" ${canBuy ? "" : "disabled"}>${maxed ? "Fully upgraded" : `Upgrade · ${cost} ◈`}</button></article>`;
       }).join("") +
       "</div>";
   } else if (tab === "collection") {
@@ -191,7 +191,7 @@ function menu() {
       list
         .map(
           (i) =>
-            `<article class="card"><span class="icon" style="color:${i.color || "var(--gold)"}">${i.icon || (i.boss ? "♜" : "♟")}</span><h3>${collectionTab === "evolutions" ? i.evolvedName : i.name}</h3><p>${collectionTab === "evolutions" ? i.evolvedDescription : i.description || (i.boss ? "Lord of the night" : "Creature of the night")}</p>${collectionTab === "artifacts" ? `<p class="recipe">${profile.stageRelics.includes(i.id) ? "Recovered" : "Find in " + STAGES[i.id].name} · unlocks ${WEAPONS[i.weapon].name}</p>` : ""}${collectionTab === "weapons" && !isUnlocked(profile, "weapon", i.id) ? `<p class="recipe">Locked · ${WEAPON_UNLOCKS.find((w) => w.id === i.id)?.hint || ""}</p>` : ""}${collectionTab === "unions" ? `<p class="recipe">${i.weapons.map((id) => WEAPONS[id].name + " VIII").join(" + ")}<br>→ ${i.name}</p>` : ""}${collectionTab === "weapons" || collectionTab === "evolutions" ? `<p class="recipe">${i.name} VIII + ${PASSIVES[i.passive].name}<br>→ ${i.evolvedName}</p>` : ""}</article>`,
+            `<article class="card banner-panel"><div class="banner-heading"><span class="icon" style="color:${i.color || "var(--gold)"}">${i.icon || (i.boss ? "♜" : "♟")}</span><h3>${collectionTab === "evolutions" ? i.evolvedName : i.name}</h3></div><p>${collectionTab === "evolutions" ? i.evolvedDescription : i.description || (i.boss ? "Lord of the night" : "Creature of the night")}</p>${collectionTab === "artifacts" ? `<p class="recipe">${profile.stageRelics.includes(i.id) ? "Recovered" : "Find in " + STAGES[i.id].name} · unlocks ${WEAPONS[i.weapon].name}</p>` : ""}${collectionTab === "weapons" && !isUnlocked(profile, "weapon", i.id) ? `<p class="recipe">Locked · ${WEAPON_UNLOCKS.find((w) => w.id === i.id)?.hint || ""}</p>` : ""}${collectionTab === "unions" ? `<p class="recipe">${i.weapons.map((id) => WEAPONS[id].name + " VIII").join(" + ")}<br>→ ${i.name}</p>` : ""}${collectionTab === "weapons" || collectionTab === "evolutions" ? `<p class="recipe">${i.name} VIII + ${PASSIVES[i.passive].name}<br>→ ${i.evolvedName}</p>` : ""}</article>`,
         )
         .join("") + "</div>";
   } else if (tab === "achievements") {
@@ -199,11 +199,11 @@ function menu() {
       '<div class="section-title">A chronicle of your nights</div><div class="grid">' +
       ACHIEVEMENTS.map(
         (a) =>
-          `<article class="card ${profile.achievements.includes(a.id) ? "achieved" : ""}"><h3>${profile.achievements.includes(a.id) ? "◆" : "◇"} ${a.name}</h3><p>${a.description}</p><small>${profile.achievements.includes(a.id) ? "Completed" : "Still to come"}</small></article>`,
+          `<article class="card banner-panel ${profile.achievements.includes(a.id) ? "achieved" : ""}"><div class="banner-heading"><h3>${profile.achievements.includes(a.id) ? "◆" : "◇"} ${a.name}</h3></div><p>${a.description}</p><small>${profile.achievements.includes(a.id) ? "Completed" : "Still to come"}</small></article>`,
       ).join("") +
       "</div>";
   } else {
-    html = `<div class="settings"><label class="setting"><div>Music and sound<span>Adaptive chip-metal · responds to nearby danger</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
+    html = `<div class="settings banner-panel"><div class="banner-heading"><h2>Settings</h2></div><label class="setting"><div>Music and sound<span>Adaptive chip-metal · responds to nearby danger</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
   }
   $("#menuContent").innerHTML = html;
   // The dock is a sibling of the scroller, so it cannot cover picker content.
@@ -321,7 +321,7 @@ function phase() {
     audio.stop();
     audio.event(frame.phase === 1 ? "level" : "chest");
     let offers = frame.offers || [];
-    d.innerHTML = `<div class="eyebrow">${frame.phase === 1 ? `LEVEL ${frame.level}` : "TREASURE OF THE NIGHT"}</div><h2 id="dialog-title">${frame.phase === 1 ? "Power awakens" : "A fallen lord’s gift"}</h2><p>${frame.phase === 1 ? "Choose an ability for the next wave." : "Choose your reward. A matching weapon may evolve."}</p><div class="grid choices">${offers
+    d.innerHTML = `<div class="banner-heading"><div class="eyebrow">${frame.phase === 1 ? `LEVEL ${frame.level}` : "TREASURE OF THE NIGHT"}</div><h2 id="dialog-title">${frame.phase === 1 ? "Power awakens" : "A fallen lord’s gift"}</h2></div><p>${frame.phase === 1 ? "Choose an ability for the next wave." : "Choose your reward. A matching weapon may evolve."}</p><div class="grid choices">${offers
       .map((o, index) => {
         const isW = o.kind === 0 || o.kind === 3,
           item =
@@ -360,7 +360,7 @@ function phase() {
     audio.event(frame.phase === 4 ? "victory" : "gameover");
     const awards = recordRun(profile, runResult());
     saveProfile(profile);
-    d.innerHTML = `<div class="eyebrow">${STAGES[stage].name.toUpperCase()}</div><h2 id="dialog-title">${frame.phase === 4 ? "The dawn is yours" : "The night will remember"}</h2><p>${frame.phase === 4 ? "The horde has fallen. Your legacy grows stronger." : "Every shard of power brings the next dawn closer."}</p><div class="summary"><div><strong>${time(frame.tick / 60)}</strong><span>TIME</span></div><div><strong>${frame.kills}</strong><span>DEFEATED</span></div><div><strong>${frame.level}</strong><span>LEVEL</span></div><div><strong>+${frame.gold} ◈</strong><span>LEGACY</span></div></div>${awards.length ? `<p>New achievements: ${awards.map((id) => ACHIEVEMENTS.find((a) => a.id === id)?.name || id).join(", ")}</p>` : ""}<div class="dialog-actions"><button class="primary" id="restart">Another night</button><button id="return">Return to menu</button></div>`;
+    d.innerHTML = `<div class="banner-heading"><div class="eyebrow">${STAGES[stage].name.toUpperCase()}</div><h2 id="dialog-title">${frame.phase === 4 ? "The dawn is yours" : "The night will remember"}</h2></div><p>${frame.phase === 4 ? "The horde has fallen. Your legacy grows stronger." : "Every shard of power brings the next dawn closer."}</p><div class="summary"><div><strong>${time(frame.tick / 60)}</strong><span>TIME</span></div><div><strong>${frame.kills}</strong><span>DEFEATED</span></div><div><strong>${frame.level}</strong><span>LEVEL</span></div><div><strong>+${frame.gold} ◈</strong><span>LEGACY</span></div></div>${awards.length ? `<p>New achievements: ${awards.map((id) => ACHIEVEMENTS.find((a) => a.id === id)?.name || id).join(", ")}</p>` : ""}<div class="dialog-actions"><button class="primary" id="restart">Another night</button><button id="return">Return to menu</button></div>`;
   }
   focusDialog();
 }
@@ -386,7 +386,7 @@ function pause(value) {
     audio.stop();
     $("#overlay").hidden = false;
     $("#dialog").innerHTML =
-      '<div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">Arena map</h2><p>The world is paused · M / Esc to return</p><canvas id="worldmap" class="world-map" width="360" height="360" role="img"></canvas><p class="map-legend"><span>● You</span><span>□ View</span><span class="map-chest">■ Chest</span><span class="map-relic">◆ Stage relic</span></p><p class="map-note">The whole arena · Enemies and XP are not shown</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. Walk over experience shards to collect XP; shards stay on the ground.<br>Collect chests manually; press E to choose a ready reward.<br>Carry up to 6 weapons and 6 relics.</p>';
+      '<div class="banner-heading"><div class="eyebrow">THE WORLD STANDS STILL</div><h2 id="dialog-title">Arena map</h2></div><p>The world is paused · M / Esc to return</p><canvas id="worldmap" class="world-map" width="360" height="360" role="img"></canvas><p class="map-legend"><span>● You</span><span>□ View</span><span class="map-chest">■ Chest</span><span class="map-relic">◆ Stage relic</span></p><p class="map-note">The whole arena · Enemies and XP are not shown</p><div class="dialog-actions"><button class="primary" id="resume">Resume</button><button id="abandon">End run</button></div><p>Keep moving with WASD / arrow keys. Walk over experience shards to collect XP; shards stay on the ground.<br>Collect chests manually; press E to choose a ready reward.<br>Carry up to 6 weapons and 6 relics.</p>';
     renderer.drawMap($("#worldmap"), frame);
     focusDialog();
   } else {

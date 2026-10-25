@@ -118,14 +118,7 @@
   min-height: 73px;
   padding: 11px 5px 15px;
   background: #271c28;
-  /* Square-cut banner hem. Fixed-size teeth stay square on narrow mobile tabs;
-     only the surface is masked, so the full control remains a click target. */
-  -webkit-mask:
-    linear-gradient(#000, #000) top / 100% calc(100% - 8px) no-repeat,
-    repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 16px) bottom / 100% 8px no-repeat;
-  mask:
-    linear-gradient(#000, #000) top / 100% calc(100% - 8px) no-repeat,
-    repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 16px) bottom / 100% 8px no-repeat;
+  /* The common banner mask below fits full teeth to both edges. */
   box-shadow: inset 1px 0 #705b49, inset -1px 0 #705b49, inset 0 1px #a18a63;
 }
 #menu #tabs .tab-icon {
@@ -242,3 +235,53 @@
   #menu #tabs :is(button,a.menu-route){flex:0 0 76px;min-width:76px}
   #menu #tabs .tab-label{font-size:10px}
 }
+
+/* Header banners: the selected third treatment. Controls keep their full hit area.
+   N teeth + N-1 gaps fill W exactly; menu-crenellations adapts their common size. */
+.banner-heading,.tab-surface{
+  --cren-size:8px;--cren-step:5.2631578947%;--cren-period:10.5263157895%;
+  --cren-mask:linear-gradient(#000,#000) top/100% calc(100% - var(--cren-size)) no-repeat,repeating-linear-gradient(90deg,#000 0 var(--cren-step),transparent var(--cren-step) var(--cren-period)) bottom/100% var(--cren-size) no-repeat;
+}
+#menu #tabs .tab-surface{-webkit-mask:var(--cren-mask);mask:var(--cren-mask)}
+#app .banner-panel{
+  --banner-inset:18px;position:relative;border:1px solid #67545c;border-radius:0;
+  background:#241d29;box-shadow:inset 0 0 0 3px #17121d;color:#e5dbc7;
+}
+.banner-heading{
+  display:block;position:relative;isolation:isolate;
+  margin:calc(-1 * var(--banner-inset,18px)) calc(-1 * var(--banner-inset,18px)) 24px;
+  padding:19px 18px 17px;
+}
+.banner-heading::before{
+  content:'';position:absolute;inset:0 0 calc(-1 * var(--cren-size));z-index:-1;pointer-events:none;
+  background:linear-gradient(100deg,#49303b,#302230);border-top:2px solid #b79c6e;
+  -webkit-mask:var(--cren-mask);mask:var(--cren-mask);
+}
+#app .banner-heading :is(h2,h3,strong){font-family:Georgia,serif;color:#ead6af}
+#app .banner-heading :is(h2,h3){margin:0}
+#app .banner-heading .eyebrow{display:block;margin:0 0 10px;font:10px system-ui,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#d6c397}
+#app #menu .card.banner-panel{--banner-inset:10px;padding:20px}
+#app .card .banner-heading{padding:13px 12px 16px;margin-bottom:20px}
+#app #menu .card .banner-heading h3{font-size:17px;line-height:1.3}
+#app .card .banner-heading .icon{display:block;margin-bottom:6px;color:#d6c397!important}
+#app #menu .card.achieved .banner-heading::before{background:linear-gradient(110deg,#534139,#352735);border-top-color:#d6c397}
+#app #menu .unlock-inspector.banner-panel{--banner-inset:18px;padding:26px;margin-top:25px}
+#app #menu .unlock-inspector .banner-heading h3{font:25px Georgia,serif}
+#app #menu .settings.banner-panel{--banner-inset:18px;padding:26px}
+#app #menu .settings .banner-heading h2{font:30px Georgia,serif}
+#app #menu .expedition{--accent:#d6c397;--line:#67545c}
+#app #menu .expedition .inline-picker{background:#211a27}
+#app #menu .expedition .choice-check,#app #menu .expedition .choice-glyph{color:#d6c397}
+#app #overlay .dialog.banner-panel{--banner-inset:18px;padding:30px;background:#241d29;border-radius:0}
+#app #overlay .card.banner-panel{--banner-inset:9px;padding:18px;background:#241d29;border-radius:0}
+#app #overlay .card .banner-heading{padding:9px 9px 12px}
+#app #menu .a-run-card,#app #menu .coop-survivor-preview,#app #menu .selection-rows{border-radius:0;border-top:3px solid #a1875d}
+@media(max-width:600px){
+  #app #overlay .dialog.banner-panel{--banner-inset:12px;padding:22px 20px}
+  #app #menu .settings.banner-panel{--banner-inset:12px;padding:22px 20px}
+}
+#app #menu .banner-panel{border-radius:0;background:#241d29;border-color:#67545c;box-shadow:inset 0 0 0 3px #17121d}
+#app #menu .grid{gap:20px}
+#app #menu .shop .card{display:flex;flex-direction:column}
+#app #menu .shop .card>p{flex:1}
+#app #menu .shop .card button{width:100%;margin-top:14px}

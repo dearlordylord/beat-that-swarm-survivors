@@ -353,7 +353,7 @@ export class CoopUI {
         this.$('#coop-reward-detail').textContent = 'The world is paused until all required choices are complete.';
         this.$('#coop-offers').innerHTML = frame.choicePending === false ? '' : offers.map((offer, index) => {
           const item = offerPresentation(offer);
-          return `<button class="reward-offer" data-choice="${index}"><span class="offer-icon" aria-hidden="true">${esc(item.icon)}</span><strong>${esc(item.name)}</strong><small>${esc(item.description)}</small><small>${esc(item.detail)} · ${index + 1}</small></button>`;
+          return `<button class="reward-offer banner-panel" data-choice="${index}"><span class="banner-heading"><span class="offer-icon" aria-hidden="true">${esc(item.icon)}</span><strong>${esc(item.name)}</strong></span><small>${esc(item.description)}</small><small>${esc(item.detail)} · ${index + 1}</small></button>`;
         }).join('');
         this.audio.event(frame.phase === 1 ? 'level' : 'chest');
         this.$('#coop-offers button')?.focus({ preventScroll: true });
