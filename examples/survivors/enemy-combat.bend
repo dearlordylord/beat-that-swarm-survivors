@@ -12,7 +12,7 @@ type State is Data: State{spatial: Space.Spatial,archetype: U32,identity: U32,vi
 type Phase is Data:
   Dormant{archetype: U32}
   ActiveEnemy{archetype: U32}
-  OccupiedByLoot{}
+  OccupiedByLoot{archetype: U32}
 type DropKind is Data: XpDrop{} GoldDrop{} HealDrop{} ChestDrop{}
 # A death hands reward production named data; it never writes pickup storage.
 type DeathReward is Data: DeathReward{kind: DropKind,amount: U32,x: F32,y: F32,archetype: U32,identity: U32,killer: Maybe<&2,U32>}
@@ -92,4 +92,31 @@ def archetype(phase: Phase) -> U32:
   match phase:
     case Dormant{archetype}: archetype
     case ActiveEnemy{archetype}: archetype
-    case OccupiedByLoot{}: 0
+    case OccupiedByLoot{archetype}: archetype
+
+def spatial(enemy: State) -> Space.Spatial:
+  match enemy:
+    case State{spatial,_,_,_,_}: spatial
+def immune(enemy: State) -> State:
+  match enemy:
+    case State{spatial,30,identity,vitals,Components.Status{_,burn}}: State{spatial,30,identity,vitals,Components.Status{0,burn}}
+    case enemy: enemy
+def dec(+value: U32) -> U32: U32.sub(value,U32.min(value,1))
+def cool_slow(+slow: U32) -> U32:
+  (dec((slow % 65536 : U32)) + 65536 * Bool.to_u32(Bool.and(U32.is_le(65536,slow),U32.is_lt(1,(slow % 65536 : U32)))) : U32)
+def pull_x(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
+  ((sumX / U32.to_f32(U32.max(1,count)) - x) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
+def pull_y(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
+  ((sumY / U32.to_f32(U32.max(1,count)) - y) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
+type SingleHit is Data: SingleHit{damage: U32,slow: U32,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
+type SingleOffense is Data: SingleOffense{tick: U32,px: F32,py: F32,knockMultiplier: F32,pullMultiplier: F32,burnMultiplier: U32,burnDamage: U32,luck: U32}
+def resolve_single(+oldX: F32,+oldY: F32,enemy: State,hit: SingleHit,offense: SingleOffense) -> Outcome:
+  match enemy hit offense:
+    case State{Space.Spatial{x,y,age,+radius},archetype,identity,Components.Vitals{hp,maximum},Components.Status{+slow,+burn}} SingleHit{damage,+freshSlow,freshBurn,+pull,+knock,+pullX,+pullY} SingleOffense{+tick,+px,+py,+knockMultiplier,+pullMultiplier,+burnMultiplier,burnDamage,luck}:
+      resolved_health(Combat.lose(hp,(damage + burnDamage * Bool.to_u32(Bool.and(U32.is_lt(0,burn),U32.is_eq((tick % 30 : U32),0))) : U32)),Space.Spatial{Arena.constrain(((oldX + (x - oldX) * Space.slow_factor(U32.max(slow,freshSlow)) + (oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * knockMultiplier : F32) + pull_x(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * pullMultiplier : F32),radius),Arena.constrain(((oldY + (y - oldY) * Space.slow_factor(U32.max(slow,freshSlow)) + (oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * knockMultiplier : F32) + pull_y(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * pullMultiplier : F32),radius),age,radius},archetype,identity,maximum,Components.Status{U32.max(cool_slow(slow),freshSlow),U32.max(dec(burn),(freshBurn * burnMultiplier : U32))},luck,px,py,Some{0})
+
+# The occupied-slot decision hands control to the pickup system without sharing
+# its payload or granting enemy combat permission to mutate rewards.
+type Decision is Data:
+  Resolved{outcome: Outcome}
+  LootTurn{advance: Bool,resetStatus: Bool}

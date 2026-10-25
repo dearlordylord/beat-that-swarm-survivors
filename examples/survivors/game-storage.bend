@@ -131,7 +131,7 @@ def project_phase(value: Enemy.Phase) -> Enemy.Phase & Enemy.Phase:
   match value:
     case Enemy.Dormant{+archetype}: (Enemy.Dormant{archetype},Enemy.Dormant{archetype})
     case Enemy.ActiveEnemy{+archetype}: (Enemy.ActiveEnemy{archetype},Enemy.ActiveEnemy{archetype})
-    case Enemy.OccupiedByLoot{}: (Enemy.OccupiedByLoot{},Enemy.OccupiedByLoot{})
+    case Enemy.OccupiedByLoot{+archetype}: (Enemy.OccupiedByLoot{archetype},Enemy.OccupiedByLoot{archetype})
 def phase_family() -> C.Family<Schema,Store,EnemyPhaseRest,Enemy.Phase,Enemy.Phase,EnemyPhaseToken,take_phase,put_phase,project_phase>: C.Family{"enemy-phase"}
 
 type IdentityToken is Data: IdentityToken{}
