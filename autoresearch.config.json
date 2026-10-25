@@ -1,13 +1,13 @@
 {
-  "maxIterations": 1000000,
+  "maxIterations": 4,
   "commitPaths": [
     "examples/survivors/game.bend",
     "examples/survivors/body-index.bend",
     "examples/survivors/body-index"
   ],
-  "packetBudget": 1000000,
-  "wallClockBudgetSeconds": 5400,
-  "budgetNote": "User hard deadline00:11UTC including preparation; plugin packet window reserves final delivery time. Technical count cap is nonbinding.",
+  "packetBudget": 4,
+  "wallClockBudgetSeconds": 1800,
+  "budgetNote": "User explicitly approved30minutes total including preparation/finalization: hard00:38:25UTC. Exactly4 prospective packets R-C-R-C; abort if reference range exceeds10percent of median. All old adverse evidence retained in prior segment.",
   "protectedBenchmarkPaths": [
     "autoresearch.checks.sh",
     "autoresearch.sh",
@@ -47,7 +47,7 @@
     "tools/survivors-bot/visible-controller.test.mjs",
     "tools/survivors-bot/visible-process.test.mjs"
   ],
-  "budgetStartedAt": "2026-10-22T22:29:22.615Z",
+  "budgetStartedAt": "2026-10-23T00:08:25Z",
   "checksAuthoritative": true,
   "checkImplementationPaths": [
     "tools/survivors-bot/autoresearch/checks.mjs",
@@ -68,6 +68,8 @@
     "minimumMedianRelativeImprovement": 0.1,
     "candidateRunsMustEachBeatBestReference": true,
     "minimumReferenceSamples": 2,
-    "minimumCandidateSamples": 2
-  }
+    "minimumCandidateSamples": 2,
+    "abortIfReferenceRangeExceedsFractionOfMedian": 0.1
+  },
+  "goal": "Prospectively confirm combined index and shot gates with four interleaved reference/candidate packets, identical observations and strict noise rules; user-approved total deadline2026-10-23T00:38:25Z"
 }
