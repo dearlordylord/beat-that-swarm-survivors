@@ -47,9 +47,9 @@ def validate_row(row):
     meta=state['metadata'];C.exact_keys(meta,{'$','added','changed','capacity','depth','exceptional'},'player lifecycle metadata')
     if meta['$']!='Metadata' or array(meta['exceptional']):raise R.ReplayError('Unexpected exceptional player metadata')
     capacity=R.u32(meta['capacity'],'player capacity');R.u32(meta['depth'],'player depth')
-    if capacity != 1 << meta['depth']:raise R.ReplayError('Player column capacity/depth mismatch')
+    if meta['depth'] > 31 or capacity != 1 << meta['depth']:raise R.ReplayError('Player column capacity/depth mismatch')
     allocator=world['allocator']
-    if len(allocator['slots'])!=allocator['capacity'] or allocator['capacity'] != 1 << allocator['depth']:raise R.ReplayError('Allocator capacity/depth mismatch')
+    if len(allocator['slots'])!=allocator['capacity'] or allocator['depth'] > 31 or allocator['capacity'] != 1 << allocator['depth']:raise R.ReplayError('Allocator capacity/depth mismatch')
     if len(state['values'])!=capacity or len(meta['added'])!=capacity or len(meta['changed'])!=capacity:raise R.ReplayError('Incomplete actual player column')
     expected={};facts=[]
     for ref in row['refs']:

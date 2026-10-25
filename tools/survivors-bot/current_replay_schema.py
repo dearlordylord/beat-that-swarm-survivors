@@ -63,7 +63,10 @@ def stamp_valid(stamp, present, now):
             raise ReplayError('Lifecycle stamp order/future tick')
 
 
-def validate_metadata(metadata, total):
+def validate_metadata(metadata, total, player_refs=None):
+    player_refs = {} if player_refs is None else player_refs
+    expected_live = set(range(1,total+1)) | set(player_refs)
+    expected_high = max(expected_live)
     exact_keys(metadata, {'namespace', 'allocator', 'clock', 'events', 'pendingCommands', 'registrations', 'nextSystemId'}, 'metadata')
     R.u32(metadata['namespace'], 'namespace'); R.u32(metadata['nextSystemId'], 'nextSystemId')
     for key in ('events', 'pendingCommands'):
@@ -81,7 +84,7 @@ def validate_metadata(metadata, total):
     for value in allocator[:4]:
         R.integer(value, 'allocator scalar')
     next_id, high, capacity, depth, free, order, slots = allocator
-    if capacity != 1 << depth or not (total == high < capacity and next_id == high + 1):
+    if depth > 31 or capacity != 1 << depth or not (expected_high == high < capacity and next_id == high + 1):
         raise ReplayError('Allocator capacity/high/next bounds')
     if len(sequence(slots, 'allocator slots')) != capacity:
         raise ReplayError('Allocator capacity mismatch')
@@ -107,7 +110,7 @@ def validate_metadata(metadata, total):
     # This observer qualifies the preallocated fixed-world game, not structural
     # destruction or reservation. Every game identity must be an issued live key.
     live = [[index, generation] for index, generation in order if slots[index][1] == 2]
-    if {key[0] for key in live} != set(range(1, total + 1)):
+    if {key[0] for key in live} != expected_live:
         raise ReplayError('Missing/extra issued live game identities')
     return now, live
 
@@ -169,9 +172,6 @@ def validate_run(run,checkpoint_tick):
         raise ReplayError('Run phase/tick/loadout shape')
 
 def validate_payload(payload,checkpoint_tick,layout=None):
-    import projectile_qualification as Shot
-    import enemy_qualification as Enemy
-    import pickup_qualification as Pickup
     layout = DEFAULT_LAYOUT if layout is None else layout
     validate_layout(layout)
     exact_keys(payload,R.PAYLOAD_KEYS,'payload')
@@ -180,14 +180,44 @@ def validate_payload(payload,checkpoint_tick,layout=None):
     for offer in sequence(payload['offers'],'offers'): R.words(offer,3,'Offer')
     for reward in sequence(payload['pending'],'pending'):
         if R.u32(reward,'pending reward') not in (1,2): raise ReplayError('Invalid reward')
-    now,live=validate_metadata(payload['metadata'],layout['totalCount'])
+    validate_pool(payload["components"],payload["metadata"],payload["snapshots"],checkpoint_tick,layout)
+    return payload
+
+def validate_pool(components,metadata,snapshots,checkpoint_tick,layout=None,player_refs=None):
+    import projectile_qualification as Shot
+    import enemy_qualification as Enemy
+    import pickup_qualification as Pickup
+    layout=DEFAULT_LAYOUT if layout is None else layout
+    validate_layout(layout)
+    payload=dict(components=components,metadata=metadata,snapshots=snapshots)
+    source_players={0} if player_refs is None else {value[0] for value in player_refs.values()}
+    player_refs={} if player_refs is None else player_refs
+    retained_ids=set()
+    for physical,(player_id,generation) in player_refs.items():
+        R.u32(physical,'player physical handle');R.u32(player_id,'retained player id');R.u32(generation,'retained player generation')
+        if physical<=layout['totalCount'] or player_id in retained_ids:raise ReplayError('Player authority overlaps pool or duplicates identity')
+        retained_ids.add(player_id)
+    now,live=validate_metadata(payload['metadata'],layout['totalCount'],player_refs)
     envelope=payload['components'];exact_keys(envelope,{'actorColumns','players'},'component groups')
     c=envelope['actorColumns'];exact_keys(c,FAMILIES|ROSTERS,'actor components')
     high=payload['metadata']['allocator'][1]
     column(envelope['players'],high,'players')
-    for _,value,stamp in envelope['players']:
-        if value is not None: raise ReplayError('Native solo has unexpected ECS player authority')
-        stamp_valid(stamp,False,now)
+    for physical,value,stamp in envelope['players']:
+        present=physical in player_refs
+        stamp_valid(stamp,present,now)
+        if not present:
+            if value is not None:raise ReplayError('Unreferenced actual player authority')
+            continue
+        if not isinstance(value,list) or len(value)!=3:raise ReplayError('Incomplete actual PlayerRecord')
+        player_id,personal,connected=value;R.u32(player_id,'actual player id')
+        if player_id!=player_refs[physical][0] or dict(live)[physical]!=player_refs[physical][1]:raise ReplayError('Player identity/ref/allocator mismatch')
+        if not isinstance(personal,list) or len(personal)!=16:raise ReplayError('Incomplete personal PlayerState')
+        for i,word in enumerate(personal):
+            if i in (5,6):
+                if len(sequence(word,'personal loadout'))!=(24 if i==5 else 18):raise ReplayError('Personal loadout length')
+                for entry in word:R.u32(entry,'personal loadout word')
+            else:R.u32(word,'personal word/F32 bits')
+        if type(connected) is not int or connected not in (0,1):raise ReplayError('Invalid connected flag')
     total=layout['totalCount']
     for family in FAMILIES: column(c[family],total,family)
     identities={}; roles={}
@@ -216,17 +246,20 @@ def validate_payload(payload,checkpoint_tick,layout=None):
             Shot.payload(c['shots'][offset][1]);Shot.trajectory(c['trajectories'][offset][1])
             source=c['trajectories'][offset][1][7]
             if role=='HostileProjectileSlot' and source is not None: raise ReplayError('Hostile slot has player ownership')
-            if role=='PlayerProjectileSlot' and c['shots'][offset][1][2] and source!=0: raise ReplayError('Active native projectile source is not the actual solo player')
+            if role=='PlayerProjectileSlot' and c['shots'][offset][1][2] and source not in source_players: raise ReplayError('Active projectile source is not an actual retained player')
         if membership['pickups']:
             value=c['pickups'][offset][1]
             if not isinstance(value,list) or len(value)!=3: raise ReplayError('Invalid Pickup payload')
             Pickup.item_fact(value[0]);R.u32(value[1],'Pickup generation');R.u32(value[2],'Pickup active')
             if value[2]>1: raise ReplayError('Unknown Pickup active flag')
     Enemy.validate_and_project(c,payload['metadata'],layout)
+    for _,value,_ in c['statuses']:
+        if value is not None and value['burn']['sourcePlayer'] is not None and value['burn']['sourcePlayer'] not in source_players:raise ReplayError('Burn source is not an actual retained player')
     Shot.validate_and_project(c,payload['metadata'],layout)
     Pickup.validate_and_project(c,payload['metadata'],layout)
     expected={name:[] for name in ROSTERS}
     for physical,generation in live:
+        if physical in player_refs:continue
         role=roles[physical];handle=[payload['metadata']['namespace'],physical,generation]
         if role in PROJECTILES: expected['projectileCandidates'].append(handle)
         if role in ENEMIES or role=='XpSlot': expected['poolCandidates'].append(handle)
@@ -258,10 +291,11 @@ def validate_payload(payload,checkpoint_tick,layout=None):
     expected_snapshots=[]
     if checkpoint_tick:
         for physical,_ in reversed(live):
+            if physical in player_refs:continue
             role=roles[physical]
             if role=='XpSlot' or (role in ENEMIES and c['enemyPhases'][physical-1][1][0] in (1,2)):
                 expected_snapshots.append(c['identities'][physical-1][1])
         for physical,_ in reversed(live):
-            if roles[physical] in PROJECTILES: expected_snapshots.append(c['identities'][physical-1][1])
+            if physical not in player_refs and roles[physical] in PROJECTILES: expected_snapshots.append(c['identities'][physical-1][1])
     if snapshot_order!=expected_snapshots: raise ReplayError('Typed snapshot coverage/order differs from actual issued cohorts')
     return payload
