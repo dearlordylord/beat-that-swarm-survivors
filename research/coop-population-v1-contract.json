@@ -55,7 +55,10 @@
         102,
         103
       ],
-      "requestedTicks": 7200
+      "requestedTicks": 7200,
+      "profiles": [
+        "fresh"
+      ]
     },
     {
       "id": "coop-pop-v1-validation",
@@ -70,6 +73,9 @@
       "extraPercents": [
         100,
         25
+      ],
+      "profiles": [
+        "fresh"
       ]
     },
     {
@@ -97,7 +103,8 @@
       100,
       25
     ],
-    "purpose": "Check actual shared-world runner and cost before larger scheduling; not balance evidence."
+    "purpose": "Check actual shared-world runner and cost before larger scheduling; not balance evidence.",
+    "profile": "fresh"
   },
   "constraints": [
     "Only party population policy differs between game arms; controller and setup remain frozen.",
@@ -133,6 +140,10 @@
     {
       "beforeFormalCampaign": true,
       "reason": "Complete explicit setup catalog for the advanced profile already declared in final cohort; align native receipt labels. No seed, horizon, coefficient or selection-rule change. Only an unpaired 120-tick technical prototype had run."
+    },
+    {
+      "beforeFormalCampaign": true,
+      "reason": "Make development/validation and technical pilot fresh-only profile scope explicit for generic manifest validation; no seed, horizon, coefficient or selection-rule change."
     }
   ]
 }
