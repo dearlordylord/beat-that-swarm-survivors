@@ -89,25 +89,18 @@ def hinted_y(player:U32,directions:Session.Directions) -> F32:
 def view(+own:U32,+x:U32,+y:U32,+directions:Session.Directions,tick:U32,player:G.PlayerSnapshot) -> G.PlayerView:
   match player:
     case G.PlayerSnapshot{+id,+run,connected}:
-      G.PlayerView{id,G.with_tick(run,tick),Bool.pick(F32,U32.is_eq(id,own),Session.axis(x),hinted_x(id,directions)),Bool.pick(F32,U32.is_eq(id,own),Session.axis(y),hinted_y(id,directions))}
-def connected_view(connected:Bool,view:G.PlayerView,tail:List<&2,G.PlayerView>) -> List<&2,G.PlayerView>:
-  match connected:
-    case True{}: view <> tail
-    case False{}: tail
-def snapshot_connected(player:G.PlayerSnapshot) -> Bool:
-  match player:
-    case G.PlayerSnapshot{_,_,connected}: connected
+      G.PlayerView{id,G.with_tick(run,tick),Bool.pick(F32,U32.is_eq(id,own),Session.axis(x),hinted_x(id,directions)),Bool.pick(F32,U32.is_eq(id,own),Session.axis(y),hinted_y(id,directions)),connected}
 def views(rows:List<&2,G.PlayerSnapshot>,+own:U32,+x:U32,+y:U32,+directions:Session.Directions,+tick:U32) -> List<&2,G.PlayerView>:
   match rows:
     case []: []
-    case +head <> tail: connected_view(snapshot_connected(head),view(own,x,y,directions,tick,head),views(tail,own,x,y,directions,tick))
+    case +head <> tail: view(own,x,y,directions,tick,head) <> views(tail,own,x,y,directions,tick)
 def any_request(rows:List<&2,SP.Request>) -> Bool:
   match rows:
     case []: False{}
     case _: True{}
 def may_fire(view:G.PlayerView) -> Bool:
   match view:
-    case G.PlayerView{_,+run,_,_}: any_request(G.shot_requests(24n,(G.run_tick(run) % Pool.owner_count() : U32),run,G.empty_owner_counts()))
+    case G.PlayerView{_,+run,_,_,_}: any_request(G.shot_requests(24n,(G.run_tick(run) % Pool.owner_count() : U32),run,G.empty_owner_counts()))
 def may_fire_any(rows:List<&2,G.PlayerView>) -> Bool:
   match rows:
     case []: False{}

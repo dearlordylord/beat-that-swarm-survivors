@@ -539,7 +539,7 @@ def spawn_index(index:BI.Index<SP.Request>,+team:G.Team,+bornTick:U32,+originX:F
 def local_team(+player:U32,run:G.Run,+dx:F32,+dy:F32,+originX:F32,+originY:F32,+worldTick:U32,sourceTick:U32,+geometry:Geometry,+snapshots:List<&2,G.Snapshot>,visuals:List<&2,Visual>) -> G.Team:
   +positioned = G.with_py(G.with_px(G.with_tick(run,worldTick),originX),originY)
   +occupied = planning_snapshots(player,sourceTick,snapshots,visuals)
-  +view: G.PlayerView = G.PlayerView{player,positioned,dx,dy}
+  +view: G.PlayerView = G.PlayerView{player,positioned,dx,dy,True{}}
   +args: G.Args = G.Args{positioned,geometry_bodies(geometry),dx,dy,occupied,[]}
   G.Team{[view],args,G.team_plan([view],occupied),BI.Empty{}}
 def spawn_from_team(+team:G.Team,+bornTick:U32,+originX:F32,+originY:F32) -> List<&2,Visual>:

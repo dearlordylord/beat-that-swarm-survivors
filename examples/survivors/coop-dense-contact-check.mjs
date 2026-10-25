@@ -154,8 +154,8 @@ if (process.argv.includes('--journal-only')) {
   const targetRows = list(targets);
   const targetBodies = list(targets.map(target => target.body));
   const views = list([
-    { $: 'PlayerView', id: 0, run, dx: 0, dy: 0 },
-    { $: 'PlayerView', id: 1, run, dx: 0, dy: 0 },
+    { $: 'PlayerView', id: 0, run, dx: 0, dy: 0, eligible: true },
+    { $: 'PlayerView', id: 1, run, dx: 0, dy: 0, eligible: true },
   ]);
   const spawnTeam = {
     $: 'Team',

@@ -1176,16 +1176,16 @@ def executed(+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> 
   match result:
     case Q.Executed{world,T.Success{},+rows}: finish_stats(world,run,accumulate(rows,0,0,0,0,0,0,[],[],0),boss_kills(rows),killed_kinds(rows,run_kinds(run)))
     case Q.Executed{_,T.Failure{_},_}: Failed{"ECS query failed"}
-type effect_Player is Data: effect_Player{id: U32,run: Run}
-type effect_EffectStats is Data: effect_EffectStats{tick: U32,x: F32,y: F32,passives: List<&2,U32>,arcana: U32,hp: U32}
-def effect_stats(run: Run) -> effect_EffectStats:
+type effect_Player is Data: effect_Player{id: U32,run: Run,eligible: Bool}
+type effect_EffectStats is Data: effect_EffectStats{tick: U32,x: F32,y: F32,passives: List<&2,U32>,arcana: U32,hp: U32,eligible: Bool}
+def effect_stats(eligible: Bool,run: Run) -> effect_EffectStats:
   match run:
-    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{x,y,hp,_,_,_,passives,_,arcana,_,_,_,_,_,_,_}}: effect_EffectStats{tick,x,y,passives,arcana,hp}
-def effect_fallback_stats() -> effect_EffectStats: effect_EffectStats{0,0.0,0.0,[],0,0}
+    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{x,y,hp,_,_,_,passives,_,arcana,_,_,_,_,_,_,_}}: effect_EffectStats{tick,x,y,passives,arcana,hp,eligible}
+def effect_fallback_stats() -> effect_EffectStats: effect_EffectStats{0,0.0,0.0,[],0,0,False{}}
 def effect_find_stats(players: List<&2,effect_Player>,+id: U32) -> effect_EffectStats:
   match players:
     case []: effect_fallback_stats()
-    case effect_Player{+pid,run} <> rest: Bool.pick(effect_EffectStats,U32.is_eq(pid,id),effect_stats(run),effect_find_stats(rest,id))
+    case effect_Player{+pid,run,eligible} <> rest: Bool.pick(effect_EffectStats,U32.is_eq(pid,id),effect_stats(eligible,run),effect_find_stats(rest,id))
 # Projectile identity selects its immutable originating player, not its current
 # nearest target. Low logical-slot bits retain the original spread identity.
 def effect_source(snapshots: List<&2,Snapshot>,+shot: U32) -> U32:
@@ -1217,7 +1217,7 @@ def effect_indexed_hits(rows: List<&2,HitPlan>,+origins: BI.Index<U32>,+id: U32)
 type effect_Effects is Data: effect_Effects{damage: U32,slow: U32,burn: U32,dx: F32,dy: F32}
 def effect_one_effects(+oldX: F32,+oldY: F32,id: U32,collision: Collision,stat: effect_EffectStats) -> effect_Effects:
   match collision stat:
-    case Collision{damage,slow,+burn,+pull,+knock,+sumX,+sumY} effect_EffectStats{_,+px,+py,+passives,+arcana,_}:
+    case Collision{damage,slow,+burn,+pull,+knock,+sumX,+sumY} effect_EffectStats{_,+px,+py,+passives,+arcana,_,_}:
       effect_Effects{damage,slow,effect_pack_burn((burn * (1 + Bool.to_u32(U32.is_eq(arcana,7))) : U32),id),((oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11))) + pull_x(oldX,oldY,sumX,sumY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32),((oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11))) + pull_y(oldX,oldY,sumX,sumY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32)}
 def effect_add_effects(left: effect_Effects,right: effect_Effects) -> effect_Effects:
   match left right:
@@ -1225,33 +1225,33 @@ def effect_add_effects(left: effect_Effects,right: effect_Effects) -> effect_Eff
 def effect_gather(players: List<&2,effect_Player>,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>,+oldX: F32,+oldY: F32,+radius: F32,+target: U32,+immune: Bool) -> effect_Effects:
   match players:
     case []: effect_Effects{0,0,0,0.0,0.0}
-    case effect_Player{+id,run} <> rest: effect_add_effects(effect_one_effects(oldX,oldY,id,immune_collision(immune,collisions(effect_indexed_hits(hits,origins,id),oldX,oldY,radius,target)),effect_stats(run)),effect_gather(rest,hits,origins,oldX,oldY,radius,target,immune))
+    case effect_Player{+id,run,eligible} <> rest: effect_add_effects(effect_one_effects(oldX,oldY,id,immune_collision(immune,collisions(effect_indexed_hits(hits,origins,id),oldX,oldY,radius,target)),effect_stats(eligible,run)),effect_gather(rest,hits,origins,oldX,oldY,radius,target,immune))
 def effect_indexed_killer(rows: List<&2,HitPlan>,+origins: BI.Index<U32>,+x: F32,+y: F32,+radius: F32,+target: U32,+hp: U32,+fallback: U32) -> U32:
   match rows:
     case []: fallback
     case HitPlan{+shot,_,+damage,+tx,+ty,+r,+area,+targets} <> rest: Bool.pick(U32,Bool.and(hit_recipient(area,targets,target,x,y,radius,tx,ty,r),U32.is_le(hp,damage)),effect_indexed_source(origins,shot),effect_indexed_killer(rest,origins,x,y,radius,target,Combat.lose(hp,(damage * Bool.to_u32(hit_recipient(area,targets,target,x,y,radius,tx,ty,r)) : U32)),fallback))
 def effect_stats_distance(+x: F32,+y: F32,stat: effect_EffectStats) -> F32:
   match stat:
-    case effect_EffectStats{_,px,py,_,_,_}: distance2(x,y,px,py)
+    case effect_EffectStats{_,px,py,_,_,_,_}: distance2(x,y,px,py)
 def effect_stats_living(stat: effect_EffectStats) -> Bool:
   match stat:
-    case effect_EffectStats{_,_,_,_,_,hp}: U32.is_lt(0,hp)
+    case effect_EffectStats{_,_,_,_,_,hp,eligible}: Bool.and(eligible,U32.is_lt(0,hp))
 def effect_nearest_target(players: List<&2,effect_Player>,+x: F32,+y: F32,+best: effect_EffectStats) -> effect_EffectStats:
   match players:
     case []: best
-    case effect_Player{_,+run} <> rest: effect_nearest_target(rest,x,y,Bool.pick(effect_EffectStats,Bool.and(effect_stats_living(effect_stats(run)),Bool.or(Bool.not(effect_stats_living(best)),F32.is_lt(effect_stats_distance(x,y,effect_stats(run)),effect_stats_distance(x,y,best)))),effect_stats(run),best))
+    case effect_Player{_,+run,+eligible} <> rest: effect_nearest_target(rest,x,y,Bool.pick(effect_EffectStats,Bool.and(effect_stats_living(effect_stats(eligible,run)),Bool.or(Bool.not(effect_stats_living(best)),F32.is_lt(effect_stats_distance(x,y,effect_stats(eligible,run)),effect_stats_distance(x,y,best)))),effect_stats(eligible,run),best))
 def effect_burn_damage(+burn: U32,stat: effect_EffectStats) -> U32:
   match stat:
-    case effect_EffectStats{+tick,_,_,_,arcana,_}: ((2 + 2 * Bool.to_u32(U32.is_eq(arcana,7))) * Bool.to_u32(Bool.and(U32.is_lt(0,effect_burn_duration(burn)),U32.is_eq((tick % 30 : U32),0))) : U32)
+    case effect_EffectStats{+tick,_,_,_,arcana,_,_}: ((2 + 2 * Bool.to_u32(U32.is_eq(arcana,7))) * Bool.to_u32(Bool.and(U32.is_lt(0,effect_burn_duration(burn)),U32.is_eq((tick % 30 : U32),0))) : U32)
 def effect_effect_luck(stat: effect_EffectStats) -> U32:
   match stat:
-    case effect_EffectStats{_,_,_,passives,_,_}: at(passives,10)
+    case effect_EffectStats{_,_,_,passives,_,_,_}: at(passives,10)
 def effect_target_x(stat: effect_EffectStats) -> F32:
   match stat:
-    case effect_EffectStats{_,x,_,_,_,_}: x
+    case effect_EffectStats{_,x,_,_,_,_,_}: x
 def effect_target_y(stat: effect_EffectStats) -> F32:
   match stat:
-    case effect_EffectStats{_,_,y,_,_,_}: y
+    case effect_EffectStats{_,_,y,_,_,_,_}: y
 def effect_apply_resolved(+oldX: F32,+oldY: F32,row: Row,motion: Motion,effects: effect_Effects,+oldBurnDamage: U32,+luck: U32,+target: effect_EffectStats) -> EntityRow:
   match row motion effects:
     case Row{Body{+x,+y,0,+variant,+hp,+maximum,+age,+seed,+radius},_,_,_,_,_,_,_} Motion{_,_,_,_,_,+slow,+burn,_,_} effect_Effects{+damage,+freshSlow,+freshBurn,+dx,+dy}:
@@ -1268,10 +1268,10 @@ def effect_apply_multiple(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32
     case row motion: EntityRow{row,motion}
 def effect_apply_indexed(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+row: Row,+motion: Motion,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> EntityRow:
   match players row:
-    case effect_Player{0,run} <> [] Row{Body{+x,+y,+kind,+variant,+hp,+maximum,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic}: enemy_applied(oldX,oldY,Row{Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion,collisions(hits,oldX,oldY,radius,seed),run)
+    case effect_Player{0,run,_} <> [] Row{Body{+x,+y,+kind,+variant,+hp,+maximum,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic}: enemy_applied(oldX,oldY,Row{Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion,collisions(hits,oldX,oldY,radius,seed),run)
     case players row: effect_apply_multiple(players,oldX,oldY,row,motion,hits,origins)
 
-type PlayerView is Data: PlayerView{id: U32,run: Run,dx: F32,dy: F32}
+type PlayerView is Data: PlayerView{id: U32,run: Run,dx: F32,dy: F32,eligible: Bool}
 type Team is Data: Team{players: List<&2,PlayerView>,base: Args,plan: SP.Plan,origins: BI.Index<U32>}
 def add_view(eligible: Bool,view: PlayerView,tail: List<&2,PlayerView>) -> List<&2,PlayerView>:
   match eligible:
@@ -1405,21 +1405,26 @@ def with_relicCollected(run: Run,value: U32) -> Run:
     case Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,value},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def view_run(view: PlayerView) -> Run:
   match view:
-    case PlayerView{_,run,_,_}: run
+    case PlayerView{_,run,_,_,_}: run
+# Eligibility is a separate fact; disconnected owners retain their real loadout/HP.
+def view_eligible(view: PlayerView) -> Bool:
+  match view:
+    case PlayerView{_,_,_,_,eligible}: eligible
+def view_alive(+view: PlayerView) -> Bool: Bool.and(view_eligible(view),U32.is_lt(0,run_hp(view_run(view))))
 def first_view(views: List<&2,PlayerView>,fallback: Run) -> PlayerView:
   match views:
-    case []: PlayerView{0,fallback,0.0,0.0}
-    case +first <> rest: Bool.pick(PlayerView,U32.is_lt(0,run_hp(view_run(first))),first,first_view(rest,fallback))
+    case []: PlayerView{0,fallback,0.0,0.0,True{}}
+    case +first <> rest: Bool.pick(PlayerView,view_alive(first),first,first_view(rest,fallback))
 def view_id(view: PlayerView) -> U32:
   match view:
-    case PlayerView{id,_,_,_}: id
+    case PlayerView{id,_,_,_,_}: id
 def view_args(view: PlayerView,base: Args) -> Args:
   match view base:
-    case PlayerView{_,run,dx,dy} Args{_,bodies,_,_,snapshots,hits}: Args{run,bodies,dx,dy,snapshots,hits}
+    case PlayerView{_,run,dx,dy,_} Args{_,bodies,_,_,snapshots,hits}: Args{run,bodies,dx,dy,snapshots,hits}
 def nearest_view(views: List<&2,PlayerView>,+x: F32,+y: F32,+best: PlayerView) -> PlayerView:
   match views:
     case []: best
-    case +candidate <> rest: nearest_view(rest,x,y,Bool.pick(PlayerView,PickupPolicy.prefer(run_hp(view_run(candidate)),run_hp(view_run(best)),distance2(x,y,run_px(view_run(candidate)),run_py(view_run(candidate))),distance2(x,y,run_px(view_run(best)),run_py(view_run(best))),view_id(candidate),view_id(best)),candidate,best))
+    case +candidate <> rest: nearest_view(rest,x,y,Bool.pick(PlayerView,PickupPolicy.prefer(Bool.to_u32(view_alive(candidate)),Bool.to_u32(view_alive(best)),distance2(x,y,run_px(view_run(candidate)),run_py(view_run(candidate))),distance2(x,y,run_px(view_run(best)),run_py(view_run(best))),view_id(candidate),view_id(best)),candidate,best))
 def team_nearest(+team: Team,+x: F32,+y: F32) -> PlayerView:
   match team:
     case Team{+players,Args{run,_,_,_,_,_},_,origins}: nearest_view(players,x,y,first_view(players,run))
@@ -1436,7 +1441,7 @@ def team_base(team: Team) -> Args:
 def team_args(+team: Team,view: PlayerView) -> Args: view_args(view,team_base(team))
 def pickup_eligible(+x: F32,+y: F32,view: PlayerView) -> Bool:
   match view:
-    case PlayerView{_,+run,_,_}: PickupPolicy.living_contact(run_hp(run),close(x,y,run_px(run),run_py(run),pickup_radius(run_passives(run),run_meta(run),run_arcana(run),run_character(run))))
+    case PlayerView{_,+run,_,_,eligible}: Bool.and(eligible,PickupPolicy.living_contact(run_hp(run),close(x,y,run_px(run),run_py(run),pickup_radius(run_passives(run),run_meta(run),run_arcana(run),run_character(run)))))
 def pickup_candidates(views: List<&2,PlayerView>,+x: F32,+y: F32) -> List<&2,PlayerView>:
   match views:
     case []: []
@@ -1470,7 +1475,7 @@ def merge_player_plan(+id: U32,plan: SP.Plan,tail: SP.Plan) -> SP.Plan:
     case SP.Plan{index,count} SP.Plan{into,other}: SP.Plan{merge_assignments(index,id,into),(count + other : U32)}
 def player_plan(view: PlayerView,snapshots: List<&2,Snapshot>) -> SP.Plan:
   match view:
-    case PlayerView{+id,run,_,_}: assigned_plan(id,run,shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
+    case PlayerView{+id,run,_,_,_}: assigned_plan(id,run,shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
 def team_plan_all(views: List<&2,PlayerView>,+snapshots: List<&2,Snapshot>) -> SP.Plan:
   match views:
     case []: empty_shot_plan()
@@ -1520,7 +1525,7 @@ def team_move_system(~H: Type,~ops: MoveOps<H>,team: Team,ctx: H) -> H & (T.Outc
 
 def team_spawn_view(+team: Team,+id: U32) -> PlayerView:
   +candidate = team_for_id(team,id)
-  Bool.pick(PlayerView,U32.is_lt(0,run_hp(view_run(candidate))),candidate,team_nearest(team,run_px(view_run(candidate)),run_py(view_run(candidate))))
+  Bool.pick(PlayerView,view_alive(candidate),candidate,team_nearest(team,run_px(view_run(candidate)),run_py(view_run(candidate))))
 def team_body_view(+team: Team,body: Body) -> PlayerView:
   match body:
     case Body{+x,+y,8,_,_,_,_,+seed,_}: team_spawn_view(team,(seed % 2 : U32))
@@ -1539,11 +1544,11 @@ def moved_run_point(run: Run,point: PlayerMovement.Point) -> Run:
     case PlayerMovement.Point{x,y}: with_py(with_px(run,x),y)
 def moved_run(view: PlayerView) -> Run:
   match view:
-    case PlayerView{_,+run,dx,dy}: moved_run_point(run,move_point(run_px(run),run_py(run),run_step_distance(run),dx,dy))
+    case PlayerView{_,+run,dx,dy,_}: moved_run_point(run,move_point(run_px(run),run_py(run),run_step_distance(run),dx,dy))
 def outside_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius: F32) -> Bool:
   match views:
     case []: True{}
-    case +view <> rest: Bool.and(Bool.or(U32.is_eq(run_hp(view_run(view)),0),S.admissible(x,y,run_px(moved_run(view)),run_py(moved_run(view)),radius)),outside_players(rest,x,y,radius))
+    case +view <> rest: Bool.and(Bool.or(Bool.not(view_alive(view)),S.admissible(x,y,run_px(moved_run(view)),run_py(moved_run(view)),radius)),outside_players(rest,x,y,radius))
 def spawn_gate(allowed: Bool,previous: Body,row: EntityRow) -> EntityRow:
   match allowed:
     case True{}: row
@@ -1555,24 +1560,24 @@ def multiple_views(views: List<&2,PlayerView>) -> Bool:
     case _: True{}
 def spawn_camera(view: PlayerView) -> PredictionSpawn.Camera:
   match view:
-    case PlayerView{_,+run,+dx,+dy}:
+    case PlayerView{_,+run,+dx,+dy,_}:
       +distance = run_step_distance(run)
       +moved = move_point(run_px(run),run_py(run),distance,dx,dy)
       PredictionSpawn.Camera{movement_x(moved),movement_y(moved),distance}
 def outside_predicted_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius: F32) -> Bool:
   match views:
     case []: True{}
-    case +view <> rest: Bool.and(Bool.or(U32.is_eq(run_hp(view_run(view)),0),PredictionSpawn.admissible(x,y,spawn_camera(view),radius)),outside_predicted_players(rest,x,y,radius))
+    case +view <> rest: Bool.and(Bool.or(Bool.not(view_alive(view)),PredictionSpawn.admissible(x,y,spawn_camera(view),radius)),outside_predicted_players(rest,x,y,radius))
 def positioned_birth(row: EntityRow,point: S.Point) -> EntityRow:
   match row point:
     case EntityRow{Row{Body{_,_,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion} S.Point{x,y}: EntityRow{Row{Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}
 def prediction_birth_at(view: PlayerView,distance: F32,+row: EntityRow) -> EntityRow:
   match view row:
-    case PlayerView{_,+run,_,_} EntityRow{Row{Body{_,_,_,_,_,_,_,+seed,radius},_,_,_,_,_,_,_},_}: positioned_birth(row,PredictionSpawn.choose((seed + ((run_seed(run) - run_tick(run) + 1 : U32) - 12345) * 31 : U32),wave_tick(run_mode(run),run_tick(run)),PredictionSpawn.Camera{run_px(run),run_py(run),distance},radius))
+    case PlayerView{_,+run,_,_,_} EntityRow{Row{Body{_,_,_,_,_,_,_,+seed,radius},_,_,_,_,_,_,_},_}: positioned_birth(row,PredictionSpawn.choose((seed + ((run_seed(run) - run_tick(run) + 1 : U32) - 12345) * 31 : U32),wave_tick(run_mode(run),run_tick(run)),PredictionSpawn.Camera{run_px(run),run_py(run),distance},radius))
 def maximum_prediction_distance(views: List<&2,PlayerView>,+distance: F32) -> F32:
   match views:
     case []: distance
-    case PlayerView{_,+run,_,_} <> rest: maximum_prediction_distance(rest,F32.max(distance,Bool.pick(F32,U32.is_lt(0,run_hp(run)),run_step_distance(run),0.0)))
+    case PlayerView{_,+run,_,_,eligible} <> rest: maximum_prediction_distance(rest,F32.max(distance,Bool.pick(F32,Bool.and(eligible,U32.is_lt(0,run_hp(run))),run_step_distance(run),0.0)))
 def prediction_birth(+team: Team,+previous: Body,row: EntityRow) -> EntityRow:
   match team:
     case Team{+views,+base,+plan,+origins}: prediction_birth_at(team_body_view(Team{views,base,plan,origins},previous),maximum_prediction_distance(views,0.0),row)
@@ -1593,7 +1598,7 @@ def team_spawn_gate(+team: Team,+previous: Body,+result: EntityRow) -> EntityRow
 def effect_players(views: List<&2,PlayerView>) -> List<&2,effect_Player>:
   match views:
     case []: []
-    case PlayerView{id,run,_,_} <> rest: effect_Player{id,run} <> effect_players(rest)
+    case PlayerView{id,run,_,_,eligible} <> rest: effect_Player{id,run,eligible} <> effect_players(rest)
 def team_enemy_applied(+team: Team,oldX: F32,oldY: F32,motion: Motion,routed: SL.Routed<Row>) -> EntityRow:
   match team routed:
     case _ SL.Fresh{row}: newborn_entity(SL.newborn(~Row,~Motion,row,empty_motion()))
@@ -1604,8 +1609,8 @@ def team_enemy_updated(+team: Team,+body: Body,status: Status,+row: Row) -> Enti
 def living_views(views: List<&2,PlayerView>) -> List<&2,PlayerView>:
   match views:
     case []: []
-    case +view <> rest: add_view(U32.is_lt(0,run_hp(view_run(view))),view,living_views(rest))
-# Disconnected records become zero-HP views in the co-op projection; solo
+    case +view <> rest: add_view(view_alive(view),view,living_views(rest))
+# Eligibility excludes disconnected players without changing their health; solo
 # supplies one view. Keep seed zero's existing boss schedule independent of size.
 def party_spawn_players(team: Team) -> U32:
   match team:
@@ -1721,7 +1726,7 @@ def full_player_inventory(+id: U32,+run: Run,all: ShotInventory,own: ShotInvento
     case ShotInventory{occupied,_,_} ShotInventory{_,counts,locks}: merge_player_plan(id,SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(run_tick(run) % PL.owner_count() : U32),run,locks)),empty_shot_plan())
 def full_player_plan(view: PlayerView,+snapshots: List<&2,Snapshot>) -> SP.Plan:
   match view:
-    case PlayerView{+id,run,_,_}: full_player_inventory(id,run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}),shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
+    case PlayerView{+id,run,_,_,_}: full_player_inventory(id,run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}),shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
 def plan_living(views: List<&2,PlayerView>,+snapshots: List<&2,Snapshot>) -> SP.Plan:
   match views:
     case []: empty_shot_plan()
@@ -1731,7 +1736,7 @@ def team_plan(views: List<&2,PlayerView>,snapshots: List<&2,Snapshot>) -> SP.Pla
 
 def solo_team(+args: Args) -> Team:
   match args:
-    case Args{+run,_,+dx,+dy,+snapshots,_}: Team{[PlayerView{0,run,dx,dy}],args,prepare_shot_plan(args),effect_origin_index(snapshots)}
+    case Args{+run,_,+dx,+dy,+snapshots,_}: Team{[PlayerView{0,run,dx,dy,True{}}],args,prepare_shot_plan(args),effect_origin_index(snapshots)}
 def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,EntityRow>: team_execute(world,solo_team(args))
 def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet:
   match state:

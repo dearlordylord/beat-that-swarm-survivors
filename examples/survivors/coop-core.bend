@@ -314,10 +314,10 @@ def core_attach(state: CoreState,character: U32,meta: U32,arcana: U32,mask: U32)
     case CoreState{world,shared,+refs,bodies,snapshots,round,required,offers,pending}: Attach.dispatch(~CoreState,~CorePacket,~completed,~attach_initial,List.length(&2,PlayerRef,refs),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},character,meta,arcana,mask)
 
 # Views are immutable per-tick projections, never another gameplay authority.
-# Only connected players enter the step cohort; health retains its actual meaning.
+# Connected eligibility is explicit; every owner retains its real health and loadout.
 def player_view(+shared: RS.Session,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,player: G.PlayerRecord) -> G.PlayerView:
   match player:
-    case G.PlayerRecord{+id,personal,_}: G.PlayerView{id,player_step_context(RS.session_with_tick(shared,(RS.session_tick(shared) + 1 : U32)),personal),Bool.pick(F32,U32.is_eq(id,0),dx0,dx1),Bool.pick(F32,U32.is_eq(id,0),dy0,dy1)}
+    case G.PlayerRecord{+id,personal,connected}: G.PlayerView{id,player_step_context(RS.session_with_tick(shared,(RS.session_tick(shared) + 1 : U32)),personal),Bool.pick(F32,U32.is_eq(id,0),dx0,dx1),Bool.pick(F32,U32.is_eq(id,0),dy0,dy1),connected}
 def add_view(eligible: Bool,view: G.PlayerView,tail: List<&2,G.PlayerView>) -> List<&2,G.PlayerView>:
   match eligible:
     case True{}: view <> tail
@@ -325,7 +325,7 @@ def add_view(eligible: Bool,view: G.PlayerView,tail: List<&2,G.PlayerView>) -> L
 def player_views(+shared: RS.Session,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,players: List<&2,G.PlayerRecord>) -> List<&2,G.PlayerView>:
   match players:
     case []: []
-    case +player <> rest: add_view(record_connected(player),player_view(shared,dx0,dy0,dx1,dy1,player),player_views(shared,dx0,dy0,dx1,dy1,rest))
+    case +player <> rest: player_view(shared,dx0,dy0,dx1,dy1,player) <> player_views(shared,dx0,dy0,dx1,dy1,rest)
 # Contact damage is evaluated for each living player, independently of chase
 # target. Pickup payloads are assigned once, by nearest eligible G.collector.
 def contact_hit(+run: G.Run,body: G.Body) -> U32:
