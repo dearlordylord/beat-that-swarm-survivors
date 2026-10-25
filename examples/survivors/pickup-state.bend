@@ -41,6 +41,12 @@ def step(found: Bool,state: State) -> Outcome:
   match state:
     case State{space,Payload{item,generation,True{}},slot}: collected(found,space,item,slot,generation)
     case state: Outcome{state,no_reward()}
+# The pool's idle phase is separate from collection: retirement keeps its birth
+# generation for that completed tick; the following inactive pool turn clears it.
+def idle_xp(state: State) -> State:
+  match state:
+    case State{Space.Spatial{x,y,_,_},Payload{Xp{_,_},_,False{}},identity}: State{Space.Spatial{x,y,0,0.0},Payload{Xp{0,False{}},0,False{}},identity}
+    case state: state
 def active(state: State) -> Bool:
   match state:
     case State{_,Payload{_,_,active},_}: active

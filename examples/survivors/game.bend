@@ -689,7 +689,7 @@ def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q
 def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster:
   match store:
     case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},movement)
-type PickupCall is Data: PickupCall{team: Team,advance: Bool,relic: Bool}
+type PickupCall is Data: PickupCall{team: Team,advance: Bool,relic: Bool} XpPoolCall{team: Team}
 type PickupOps<-H: Type> is Type: PickupOps{spatial: Cap.Read<H,Space.Spatial>,pickup: Cap.Read<H,Pickup.Payload>,identity: Cap.Read<H,Components.Identity>}
 def PickupOpsType(H: Type) -> Type: PickupOps<H>
 def pickup_spatial_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Space.Spatial>:
@@ -1631,8 +1631,15 @@ def team_run(team: Team) -> Run:
     case Team{_,Args{run,_,_,_,_,_},_,_}: run
 def relic_turn(+team: Team,+state: Pickup.State) -> Pickup.Outcome:
   relic_turn_run(view_run(relic_player(team,state,relic_x(run_stage(team_run(team))),relic_y(run_stage(team_run(team))))),Pickup.slot(state))
+def xp_pool_active(active: Bool,team: Team,state: Pickup.State) -> Pickup.Outcome:
+  match active:
+    case False{}: Pickup.Outcome{Pickup.idle_xp(state),Pickup.no_reward()}
+    case True{}: pickup_collector_state(team,state)
+def xp_pool_turn(team: Team,+state: Pickup.State) -> Pickup.Outcome:
+  xp_pool_active(Pickup.active(state),team,state)
 def pickup_turn(call: PickupCall,state: Pickup.State) -> Pickup.Outcome:
   match call:
+    case XpPoolCall{team}: xp_pool_turn(team,state)
     case PickupCall{_,False{},_}: Pickup.Outcome{state,Pickup.no_reward()}
     case PickupCall{team,True{},True{}}: relic_turn(team,state)
     case PickupCall{team,True{},False{}}: pickup_collector_state(team,state)
@@ -1656,7 +1663,7 @@ def pool_enemy_done(~H: Type,~ops: PoolOps<H>,team: Team,result: H & (T.Outcome<
     case (ctx,(T.Failure{error},_)): (ctx,(T.Failure{error},missing_row()))
 def team_pool_role(~H: Type,~ops: PoolOps<H>,+team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{Role.XpSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),PickupCall{team,True{},False{}},ctx)
+    case (ctx,C.Found{Role.XpSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),XpPoolCall{team},ctx)
     case (ctx,C.Found{Role.RelicSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),PickupCall{team,True{},True{}},ctx)
     case (ctx,C.Found{role}): pool_enemy_done(~H,~ops,team,Cap.invoke(~OpsType,~TeamEnemy,~(T.Outcome<Error> & EnemyQueryResult),~team_enemy_system,~H,~pool_enemy_caps(~H,ops),TeamEnemy{role,team},ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
