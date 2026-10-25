@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate canonical enemy columns and project named enemy facts."""
 import replay_compare as R
-import ecs_migration_compare as M
+import current_replay_schema as M
 from projectile_qualification import column
 
 

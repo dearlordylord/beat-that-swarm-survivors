@@ -6,7 +6,7 @@ current-schema replay validator. Every caller must validate all other columns
 and actual allocator/identity/order metadata independently as well.
 """
 import replay_compare as R
-import ecs_migration_compare as M
+import current_replay_schema as M
 
 PROJECTILE_ROLES = {'PlayerProjectileSlot', 'HostileProjectileSlot'}
 
@@ -63,7 +63,9 @@ def validate_and_project(components, metadata, layout):
     facts = []
     for index in range(total):
         shot = columns['shots'][index]
-        expected_role = M.assigned(index, layout)
+        identity = columns["identities"][index]
+        R.u32(identity[1], "actual projectile identity")
+        expected_role = M.assigned(identity[1], layout)
         role = columns['roles'][index][1]
         if role != expected_role:
             raise R.ReplayError('Projectile role/slot assignment changed')
@@ -77,7 +79,7 @@ def validate_and_project(components, metadata, layout):
         if columns['bodies'][index][1] is not None:
             raise R.ReplayError('Projectile retains a second Body authority')
         identity = columns['identities'][index]
-        if identity[1] != index or type(identity[1]) is not int:
+        if identity[1] >= total or sum(row[1] == identity[1] for row in columns["identities"]) != 1:
             raise R.ReplayError('Actual projectile slot identity changed')
         for name in ('spaces', 'trajectories', 'identities'):
             M.stamp_valid(columns[name][index][2], True, now)
