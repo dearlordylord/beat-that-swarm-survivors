@@ -1,15 +1,17 @@
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from './dist/coop-protocol.mjs';
+import Connection from './dist/coop-connection.mjs';
 import Prediction from './dist/coop-prediction.mjs';
 import CombatForecast from './dist/coop-combat-prediction.mjs';
 import { CoopTransport } from './coop-transport.mjs';
 import { CoopUI } from './coop-ui.mjs';
 let transport, worker, role, sessionId, sequence = 0, tick = 0, epoch = 0;
-let runId = '', receivedFrame = false, stalled = false;
+let runId = '', stalled = false;
 let input = {x:0,y:0}, inputTimer, lastFrameAt = 0, connected = false;
 let latestSnapshot, sendingSnapshot = false;
 const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
 let deliverySequence = 0, connectionEpoch = 0, connectDeadline;
+let connectionState = Connection.fresh({$:'Guest'}), selectedSetup, hostFrame;
 let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
 let predictionLead = 4, lastRoundTripMs = 0, lastPredictionResync, authorityInputTiming;
 const sentCommandTimes = new Map();
@@ -17,7 +19,7 @@ let combatForecast, combatPresentation, combatPresentationState;
 const PREDICTION_STEP = 1000 / 60;
 const bendBool = value => Boolean(value);
 function advancePrediction(now = performance.now()) {
-  if (role !== 'guest' || !prediction) return;
+  if (role !== 'guest' || !prediction || !Connection.running(connectionState)) return;
   // rAF timestamps may precede a performance.now() sampled by a message handler.
   // Never rewind the shared local clock and count that interval twice.
   now = Math.max(now,predictionAt);
@@ -117,11 +119,6 @@ function postCommand(text, player) {
   worker.postMessage({type:'command',player,text,deliveryId,connectionEpoch});
   return true;
 }
-function refuseGuest(message) {
-  connected = false; transport?.close();
-  worker?.postMessage({type:'disconnect'});
-  ui.status(message,{error:true});
-}
 const decoder = new TextDecoder('utf-8', {fatal:true});
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
 function command(action) {
@@ -137,23 +134,117 @@ function command(action) {
   return Protocol.encode({$: 'Command', session:sessionId, player:role === 'host' ? 0 : 1,
     seq,intendedTick,action});
 }
+function signalConnection(signal, envelope) {
+  if (role === 'host' && worker) {
+    worker.postMessage({type:'handshake',connectionEpoch,signal});
+    return;
+  }
+  const result = Connection.step(connectionState,Connection.epoch(connectionState),signal);
+  connectionState = result.state;
+  connectionAction(result.action,envelope);
+}
+function transportFailure(error) {
+  console.error(error);
+  signalConnection({$:'Reject',reason:{$:'TransportFailed'}});
+}
+function sendControl(action) {
+  const generation = epoch, connection = connectionEpoch, channel = transport;
+  return channel.send(Connection.encode_action(action)).catch(error => {
+    if (generation === epoch && connection === connectionEpoch) transportFailure(error);
+    throw error;
+  });
+}
+function connectionAction(action, envelope) {
+  switch (action.$) {
+    case 'SendHello':
+      sendControl(action).catch(() => {}); break;
+    case 'HelloAckAndSetup': {
+      const generation = epoch, connection = connectionEpoch;
+      sendControl(action).then(() => {
+        if (generation !== epoch || connection !== connectionEpoch || !connected) return;
+        return transport.send(command({$:'Setup',character:selectedSetup.character,
+          arcana:selectedSetup.arcana,meta:selectedSetup.meta,allowedWeapons:selectedSetup.allowedWeapons}));
+      }).catch(error => { if (generation === epoch && connection === connectionEpoch) transportFailure(error); });
+      break;
+    }
+    case 'PresentSnapshot': {
+      try {
+        if (!envelope?.frame || typeof envelope.frame.predictionAllowed !== 'boolean' || !envelope.receipt)
+          throw Error('Invalid authoritative snapshot');
+        if (!reconcilePrediction(envelope)) return;
+        lastFrameAt = performance.now(); tick = envelope.frame.tick;
+        if (stalled && Connection.running(connectionState)) ui.status('');
+        stalled = false;
+        ui.present(envelope.frame);
+        if (!Connection.running(connectionState)) ui.setChoicePending(true);
+        signalConnection({$:'SnapshotSeen',token:action.token,observation:action.observation});
+      } catch (error) {
+        console.error(error); signalConnection({$:'Reject',reason:{$:'SnapshotFailed'}});
+      }
+      break;
+    }
+    case 'SendReadyAck':
+      sendControl(action).catch(() => {}); break;
+    case 'StartAndConfirm':
+      clearTimeout(connectDeadline);
+      if (hostFrame) ui.present({...hostFrame,runId});
+      ui.setChoicePending(false); ui.status('');
+      sendControl(action).catch(() => {}); break;
+    case 'GuestReady':
+      clearTimeout(connectDeadline); predictionAt = performance.now(); predictionRemainder = 0;
+      ui.setChoicePending(false); ui.status(''); break;
+    case 'Suspend':
+      ui.setChoicePending(true);
+      ui.status(role === 'host' ? 'Waiting for your teammate to rejoin. The run is paused.'
+        : 'Host disconnected. Rejoin using the invitation if the party is still open.',{error:role !== 'host'});
+      break;
+    case 'CloseConnection': {
+      clearTimeout(connectDeadline); clearInterval(inputTimer);
+      prediction = null; authorityFrame = null; combatForecast = null;
+      ui.setChoicePending(false); ui.status(Connection.reason_text(action.reason),{error:true});
+      const generation = epoch, connection = connectionEpoch, channel = transport;
+      const closePeer = () => {
+        if (generation !== epoch || connection !== connectionEpoch) return;
+        if (role === 'host') channel?.disconnectPeer(); else channel?.close();
+        connected = false;
+      };
+      if (connected && channel) {
+        channel.send(Connection.encode_action(action),{confirmDelivery:true}).catch(() => {}).finally(closePeer);
+      } else {
+        closePeer();
+        // Endpoint creation may still complete after its IO deadline.
+        if (!channel) epoch++;
+      }
+      break;
+    }
+  }
+}
+function armConnectionDeadline() {
+  clearTimeout(connectDeadline);
+  const generation = epoch, connection = connectionEpoch;
+  connectDeadline = setTimeout(() => {
+    if (generation !== epoch || connection !== connectionEpoch) return;
+    // The browser owns the IO deadline; it cannot rely on an unresponsive worker.
+    const result = Connection.step(connectionState,Connection.epoch(connectionState),{$:'Timeout'});
+    connectionState = result.state;
+    if (role === 'host' && worker) worker.postMessage({type:'handshake',connectionEpoch,signal:{$:'Timeout'}});
+    connectionAction(result.action);
+  },45000);
+}
 function sendAction(action) {
-  if (role === 'host' ? !worker : !connected) return;
+  if (role === 'host' ? !worker : !connected || !Connection.running(connectionState)) {
+    if (action.$ === 'Choice') ui.setChoicePending(false);
+    return;
+  }
   const text = command(action);
   if (role === 'host') {
     if (!postCommand(text,0) && action.$ === 'Choice') {
       ui.setChoicePending(false); ui.status('Host is busy. Please choose again.');
     }
   } else {
-    const generation = epoch;
+    const generation = epoch, connection = connectionEpoch;
     transport.send(text).catch(error => {
-      if (generation !== epoch) return;
-      if (action.$ === 'Choice') ui.setChoicePending(false);
-      if (action.$ === 'MovementTick') {
-        connected = false; prediction = null; authorityFrame = null; combatForecast = null;
-        clearInterval(inputTimer); transport?.close();
-      }
-      ui.status(error.message,{error:true});
+      if (generation === epoch && connection === connectionEpoch) transportFailure(error);
     });
   }
 }
@@ -170,7 +261,8 @@ async function flushSnapshot() {
   finally { if (generation === epoch && connection === connectionEpoch) sendingSnapshot = false; }
 }
 async function connect(kind, ticket, setup, invitation = {}) {
-  cleanup(); const generation = epoch; role = kind; ui.role(kind); sequence = 0;
+  cleanup(); const generation = epoch; role = kind; ui.role(kind); sequence = 0; selectedSetup = setup;
+  connectionState = Connection.fresh({$:kind === 'host' ? 'Host' : 'Guest'});
   if (kind === 'host') runId = crypto.randomUUID?.() || Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8,'0')).join('');
   const requestedSession = invitation.session ?? new URL(location.href).searchParams.get('session');
   if (kind === 'guest' && requestedSession === null) throw Error('Open the complete invitation link.');
@@ -178,12 +270,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
   if (!Number.isInteger(sessionId) || sessionId < 0 || sessionId > 0xffffffff)
     throw Error('Open the complete invitation link.');
   ui.status('Connecting to Iroh…',{busy:true});
-  // Bound the entire attempt, including relay creation and the first game frame.
-  connectDeadline = setTimeout(() => {
-    if (generation !== epoch) return;
-    cleanup();
-    ui.status('Connection timed out. Check that the host still has this party open, then join again.',{error:true});
-  },45000);
+  armConnectionDeadline();
   try {
     const created = await CoopTransport.create(event => {
       if (generation !== epoch) return;
@@ -191,12 +278,15 @@ async function connect(kind, ticket, setup, invitation = {}) {
         connectionEpoch = event.connectionEpoch;
         connected = true; lastFrameAt = performance.now();
         clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
-        if (kind === 'host') worker?.postMessage({type:'connected',connectionEpoch});
-        ui.status(kind === 'host' ? 'Guest connected. Preparing shared world…' : 'Connected. Waiting for the host…');
-        if (kind === 'guest') transport.send(command({$:'Setup', character:setup.character,
-          arcana:setup.arcana, meta:setup.meta, allowedWeapons:setup.allowedWeapons})).catch(error => {
-            if (generation === epoch) { cleanup(); showError(error); }
-          });
+        armConnectionDeadline();
+        if (kind === 'host') {
+          connectionState = Connection.state(Connection.reconnect(connectionState,connectionEpoch));
+          worker?.postMessage({type:'connected',connectionEpoch});
+        } else {
+          const result = Connection.reconnect(connectionState,connectionEpoch);
+          connectionState = result.state; connectionAction(result.action);
+        }
+        ui.status('Connected. Checking party compatibility…',{busy:true});
         inputTimer = setInterval(() => {
           if (kind === 'guest') advancePrediction();
           else sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
@@ -204,41 +294,31 @@ async function connect(kind, ticket, setup, invitation = {}) {
       } else if (event.type === 'message') {
         try {
           if (kind === 'host' && event.bytes.byteLength > MAX_COMMAND_BYTES) {
-            refuseGuest('Guest command exceeded the transport limit. The guest was disconnected.'); return;
+            signalConnection({$:'Reject',reason:{$:'ProtocolError'}}); return;
           }
-          const text = decoder.decode(event.bytes);
+          const text = decoder.decode(event.bytes), control = Connection.decode(text);
+          if (control.$ === 'Some') { signalConnection(control.value); return; }
           if (kind === 'host') {
-            if (!postCommand(text,1)) refuseGuest('Guest command queue overflowed. The guest was disconnected.');
-          }
-          else {
+            if (!postCommand(text,1)) signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
+          } else {
             const envelope = JSON.parse(text);
             if (envelope.type !== 'frame') return;
-            if (envelope.predictionModel !== 'world-input-combat-v3' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
-                || typeof envelope.frame?.predictionAllowed !== 'boolean') {
-              cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
-            }
-            if (!reconcilePrediction(envelope)) return;
-            clearTimeout(connectDeadline);
-            lastFrameAt = performance.now(); tick = envelope.frame.tick;
-            if (!receivedFrame || stalled) ui.status('');
-            receivedFrame = true; stalled = false;
-            ui.present(envelope.frame);
+            const number = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0;
+            signalConnection({$:'Frame',version:number(envelope.connectionVersion),
+              token:number(envelope.token),observation:number(envelope.observationSeq)},envelope);
           }
-        } catch (error) { showError(error); }
+        } catch (error) {
+          console.error(error); signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
+        }
       } else if (event.type === 'disconnected') {
         connectionEpoch = event.connectionEpoch;
         connected = false; prediction = null; authorityFrame = null; combatForecast = null;
         clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
         ui.clearInput();
-        if (kind === 'host') {
-          // Keep the endpoint and invitation alive. The worker retains the world.
-          worker?.postMessage({type:'disconnect',connectionEpoch});
-          ui.status('Waiting for your teammate to rejoin. The run is paused.');
-        } else {
-          clearTimeout(connectDeadline);
-          ui.status('Host disconnected. Rejoin using the invitation if the party is still open.',{error:true});
-        }
-      } else if (event.type === 'error') ui.status(event.message,{error:true});
+        clearTimeout(connectDeadline);
+        if (kind === 'host') worker?.postMessage({type:'disconnect',connectionEpoch});
+        else signalConnection({$:'Lost'});
+      } else if (event.type === 'error') transportFailure(Error(event.message));
     });
     if (generation !== epoch) { created.close(); return; }
     transport = created;
@@ -248,33 +328,42 @@ async function connect(kind, ticket, setup, invitation = {}) {
         if (generation !== epoch) return;
         const message = event.data;
         if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
-        else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
+        else if (message.type === 'frame') {
+          tick = message.frame.tick; hostFrame = message.frame;
+          if (message.connectionReady || ui.frame) ui.present({...message.frame,runId});
+          if (!message.connectionReady) ui.setChoicePending(true);
+        }
         else if (message.type === 'remote-frame') {
           if (!connected || message.connectionEpoch !== connectionEpoch) return;
-          latestSnapshot = {type:'frame',predictionModel:'world-input-combat-v3',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
-        } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
-          if (!connected || message.connectionEpoch !== connectionEpoch) return;
-          refuseGuest(message.type === 'guest-input-overflow'
-            ? 'Guest input queue overflowed. The guest was disconnected.'
-            : 'Reload both pages and create a new invitation to use the current guest version.');
+          latestSnapshot = {type:'frame',connectionVersion:Connection.protocol_version(),token:message.token,initial:message.initial,frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
+        } else if (message.type === 'handshake-action') {
+          if (message.connectionEpoch === connectionEpoch && Connection.reason(connectionState).$ === 'None') {
+            connectionState = message.state; connectionAction(message.action);
+          }
+        } else if (message.type === 'choice-unavailable' && message.player === 0 && message.connectionEpoch === connectionEpoch) {
+          ui.setChoicePending(false); ui.status('Waiting for your teammate to be ready.');
         } else if (message.type === 'ready') {
           clearTimeout(connectDeadline);
           const link = new URL(location.href); link.search = '';
           link.searchParams.set('session',String(sessionId)); link.searchParams.set('join',transport.invitation());
           ui.invitation(link.href); ui.status('Send the invitation. Keep this host tab open.');
-        } else if (message.type === 'started' && connected && message.connectionEpoch === connectionEpoch) ui.status('');
-        else if (message.type === 'error') showError(Error(message.message));
+        } else if (message.type === 'error') console.error(message.message);
       };
-      worker.onerror = event => { if (generation === epoch) showError(Error(event.message || 'Host worker failed.')); };
+      worker.onerror = event => {
+        if (generation !== epoch) return;
+        console.error(event.message || 'Host worker failed');
+        worker?.terminate(); worker = null;
+        signalConnection({$:'Reject',reason:{$:'RuntimeFailed'}});
+      };
       worker.postMessage({type:'init',session:sessionId,seed:random(),setup});
     } else await transport.join(ticket);
   } catch (error) {
-    if (generation === epoch) { cleanup(); showError(error); }
+    if (generation === epoch) transportFailure(error);
   }
 }
 function showError(error) { ui.status(error.message || String(error),{error:true}); console.error(error); }
 function cleanup() {
-  epoch++; clearTimeout(connectDeadline); connectionEpoch = 0; pendingCommands.clear(); sentCommandTimes.clear(); receivedFrame = false; stalled = false;
+  epoch++; connectionState = Connection.fresh({$:'Guest'}); hostFrame = null; clearTimeout(connectDeadline); connectionEpoch = 0; pendingCommands.clear(); sentCommandTimes.clear(); stalled = false;
   predictionLead = 4; lastRoundTripMs = 0; lastPredictionResync = null; authorityInputTiming = null;
   prediction = null; authorityFrame = null; combatForecast = null; combatPresentation = null;
   combatPresentationState = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
@@ -296,7 +385,7 @@ const ui = new CoopUI({
 });
 // A browser may suspend the host. Surface it; do not claim workers prevent it.
 setInterval(() => {
-  if (role === 'guest' && connected && !stalled && performance.now() - lastFrameAt > 5000) {
+  if (role === 'guest' && connected && Connection.running(connectionState) && !stalled && performance.now() - lastFrameAt > 5000) {
     stalled = true; ui.status('Host is stalled. Keep the host browser active.',{error:true});
   }
 },1000);

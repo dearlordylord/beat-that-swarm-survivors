@@ -1,0 +1,50 @@
+[
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-enters-running-without-start-action",
+    "old": "    case state _: unchanged(state)\ndef step_selected",
+    "new": "    case HostHello{epoch} _: Out{HostRunning{epoch},Nothing{}}\n    case state _: unchanged(state)\ndef step_selected",
+    "law": "running_entry_has_only_confirmed_causes"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-ready-ack-ignores-observation",
+    "old": "ready_selected(Bool.and(U32.is_eq(token,epoch),U32.is_eq(received,observation)),epoch,observation)",
+    "new": "ready_selected(U32.is_eq(token,epoch),epoch,observation)",
+    "law": "ready_ack_exact"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-late-timeout-kills-running-host",
+    "old": "    case GuestStart{_,_,_}: True{}\n    case _: False{}\ndef begin",
+    "new": "    case GuestStart{_,_,_}: True{}\n    case HostRunning{_}: True{}\n    case _: False{}\ndef begin",
+    "law": "late_host_timeout_ignored"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-admits-stale-epoch",
+    "old": "step_selected(U32.is_eq(eventEpoch,epoch(state)),state,event)",
+    "new": "step_selected(True{},state,event)",
+    "law": "stale_events_unchanged"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-accepts-legacy-setup-before-version-agreement",
+    "old": "    case HostHello{epoch} Setup{}: failed(HostHello{epoch},VersionMismatch{})",
+    "new": "    case HostHello{epoch} Setup{}: Out{HostPreparing{epoch},PrepareWorld{}}",
+    "law": "legacy_setup_rejected"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "law": "epoch_projection_exact",
+    "label": "connection-idle-reports-zero-epoch",
+    "old": "    case Idle{_,epoch}: epoch",
+    "new": "    case Idle{_,epoch}: 0"
+  }
+]

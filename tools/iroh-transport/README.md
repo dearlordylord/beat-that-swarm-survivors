@@ -18,11 +18,12 @@ const endpoint = await Transport.create(event => {
 const invite = endpoint.invitation();
 // On the other endpoint:
 await endpoint.join(invite);
-await endpoint.send(new Uint8Array([1, 2, 3]));
+await endpoint.send(new Uint8Array([1, 2, 3]), false);
 endpoint.close();
 ```
 
-Each endpoint automatically accepts one remote peer. Recreate a closed endpoint;
+Each endpoint automatically accepts one remote peer. `disconnectPeer()` closes only its current connection and retains the invitation.
+Recreate a closed endpoint;
 it cannot be rebound. Another peer is refused while connected/connecting. A peer
 disconnect leaves a still-open endpoint available for another connection. The
 invitation serializes the endpoint ID and addressing information, not a private
@@ -82,7 +83,12 @@ they do not qualify macOS or cross-network direct connectivity.
 `examples/survivors/coop-transport.mjs` copies queued payloads, serializes writes,
 binds incoming events to the authenticated peer and invalidates stale sends.
 Its queue is bounded to 16 messages / 4 MiB, with a 1 MiB frame limit in JS and
-Rust. A completed send is not an application acknowledgment. Bend validates
+Rust. Normal sends do not wait for an acknowledgment. The optional
+`confirmDelivery` adapter flag (second boolean argument in the Wasm API) waits
+for QUIC to acknowledge the finished stream before a rejection closes the peer.
+This is a transport receipt, not proof that the application processed it; ordinary
+movement/snapshot sends retain their existing latency. The Bend readiness
+handshake requires its own explicit snapshot-applied acknowledgment. Bend validates
 commands and maps the authenticated connection to an allowed player.
 
 Primary references: [browser example](https://github.com/n0-computer/iroh-examples/tree/main/browser-echo)

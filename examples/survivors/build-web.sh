@@ -25,6 +25,7 @@ example_emit "$app_dir/menu-progression.bend" "$app_dir/dist/menu-progression.mj
 example_emit "$app_dir/game.bend" "$staging_dir/public/dist/game.mjs"
 cp "$app_dir/dist/menu-progression.mjs" "$staging_dir/public/dist/"
 example_emit "$app_dir/coop-core.bend" "$staging_dir/public/dist/coop-core.mjs"
+example_emit "$app_dir/coop-connection.bend" "$staging_dir/public/dist/coop-connection.mjs"
 example_emit "$app_dir/coop-session.bend" "$staging_dir/public/dist/coop-session.mjs"
 example_emit "$app_dir/coop-protocol.bend" "$staging_dir/public/dist/coop-protocol.mjs"
 example_emit "$app_dir/coop-prediction.bend" "$staging_dir/public/dist/coop-prediction.mjs"

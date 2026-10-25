@@ -1,5 +1,26 @@
 # Co-op command boundary
 
+[Connection readiness](coop-connection.bend) is a separate Bend state machine.
+Iroh connectivity only starts version negotiation. Setup prepares the world;
+the host stays paused until the guest has applied and acknowledged the exact
+initial observation. The host then confirms the start before guest prediction
+and input advance. Repeated or stale acknowledgements cannot restart a run.
+The worker's step loop reads `Connection.running` directly; there is no separate
+JavaScript `active` or `awaitingSetup` decision.
+
+The model also owns retry epochs, frame/version admission, failure reasons and
+which deadlines can fail a handshake. Its control codec cannot decode local
+`Prepared`, `SnapshotSeen`, `Timeout` or `Lost` events from peer bytes. The host
+browser observes the worker's Bend state so its IO deadline can fail locally
+when a worker cannot respond. Worker crashes are handled without asking that
+failed worker to process its own error. Browser/transport adapters execute the
+returned actions; the formal laws do not prove their IO implementation.
+
+The public module contract is version four. Keep both tabs updated. A mismatch
+is shown beside the guest heading; the static lobby does not assert that an
+uncontacted host is available. Peer rejection retains the host endpoint and
+invitation so a compatible guest can try again.
+
 [Session admission](coop-session.bend) owns authenticated player binding,
 sequence checks, movement expiration and acknowledgements.
 [The protocol](coop-protocol.bend) owns command framing and canonical numeric

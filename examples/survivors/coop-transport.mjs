@@ -52,7 +52,7 @@ export class CoopTransport {
       this.#emit({ ...event, bytes: event.bytes.slice() });
     } else this.#emit(event);
   }
-  send(payload) {
+  send(payload, { confirmDelivery = false } = {}) {
     if (this.#closed || !this.#connected) return Promise.reject(Error('No peer is connected.'));
     if (typeof payload === 'string') payload = new TextEncoder().encode(payload);
     if (!(payload instanceof Uint8Array)) return Promise.reject(TypeError('Expected bytes or UTF-8 text.'));
@@ -63,7 +63,7 @@ export class CoopTransport {
     this.#pending++; this.#pendingBytes += bytes.byteLength;
     const operation = this.#queue.then(async () => {
       if (this.#closed || !this.#connected || epoch !== this.#epoch) throw Error('Connection changed before sending.');
-      await this.#transport.send(bytes);
+      await this.#transport.send(bytes,confirmDelivery);
       if (this.#closed || epoch !== this.#epoch) throw Error('Connection changed while sending.');
       return { peerId: peer, connectionEpoch: epoch, byteLength: bytes.byteLength };
     }).finally(() => {
@@ -71,6 +71,9 @@ export class CoopTransport {
     });
     this.#queue = operation.catch(() => {});
     return operation;
+  }
+  disconnectPeer() {
+    if (!this.#closed) this.#transport?.disconnectPeer();
   }
   close() {
     if (this.#closed) return;

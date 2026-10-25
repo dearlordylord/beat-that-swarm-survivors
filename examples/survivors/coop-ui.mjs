@@ -266,8 +266,10 @@ export class CoopUI {
   }
   status(text, { busy = false, error = false } = {}) {
     this.$('#coop-status').textContent = text;
-    if (this.entryRole === 'guest' && !this.frame)
+    if (this.entryRole === 'guest' && !this.frame) {
       this.$('#coop-join-title').textContent = error ? 'Could not connect' : 'Your place is ready?';
+      this.$('#coop-join-detail').textContent = text || 'Waiting for the host to confirm your place.';
+    }
     this.$('#coop-status').dataset.error = String(error);
     this.$('#coop-play-status').textContent = text;
     for (const selector of ['#coop-host', '#coop-join']) this.$(selector).disabled = busy;

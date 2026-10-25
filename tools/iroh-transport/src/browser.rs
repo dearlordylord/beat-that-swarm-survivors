@@ -245,7 +245,7 @@ impl Transport {
         install(&self.inner, connection)
     }
 
-    pub async fn send(&self, bytes: Vec<u8>) -> Result<(), JsValue> {
+    pub async fn send(&self, bytes: Vec<u8>, confirm_delivery: bool) -> Result<(), JsValue> {
         if bytes.len() > MAX_MESSAGE {
             return Err(failure("Transport payload exceeds 1048576 bytes"));
         }
@@ -268,6 +268,9 @@ impl Transport {
             let mut stream = connection.open_uni().await.map_err(failure)?;
             stream.write_all(&bytes).await.map_err(failure)?;
             stream.finish().map_err(failure)?;
+            if confirm_delivery && stream.stopped().await.map_err(failure)?.is_some() {
+                return Err(failure("Peer rejected the transport frame"));
+            }
             Ok::<(), JsValue>(())
         })
         .await;
@@ -279,6 +282,25 @@ impl Transport {
             return Err(failure("Connection changed while sending"));
         }
         result.map_err(|_| failure("Transport send timed out"))?
+    }
+
+    /// Drop only the current peer, retaining the endpoint and invitation.
+    #[wasm_bindgen(js_name = disconnectPeer)]
+    pub fn disconnect_peer(&self) {
+        let connection = {
+            let mut inner = self.inner.borrow_mut();
+            if inner.closed || inner.connection.is_none() {
+                return;
+            }
+            inner.generation = inner.generation.wrapping_add(1);
+            inner.pending = false;
+            inner.connection.take()
+        };
+        if let Some(connection) = connection {
+            let peer = connection.remote_id().to_string();
+            connection.close(0u32.into(), b"Party connection closed");
+            emit(&self.inner, "disconnected", Some(&peer), Some("Party connection closed"), None);
+        }
     }
 
     pub fn close(&self) {
