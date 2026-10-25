@@ -99,7 +99,12 @@ try {
   // Resolve its actual UI choice before checking that the remaining host moves.
   for (let attempt = 0; attempt < 6; attempt++) {
     const reward = host.locator('#coop-offers [data-choice]:enabled').first();
-    if (await reward.isVisible()) await reward.click();
+    if (await reward.isVisible()) {
+      const round = await host.evaluate(() => globalThis.__coopLatest.roundId);
+      await reward.click();
+      await waitHost(prior => ![1,2].includes(globalThis.__coopLatest?.phase)
+        || globalThis.__coopLatest.roundId !== prior,round,{timeout:15000});
+    }
     await host.locator('#coop-game').focus();
     await host.keyboard.down('ArrowLeft');
     await waitHost(x => globalThis.__coopLatest?.players.find(player => player.id === 0)?.px < x - 5
