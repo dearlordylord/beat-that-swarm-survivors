@@ -40,10 +40,19 @@ const fresh = () => ({
     showDamage: true,
   },
 });
+// PROTOTYPE ONLY: a sample save kept in memory, never in browser storage.
+const prototypeData = new Map();
+const prototypeStorage = {getItem:key=>prototypeData.get(key)??null,setItem:(key,value)=>prototypeData.set(key,String(value)),removeItem:key=>prototypeData.delete(key)};
+const exampleProfile = fresh();
+exampleProfile.gold = 1800;
+Object.assign(exampleProfile.stats,{kills:350,survive:210,levels:12,totalgold:1800,characters:1,stages:1,weapons:4});
+exampleProfile.collection.weapons=[0,1,4,8];exampleProfile.collection.enemies=[0,1,2,3,4,5,6,7];
+exampleProfile.achievements=ACHIEVEMENTS.filter(a=>Object.entries(a.conditions||{[a.condition.stat]:a.condition.value}).every(([key,value])=>(exampleProfile.stats[key]||0)>=value)).map(a=>a.id);
+prototypeStorage.setItem(KEY,JSON.stringify(exampleProfile));
 export function loadProfile() {
   const base = fresh();
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) || "null");
+    const raw = JSON.parse(prototypeStorage.getItem(KEY) || "null");
     if (!raw || raw.version !== 1) return base;
     for (const key of [
       "gold",
@@ -105,7 +114,7 @@ export function loadProfile() {
 }
 export function saveProfile(profile) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(profile));
+    prototypeStorage.setItem(KEY, JSON.stringify(profile));
     return true;
   } catch {
     return false;

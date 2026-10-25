@@ -168,7 +168,7 @@ function menu() {
       ).join("") +
       "</div>";
   } else {
-    html = `<div class="settings"><label class="setting"><div>Music and sound<span>Adaptive chip-metal · responds to nearby danger</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Progress saves automatically in this browser.</p></div>`;
+    html = `<div class="settings"><label class="setting"><div>Music and sound<span>Adaptive chip-metal · responds to nearby danger</span></div><input id="sound" type="checkbox" ${!profile.settings.muted ? "checked" : ""}></label><label class="setting"><div>Volume</div><input id="volume" type="range" min="0" max="1" step=".05" value="${profile.settings.volume}" style="width:160px"></label><label class="setting"><div>Reduced motion<span>Disable decorative animation</span></div><input id="motion" type="checkbox" ${profile.settings.reducedMotion ? "checked" : ""}></label><label class="setting"><div>Damage numbers<span>Show damage above enemies</span></div><input id="damage" type="checkbox" ${profile.settings.showDamage ? "checked" : ""}></label><p>Preview changes stay in memory. Reload to reset.</p></div>`;
   }
   $("#menuContent").innerHTML = html;
   if (previousFocus) {

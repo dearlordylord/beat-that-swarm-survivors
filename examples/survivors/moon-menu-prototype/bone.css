@@ -1,0 +1,118 @@
+/* Bone & Ink — the catalogue of a travelling night archive. */
+body[data-moon-theme="B"] #menu {
+ --accent:#742c3d;--line:#b0a183;--muted:#6c6252;--gold:#754334;
+ color:#e8ddc4;background:radial-gradient(ellipse at 50% 0,#493c32 0,transparent 62%),repeating-linear-gradient(96deg,#231f1c 0 2px,#26211e 2px 4px);
+ font-family:Arial,Helvetica,sans-serif;
+}
+body[data-moon-theme="B"] #menu .menu-header {border-color:#857054;}
+body[data-moon-theme="B"] #menu .menu-brand strong {color:#eee1c5;font:30px Georgia,serif;}
+body[data-moon-theme="B"] #menu .brand-mark {color:#c4aa79;}
+body[data-moon-theme="B"] #menu .menu-brand small,
+body[data-moon-theme="B"] #menu .source-links a,
+body[data-moon-theme="B"] #menu footer {color:#c0ae93;}
+body[data-moon-theme="B"] #menu #wallet {color:#e0c89b;border-bottom:1px solid #766044;padding-bottom:12px;}
+body[data-moon-theme="B"] #menu .expedition {color:#e9dec7;--line:#a69b83;--accent:#772e40;}
+body[data-moon-theme="B"] #menu h1,
+body[data-moon-theme="B"] #menu h2,
+body[data-moon-theme="B"] #menu h3 {font-family:Georgia,'Times New Roman',serif;}
+body[data-moon-theme="B"] #menu .eyebrow,
+body[data-moon-theme="B"] #menu .a-heading .muted,
+body[data-moon-theme="B"] #menu .a-loadout-heading .muted {color:#c8bda4;}
+body[data-moon-theme="B"] #menu .section-title {font:700 13px Georgia,serif;color:#e1cfaa;letter-spacing:.12em;padding-bottom:8px;border-bottom:1px solid #79664b;margin-top:26px;}
+body[data-moon-theme="B"] #menu .a-run-card {border:1px solid #8e7d5d;border-radius:0;background:#e6d9bc;box-shadow:4px 5px 0 #100e0c66;}
+body[data-moon-theme="B"] #menu .a-survivor {background:linear-gradient(115deg,#eee3ca,#d8c9a8);color:#30291f;padding:28px;}
+body[data-moon-theme="B"] #menu .a-survivor .eyebrow,
+body[data-moon-theme="B"] #menu .a-survivor p {color:#665841;}
+body[data-moon-theme="B"] #menu .a-stage-caption {color:#fff0d4;}
+body[data-moon-theme="B"] #menu .a-run-strip {color:#42382a;background:#d6c8aa;border-color:#a89a7c;font-family:Georgia,serif;}
+body[data-moon-theme="B"] #menu .a-run-strip i {color:#887659;}
+body[data-moon-theme="B"] #menu .selection-rows {border:1px solid #b5a586;border-radius:0;background:#e8dcc2;color:#312b23;box-shadow:3px 4px #12100e55;}
+body[data-moon-theme="B"] #menu .selection-item+.selection-item {border-color:#b8aa8f;}
+body[data-moon-theme="B"] #menu .selection-row {min-height:66px;color:#322b22;}
+body[data-moon-theme="B"] #menu .selection-row>span:first-child {color:#76654e;font-size:12px;}
+body[data-moon-theme="B"] #menu .selection-row strong {font:700 16px Georgia,serif;}
+body[data-moon-theme="B"] #menu .change-label {color:#7d2d40;text-decoration:underline;text-underline-offset:4px;}
+body[data-moon-theme="B"] #menu .selection-row:hover {background:#f3e8cf;}
+body[data-moon-theme="B"] #menu .inline-picker {background:#d5c7a9;padding-top:12px;}
+body[data-moon-theme="B"] #menu .card,
+body[data-moon-theme="B"] #menu .choice {
+ position:relative;border:1px solid #a89879;border-radius:0;background:#e9ddc1;color:#302a22;
+ padding:20px;box-shadow:3px 4px 0 #100e0c55;opacity:1;
+}
+body[data-moon-theme="B"] #menu .card::after {
+ content:'';position:absolute;right:0;top:0;width:13px;height:13px;pointer-events:none;
+ background:linear-gradient(45deg,#cab998 0 48%,#a29477 49% 53%,#30281f 54%); 
+}
+body[data-moon-theme="B"] #menu .card h3 {font:700 19px/1.3 Georgia,serif;margin-bottom:10px;padding-right:8px;}
+body[data-moon-theme="B"] #menu .card p,
+body[data-moon-theme="B"] #menu .choice small {font:13px/1.65 Arial,sans-serif;color:#645945;}
+body[data-moon-theme="B"] #menu .card small {font:12px/1.5 Arial,sans-serif;color:#753748;}
+body[data-moon-theme="B"] #menu .choice strong {font:700 16px/1.3 Georgia,serif;}
+body[data-moon-theme="B"] #menu .card .icon {margin-bottom:14px;}
+body[data-moon-theme="B"] #menu button.card:hover,
+body[data-moon-theme="B"] #menu .choice:hover {background:#f4e9d0;border-color:#792f40;}
+body[data-moon-theme="B"] #menu .card.selected,
+body[data-moon-theme="B"] #menu .choice.is-selected {background:#f2e5cb;border:3px double #7c2c40;box-shadow:3px 4px #100e0c55;}
+body[data-moon-theme="B"] #menu .card.selected::before {content:'✓';position:absolute;right:10px;bottom:10px;width:22px;height:22px;border:2px double #7c2c40;border-radius:50%;color:#7c2c40;display:grid;place-items:center;font:700 15px Georgia,serif;transform:rotate(-12deg);}
+body[data-moon-theme="B"] #menu .choice-check {color:#7c2c40;border:2px double #7c2c40;border-radius:50%;min-width:23px;height:23px;display:grid;place-items:center;font-size:14px;}
+body[data-moon-theme="B"] #menu .choice-glyph {color:#773345;}
+body[data-moon-theme="B"] #menu .card.locked,
+body[data-moon-theme="B"] #menu .choice.is-locked {background:repeating-linear-gradient(135deg,#e1d8c3 0 7px,#d9cfb9 7px 8px);opacity:1;color:#625947;}
+body[data-moon-theme="B"] #menu .locked-badge {color:#763348;font-size:12px;line-height:1.5;}
+body[data-moon-theme="B"] #menu .choice.is-inspecting {border-color:#7c2c40;box-shadow:inset 0 0 0 1px #7c2c40;}
+body[data-moon-theme="B"] #menu .unlock-inspector {background:#efe2c6;color:#342b21;border:3px double #7c2c40;border-radius:0;padding:24px;box-shadow:4px 5px #100e0c55;}
+body[data-moon-theme="B"] #menu .unlock-inspector p {color:#695a43;font-size:13px;line-height:1.65;}
+body[data-moon-theme="B"] #menu .unlock-inspector h3 {font:700 24px Georgia,serif;}
+body[data-moon-theme="B"] #menu .purchase-line {border-top:1px solid #aa997b;border-bottom:1px solid #aa997b;padding:12px 0;color:#523b2f;}
+body[data-moon-theme="B"] #menu button:not(.start-button):not(#tabs button):not(.selection-row):not(.card):not(.choice) {border-radius:0;min-height:44px;}
+body[data-moon-theme="B"] #menu .purchase-line .primary,
+body[data-moon-theme="B"] #menu .shop .card button {background:#54303a;color:#f1e3c5;border:3px double #9c7880;font:700 12px Georgia,serif;text-transform:uppercase;letter-spacing:.08em;min-height:44px;padding:9px 14px;box-shadow:none;}
+body[data-moon-theme="B"] #menu .shop .card button {border-top:1px solid #a99a7c;margin-top:18px;}
+body[data-moon-theme="B"] #menu .shop .card button:hover,
+body[data-moon-theme="B"] #menu .purchase-line .primary:hover {background:#753d4a;}
+body[data-moon-theme="B"] #menu button:disabled:not(.start-button) {background:#d1c6ad;color:#776b58;border-color:#a99c83;opacity:1;cursor:not-allowed;}
+body[data-moon-theme="B"] #menu .progress {color:#7b3042;border-block:1px solid #bbac8d;padding:10px 0;margin-top:14px;letter-spacing:4px;}
+body[data-moon-theme="B"] #menu .collection-tabs {gap:6px;padding-bottom:12px;border-bottom:1px solid #79664b;}
+body[data-moon-theme="B"] #menu .collection-tabs button {background:#d8c9aa;color:#4f4030;border:1px solid #a89570;padding:10px 15px;font:700 13px Georgia,serif;}
+body[data-moon-theme="B"] #menu .collection-tabs button.active {background:#703142;color:#f4e6c8;border:3px double #c49c9c;padding:8px 13px;}
+body[data-moon-theme="B"] #menu .collection .card {padding:20px;}
+body[data-moon-theme="B"] #menu .collection .card h3 {font-size:18px;}
+body[data-moon-theme="B"] #menu .recipe {color:#753748!important;border-color:#b5a484;padding-top:12px!important;margin-top:14px;}
+body[data-moon-theme="B"] #menu .achieved {background:#f1e4c9;border:3px double #783344;}
+body[data-moon-theme="B"] #menu .settings {background:#e9ddc3;color:#302a22;border:1px solid #aa9979;box-shadow:5px 6px #100e0c66;padding:12px 28px 22px;}
+body[data-moon-theme="B"] #menu .setting {gap:20px;border-color:#b6a68a;min-height:76px;font:700 17px Georgia,serif;}
+body[data-moon-theme="B"] #menu .setting span {font:12px/1.6 Arial,sans-serif;color:#6a5d48;margin-top:5px;max-width:300px;}
+body[data-moon-theme="B"] #menu .settings>p {font:12px/1.6 Arial,sans-serif;color:#6a5d48;}
+body[data-moon-theme="B"] #menu .setting input {accent-color:#762f41;flex-shrink:0;}
+body[data-moon-theme="B"] #menu .setting input[type="checkbox"] {appearance:none;width:24px;height:24px;border:1px solid #77664b;border-radius:0;background:#f6ebd4;display:grid;place-content:center;cursor:pointer;box-shadow:inset 0 0 0 3px #e3d5b7;}
+body[data-moon-theme="B"] #menu .setting input[type="checkbox"]:checked::before {content:'✓';font:700 23px Georgia,serif;color:#762f41;}
+body[data-moon-theme="B"] #menu .setting input[type="range"] {appearance:none;height:6px;background:#b5a585;border:1px solid #817151;border-radius:0;cursor:pointer;}
+body[data-moon-theme="B"] #menu .setting input[type="range"]::-webkit-slider-thumb {appearance:none;width:20px;height:25px;border:2px solid #4d2933;border-radius:0;background:#873e50;}
+body[data-moon-theme="B"] #menu .setting input[type="range"]::-moz-range-thumb {width:17px;height:22px;border:2px solid #4d2933;border-radius:0;background:#873e50;}
+body[data-moon-theme="B"] #menu .a-bottom {background:#2b2520;border-color:#9d865f;border-radius:0;backdrop-filter:none;box-shadow:0 5px 0 #15110e;}
+body[data-moon-theme="B"] #menu .a-bottom .muted,
+body[data-moon-theme="B"] #menu .a-footer-note,
+body[data-moon-theme="B"] #menu .utility-links button {color:#c8b795;}
+body[data-moon-theme="B"] #menu button:focus-visible:not(.start-button):not(#tabs button),
+body[data-moon-theme="B"] #menu input:focus-visible,
+body[data-moon-theme="B"] #menu a:focus-visible {outline:2px solid #c65d76;outline-offset:4px;}
+body[data-moon-theme="B"] #overlay .dialog {background:#e8dcc1;color:#302a22;border:3px double #7c2c40;border-radius:0;}
+body[data-moon-theme="B"] #overlay .dialog h2 {font-family:Georgia,serif;}
+body[data-moon-theme="B"] #overlay .card {background:#f1e5cc;color:#302a22;border:1px solid #9f8a68;border-radius:0;}
+body[data-moon-theme="B"] #overlay .card p {color:#695a43;}
+body[data-moon-theme="B"] #overlay button {border-radius:0;min-height:44px;background:#693343;color:#f0dfbc;}
+body[data-moon-theme="B"] #overlay button:focus-visible {outline:2px solid #bc506e;outline-offset:4px;}
+@media(max-width:600px) {
+ body[data-moon-theme="B"] #menu .card,body[data-moon-theme="B"] #menu .collection .card {padding:16px;}
+ body[data-moon-theme="B"] #menu .a-survivor {padding:15px 9px;}
+ body[data-moon-theme="B"] #menu .selection-row strong {font-size:13px;}
+ body[data-moon-theme="B"] #menu .selection-row>span:first-child {font-size:11px;}
+ body[data-moon-theme="B"] #menu .choice {padding:14px;}
+ body[data-moon-theme="B"] #menu .choice strong {font-size:16px;}
+ body[data-moon-theme="B"] #menu .choice small {font-size:12px;}
+ body[data-moon-theme="B"] #menu .collection-tabs button {padding-inline:12px;}
+ body[data-moon-theme="B"] #menu .settings {padding:8px 18px 20px;}
+ body[data-moon-theme="B"] #menu .setting {gap:12px;}
+ body[data-moon-theme="B"] #menu .setting input[type="range"] {max-width:125px;}
+ body[data-moon-theme="B"] #menu .unlock-inspector {padding:18px;}
+}
