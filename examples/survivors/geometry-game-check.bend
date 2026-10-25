@@ -34,7 +34,7 @@ def run() -> G.Run:
 def enemy(x:F32,seed:U32) -> G.Snapshot:
   G.EnemySnapshot{Enemy.State{Space.Spatial{x,1000.0,0,6.0},17,seed,Components.Vitals{100,100},Components.Status{0,0}}}
 def shot() -> G.Snapshot:
-  G.ProjectileSnapshot{Shot.State{Space.Spatial{1000.0,1000.0,0,1.0},PL.player_start(),Shot.PlayerShot{},Components.ShotPayload{1,10,True{}},Components.Trajectory{100.0,0.0,10,1,[],0,0}}}
+  G.ProjectileSnapshot{Shot.State{Space.Spatial{1000.0,1000.0,0,1.0},PL.player_start(),Shot.PlayerShot{},Components.ShotPayload{1,10,True{}},Components.Trajectory{100.0,0.0,10,1,[],0,0,Some{0}}}}
 def team(rows:List<&2,G.Snapshot>) -> G.Team:
   G.Team{[G.PlayerView{0,run(),0.0,0.0,True{}}],G.Args{run(),G.enemy_targets([enemy(1080.0,2),enemy(1040.0,1)]),0.0,0.0,rows,[]},G.empty_shot_plan(),BI.Empty{}}
 def selected(team:G.Team) -> List<&2,U32>:

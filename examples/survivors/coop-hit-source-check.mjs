@@ -43,7 +43,7 @@ function shot({
   return {$: 'ProjectileSnapshot', projectile: {
     $: 'State', spatial: {$: 'Spatial', x, y, age, radius}, identity: seed,
     side: {$: 'PlayerShot'}, payload: {$: 'ShotPayload', weapon, damage, active: true},
-    trajectory: {$: 'Trajectory', vx, vy, life: 30, pierce, visited: nil(), ownerBase: owner, logicalSlot: slot},
+    trajectory: {$: 'Trajectory', vx, vy, life: 30, pierce, visited: nil(), weaponOwner: owner, logicalSlot: slot, sourcePlayer: {$:'Some',value:0}},
   }};
 }
 

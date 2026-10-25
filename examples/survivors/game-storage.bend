@@ -55,7 +55,7 @@ def put_trajectory(rest: TrajectoryRest,motions: Col.Column<Schema,Components.Tr
     case TrajectoryRest{bodies,vitals,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}: Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}
 def project_trajectory(value: Components.Trajectory) -> Components.Trajectory & Components.Trajectory:
   match value:
-    case Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+ownerBase,+logicalSlot}: (Components.Trajectory{vx,vy,life,pierce,visited,ownerBase,logicalSlot},Components.Trajectory{vx,vy,life,pierce,visited,ownerBase,logicalSlot})
+    case Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+ownerBase,+logicalSlot,+sourcePlayer}: (Components.Trajectory{vx,vy,life,pierce,visited,ownerBase,logicalSlot,sourcePlayer},Components.Trajectory{vx,vy,life,pierce,visited,ownerBase,logicalSlot,sourcePlayer})
 def trajectory_family() -> C.Family<Schema,Store,TrajectoryRest,Components.Trajectory,Components.Trajectory,TrajectoryToken,take_trajectory,put_trajectory,project_trajectory>: C.Family{"trajectory"}
 def take_status(store: Store) -> StatusRest & Col.Column<Schema,Components.Status>:
   match store:

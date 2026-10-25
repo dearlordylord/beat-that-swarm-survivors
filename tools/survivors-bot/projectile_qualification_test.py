@@ -12,6 +12,8 @@ def sample():
     def rows(values):
         return [[i+1, v, copy.deepcopy(F.STAMP if v is not None else [None, None])]
                 for i, v in enumerate(values)]
+    for row in c['trajectories']:
+        if row[1] is not None: row[1].append(0 if c['roles'][row[0]-1][1]=='PlayerProjectileSlot' else None)
     c['shots'] = rows([[1, 17, 1] if role[1] in P.PROJECTILE_ROLES else None for role in c['roles']])
     c['spaces'] = rows([[0, 0, 10, 0] for _ in c['roles']])
     c['identities'] = rows(list(range(F.LAYOUT['totalCount'])))
@@ -53,7 +55,7 @@ class ProjectileQualification(unittest.TestCase):
 
     def test_typed_snapshot_has_no_hidden_fields_or_unknown_side(self):
         value = dict(spatial=[0,0,0,0], identity=2, side='player', payload=[1,17,1],
-                     trajectory=[0,0,10,2,[],7,65538])
+                     trajectory=[0,0,10,2,[],7,2,1])
         P.state(value)
         for changed in ({**value, 'health': 17}, {**value, 'side': 'unknown'}):
             with self.assertRaises(R.ReplayError):

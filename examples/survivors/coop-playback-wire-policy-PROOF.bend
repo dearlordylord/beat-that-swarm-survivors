@@ -7,14 +7,16 @@ import ../../vendor/bendlib/packages/bend-mathlib/list.bend as F
 def L.enemy_generation_exact(seed,born,weapon,slot):
   {==}
 
-def L.projectile_generation_exact(seed,born,weapon,slot):
+def L.projectile_generation_exact(seed,born,weapon,slot,sourcePlayer):
   {==}
 
 def L.hostile_generation_exact(seed,born,weapon,slot):
   {==}
 
-def L.visual_owner_exact(kind,slot):
-  {==}
+def L.visual_owner_exact(sourcePlayer):
+  match sourcePlayer:
+    case None{}: {==}
+    case Some{_}: {==}
 
 def L.player_projection_exact(id,character,x,y,hp,connected):
   {==}
@@ -22,7 +24,7 @@ def L.player_projection_exact(id,character,x,y,hp,connected):
 def L.body_liveness_exact(kind,hp,life,pierce):
   {==}
 
-def L.body_projection_exact(seed,kind,born,weapon,slot,x,y,age,hp,life,pierce):
+def L.body_projection_exact(seed,kind,born,weapon,slot,sourcePlayer,x,y,age,hp,life,pierce):
   {==}
 
 def L.birth_lookup_exact(births,tick,age,seed):
