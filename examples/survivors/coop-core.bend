@@ -507,7 +507,7 @@ def core_team_ready(shared: RS.Session,refs:List<&2,PlayerRef>,round:U32,world:S
 def core_team(+shared: RS.Session,+refs: List<&2,PlayerRef>,+bodies: List<&2,Components.Body>,+snapshots: List<&2,G.Snapshot>,round: U32,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,views: List<&2,G.PlayerView>) -> CorePacket:
   match views:
     case []: CoreFailed{"No connected player in active match"}
-    case +first <> +rest: core_team_ready(shared,refs,round,world,players,G.Team{first <> rest,G.combat_args(G.view_run(G.first_view(first <> rest,G.view_run(first))),bodies,0.0,0.0,snapshots),G.team_plan(first <> rest,snapshots),G.effect_origin_index(snapshots)})
+    case +first <> +rest: core_team_ready(shared,refs,round,world,players,G.Team{first <> rest,G.combat_args(G.view_run(G.first_view(first <> rest,G.view_run(first))),0.0,0.0,snapshots),G.team_plan(first <> rest,snapshots),G.effect_origin_index(snapshots)})
 def step_loaded(+shared: RS.Session,refs: List<&2,PlayerRef>,bodies: List<&2,Components.Body>,snapshots: List<&2,G.Snapshot>,round: U32,dx0: F32,dy0: F32,dx1: F32,dy1: F32,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
     case (world,+players): core_team(shared,refs,bodies,snapshots,round,world,players,player_views(shared,dx0,dy0,dx1,dy1,players))

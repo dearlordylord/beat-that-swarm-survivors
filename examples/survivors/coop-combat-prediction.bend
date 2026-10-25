@@ -1,4 +1,5 @@
 import Base
+import enemy-combat.bend as Enemy
 import game-components.bend as Components
 import projectile-state.bend as Shot
 import ./game.bend as G
@@ -23,9 +24,9 @@ import ./coop-combat-broadphase.bend as Broadphase
 type Scene is Data: Scene{own:U32,players:List<&2,G.PlayerSnapshot>,snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool}
 def active(snapshot:G.Snapshot) -> Bool:
   match snapshot:
-    case G.Snapshot{Components.Body{_,_,+kind,_,hp,_,_,_,_},G.Motion{_,_,life,pierce,_,_,_,_,_}}:
-      Bool.and(Policy.cohort_kind(kind),Bool.pick(Bool,U32.is_eq(kind,0),U32.is_gt(hp,0),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))))
+    case G.EnemySnapshot{Enemy.State{_,_,_,Components.Vitals{health,_},_}}: U32.is_gt(health,0)
     case G.ProjectileSnapshot{state}: Shot.active(state)
+    case _: False{}
 def add_snapshot(allowed:Bool,row:G.Snapshot,tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match allowed:
     case False{}: tail
@@ -50,6 +51,8 @@ def normalize_snapshot(value:G.Snapshot) -> G.Snapshot:
     case G.Snapshot{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}}:
       G.Snapshot{Components.Body{Policy.normalize(x),Policy.normalize(y),kind,variant,hp,maximum,age,seed,Policy.normalize(radius)},G.Motion{Policy.normalize(vx),Policy.normalize(vy),life,pierce,visited,slow,burn,owner,slot}}
     case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}}: G.ProjectileSnapshot{Shot.State{Space.Spatial{Policy.normalize(x),Policy.normalize(y),age,Policy.normalize(radius)},identity,side,payload,Components.Trajectory{Policy.normalize(vx),Policy.normalize(vy),life,pierce,visited,owner,slot}}}
+    case G.EnemySnapshot{Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,vitals,status}}: G.EnemySnapshot{Enemy.State{Space.Spatial{Policy.normalize(x),Policy.normalize(y),age,Policy.normalize(radius)},archetype,identity,vitals,status}}
+    case G.PickupSnapshot{pickup}: G.PickupSnapshot{pickup}
 def normalize_snapshots(rows:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
@@ -64,15 +67,9 @@ def diagnostic_history(enabled:Bool,contacts:List<&2,Policy.Witness>) -> List<&2
 def with_diagnostics(scene:Scene,+enabled:Bool) -> Scene:
   match scene:
     case Scene{own,players,snapshots,births,directions,contacts,tick,_}: Scene{own,players,snapshots,births,directions,diagnostic_history(enabled,contacts),tick,enabled}
-def bodies(rows:List<&2,G.Snapshot>) -> List<&2,Components.Body>:
-  match rows:
-    case []: []
-    case G.Snapshot{body,_} <> tail: body <> bodies(tail)
-    case _ <> tail: bodies(tail)
 def body_seed(body:Components.Body) -> U32:
   match body:
     case Components.Body{_,_,_,_,_,_,_,seed,_}: seed
-
 def find_run(players:List<&2,G.PlayerSnapshot>,+id:U32) -> Maybe<&2,G.Run>:
   match players:
     case []: None{}
@@ -123,19 +120,19 @@ def future_plan(reference:Bool,+players:List<&2,G.PlayerView>,snapshots:List<&2,
     case True{}: G.team_plan(players,snapshots)
     case False{}: future_plan_selected(may_fire_any(G.living_views(players)),players,snapshots)
 def raw_team(reference:Bool,+players:List<&2,G.PlayerView>,+snapshots:List<&2,G.Snapshot>,own:U32,+fallback:G.Run) -> G.Team:
-  G.Team{players,G.Args{G.view_run(G.first_view(players,fallback)),G.enemy_targets(bodies(snapshots)),0.0,0.0,snapshots,[]},future_plan(reference,players,snapshots),G.effect_origin_index(snapshots)}
+  G.Team{players,G.Args{G.view_run(G.first_view(players,fallback)),G.enemy_targets(snapshots),0.0,0.0,snapshots,[]},future_plan(reference,players,snapshots),G.effect_origin_index(snapshots)}
 type Moving is Data: Moving{targets:List<&2,Contact.Target>,bodies:BI.Index<Space.Spatial>}
 type Prepared is Data: Prepared{team:G.Team,targets:List<&2,Contact.Target>,moved:BI.Index<Space.Spatial>,next:BI.Index<Projectile.Shot>}
 def freeze_moved(+seed:U32,+previous:Space.Spatial,+moved:Space.Spatial,state:Moving) -> Moving:
   match state:
     case Moving{targets,index}: Moving{G.contact_spatial(seed,previous,moved) <> targets,BI.insert(~Space.Spatial,index,seed,moved)}
-def freeze_enemy(+team:G.Team,body:Components.Body,motion:G.Motion,state:Moving) -> Moving:
-  match body motion:
-    case Components.Body{+x,+y,_,variant,_,_,+age,seed,+radius} G.Motion{_,_,_,_,_,slow,_,_,_}: freeze_moved(seed,Space.Spatial{x,y,age,radius},G.team_move_space(team,Space.Spatial{x,y,age,radius},variant,slow),state)
+def freeze_enemy(+team:G.Team,enemy:Enemy.State,state:Moving) -> Moving:
+  match enemy:
+    case Enemy.State{+space,archetype,identity,_,Components.Status{slow,_}}: freeze_moved(identity,space,G.team_move_space(team,space,archetype,slow),state)
 def freeze_movement(rows:List<&2,G.Snapshot>,+team:G.Team) -> Moving:
   match rows:
     case []: Moving{[],BI.Empty{}}
-    case G.Snapshot{Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion} <> tail: freeze_enemy(team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion,freeze_movement(tail,team))
+    case G.EnemySnapshot{enemy} <> tail: freeze_enemy(team,enemy,freeze_movement(tail,team))
     case _ <> tail: freeze_movement(tail,team)
 def freeze_shot(+team:G.Team,+state:Shot.State,index:BI.Index<Projectile.Shot>) -> BI.Index<Projectile.Shot>:
   match state:
@@ -194,6 +191,8 @@ def row_snapshot(row:G.EntityRow,tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot
   match row:
     case G.EntityRow{G.Row{+body,_,_,_,_,_,_,_},+motion}: add_snapshot(active(G.Snapshot{body,motion}),G.Snapshot{body,motion},tail)
     case G.ProjectileRow{Shot.Outcome{+state,_}}: add_snapshot(active(G.ProjectileSnapshot{state}),G.ProjectileSnapshot{state},tail)
+    case G.EnemyRow{outcome,_}: G.enemy_snapshot(outcome,tail)
+    case G.PickupRow{_}: tail
 def projectile_row(+team:G.Team,snapshot:G.Snapshot) -> G.EntityRow:
   match snapshot:
     case G.ProjectileSnapshot{+state}: G.team_projectile_role(Role.assigned(Shot.identity(state)),team,state)
@@ -233,21 +232,18 @@ def spawned_assignments(index:BI.Index<SP.Request>,+team:G.Team) -> List<&2,G.Sn
 def spawned_projectiles(team:G.Team) -> List<&2,G.Snapshot>:
   match team:
     case G.Team{+players,+args,SP.Plan{+index,+count},+origins}: spawned_assignments(index,G.Team{players,args,SP.Plan{index,count},origins})
-def moved_enemy(+team:G.Team,+body:Components.Body,status:Components.Status) -> G.EntityRow:
-  G.team_enemy_updated(team,body,status,G.enemy_update(body,G.view_run(G.team_body_view(team,body))))
-# The phase cache stores only spatial results. Legacy combat input remains
-# local to its existing boundary until the enemy combat slice replaces it.
-def enemy_combat_input(+team:G.Team,+body:Components.Body,motion:G.Motion) -> Components.Body:
-  match body motion:
-    case Components.Body{+x,+y,_,variant,_,_,+age,_,+radius} G.Motion{_,_,_,_,_,slow,_,_,_}: G.body_at_spatial(body,G.team_move_space(team,Space.Spatial{x,y,age,radius},variant,slow))
-def enemy_row(+team:G.Team,body:Components.Body,+motion:G.Motion) -> G.EntityRow:
-  match body:
-    case Components.Body{+x,+y,_,+variant,+hp,+maximum,+age,+seed,+radius}:
-      moved_enemy(team,enemy_combat_input(team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion),G.status_of(motion))
+def moved_enemy(+team:G.Team,+enemy:Enemy.State) -> G.EntityRow:
+  match enemy:
+    case Enemy.State{Space.Spatial{x,y,_,_},_,_,_,_}: G.enemy_row(G.enemy_effects_indexed(G.effect_players(G.team_views(team)),x,y,enemy,G.team_hits(team),G.team_origins(team)))
+def enemy_combat_input(+team:G.Team,enemy:Enemy.State) -> Enemy.State:
+  match enemy:
+    case Enemy.State{space,+archetype,identity,vitals,+status}: Enemy.State{G.team_move_space(team,space,archetype,G.enemy_status_slow(status)),archetype,identity,vitals,status}
+def enemy_row(+team:G.Team,enemy:Enemy.State) -> G.EntityRow:
+  moved_enemy(team,enemy_combat_input(team,enemy))
 def existing_enemies(rows:List<&2,G.Snapshot>,+team:G.Team) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case G.Snapshot{Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion} <> tail: row_snapshot(enemy_row(team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion),existing_enemies(tail,team))
+    case G.EnemySnapshot{enemy} <> tail: row_snapshot(enemy_row(team,enemy),existing_enemies(tail,team))
     case _ <> tail: existing_enemies(tail,team)
 type Recipients is Data: Recipients{all:List<&2,G.HitPlan>,index:BI.Index<List<&2,G.HitPlan>>,areas:Bool}
 def hit_plan_targets(plan:G.HitPlan) -> List<&2,U32>:
@@ -303,50 +299,47 @@ def recipient_reference_selected(areas:Bool,+rows:List<&2,G.HitPlan>,key:U32) ->
     case False{}: recipient_filter(rows,key)
 def recipient_hits_reference(+rows:List<&2,G.HitPlan>,key:U32) -> List<&2,G.HitPlan>:
   recipient_reference_selected(has_area(rows),rows,key)
-def recipient_point_hit(body:Components.Body,plan:G.HitPlan) -> Bool:
-  match body plan:
-    case Components.Body{ex,ey,_,_,_,_,_,seed,r} G.HitPlan{_,_,_,x,y,radius,area,targets}: G.hit_recipient(area,targets,seed,ex,ey,r,x,y,radius)
-def recipient_point_filter(rows:List<&2,G.HitPlan>,+body:Components.Body) -> List<&2,G.HitPlan>:
+def recipient_point_hit(enemy:Enemy.State,plan:G.HitPlan) -> Bool:
+  match enemy plan:
+    case Enemy.State{Space.Spatial{ex,ey,_,r},_,identity,_,_} G.HitPlan{_,_,_,x,y,radius,area,targets}: G.hit_recipient(area,targets,identity,ex,ey,r,x,y,radius)
+def recipient_point_filter(rows:List<&2,G.HitPlan>,+body:Enemy.State) -> List<&2,G.HitPlan>:
   match rows:
     case []: []
     case +head <> tail: G.effect_source_hit(recipient_point_hit(body,head),head,recipient_point_filter(tail,body))
 # The area's exact resolver reads the body AFTER this tick's movement and
 # BEFORE hit effects. Filtering preserves original plan order and multiplicity.
-def recipient_hits_at(recipients:Recipients,+moved:Components.Body) -> List<&2,G.HitPlan>:
-  match recipients:
-    case Recipients{all,_,True{}}: recipient_point_filter(all,moved)
-    case Recipients{_,index,False{}}: BI.get(~List<&2,G.HitPlan>,index,body_seed(moved),[])
+def recipient_hits_at(recipients:Recipients,+moved:Enemy.State) -> List<&2,G.HitPlan>:
+  match recipients moved:
+    case Recipients{all,_,True{}} _: recipient_point_filter(all,moved)
+    case Recipients{_,index,False{}} Enemy.State{_,_,identity,_,_}: BI.get(~List<&2,G.HitPlan>,index,identity,[])
 def empty_effects(rows:List<&2,G.HitPlan>,status:Components.Status) -> Bool:
   match rows status:
     case [] Components.Status{slow,burn}: Bool.and(U32.is_eq(slow,0),U32.is_eq(burn,0))
     case _ _: False{}
-def moved_enemy_selected(fast:Bool,+team:G.Team,+body:Components.Body,status:Components.Status) -> G.EntityRow:
+def moved_enemy_selected(fast:Bool,+team:G.Team,enemy:Enemy.State) -> G.EntityRow:
   match fast:
-    # Scene retains only Body/Motion, never Row.hit or awards. With no incoming
-    # effect/status, enemy_update leaves Body unchanged; evaluating its discarded
-    # player-contact payload would add a second nearest-player search per enemy.
-    case True{}: G.EntityRow{G.Row{body,0,0,0,0,0,0,0},G.empty_motion()}
-    case False{}: moved_enemy(team,body,status)
-def moved_enemy_hits(+team:G.Team,+body:Components.Body,+status:Components.Status,+hits:List<&2,G.HitPlan>) -> G.EntityRow:
-  moved_enemy_selected(empty_effects(hits,status),G.contact_team_ready(team,hits),body,status)
-def moved_enemy_recipients(team:G.Team,+body:Components.Body,motion:G.Motion,recipients:Recipients) -> G.EntityRow:
-  moved_enemy_hits(team,body,G.status_of(motion),recipient_hits_at(recipients,body))
-def enemy_row_indexed(+team:G.Team,body:Components.Body,+motion:G.Motion,+recipients:Recipients) -> G.EntityRow:
-  match body:
-    case Components.Body{+x,+y,_,+variant,+hp,+maximum,+age,+seed,+radius}: moved_enemy_recipients(team,enemy_combat_input(team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion),motion,recipients)
+    case True{}: G.enemy_row(Enemy.Alive{enemy,0})
+    case False{}: moved_enemy(team,enemy)
+def moved_enemy_hits(+team:G.Team,+enemy:Enemy.State,+hits:List<&2,G.HitPlan>) -> G.EntityRow:
+  match enemy:
+    case Enemy.State{_,_,_,_,status}: moved_enemy_selected(empty_effects(hits,status),G.contact_team_ready(team,hits),enemy)
+def moved_enemy_recipients(team:G.Team,+enemy:Enemy.State,recipients:Recipients) -> G.EntityRow:
+  moved_enemy_hits(team,enemy,recipient_hits_at(recipients,enemy))
+def enemy_row_indexed(+team:G.Team,enemy:Enemy.State,recipients:Recipients) -> G.EntityRow:
+  moved_enemy_recipients(team,enemy_combat_input(team,enemy),recipients)
 def existing_enemies_indexed(rows:List<&2,G.Snapshot>,+team:G.Team,+recipients:Recipients) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case G.Snapshot{Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion} <> tail: row_snapshot(enemy_row_indexed(team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion,recipients),existing_enemies_indexed(tail,team,recipients))
+    case G.EnemySnapshot{enemy} <> tail: row_snapshot(enemy_row_indexed(team,enemy,recipients),existing_enemies_indexed(tail,team,recipients))
     case _ <> tail: existing_enemies_indexed(tail,team,recipients)
-def enemy_cached(found:Maybe<&2,Space.Spatial>,+team:G.Team,+body:Components.Body,+motion:G.Motion,+recipients:Recipients) -> G.EntityRow:
-  match found:
-    case None{}: enemy_row_indexed(team,body,motion,recipients)
-    case Some{moved}: moved_enemy_recipients(team,G.body_at_spatial(body,moved),motion,recipients)
+def enemy_cached(found:Maybe<&2,Space.Spatial>,+team:G.Team,enemy:Enemy.State,recipients:Recipients) -> G.EntityRow:
+  match found enemy:
+    case None{} _: enemy_row_indexed(team,enemy,recipients)
+    case Some{moved} Enemy.State{_,archetype,identity,vitals,status}: moved_enemy_recipients(team,Enemy.State{moved,archetype,identity,vitals,status},recipients)
 def existing_enemies_cached(rows:List<&2,G.Snapshot>,+team:G.Team,+recipients:Recipients,+moved:BI.Index<Space.Spatial>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case G.Snapshot{Components.Body{+x,+y,0,+variant,+hp,+maximum,+age,+seed,+radius},motion} <> tail: row_snapshot(enemy_cached(BI.find(~Space.Spatial,moved,seed),team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion,recipients),existing_enemies_cached(tail,team,recipients,moved))
+    case G.EnemySnapshot{+enemy} <> tail: row_snapshot(enemy_cached(BI.find(~Space.Spatial,moved,G.enemy_identity(enemy)),team,enemy,recipients),existing_enemies_cached(tail,team,recipients,moved))
     case _ <> tail: existing_enemies_cached(tail,team,recipients,moved)
 def moved_view_for(views:List<&2,G.PlayerView>,+id:U32) -> Maybe<&2,G.Run>:
   match views:

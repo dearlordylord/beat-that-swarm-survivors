@@ -481,15 +481,15 @@ def contains(rows: List<&2,U32>,+id: U32) -> Bool:
     case head <> rest: Bool.or(U32.is_eq(head,id),contains(rest,id))
 # Frozen phase targets contain only the facts actually read by aiming/firing.
 # This boundary projects the existing observation; actor slices replace its input.
-def enemy_targets(rows: List<&2,Components.Body>) -> Targets.Targets:
+def enemy_targets(rows: List<&2,Snapshot>) -> Targets.Targets:
   match rows:
     case []: Targets.empty()
-    case Components.Body{x,y,0,variant,_,_,age,seed,_} <> rest: Targets.add_enemy(x,y,seed,variant,age,enemy_targets(rest))
+    case EnemySnapshot{Enemy.State{Space.Spatial{x,y,age,_},archetype,identity,_,_}} <> rest: Targets.add_enemy(x,y,identity,archetype,age,enemy_targets(rest))
     case _ <> rest: enemy_targets(rest)
 def combat_args_enemies(run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapshots: List<&2,Snapshot>) -> Args:
   Args{run,targets,dx,dy,snapshots,[]}
-def combat_args(run: Run,bodies: List<&2,Components.Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>) -> Args:
-  combat_args_enemies(run,enemy_targets(bodies),dx,dy,snapshots)
+def combat_args(run: Run,dx: F32,dy: F32,+snapshots: List<&2,Snapshot>) -> Args:
+  combat_args_enemies(run,enemy_targets(snapshots),dx,dy,snapshots)
 def select_hit_targets(selected: Bool,targets: List<&2,U32>) -> List<&2,U32>:
   match selected:
     case True{}: targets
@@ -1575,6 +1575,12 @@ def candidate_state(candidate: EnemyLife.Candidate,status: Components.Status) ->
 def sleeping_enemy(enemy: Enemy.State) -> Enemy.Outcome:
   match enemy:
     case Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,vitals,status}: Enemy.Sleeping{Enemy.State{Space.Spatial{x,y,(age + 1 : U32),radius},archetype,identity,vitals,status}}
+def enemy_identity(enemy: Enemy.State) -> U32:
+  match enemy:
+    case Enemy.State{_,_,identity,_,_}: identity
+def enemy_status_slow(status: Components.Status) -> U32:
+  match status:
+    case Components.Status{slow,_}: slow
 def enemy_old_x(enemy: Enemy.State) -> F32:
   match enemy:
     case Enemy.State{Space.Spatial{x,_,_,_},_,_,_,_}: x
@@ -1813,7 +1819,7 @@ def execute(world: Storage.World(),+args: Args) -> Q.Executed<Storage.World(),Q.
 def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet:
   match state:
     case State{world,Run{RS.Session{0,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+snapshot,_,+snapshots,pending}:
-      executed(Run{RS.Session{0,(tick + 1 : U32),xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{movement_x(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),movement_y(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},execute(world,combat_args(Run{RS.Session{0,(tick + 1 : U32),xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},snapshot,dx,dy,snapshots)))
+      executed(Run{RS.Session{0,(tick + 1 : U32),xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{movement_x(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),movement_y(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},execute(world,combat_args(Run{RS.Session{0,(tick + 1 : U32),xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},dx,dy,snapshots)))
     case state: packet(state)
 def started(+character: U32,+meta: U32,created: W.Creation<Storage.Schema,Storage.Store,Unit,Unit>) -> Packet:
   match created:
