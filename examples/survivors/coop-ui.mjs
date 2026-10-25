@@ -279,6 +279,29 @@ export class CoopUI {
       this.$('#coop-host-actions').hidden = false;
     }
   }
+  diagnostic(report) {
+    for (const selector of ['#coop-status', '#coop-play-status']) {
+      const status = this.$(selector);
+      let panel = status.nextElementSibling;
+      if (!panel?.classList.contains('coop-diagnostic')) {
+        panel = this.document.createElement('section');
+        panel.className = 'coop-diagnostic';
+        const heading = this.document.createElement('strong');
+        heading.textContent = 'Error details';
+        const output = this.document.createElement('pre');
+        const copy = this.document.createElement('button');
+        copy.type = 'button'; copy.textContent = 'Copy error';
+        copy.addEventListener('click', async () => {
+          try { await this.window.navigator.clipboard.writeText(output.textContent); copy.textContent = 'Copied'; }
+          catch { copy.textContent = 'Select and copy the details below'; }
+        });
+        panel.append(heading, copy, output); status.after(panel);
+      }
+      panel.hidden = !report;
+      panel.querySelector('pre').textContent = report ? JSON.stringify(report,null,2) : '';
+      panel.querySelector('button').textContent = 'Copy error';
+    }
+  }
   invitation(ticket) {
     let url;
     try { url = new URL(ticket); } catch {

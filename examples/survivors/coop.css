@@ -26,6 +26,11 @@ html[data-entry=guest] [data-host-ui],html[data-entry=host] [data-guest-ui]{disp
 .coop-note{font:11px/1.7 system-ui,sans-serif;color:#a79aad;margin:19px 0 0}
 #coop-status{font:12px/1.7 system-ui,sans-serif;color:#cfbe96;min-height:20px;margin:22px 0 0}
 #coop-status[data-error=true]{color:#f6a79c}
+.coop-diagnostic{padding:12px;background:#211820;color:#f6c7bc;border:1px solid #925d58;pointer-events:auto}
+.coop-diagnostic[hidden]{display:none}
+.coop-diagnostic button{margin-left:12px}
+.coop-diagnostic pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:30vh;overflow:auto;font:12px/1.5 monospace;user-select:text}
+#coop-play>.coop-diagnostic{position:absolute;left:12px;right:12px;top:100px;z-index:60}
 .coop-room-member{display:flex;align-items:center;gap:13px;padding:17px 0;border-top:1px solid #574353}
 .coop-room-member strong{display:block;font:17px Georgia,serif;color:#e4d6c0}
 .coop-room-member small{display:block;font:11px/1.5 system-ui,sans-serif;color:#b1a2b8;margin-top:5px}

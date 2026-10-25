@@ -12,6 +12,20 @@ let latestSnapshot, sendingSnapshot = false;
 const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
 let deliverySequence = 0, connectionEpoch = 0, connectDeadline;
 let connectionState = Connection.fresh({$:'Guest'}), selectedSetup, hostFrame;
+let failureDiagnostic;
+const buildVersion = fetch('./version.json').then(response => response.json()).catch(() => null);
+function reportFailure(error, source, context = {}) {
+  if (failureDiagnostic) return;
+  const scrub = text => String(text ?? '').replace(/([?&#](?:join|session)=)[^\s&#)]+/g,'$1[redacted]');
+  const report = {source,role,tick,connectionEpoch,message:scrub(error?.message || error),
+    stack:scrub(error?.stack),...context};
+  failureDiagnostic = report; ui.diagnostic(report);
+  buildVersion.then(version => {
+    if (failureDiagnostic !== report) return;
+    if (version?.revision) report.revision = version.revision;
+    ui.diagnostic(report);
+  });
+}
 let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
 let predictionLead = 4, lastRoundTripMs = 0, lastPredictionResync, authorityInputTiming;
 const sentCommandTimes = new Map();
@@ -145,6 +159,7 @@ function signalConnection(signal, envelope) {
 }
 function transportFailure(error) {
   console.error(error);
+  reportFailure(error,'transport');
   signalConnection({$:'Reject',reason:{$:'TransportFailed'}});
 }
 function sendControl(action) {
@@ -179,7 +194,7 @@ function connectionAction(action, envelope) {
         if (!Connection.running(connectionState)) ui.setChoicePending(true);
         signalConnection({$:'SnapshotSeen',token:action.token,observation:action.observation});
       } catch (error) {
-        console.error(error); signalConnection({$:'Reject',reason:{$:'SnapshotFailed'}});
+        console.error(error); reportFailure(error,'snapshot'); signalConnection({$:'Reject',reason:{$:'SnapshotFailed'}});
       }
       break;
     }
@@ -308,7 +323,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
               token:number(envelope.token),observation:number(envelope.observationSeq)},envelope);
           }
         } catch (error) {
-          console.error(error); signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
+          console.error(error); reportFailure(error,'incoming-message'); signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
         }
       } else if (event.type === 'disconnected') {
         connectionEpoch = event.connectionEpoch;
@@ -347,11 +362,15 @@ async function connect(kind, ticket, setup, invitation = {}) {
           const link = new URL(location.href); link.search = '';
           link.searchParams.set('session',String(sessionId)); link.searchParams.set('join',transport.invitation());
           ui.invitation(link.href); ui.status('Send the invitation. Keep this host tab open.');
-        } else if (message.type === 'error') console.error(message.message);
+        } else if (message.type === 'error' && message.connectionEpoch === connectionEpoch) {
+          console.error(message.message, message.stack);
+          reportFailure(message,'host-worker',message.context);
+        }
       };
       worker.onerror = event => {
         if (generation !== epoch) return;
         console.error(event.message || 'Host worker failed');
+        reportFailure(event.error || Error(event.message || 'Host worker failed'),'worker-loader');
         worker?.terminate(); worker = null;
         signalConnection({$:'Reject',reason:{$:'RuntimeFailed'}});
       };
@@ -363,6 +382,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
 }
 function showError(error) { ui.status(error.message || String(error),{error:true}); console.error(error); }
 function cleanup() {
+  failureDiagnostic = null; ui.diagnostic(null);
   epoch++; connectionState = Connection.fresh({$:'Guest'}); hostFrame = null; clearTimeout(connectDeadline); connectionEpoch = 0; pendingCommands.clear(); sentCommandTimes.clear(); stalled = false;
   predictionLead = 4; lastRoundTripMs = 0; lastPredictionResync = null; authorityInputTiming = null;
   prediction = null; authorityFrame = null; combatForecast = null; combatPresentation = null;

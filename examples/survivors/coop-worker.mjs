@@ -25,9 +25,10 @@ function handshake(signal, eventEpoch = Connection.epoch(gate)) {
   return applyConnection(Connection.step(gate,eventEpoch,signal));
 }
 function reject(reason, error) {
+  if (error) postMessage({type:'error',message:error.message,stack:error.stack,connectionEpoch,
+    context:{worldTick:currentWorldTick,queueWorldTick:guestQueue.worldTick,round:currentRound,phase:currentPhase}});
   handshake({$:'Reject',reason:{$:reason}});
   accumulator = 0; guestEligible = false;
-  if (error) postMessage({type:'error',message:error.message,stack:error.stack,connectionEpoch});
 }
 function packet(result) {
   if (result.state) core = result.state;
