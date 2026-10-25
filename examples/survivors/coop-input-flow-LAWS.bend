@@ -271,8 +271,7 @@ law parser_gate_exact:
 # Why it matters: the production packet decoder cannot ignore its count checks.
 law batch_decoding_exact:
   for +rows:List<&2,String>
-  for text:String
-  {F.decode_lines("BSB1" <> rows,text) == F.parse_selected(F.rows_allowed(rows),rows) : Maybe<&2,List<&2,S.Command>>}
+  {F.decode_lines("BSB1" <> rows) == F.parse_selected(F.rows_allowed(rows),rows) : Maybe<&2,List<&2,S.Command>>}
 
 # Guarantees: the public decoder applies the frame-size limit before parsing.
 # Why it matters: bounded helper proofs must cover the actual network entrypoint.
@@ -358,32 +357,23 @@ law empty_row_parser:
 # Why it matters: the network decoder must actually process accepted-size frames.
 law allowed_frame_dispatches:
   for +text:String
-  {F.decode_selected(True{},text) == F.decode_lines(F.lines(text,""),text) : Maybe<&2,List<&2,S.Command>>}
+  {F.decode_selected(True{},text) == F.decode_lines(F.lines(text,"")) : Maybe<&2,List<&2,S.Command>>}
 
-# Independent exact packet dispatch: a batch uses the bounded row parser and
-# any other header is a single existing canonical protocol frame.
-def packet_spec(rows:List<&2,String>,text:String) -> Maybe<&2,List<&2,S.Command>>:
+# Only an explicit bounded batch envelope is accepted at this boundary.
+def packet_spec(rows:List<&2,String>) -> Maybe<&2,List<&2,S.Command>>:
   match rows:
-    case []: F.decoded_single(P.decode(text))
-    case head <> tail: F.decode_kind(String.eq(head,"BSB1"),tail,text)
-# Guarantees: packet dispatch distinguishes batch envelopes from legacy singles.
-# Why it matters: Setup remains reliable while malformed or oversized batches
-# cannot take a permissive fallback path.
+    case []: None{}
+    case head <> tail: F.decode_kind(String.eq(head,"BSB1"),tail)
+# Guarantees: packet dispatch accepts only the batch envelope and its atomic parser.
+# Why it matters: plain single commands cannot bypass canonical delivery framing.
 law packet_dispatch_exact:
   for +rows:List<&2,String>
-  for +text:String
-  {F.decode_lines(rows,text) == packet_spec(rows,text) : Maybe<&2,List<&2,S.Command>>}
+  {F.decode_lines(rows) == packet_spec(rows) : Maybe<&2,List<&2,S.Command>>}
 
-# Guarantees: a single decoded command is preserved as precisely one row.
-# Why it matters: the handshake's Setup command cannot disappear or duplicate.
-law single_command_preserved:
-  for +command:S.Command
-  {F.decoded_single(Some{command}) == Some{[command]} : Maybe<&2,List<&2,S.Command>>}
-
-# Guarantees: a refused single frame stays refused.
-# Why it matters: malformed control bytes cannot become a default command.
-law malformed_single_refuses:
-  {F.decoded_single(None{}) == None{} : Maybe<&2,List<&2,S.Command>>}
+# Guarantees: absent framing cannot produce a command list.
+# Why it matters: empty input must not become a fabricated action.
+law empty_packet_refuses:
+  {F.decode_lines([]) == None{} : Maybe<&2,List<&2,S.Command>>}
 
 def line_spec(text:String,+acc:String) -> List<&2,String>:
   match text:
@@ -408,15 +398,13 @@ law nonready_prepare_preserves:
 # Why it matters: a batch cannot silently become a single-frame fallback.
 law batch_kind_exact:
   for +rows:List<&2,String>
-  for text:String
-  {F.decode_kind(True{},rows,text) == F.parse_selected(F.rows_allowed(rows),rows) : Maybe<&2,List<&2,S.Command>>}
+  {F.decode_kind(True{},rows) == F.parse_selected(F.rows_allowed(rows),rows) : Maybe<&2,List<&2,S.Command>>}
 
-# Guarantees: an unrecognized header uses only the existing strict single codec.
-# Why it matters: Setup compatibility cannot become a permissive batch parser.
-law single_kind_exact:
+# Guarantees: an unrecognized batch header is always refused.
+# Why it matters: Setup and host actions must use the same framed batch codec.
+law unknown_kind_refuses:
   for rows:List<&2,String>
-  for +text:String
-  {F.decode_kind(False{},rows,text) == F.decoded_single(P.decode(text)) : Maybe<&2,List<&2,S.Command>>}
+  {F.decode_kind(False{},rows) == None{} : Maybe<&2,List<&2,S.Command>>}
 
 # Guarantees: newline dispatch selects only its newline branch.
 # Why it matters: command separators cannot be appended to numeric fields.

@@ -1,5 +1,9 @@
 // Node Web Streams check for the browser-compatible snapshot byte codec.
 import assert from 'node:assert/strict';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {decodeControlFrame} from './coop-control-frame.mjs';
+const Connection = (await import(pathToFileURL(resolve(process.argv[2] || 'examples/survivors/dist/web/dist/coop-connection.mjs')))).default;
 import {
   decodeSnapshot,
   encodeSnapshot,
@@ -110,12 +114,31 @@ for (let seed = 1; seed <= 40; seed++) {
   check(textDecoder.decode(await decodeSnapshot(frame)) === text, `UTF-8 text round-trip seed ${seed}`);
 }
 
-const control = textEncoder.encode('BSA1|4294967295|18420');
-equalBytes(await decodeSnapshot(control), control, 'plain ACK/control frames pass through exactly');
+const controlText = Connection.encode_action({$: 'SendHello', version: 1, token: 42});
+const control = textEncoder.encode(controlText);
+assert.deepEqual(decodeControlFrame(control,Connection.decode), {$:'Some',value:{$:'Hello',version:1,token:42}});
+checks++;
+for (const action of [
+  {$:'HelloAckAndSetup',version:1,token:42},
+  {$:'SendReadyAck',token:42,observation:9},
+  {$:'StartAndConfirm',token:42},
+  {$:'CloseConnection',reason:{$:'ProtocolError'}},
+]) {
+  const text = Connection.encode_action(action);
+  assert.deepEqual(decodeControlFrame(textEncoder.encode(text),Connection.decode),Connection.decode(text));
+  assert.equal(Connection.decode(text).$,'Some');
+  checks += 2;
+}
 const plainJson = textEncoder.encode('{"kind":"frame","tick":17}');
-equalBytes(await decodeSnapshot(plainJson), plainJson, 'plain JSON remains backward-compatible');
-const plainCopy = await decodeSnapshot(control);
-check(plainCopy.buffer !== control.buffer, 'plain pass-through returns caller-independent bytes');
+for (const bytes of [control, plainJson, textEncoder.encode('BSA1|9|17')]) {
+  await assert.rejects(decodeSnapshot(bytes), /magic/i);
+  checks++;
+}
+assert.equal(decodeControlFrame(sceneEncoded,Connection.decode).$,'None','compressed frames are not controls');
+assert.equal(decodeControlFrame(plainJson,Connection.decode).$,'None','raw JSON is not a control');
+assert.throws(() => decodeControlFrame(textEncoder.encode('BSC-HS1|S|01'),Connection.decode), /invalid/i);
+assert.throws(() => decodeControlFrame(textEncoder.encode('BSC-HS1|'+'0'.repeat(160)),Connection.decode), /large/i);
+checks += 4;
 await assert.rejects(encodeSnapshot(null), TypeError);
 await assert.rejects(decodeSnapshot(new ArrayBuffer(2)), TypeError);
 checks += 2;
@@ -177,7 +200,9 @@ const ordered = new SnapshotDecoder({
 });
 const orderedJobs = queuedFrames.map(frame => ordered.decode(frame));
 check(orderedStarts.length === 1, 'only the active compressed decode starts');
-equalBytes(await ordered.decode(control), control, 'plain control bypasses the active decode pipeline');
+assert.equal(decodeControlFrame(control,Connection.decode).value.$,'Hello','current control routing bypasses the active snapshot pipeline');
+await assert.rejects(ordered.decode(control), /magic/i);
+checks += 2;
 check(orderedStarts.length === 1, 'plain control does not activate or occupy a compressed job');
 for (let index = 0; index < orderedJobs.length; index++) {
   check(orderedStarts.length === index + 1, 'compressed jobs start in FIFO order without overlap');
@@ -205,7 +230,9 @@ check(overflowJobs.length === 16 &&
 check(overflowCalls.length === 1, 'one compressed job is active while fifteen wait');
 await assert.rejects(blocked.decode(fullSizeFrame), /queue is full/i);
 checks++;
-equalBytes(await blocked.decode(control), control, 'plain controls pass while compressed queue is full');
+assert.equal(decodeControlFrame(control,Connection.decode).value.token,42,'current controls bypass a full snapshot queue');
+await assert.rejects(blocked.decode(control), /magic/i);
+checks += 2;
 for (let index = 0; index < overflowJobs.length; index++) {
   overflowResolvers[index](Uint8Array.of(index));
   equalBytes(await overflowJobs[index], Uint8Array.of(index), `bounded queue completion ${index}`);

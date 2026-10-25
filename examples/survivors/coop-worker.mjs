@@ -98,7 +98,7 @@ function acceptCommand(command, peer) {
     packet(Game.core_choose(core,peer,action.round,action.index));
     publish();
   } else if (action.$ === 'Setup' && peer === 1) {
-    // The model decides both compatibility of a premature legacy Setup and
+    // The model decides whether the handshake is ready for Setup and
     // whether a duplicate Setup can request world preparation.
     if (handshake({$:'Setup'}).$ === 'PrepareWorld') prepareWorld(action);
   }

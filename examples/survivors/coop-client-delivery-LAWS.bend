@@ -372,25 +372,17 @@ law join_lines_cons:
 # Why it matters: ACK-only packets must not require a fabricated input.
 law command_field_absent:
   {D.command_field(["-"]) == Some{[]} : Maybe<&2,List<&2,S.Command>>}
-# Guarantees: standalone legacy receipt text remains a receipt-only payload.
-# Why it matters: handshake rollout does not interpret an ACK as gameplay.
-law fallback_receipt:
-  for +token:U32
-  for +observation:U32
-  for +text:String
-  {D.fallback_receipt(Some{F.Receipt{token,observation}},text) == Some{D.Payload{Some{F.Receipt{token,observation}},[]}} : Maybe<&2,D.Payload>}
-# Guarantees: legacy Setup and batch frames use the existing bounded decoder.
-# Why it matters: compatibility must not introduce permissive command parsing.
-law fallback_commands:
-  for +text:String
-  {D.fallback_receipt(None{},text) == D.assembled(Some{None{}},I.decode(text)) : Maybe<&2,D.Payload>}
+# Guarantees: immediate commands use the same composite and batch framing.
+# Why it matters: Setup and host-local actions cannot require a legacy decoder.
+law encode_command_exact:
+  for +command:S.Command
+  {D.encode_command(command) == "BSC1\n-\n" ++ I.encode_commands([command]) : String}
 # Guarantees: recognized composite frames parse both children before returning a payload.
 # Why it matters: a bad batch must not partially acknowledge a host snapshot.
 law decode_packet_lines:
   for +receipt:String
   for +commands:List<&2,String>
-  for +text:String
-  {D.decode_lines("BSC1" <> receipt <> commands,text) == D.assembled(D.receipt_field(receipt),D.command_field(commands)) : Maybe<&2,D.Payload>}
+  {D.decode_lines("BSC1" <> receipt <> commands) == D.assembled(D.receipt_field(receipt),D.command_field(commands)) : Maybe<&2,D.Payload>}
 # Guarantees: over-budget text is refused before parsing.
 # Why it matters: composite framing cannot permit unbounded host parse work.
 law decode_refused:
@@ -400,7 +392,7 @@ law decode_refused:
 # Why it matters: the composite header cannot bypass atomic child admission.
 law decode_allowed:
   for +text:String
-  {D.decode_selected(True{},text) == D.decode_lines(I.lines(text,""),text) : Maybe<&2,D.Payload>}
+  {D.decode_selected(True{},text) == D.decode_lines(I.lines(text,"")) : Maybe<&2,D.Payload>}
 # Guarantees: the public decoder applies the composite budget.
 # Why it matters: host and worker can share the same complete parse boundary.
 law decode_entry:
@@ -497,17 +489,14 @@ law packet_lines_multi:
 # Why it matters: invalid combined packets must remain invalid.
 law decode_kind_packet:
   for +rows:List<&2,String>
-  for +text:String
-  {D.decode_kind(True{},rows,text) == D.packet_lines(rows) : Maybe<&2,D.Payload>}
-# Guarantees: legacy fallback accepts only bounded receipts or command frames.
-# Why it matters: unknown headers cannot create arbitrary actions.
-law decode_kind_legacy:
-  for +rows:List<&2,String>
-  for +text:String
-  {D.decode_kind(False{},rows,text) == D.fallback_receipt(F.decode_receipt(text),text) : Maybe<&2,D.Payload>}
+  {D.decode_kind(True{},rows) == D.packet_lines(rows) : Maybe<&2,D.Payload>}
+# Guarantees: any noncomposite top-level frame is refused.
+# Why it matters: standalone ACKs and command batches cannot bypass atomic delivery.
+law decode_kind_noncomposite_refuses:
+  for rows:List<&2,String>
+  {D.decode_kind(False{},rows) == None{} : Maybe<&2,D.Payload>}
 # Guarantees: line dispatch uses exact composite header recognition.
 # Why it matters: a good helper cannot hide a broken public packet parser.
 law decode_lines_entry:
   for +rows:List<&2,String>
-  for +text:String
-  {D.decode_lines(rows,text) == D.decode_kind(D.composite(rows),rows,text) : Maybe<&2,D.Payload>}
+  {D.decode_lines(rows) == D.decode_kind(D.composite(rows),rows) : Maybe<&2,D.Payload>}

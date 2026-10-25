@@ -38,7 +38,7 @@ for module in coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coo
   example_emit "$app_dir/$module.bend" "$staging_dir/public/dist/$module.mjs"
 done
 bash "$example_repo/tools/iroh-transport/build.sh" "$staging_dir/public/iroh"
-for asset in style.css browser.mjs renderer.mjs survivor-art.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-controls.mjs menu-content.mjs menu-a.css menu-moon.css coop.css coop-ui.mjs coop-presentation.mjs coop-browser.mjs coop-worker.mjs coop-transport.mjs coop-snapshot-codec.mjs; do
+for asset in style.css browser.mjs renderer.mjs survivor-art.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-controls.mjs menu-content.mjs menu-a.css menu-moon.css coop.css coop-ui.mjs coop-presentation.mjs coop-browser.mjs coop-worker.mjs coop-transport.mjs coop-snapshot-codec.mjs coop-control-frame.mjs; do
   cp "$app_dir/$asset" "$staging_dir/public/$asset"
 done
 if [[ -f "$app_dir/favicon.svg" ]]; then cp "$app_dir/favicon.svg" "$staging_dir/public/"; fi

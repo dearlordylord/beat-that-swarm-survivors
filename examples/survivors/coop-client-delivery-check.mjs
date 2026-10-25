@@ -45,9 +45,17 @@ const batch={$:'Batch',epoch:1,id:1,commands:list([command(1),command(2),command
 const packet={$:'Packet',epoch:1,id:1,batch:{$:'Some',value:batch},receipt:{$:'Some',value:receipt(9,22)}};
 const good=D.encode(packet),bad=good.split('\n');bad[4]+='|bad';
 for(const text of [bad.join('\n'),good.replace('BSA1|9|22','BSA1|09|22'),'BSC1\n-\n','BSC1\nBSA1|9|22\nBSB1\nnot-a-command','X'.repeat(5191)])assert.equal(D.decode(text).$,'None',text.slice(0,40));
-assert.equal(D.decode('BSA1|9|22').value.receipt.value.observation,22,'standalone receipt compatibility');
-const single='BSC1|7|1|1|0|S|0|0|0|0';assert.equal(array(D.decode(single).value.commands).length,1,'plain Setup compatibility');
-const batchText=good.split('\n').slice(2).join('\n');assert.equal(array(D.decode(batchText).value.commands).length,3,'standalone batch compatibility');
+const single='BSC1|7|1|1|0|S|0|0|0|0';
+const batchText=good.split('\n').slice(2).join('\n');
+for(const legacy of ['BSA1|9|22',single,batchText])
+ assert.equal(D.decode(legacy).$,'None','standalone commands, receipts and batches are refused');
+for(const action of [{$:'Setup',character:0,arcana:0,meta:0,allowedWeapons:0},{$:'Movement',x:2,y:1},{$:'Choice',round:1,index:0}]){
+ const value=command(1,0,action),wire=D.encode_command(value),decoded=D.decode(wire);
+ assert.equal(decoded.$,'Some','immediate Setup/host producers use canonical composite framing');
+ assert.deepEqual(array(decoded.value.commands),[value]);assert.equal(decoded.value.receipt.$,'None');
+}
+const batchOnly={$:'Packet',epoch:1,id:3,batch:{$:'Some',value:batch},receipt:{$:'None'}};
+assert.equal(array(roundtrip(batchOnly).commands).length,3,'batch-only composite remains current');
 const tooMany={$:'Packet',epoch:1,id:2,batch:{$:'Some',value:{$:'Batch',epoch:1,id:2,commands:list(Array.from({length:33},(_,i)=>command(i+1)))}},receipt:packet.receipt};assert.equal(D.decode(D.encode(tooMany)).$,'None','33 commands refused without processing good ACK');
 function sharedNative(writeMs,generateMs=10000){
  let state=D.fresh(73),native=null,nextInput=0,seq=0,displayTick=54,blocked=0,maxJournal=0,packets=0,piggybacked=0,late=0,applied=0,lastWorld=-1;

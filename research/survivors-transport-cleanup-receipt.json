@@ -1,0 +1,223 @@
+{
+  "status": "PASS",
+  "scope": "GH9 transport compatibility supporting slice only; not whole ECS cleanup or network qualification",
+  "baseCommit": "060e124cca0016e8956dcdc9bbbbaec79768db95",
+  "nodeVersion": "v24.20.0",
+  "bendBinarySha256": "df7bf5efcbfc30c91276ed48ec4489252920c3a486c76d2bed1acf36ff539515",
+  "lawHashes": {
+    "examples/survivors/coop-client-delivery-LAWS.bend": "dadd04ca9d3403c3842649cb82aa29dbfafd63fd83ee0357f42aa4169938e608",
+    "examples/survivors/coop-input-flow-LAWS.bend": "b0f1821a53b7e6c8c854d024e1e755a7515c6f6ca4a80bde2b4691716035f901"
+  },
+  "approvedDecision": "One canonical composite command envelope, no standalone legacy command/receipt/batch acceptance; compressed-only snapshots with the existing plaintext Connection handshake routed separately.",
+  "blindTranslation": "Independent translation confirmed canonical-only/refusal semantics and subsequent unused-text-parameter/quantifier erasure before final proof acceptance.",
+  "checks": [
+    {
+      "label": "emit-delivery",
+      "command": [
+        "bend",
+        "examples/survivors/coop-client-delivery.bend",
+        "-o",
+        "/tmp/survivors-compat-cleanup/delivery.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/emit-delivery.log"
+    },
+    {
+      "label": "emit-input",
+      "command": [
+        "bend",
+        "examples/survivors/coop-input-flow.bend",
+        "-o",
+        "/tmp/survivors-compat-cleanup/input.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/emit-input.log"
+    },
+    {
+      "label": "emit-connection",
+      "command": [
+        "bend",
+        "examples/survivors/coop-connection.bend",
+        "-o",
+        "/tmp/survivors-compat-cleanup/connection.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/emit-connection.log"
+    },
+    {
+      "label": "delivery",
+      "command": [
+        "node",
+        "examples/survivors/coop-client-delivery-check.mjs",
+        "/tmp/survivors-compat-cleanup/delivery.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/delivery.log"
+    },
+    {
+      "label": "producer",
+      "command": [
+        "node",
+        "examples/survivors/coop-command-framing-check.mjs",
+        "/tmp/survivors-compat-cleanup/delivery.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/producer.log"
+    },
+    {
+      "label": "snapshot",
+      "command": [
+        "node",
+        "examples/survivors/coop-snapshot-codec-check.mjs",
+        "/tmp/survivors-compat-cleanup/connection.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/snapshot.log"
+    },
+    {
+      "label": "dependency",
+      "command": [
+        "python3",
+        "scripts/check-dependencies.py"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/dependency.log"
+    },
+    {
+      "label": "diff",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/diff.log"
+    },
+    {
+      "label": "input",
+      "command": [
+        "node",
+        "examples/survivors/coop-input-flow-check.mjs"
+      ],
+      "environment": {
+        "COOP_FLOW_MODULE": "/tmp/survivors-compat-cleanup/input.mjs"
+      },
+      "exit": 0,
+      "log": "/tmp/survivors-compat-cleanup/input.log"
+    }
+  ],
+  "kernelGate": {
+    "command": [
+      "python3",
+      "scripts/check-bend-laws.py",
+      "examples/survivors/coop-input-flow-PROOF.bend",
+      "examples/survivors/coop-client-delivery-PROOF.bend"
+    ],
+    "exit": 0,
+    "passed": 2,
+    "controls": "kernel refusal and unsafe-proof refusal passed"
+  },
+  "semanticMutants": {
+    "command": [
+      "python3",
+      "scripts/check-bend-mutants.py",
+      "scripts/law-mutants/input-flow.json",
+      "scripts/law-mutants/client-delivery.json"
+    ],
+    "exit": 0,
+    "rejected": 45,
+    "total": 45,
+    "typecheckControl": true,
+    "retainedAtomicBadSuffixControl": true
+  },
+  "snapshotChecks": {
+    "passed": 152,
+    "rawBytes": 155713,
+    "compressedBytes": 15638,
+    "queueJobs": 16,
+    "queueBytes": 16777216,
+    "syntaxValidPlaintextFallbackMutantsDetected": 2
+  },
+  "actualProducerChecks": {
+    "hostActions": 2,
+    "guestSetup": 1,
+    "seam": "Actual browser function source executed with only IO boundaries stubbed and freshly emitted delivery codec"
+  },
+  "limits": [
+    "No real-Iroh browser/network test run in this supporting slice.",
+    "No native gameplay or performance claim.",
+    "Full combined entity integration and fresh whole-refactor qualification remain separate work."
+  ],
+  "artifacts": [
+    {
+      "path": "/tmp/survivors-compat-cleanup/connection.mjs",
+      "bytes": 86409,
+      "sha256": "094c4968f2d4c3d23edb80eba54153a7e8e8e7157b0fd8fe63cf3313d5af5e2a"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/delivery.log",
+      "bytes": 398,
+      "sha256": "fd7650476d730ed40fc1bf19067b375de70d0eb1072db8d7636f0a8ff841c84c"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/delivery.mjs",
+      "bytes": 99611,
+      "sha256": "c156540b070725778e62c4e036ef2b25168bb18eff31bdd87a79bc67e8a16ac7"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/dependency.log",
+      "bytes": 91,
+      "sha256": "cf7adf1a23ceeea739c956eff35be3ca176a181684e549ae4ab0df13e3185001"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/diff.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/emit-connection.log",
+      "bytes": 42,
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/emit-delivery.log",
+      "bytes": 42,
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/emit-input.log",
+      "bytes": 42,
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/input.log",
+      "bytes": 730,
+      "sha256": "0052e7aa116b0c1a4769569b6c90e51d24aa91aa4ee5a09658a3e2a64d42cf73"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/input.mjs",
+      "bytes": 61137,
+      "sha256": "df9e5fe6d3e6d79296baa715a2b1a8e6a19d625c5af8efc9e032bc669241057d"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/producer.log",
+      "bytes": 127,
+      "sha256": "ccebcba75593cda74b2a6445f67dbb331c989721a0f3fd3c49f46344afc161d5"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/snapshot-controls.json",
+      "bytes": 258,
+      "sha256": "552b5853bb4a98f232548a7f8378564fabfa9f08ed1620f21fd8fb06b9d007d9"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/snapshot.log",
+      "bytes": 310,
+      "sha256": "5f271585b71cfafde2178e90fbc7b37a4563cfef9397863a114e66e9a6160375"
+    },
+    {
+      "path": "/tmp/survivors-compat-cleanup/source-manifest.json",
+      "bytes": 2098,
+      "sha256": "b7338e2646ec87cee6b06470a35cbe4394ceb04e351373e1e5e2d17c53d4d083"
+    }
+  ]
+}

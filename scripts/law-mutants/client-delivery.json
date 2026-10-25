@@ -130,8 +130,8 @@
   {
     "label": "bad command suffix still admits good ACK",
     "source": "examples/survivors/coop-client-delivery.bend",
-    "old": "case _ _: None{}\ndef fallback_receipt",
-    "new": "case Some{receipt} None{}: Some{Payload{receipt,[]}}\n    case _ _: None{}\ndef fallback_receipt",
+    "old": "case _ _: None{}\ndef composite",
+    "new": "case Some{receipt} None{}: Some{Payload{receipt,[]}}\n    case _ _: None{}\ndef composite",
     "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
     "law": "assembled_bad_commands"
   },
@@ -158,5 +158,21 @@
     "new": "decode_selected(True{},text)",
     "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
     "law": "decode_entry"
+  },
+  {
+    "label": "standalone delivery enters composite parsing",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "case False{}: None{}\ndef decode_lines",
+    "new": "case False{}: packet_lines(rows)\ndef decode_lines",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "decode_kind_noncomposite_refuses"
+  },
+  {
+    "label": "immediate command producer loses its command",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "I.encode_commands([command])",
+    "new": "I.encode_commands([])",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "encode_command_exact"
   }
 ]

@@ -1,5 +1,4 @@
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
-import Protocol from './dist/coop-protocol.mjs';
 import Connection from './dist/coop-connection.mjs';
 import ClientDelivery from './dist/coop-client-delivery.mjs';
 import SnapshotFlow from './dist/coop-snapshot-flow.mjs';
@@ -10,6 +9,7 @@ import LocalProjectiles from './dist/coop-local-projectiles.mjs';
 import HitJournal from './dist/coop-hit-journal.mjs';
 import { CoopTransport } from './coop-transport.mjs';
 import { encodeSnapshot, SnapshotDecoder } from './coop-snapshot-codec.mjs';
+import { decodeControlFrame } from './coop-control-frame.mjs';
 import { CoopUI } from './coop-ui.mjs';
 let transport, worker, role, sessionId, sequence = 0, tick = 0, epoch = 0;
 let activeSnapshotDecoder;
@@ -225,7 +225,7 @@ function command(action) {
   }
   if (role === 'guest' && prediction && action.$ === 'MovementTick')
     prediction = Prediction.command(prediction,seq,action.x,action.y);
-  return Protocol.encode({$: 'Command', session:sessionId, player:role === 'host' ? 0 : 1,
+  return ClientDelivery.encode_command({$: 'Command', session:sessionId, player:role === 'host' ? 0 : 1,
     seq,intendedTick,action});
 }
 function signalConnection(signal, envelope) {
@@ -441,11 +441,11 @@ async function connect(kind, ticket, setup, invitation = {}) {
           if (kind === 'host' && event.bytes.byteLength > MAX_COMMAND_BYTES) {
             signalConnection({$:'Reject',reason:{$:'ProtocolError'}}); return;
           }
+          const control = decodeControlFrame(event.bytes,Connection.decode);
+          if (control.$ === 'Some') { signalConnection(control.value); return; }
           const bytes = kind === 'guest' ? await messageDecoder.decode(event.bytes) : event.bytes;
           if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return;
           const text = decoder.decode(bytes);
-          const control = Connection.decode(text);
-          if (control.$ === 'Some') { signalConnection(control.value); return; }
           if (kind === 'host') {
             const decoded = ClientDelivery.decode(text);
             if (decoded.$ !== 'Some') { signalConnection({$:'Reject',reason:{$:'ProtocolError'}}); return; }

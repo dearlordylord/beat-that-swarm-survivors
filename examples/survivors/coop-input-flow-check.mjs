@@ -42,7 +42,7 @@ const broken=encoded.split('\n');broken[8]+='|malformed';
 assert.equal(Flow.decode(broken.join('\n')).$, 'None','a malformed middle row refuses the entire batch');
 assert.equal(Flow.decode('X'.repeat(Flow.max_frame_bytes()+1)).$, 'None','oversized frames are refused');
 assert.equal(Flow.decode('BSB1').$, 'None');assert.equal(Flow.decode(encoded+'\n').$, 'None');
-assert.deepEqual(array(Flow.decode(encoded.split('\n')[1]).value),[rows[0]],'legacy single Setup remains supported');
+assert.equal(Flow.decode(encoded.split('\n')[1]).$, 'None','standalone Setup is refused');
 
 let reserved=Flow.fresh(5);
 for(let index=0;index<62;index++){const admitted=Flow.enqueue(reserved,command(index+1,index+1));assert.equal(admitted.accepted,true);reserved=admitted.state;}
