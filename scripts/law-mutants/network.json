@@ -1,0 +1,195 @@
+[
+  {
+    "label": "session-all-deny",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "Bool.and(Bool.not(ended),Bool.and(Bool.or(U32.is_eq(peer,0),connected),",
+    "new": "Bool.and(False{},Bool.and(Bool.or(U32.is_eq(peer,0),connected),",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "policy_exact"
+  },
+  {
+    "label": "session-wrong-peer",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_eq(peer,player)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "policy_exact"
+  },
+  {
+    "label": "session-wrong-session",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_eq(session,claimed)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "policy_exact"
+  },
+  {
+    "label": "session-duplicate-sequence",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_gt(seq,last_seq(lane_at(player,host,guest)))",
+    "new": "U32.is_ge(seq,last_seq(lane_at(player,host,guest)))",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "policy_exact"
+  },
+  {
+    "label": "session-early-expiry",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "      Lane{last,input,applied,tick,received,Bool.pick(U32,U32.is_ge((clock - received : U32),18),1,x),Bool.pick(U32,U32.is_ge((clock - received : U32),18),1,y)}",
+    "new": "      Lane{last,input,applied,tick,received,Bool.pick(U32,U32.is_ge((clock - received : U32),17),1,x),Bool.pick(U32,U32.is_ge((clock - received : U32),17),1,y)}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "expiry_exact"
+  },
+  {
+    "label": "session-ack-later-tick",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "Bool.pick(U32,U32.is_ne(input,applied),tick,priorTick)",
+    "new": "tick",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "applied_exact"
+  },
+  {
+    "label": "reward-all-deny",
+    "source": "examples/survivors/coop-reward-policy.bend",
+    "old": "Bool.and(Bool.and(U32.is_eq(round,requested),contains(required,id)),U32.is_lt(choice,count))",
+    "new": "False{}",
+    "proof": "examples/survivors/coop-reward-policy-PROOF.bend",
+    "law": "admission_exact"
+  },
+  {
+    "label": "reward-stale-accepted",
+    "source": "examples/survivors/coop-reward-policy.bend",
+    "old": "U32.is_eq(round,requested)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-reward-policy-PROOF.bend",
+    "law": "admission_exact"
+  },
+  {
+    "label": "reward-denied-clears-barrier",
+    "source": "examples/survivors/coop-reward-policy.bend",
+    "old": "case False{}: Decision{False{},required}",
+    "new": "case False{}: Decision{False{},[]}",
+    "proof": "examples/survivors/coop-reward-policy-PROOF.bend",
+    "law": "denied_preserves"
+  },
+  {
+    "label": "reward-accepted-preserves-obligation",
+    "source": "examples/survivors/coop-reward-policy.bend",
+    "old": "case True{}: Decision{True{},remove(required,id)}",
+    "new": "case True{}: Decision{True{},required}",
+    "proof": "examples/survivors/coop-reward-policy-PROOF.bend",
+    "law": "accepted_removes"
+  },
+  {
+    "label": "reward-removes-other-player",
+    "source": "examples/survivors/coop-reward-policy.bend",
+    "old": "U32.is_ne(head,id)",
+    "new": "U32.is_eq(head,id)",
+    "proof": "examples/survivors/coop-reward-policy-PROOF.bend",
+    "law": "removal_exact"
+  },
+  {
+    "label": "protocol-oversized-accepted",
+    "source": "examples/survivors/coop-protocol.bend",
+    "old": "case False{}: None{}\n    case True{}: parse_fields(fields(text,\"\"))",
+    "new": "case False{}: parse_fields(fields(text,\"\"))\n    case True{}: parse_fields(fields(text,\"\"))",
+    "proof": "examples/survivors/coop-protocol-PROOF.bend",
+    "law": "oversized_refused"
+  },
+  {
+    "label": "protocol-noncanonical-number",
+    "source": "examples/survivors/coop-protocol.bend",
+    "old": "String.eq(Nat.show(n),digits)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-protocol-PROOF.bend",
+    "law": "parsed_number_exact"
+  },
+  {
+    "label": "session-movement-sequence-not-advanced",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "case Movement{x,y} Lane{_,_,applied,tick,_,_,_}: Lane{seq,seq,applied,tick,clock,x,y}",
+    "new": "case Movement{x,y} Lane{last,_,applied,tick,_,_,_}: Lane{last,seq,applied,tick,clock,x,y}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "public_update_exact",
+    "fails_in": "update_exact"
+  },
+  {
+    "label": "session-malformed-axis",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_le(x,2)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "action_domain_exact"
+  },
+  {
+    "label": "session-zero-choice-round",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_gt(round,0)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "action_domain_exact"
+  },
+  {
+    "label": "session-outside-choice-index",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_lt(index,16)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "action_domain_exact"
+  },
+  {
+    "label": "session-outside-character",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_lt(character,8)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "action_domain_exact"
+  },
+  {
+    "label": "session-outside-arcana",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_lt(arcana,12)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "action_domain_exact"
+  },
+  {
+    "label": "session-outside-weapon-mask",
+    "source": "examples/survivors/coop-session.bend",
+    "old": "U32.is_le(allowed,16777215)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-session-PROOF.bend",
+    "law": "action_domain_exact"
+  },
+  {
+    "label": "pickup-tie-favors-higher-id",
+    "source": "examples/survivors/pickup-policy.bend",
+    "old": "U32.is_lt(candidateId,bestId)",
+    "new": "U32.is_gt(candidateId,bestId)",
+    "proof": "examples/survivors/pickup-selection-PROOF.bend",
+    "law": "distance_order_exact"
+  },
+  {
+    "label": "pickup-dead-player-preferred",
+    "source": "examples/survivors/pickup-policy.bend",
+    "old": "Bool.and(U32.is_lt(0,candidateHp),Bool.or(U32.is_eq(bestHp,0),closer(candidateDistance,bestDistance,candidateId,bestId)))",
+    "new": "Bool.or(U32.is_eq(bestHp,0),closer(candidateDistance,bestDistance,candidateId,bestId))",
+    "proof": "examples/survivors/pickup-selection-PROOF.bend",
+    "law": "dead_candidate_refused"
+  },
+  {
+    "label": "pickup-always-refused",
+    "source": "examples/survivors/pickup-policy.bend",
+    "old": "Bool.and(U32.is_lt(0,candidateHp),Bool.or(U32.is_eq(bestHp,0),closer(candidateDistance,bestDistance,candidateId,bestId)))",
+    "new": "False{}",
+    "proof": "examples/survivors/pickup-selection-PROOF.bend",
+    "law": "living_replaces_dead"
+  },
+  {
+    "label": "pickup-dead-contact-eligible",
+    "source": "examples/survivors/pickup-policy.bend",
+    "old": "Bool.and(U32.is_lt(0,hp),touching)",
+    "new": "touching",
+    "proof": "examples/survivors/pickup-selection-PROOF.bend",
+    "law": "contact_exact"
+  }
+]

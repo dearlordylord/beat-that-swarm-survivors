@@ -1,6 +1,6 @@
 import Base
 import game.bend as G
-import native-profile.bend as P
+import native-economy.bend as P
 import projectile.bend as Shots
 
 # Optional controller facade. All states belong to this compiled module's runtime.

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AudioEngine } from './audio.mjs';
-import Game from './dist/game.mjs';
 
 const param = () => ({ value: 0, ramps: [], setValueAtTime() {}, exponentialRampToValueAtTime(...args) { this.ramps.push(args); }, setTargetAtTime() {} });
 function context() {
@@ -62,20 +61,6 @@ test('pause cancels future notes and resumes their position without wallclock ca
   assert.equal(engine.playing, false);
   engine.stop(true);
   assert.equal(engine.step, 0);
-});
-
-test('shared hysteresis holds instrumentation across rapid threshold oscillations', () => {
-  let target = 1;
-  for (const danger of [249, 251, 248, 252, 249, 251]) {
-    target = Game["music:target_band"](target, danger);
-    assert.equal(target, 1);
-  }
-  target = Game["music:target_band"](target, 650);
-  assert.equal(target, 2);
-  for (const danger of [649, 651, 640, 660]) {
-    target = Game["music:target_band"](target, danger);
-    assert.equal(target, 2);
-  }
 });
 
 test('music-only envelope level leaves established SFX gain unchanged', () => {

@@ -1,0 +1,51 @@
+[
+  {
+    "label": "music-boundary-ignores-latest",
+    "source": "examples/survivors/music.bend",
+    "old": "case True{}: U32.min(3,latest)",
+    "new": "case True{}: active",
+    "proof": "examples/survivors/music/PROOF.bend",
+    "law": "commit_at_any_boundary"
+  },
+  {
+    "label": "music-boundary-shifted",
+    "source": "examples/survivors/music.bend",
+    "old": "boundary(U32.is_eq((step % 16 : U32),0),active,latest)",
+    "new": "boundary(U32.is_eq((step % 16 : U32),1),active,latest)",
+    "proof": "examples/survivors/music/PROOF.bend",
+    "law": "commit_at_any_boundary"
+  },
+  {
+    "label": "music-emergency-ignores-threat",
+    "source": "examples/survivors/music.bend",
+    "old": "case True{}: raw",
+    "new": "case True{}: previous",
+    "proof": "examples/survivors/music/PROOF.bend",
+    "law": "public_emergency_bypasses_ramp"
+  },
+  {
+    "label": "native-voice-budget-ignored",
+    "source": "examples/survivors/native_audio.bend",
+    "old": "def take_voices(fuel: Nat,voices: List<&2,Voice>) -> List<&2,Voice>:\n  match fuel:\n    case 0n: []",
+    "new": "def take_voices(fuel: Nat,voices: List<&2,Voice>) -> List<&2,Voice>:\n  match fuel:\n    case 0n: voices",
+    "proof": "examples/survivors/native-audio/PROOF.bend",
+    "law": "taken_voices_bounded",
+    "fails_in": "taken_bound"
+  },
+  {
+    "label": "native-pause-advances-clock",
+    "source": "examples/survivors/native_audio.bend",
+    "old": "def advance_clock(active: Bool,previous: Nat,now: Nat) -> U32:\n  match active:\n    case True{}: clock_delta(previous,now)\n    case False{}: 0",
+    "new": "def advance_clock(active: Bool,previous: Nat,now: Nat) -> U32:\n  match active:\n    case True{}: clock_delta(previous,now)\n    case False{}: 1",
+    "proof": "examples/survivors/native-audio/PROOF.bend",
+    "law": "paused_clock"
+  },
+  {
+    "label": "native-continuous-voices-discarded",
+    "source": "examples/survivors/native_audio.bend",
+    "old": "case True{} True{}: voices",
+    "new": "case True{} True{}: []",
+    "proof": "examples/survivors/native-audio/PROOF.bend",
+    "law": "uninterrupted_voices"
+  }
+]

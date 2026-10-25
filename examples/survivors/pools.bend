@@ -2,19 +2,19 @@ import Base
 
 # Application allocation layout. Enemy pool includes the reserved relic seed.
 def enemy_count() -> U32: 512
-def enemy_end() -> U32: 512
-def relic_seed() -> U32: 511
-def player_start() -> U32: 512
+def enemy_end() -> U32: enemy_count()
+def relic_seed() -> U32: (enemy_end() - 1 : U32)
+def player_start() -> U32: enemy_end()
 def player_count() -> U32: 512
-def player_end() -> U32: 1024
-def hostile_start() -> U32: 1024
+def player_end() -> U32: (player_start() + player_count() : U32)
+def hostile_start() -> U32: player_end()
 def hostile_count() -> U32: 32
-def hostile_end() -> U32: 1056
-def xp_start() -> U32: 1056
+def hostile_end() -> U32: (hostile_start() + hostile_count() : U32)
+def xp_start() -> U32: hostile_end()
 def xp_count() -> U32: 400
-def xp_end() -> U32: 1456
-def total_count() -> U32: 1456
-def total_nat() -> Nat: 1456n
+def xp_end() -> U32: (xp_start() + xp_count() : U32)
+def total_count() -> U32: xp_end()
+def total_nat() -> Nat: U32.to_nat(total_count())
 def owner_count() -> U32: 24
 def logical_count() -> U32: 8
 def normal_enemy_cap() -> U32: 300
@@ -45,29 +45,15 @@ def enemy_role(inside:Bool,+seed:U32) -> Role:
     case False{}: player_role(U32.is_lt(seed,player_end()),seed)
 def role(+seed:U32) -> Role:
   enemy_role(U32.is_lt(seed,enemy_end()),seed)
-def enemy_flag(role:Role) -> Bool:
-  match role:
-    case Enemy{}: True{}
-    case _: False{}
 def player_flag(role:Role) -> Bool:
   match role:
     case PlayerShot{}: True{}
-    case _: False{}
-def hostile_flag(role:Role) -> Bool:
-  match role:
-    case Hostile{}: True{}
     case _: False{}
 def xp_flag(role:Role) -> Bool:
   match role:
     case Xp{}: True{}
     case _: False{}
-def outside_flag(role:Role) -> Bool:
-  match role:
-    case Outside{}: True{}
-    case _: False{}
-def is_enemy_pool(seed:U32) -> Bool: enemy_flag(role(seed))
 def is_player_shot(seed:U32) -> Bool: player_flag(role(seed))
-def is_hostile(seed:U32) -> Bool: hostile_flag(role(seed))
 def is_xp(seed:U32) -> Bool: xp_flag(role(seed))
 
 # Per-weapon live caps for the local 24-weapon catalogue, not a claim of
@@ -115,5 +101,9 @@ def weapon_capacity(base:U32) -> Capacity:
 
 def weapon_cap(base:U32) -> U32: capacity_value(weapon_capacity(base))
 
-def caps() -> List<&2,U32>:
-  [60,60,70,40,50,60,60,50,60,40,60,60,60,60,60,60,60,60,60,40,40,40,50,60]
+# The exported table is generated from the same source as individual queries.
+def caps_go(left:Nat,+base:U32) -> List<&2,U32>:
+  match left:
+    case 0n: []
+    case 1n+rest: weapon_cap(base) <> caps_go(rest,(base + 1 : U32))
+def caps() -> List<&2,U32>: caps_go(U32.to_nat(owner_count()),0)

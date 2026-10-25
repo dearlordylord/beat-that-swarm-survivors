@@ -9,6 +9,5 @@ have separate meanings; callers must provide availability from the same frame.
 allocator contract. They do not prove that a caller supplied genuinely free
 identities, whole-game equivalence or correctness of the Patricia index.
 
-[`allocator.test.mjs`](allocator.test.mjs) compares emitted Bend against an
-independent sequential model. Its optional first argument selects the emitted
-module.
+Run the repository [Bend law gate](../../../scripts/check-bend-laws.py) and
+[semantic mutation gate](../../../scripts/check-bend-mutants.py) for validation.

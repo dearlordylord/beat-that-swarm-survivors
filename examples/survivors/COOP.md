@@ -21,7 +21,7 @@ awarding accumulated gold or wins. This UI does not invent rewards for those cas
 frames from `coop-browser.mjs`; it does not advance gameplay. The renderer draws
 all observed players and marks distant teammates on the map.
 
-Co-op presentation interpolates received positions with a 50 ms display buffer.
+[Co-op presentation](coop-presentation.mjs) interpolates received positions using its configured display buffer.
 It never predicts beyond the newest observation, and never changes the frames
 used for rewards, progression, audio or the HUD. New/recycled actors and large
 position jumps snap to their observed positions.
@@ -30,17 +30,16 @@ position jumps snap to their observed positions.
 
 From the repository root, install the browser build prerequisites described in
 [README.md](README.md), then run `node examples/survivors/launch.mjs`. Open
-`http://127.0.0.1:8713/coop.html`. The launcher builds current sources every time.
+the co-op URL printed by the launcher. The launcher builds current sources every time.
 Remote browser clients require HTTPS; use the public site for invitations between
 devices. Native solo launch remains independent of Node and the Iroh toolchain.
 
 ## Checks
 
-Run `check-coop-session.sh`, `check-coop-physical.sh`, `check-coop-effects.sh`,
-`check-coop-solo.sh`, `check-coop-mechanics.sh` and `check-coop-game.sh` from this
-directory or with their repository-relative paths. The browser check is
-`COOP_URL=http://127.0.0.1:8713/coop.html node examples/survivors/coop-browser-smoke.mjs`
-from the repository root; it requires Playwright and uses real public relays.
+Run `bash examples/survivors/check.sh` from the repository root for the
+[proof and mutation gates](coop-session-README.md) and JavaScript host checks.
+The [browser smoke check](coop-browser-smoke.mjs) accepts the served co-op URL
+through `COOP_URL`; it requires Playwright and uses real public relays.
 
 The initial browser check uses two isolated contexts on one machine. It verifies
 shared-world input, map behavior and guest departure; it does not qualify different

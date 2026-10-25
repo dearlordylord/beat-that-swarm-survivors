@@ -1,4 +1,5 @@
 import Base
+import ../pools/SPEC.bend as PoolSpec
 import ../entity-role.bend as R
 import ../pools.bend as P
 
@@ -13,21 +14,21 @@ law relic_retains_enemy_storage:
 law projectile_assignment:
   for +role: P.Role
   for seed: U32
-  {R.projectile(R.assigned_role(role,seed)) == Bool.or(P.player_flag(role),P.hostile_flag(role)) : Bool}
+  {R.projectile(R.assigned_role(role,seed)) == Bool.or(P.player_flag(role),PoolSpec.hostile_flag(role)) : Bool}
 
 # Guarantees: each allocated role retains its original enemy responsibility.
 # Why it matters: the immutable role cannot silently exclude a live enemy.
 law enemy_assignment:
   for +role: P.Role
   for seed: U32
-  {R.enemy(R.assigned_role(role,seed)) == P.enemy_flag(role) : Bool}
+  {R.enemy(R.assigned_role(role,seed)) == PoolSpec.enemy_flag(role) : Bool}
 
 # Guarantees: lifecycle responsibility covers the original enemy and XP roles.
 # Why it matters: dormant spawn slots and free XP identities cannot disappear.
 law pool_assignment:
   for +role: P.Role
   for seed: U32
-  {R.pool(R.assigned_role(role,seed)) == Bool.or(P.enemy_flag(role),P.xp_flag(role)) : Bool}
+  {R.pool(R.assigned_role(role,seed)) == Bool.or(PoolSpec.enemy_flag(role),P.xp_flag(role)) : Bool}
 
 # Guarantees: enemy and projectile component responsibilities never overlap.
 # Why it matters: projectile systems cannot acquire enemy health/status storage.
@@ -39,19 +40,19 @@ law disjoint_responsibilities:
 # Why it matters: a correct role adapter cannot excuse a broken setup dispatcher.
 law allocated_enemy:
   for +seed: U32
-  {R.enemy(R.assigned(seed)) == P.is_enemy_pool(seed) : Bool}
+  {R.enemy(R.assigned(seed)) == PoolSpec.is_enemy_pool(seed) : Bool}
 
 # Guarantees: the actual setup entry preserves every projectile allocation role.
 # Why it matters: both player and hostile projectile births require their slots.
 law allocated_projectile:
   for +seed: U32
-  {R.projectile(R.assigned(seed)) == Bool.or(P.is_player_shot(seed),P.is_hostile(seed)) : Bool}
+  {R.projectile(R.assigned(seed)) == Bool.or(P.is_player_shot(seed),PoolSpec.is_hostile(seed)) : Bool}
 
 # Guarantees: the actual setup entry preserves every lifecycle allocation role.
 # Why it matters: a free XP slot must still participate in physical drop routing.
 law allocated_pool:
   for +seed: U32
-  {R.pool(R.assigned(seed)) == Bool.or(P.is_enemy_pool(seed),P.is_xp(seed)) : Bool}
+  {R.pool(R.assigned(seed)) == Bool.or(PoolSpec.is_enemy_pool(seed),P.is_xp(seed)) : Bool}
 
 # Guarantees: the reserved stage objective has a distinct immutable identity.
 # Why it matters: its system must resolve relic pickup rather than enemy admission.
@@ -63,7 +64,7 @@ law reserved_relic:
 law relic_assignment:
   for +role: P.Role
   for +seed: U32
-  {R.relic(R.assigned_role(role,seed)) == Bool.and(P.enemy_flag(role),U32.is_eq(seed,P.relic_seed())) : Bool}
+  {R.relic(R.assigned_role(role,seed)) == Bool.and(PoolSpec.enemy_flag(role),U32.is_eq(seed,P.relic_seed())) : Bool}
 
 # Guarantees: pickup dispatch admits exactly the allocated XP identities.
 # Why it matters: pickups must not receive enemy health or status writers.

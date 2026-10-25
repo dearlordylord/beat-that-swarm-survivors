@@ -1,4 +1,5 @@
 import Base
+import ../pools/SPEC.bend as PoolSpec
 import ../movement-membership.bend as M
 import ../pools.bend as P
 import ../entity-role.bend as R
@@ -32,4 +33,4 @@ law exact_role_scope:
 law assigned_role_equivalence:
   for +kind: U32
   for +seed: U32
-  {M.active_role(R.assigned(seed),kind) == Bool.and(P.is_enemy_pool(seed),U32.is_eq(kind,0)) : Bool}
+  {M.active_role(R.assigned(seed),kind) == Bool.and(PoolSpec.is_enemy_pool(seed),U32.is_eq(kind,0)) : Bool}

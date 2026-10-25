@@ -1,0 +1,106 @@
+[
+  {
+    "label": "browser-upgrade-all-deny",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "pick(boolean(get(upgrade_status(profile,id,catalog),\"canBuy\")),buy_upgrade_ok(profile,id,catalog),JNull{})",
+    "new": "JNull{}",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "upgrade_success_exact"
+  },
+  {
+    "label": "browser-upgrade-free",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "set(set(profile,\"gold\",subtract(get(profile,\"gold\"),upgrade_cost(profile,id,catalog))),\"meta\",",
+    "new": "set(set(profile,\"gold\",get(profile,\"gold\")),\"meta\",",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "upgrade_success_exact"
+  },
+  {
+    "label": "browser-upgrade-two-ranks",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "replace_at(ranks,integer(id),add(at(ranks,integer(id)),one()))",
+    "new": "replace_at(ranks,integer(id),add(at(ranks,integer(id)),natural(2n)))",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "upgrade_success_exact"
+  },
+  {
+    "label": "browser-unlock-all-deny",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "pick(boolean(get(purchase_status(profile,kind,id,catalog),\"canBuy\")),purchase_ok(profile,kind,id,catalog),JNull{})",
+    "new": "JNull{}",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "unlock_success_exact"
+  },
+  {
+    "label": "native-upgrade-all-deny",
+    "source": "examples/survivors/native-economy.bend",
+    "old": "  Bool.and(valid,eligible)\ndef purchase(",
+    "new": "  False{}\ndef purchase(",
+    "proof": "examples/survivors/native-economy/PROOF.bend",
+    "law": "purchase_admission_exact"
+  },
+  {
+    "label": "native-upgrade-free",
+    "source": "examples/survivors/native-economy.bend",
+    "old": "purchased_by(category,profile,id,put(profile,0,(gold(profile) - cost(profile,category,id) : U32)))",
+    "new": "purchased_by(category,profile,id,profile)",
+    "proof": "examples/survivors/native-economy/PROOF.bend",
+    "law": "upgrade_success_exact"
+  },
+  {
+    "label": "native-run-guard-not-cleared",
+    "source": "examples/survivors/native-economy.bend",
+    "old": "case Profile{values,seed,_}: Profile{values,seed,False{}}",
+    "new": "case Profile{values,seed,_}: Profile{values,seed,True{}}",
+    "proof": "examples/survivors/native-economy/PROOF.bend",
+    "law": "begin_clears_only_guard"
+  },
+  {
+    "label": "browser-first-reward-doubled",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "def pay_wallet(awards: Value,old: Value,gained: Value) -> Value:\n  set(awards,\"gold\",add(old,gained))",
+    "new": "def pay_wallet(awards: Value,old: Value,+gained: Value) -> Value:\n  set(awards,\"gold\",add(old,add(gained,gained)))",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "wallet_credit_exact"
+  },
+  {
+    "label": "browser-terminal-receipt-lost",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "set(awards,\"recorded\",JSequence{recent(List.append(&2,Value,history,[signature]))})",
+    "new": "awards",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "receipt_stamp_retained"
+  },
+  {
+    "label": "browser-duplicate-reward-admitted",
+    "source": "examples/survivors/menu-progression.bend",
+    "old": "pick(seen,JObject{[\"profile\",\"added\"],[profile,JSequence{[]}]},paid)",
+    "new": "paid",
+    "proof": "examples/survivors/menu-progression/PROOF.bend",
+    "law": "receipt_decision_exact"
+  },
+  {
+    "label": "native-terminal-rewards-all-denied",
+    "source": "examples/survivors/native-economy.bend",
+    "old": "choose(active,choose(seen(profile,seed),profile,stamp(paid,seed)),profile)",
+    "new": "profile",
+    "proof": "examples/survivors/native-economy/PROOF.bend",
+    "law": "settlement_decision_exact"
+  },
+  {
+    "label": "native-terminal-gold-lost",
+    "source": "examples/survivors/native-economy.bend",
+    "old": "set_gold(profile,(old + gained : U32))",
+    "new": "set_gold(profile,old)",
+    "proof": "examples/survivors/native-economy/PROOF.bend",
+    "law": "wallet_credit_exact"
+  },
+  {
+    "label": "native-terminal-stamp-erases-business",
+    "source": "examples/survivors/native-economy.bend",
+    "old": "case Profile{values,_,_}: Profile{values,seed,True{}}",
+    "new": "case Profile{values,_,_}: Profile{[],seed,True{}}",
+    "proof": "examples/survivors/native-record/PROOF.bend",
+    "law": "receipt_stamp_exact"
+  }
+]

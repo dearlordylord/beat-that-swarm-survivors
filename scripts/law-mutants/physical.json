@@ -1,0 +1,18 @@
+[
+  {
+    "label": "physical-pickup-reintroduces-timer",
+    "source": "examples/survivors/pickup-policy.bend",
+    "old": "  close(x,y,px,py,radius)",
+    "new": "  Bool.or(U32.is_le(120,age),close(x,y,px,py,radius))",
+    "proof": "examples/survivors/coop-game-PROOF.bend",
+    "law": "physical_pickup_exact"
+  },
+  {
+    "label": "physical-pickup-ignores-distance",
+    "source": "examples/survivors/pickup-policy.bend",
+    "old": "  F32.is_le(((x - px) * (x - px) + (y - py) * (y - py) : F32),(radius * radius : F32))",
+    "new": "  True{}",
+    "proof": "examples/survivors/coop-game-PROOF.bend",
+    "law": "physical_close_exact"
+  }
+]

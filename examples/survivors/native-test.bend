@@ -1,7 +1,8 @@
 # Real native UI event flow; upgrade/terminal boundaries are explicitly fabricated.
 import Base
 import native.bend as N
-import native-profile.bend as P
+import native-economy.bend as P
+import native-profile.bend as ProfileIO
 import game.bend as G
 import native-capture.bend as Capture
 
@@ -100,7 +101,7 @@ def abandon_test(state: N.Native) -> IO(N.Native):
         state : N.Native <- check(state,+o => Bool.and(U32.is_eq(N.ui_screen(ui(o)),0),U32.is_eq(P.gold(profile(o)),expected)),"paused Q banks actual expedition gold and returns camp")
         state : N.Native <- N.persist(N.settle(key(113,state)))
         state : N.Native <- check(state,o => U32.is_eq(P.gold(profile(o)),expected),"repeated Q cannot bank expedition twice")
-        loaded : P.Profile <- P.load()
+        loaded : P.Profile <- ProfileIO.load()
         expect(U32.is_eq(P.gold(loaded),expected),"paused Q persists banked gold")
         return key(32,state)
     case state: IO.die(N.Native,1,"Abandon engine failure")
@@ -113,7 +114,7 @@ def terminal_test(state: N.Native) -> IO(N.Native):
         state : N.Native <- check(state,o => U32.is_eq(P.gold(profile(o)),expected),"fabricated terminal boundary awards gold")
         state : N.Native <- N.persist(N.settle(state))
         state : N.Native <- check(state,o => U32.is_eq(P.gold(profile(o)),expected),"terminal repeated frame cannot duplicate reward")
-        loaded : P.Profile <- P.load()
+        loaded : P.Profile <- ProfileIO.load()
         expect(U32.is_eq(P.gold(loaded),expected),"UI dirty profile persisted through native IO")
         return state
 def quit_result(result: Maybe<N.Native>) -> IO(Unit):
