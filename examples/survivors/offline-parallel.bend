@@ -12,7 +12,7 @@ import parallel/scheduler.bend as Scheduler
 type NumericSummary is Data:
   NumericSummary{index: U32,seed: U32,profile: U32,choices: U32,requestedTicks: U32,phase: U32,tick: U32,hp: U32,level: U32,xp: U32,xpNeed: U32,kills: U32,gold: U32,xpPiles: U32,uncollectedBaseXp: U32}
 
-def capture(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,Components.Body>) -> NumericSummary:
+def capture(+index: U32,+seed: U32,+profile: U32,+choices: U32,+ticks: U32,+run: G.Run,+rows: List<&2,G.Snapshot>) -> NumericSummary:
   match run:
     case G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
       NumericSummary{index,seed,profile,choices,ticks,phase,tick,hp,level,xp,xpNeed,kills,gold,Serial.piles(rows),Serial.xp_sum(rows)}
@@ -29,10 +29,10 @@ type Finished is Data:
 def simulate(+fuel: Nat,+ticks: U32,+index: U32,+seed: U32,+profile: U32,observed: Serial.BatchReady) -> Finished:
   match fuel observed:
     case _ Serial.BatchReady{_,Serial.Progress{_,G.Failed{error},_}}: Failed{error}
-    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,rows,_,_,_}},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,rows)}
+    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,_,_,snapshots,_}},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,snapshots)}
     case 0n _: SafetyFuel{}
-    case 1n+rest Serial.BatchReady{False{},Serial.Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending}},choices}}:
-      simulate(rest,ticks,index,seed,profile,Serial.gate(ticks,Serial.next(G.run_phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,choices)))
+    case 1n+rest Serial.BatchReady{False{},Serial.Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending}},choices}}:
+      simulate(rest,ticks,index,seed,profile,Serial.gate(ticks,Serial.next(G.run_phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,choices,snapshots)))
 # Parse profile names on the host once; mode 2 alternates by global job index.
 def profile_mode(name: String) -> U32:
   match name:

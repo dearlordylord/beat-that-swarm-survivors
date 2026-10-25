@@ -1,3 +1,4 @@
+import offline-parallel.bend as Parallel
 import offline-batch.bend as Solo
 import native-full-run.bend as Full
 import run-state.bend as RS
@@ -56,6 +57,9 @@ def pickup_consumers_match(+rows: List<&2,G.Snapshot>) -> Bool:
   Bool.and(Bool.and(U32.is_eq(Solo.piles(rows),2),U32.is_eq(Solo.xp_sum(rows),13)),Bool.and(same_ids(identities(Full.movement_snapshots(False{},rows)),[1056,1,512,1057,1058,0,511]),same_ids(identities(Full.movement_snapshots(True{},rows)),[1056,1,512,1057,1058,0,2,511])))
 def fixture_run() -> G.Run:
   G.Run{RS.Session{0,120,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{7200.0,7200.0,70,70,0,[],[],0,0,0,0,0,0,0,0,0}}
+def parallel_pickups_match(summary: Parallel.NumericSummary) -> Bool:
+  match summary:
+    case Parallel.NumericSummary{_,_,_,_,_,_,_,_,_,_,_,_,_,piles,xp}: Bool.and(U32.is_eq(piles,2),U32.is_eq(xp,13))
 def report_pickup_consumers(ok: Bool) -> IO(Unit):
   match ok:
     case False{}: IO.die(Unit,1,"Typed pickup summary or chest eligibility fixture failed")
@@ -67,4 +71,4 @@ def report_pickup_consumers(ok: Bool) -> IO(Unit):
 def main() -> IO(Unit):
   do IO<Unit>:
     report(Bool.and(all_match(fixtures()),first_timed_boss_matches(EnemySpawn.boss_variant(False{},7200,0))))
-    report_pickup_consumers(pickup_consumers_match(pickup_fixtures()))
+    report_pickup_consumers(Bool.and(pickup_consumers_match(pickup_fixtures()),parallel_pickups_match(Parallel.capture(0,12345,0,0,120,fixture_run(),pickup_fixtures()))))
