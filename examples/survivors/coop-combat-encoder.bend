@@ -1,5 +1,6 @@
 import pickup-encoder.bend as PickupEncoder
 import Base
+import enemy-status-encoder.bend as StatusEncoder
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
 import game-components.bend as Components
@@ -18,8 +19,8 @@ def native_motion(value:G.Motion) -> String:
     case G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}: "{\"$\":\"Motion\",\"vx\":" ++ F32.show(vx) ++ ",\"vy\":" ++ F32.show(vy) ++ ",\"life\":" ++ U32.show(life) ++ ",\"pierce\":" ++ U32.show(pierce) ++ ",\"visited\":" ++ W.native_nums(visited) ++ ",\"slow\":" ++ U32.show(slow) ++ ",\"burn\":" ++ U32.show(burn) ++ ",\"ownerBase\":" ++ U32.show(owner) ++ ",\"logicalSlot\":" ++ U32.show(slot) ++ "}"
 def native_enemy(enemy: Enemy.State) -> String:
   match enemy:
-    case Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,Components.Vitals{health,maximum},Components.Status{slow,burn}}:
-      "{\"$\":\"State\",\"spatial\":{\"$\":\"Spatial\",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"age\":" ++ U32.show(age) ++ ",\"radius\":" ++ F32.show(radius) ++ "},\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"vitals\":{\"$\":\"Vitals\",\"health\":" ++ U32.show(health) ++ ",\"maximum\":" ++ U32.show(maximum) ++ "},\"status\":{\"$\":\"Status\",\"slow\":" ++ U32.show(slow) ++ ",\"burn\":" ++ U32.show(burn) ++ "}}"
+    case Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,Components.Vitals{health,maximum},status}:
+      "{\"$\":\"State\",\"spatial\":{\"$\":\"Spatial\",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"age\":" ++ U32.show(age) ++ ",\"radius\":" ++ F32.show(radius) ++ "},\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"vitals\":{\"$\":\"Vitals\",\"health\":" ++ U32.show(health) ++ ",\"maximum\":" ++ U32.show(maximum) ++ "},\"status\":" ++ StatusEncoder.native(status) ++ "}"
 def native_snapshot(value:G.Snapshot) -> String:
   match value:
     case G.Snapshot{body,motion}: "{\"$\":\"Snapshot\",\"body\":" ++ W.native_body(body) ++ ",\"motion\":" ++ native_motion(motion) ++ "}"

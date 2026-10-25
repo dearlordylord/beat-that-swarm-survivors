@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import enemy-effects.bend as Effect
 import pickup-state.bend as Pickup
 import pickup-xp-pool.bend as PickupPool
 import pickup-from-death.bend as PickupDeath
@@ -52,14 +53,7 @@ type Motion is Data: Motion{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<
 # Movement advances age once; birth and loot lifecycle may reset it explicitly.
 def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0,0,0}
 def empty_trajectory() -> Components.Trajectory: Components.Trajectory{0.0,0.0,0,0,[],0,0,None{}}
-def empty_status() -> Components.Status: Components.Status{0,0}
-def status_of(motion: Motion) -> Components.Status:
-  match motion:
-    case Motion{_,_,_,_,_,slow,burn,_,_}: Components.Status{slow,burn}
-# Geometry/frame transport is reconstructed from Components.Pickup before XP behavior.
-# Stored Components.Body copies never decide the amount, generation, marker or occupancy.
-
-
+def empty_status() -> Components.Status: Components.Status{Effect.empty_slow(),Effect.empty_burn()}
 def routing_world(result: Storage.World() & Unit) -> Storage.World():
   match result:
     case (world,_): world
@@ -569,20 +563,18 @@ def shot_step_aim(+projectile: Shot.State,args: Args,aim: Aim) -> EntityRow:
 def nearest_from_args(args: Args,+x: F32,+y: F32) -> Aim:
   match args:
     case Args{_,bodies,_,_,+snapshots,+hits}: nearest(bodies,x,y,Aim{(x + 180.0 : F32),y,0,10000000.0})
-type Collision is Data: Collision{damage: U32,slow: U32,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
-def slow_factor(+slow: U32) -> F32: E.choose_float(U32.is_le(65536,slow),0.0,E.choose_float(U32.is_lt(0,slow),0.35,1.0))
-def cool_status(+slow: U32) -> U32: (dec((slow % 65536 : U32)) + 65536 * Bool.to_u32(Bool.and(U32.is_le(65536,slow),U32.is_lt(1,(slow % 65536 : U32)))) : U32)
+type Collision is Data: Collision{damage: U32,slow: Effect.Slow,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
 def collision_add(hit: Bool,+id: U32,+damage: U32,+cx: F32,+cy: F32,tail: Collision) -> Collision:
   match hit tail:
     case False{} tail: tail
-    case True{} Collision{+d,+s,+b,+p,+k,+sumX,+sumY}: Collision{(d + damage : U32),U32.max(s,(90 * Bool.to_u32(Bool.or(U32.is_eq(P.status(id),1),U32.is_eq(P.status(id),2))) + 65536 * Bool.to_u32(U32.is_eq(P.status(id),2)) : U32)),U32.max(b,(120 * Bool.to_u32(U32.is_eq(P.status(id),3)) : U32)),(p + Bool.to_u32(U32.is_eq(P.status(id),4)) : U32),(k + Bool.to_u32(U32.is_eq(P.status(id),5)) : U32),(sumX + cx * U32.to_f32(Bool.to_u32(U32.is_eq(P.status(id),4))) : F32),(sumY + cy * U32.to_f32(Bool.to_u32(U32.is_eq(P.status(id),4))) : F32)}
+    case True{} Collision{+d,+s,+b,+p,+k,+sumX,+sumY}: Collision{(d + damage : U32),Effect.stronger_slow(s,Effect.slow_from_status(P.status(id))),U32.max(b,(120 * Bool.to_u32(U32.is_eq(P.status(id),3)) : U32)),(p + Bool.to_u32(U32.is_eq(P.status(id),4)) : U32),(k + Bool.to_u32(U32.is_eq(P.status(id),5)) : U32),(sumX + cx * U32.to_f32(Bool.to_u32(U32.is_eq(P.status(id),4))) : F32),(sumY + cy * U32.to_f32(Bool.to_u32(U32.is_eq(P.status(id),4))) : F32)}
 def hit_recipient(area: Bool,+targets: List<&2,U32>,+target: U32,+x: F32,+y: F32,+radius: F32,+tx: F32,+ty: F32,+r: F32) -> Bool:
   match area:
     case True{}: close(x,y,tx,ty,(radius + r : F32))
     case False{}: contains(targets,target)
 def collisions(rows: List<&2,HitPlan>,+x: F32,+y: F32,+radius: F32,+target: U32) -> Collision:
   match rows:
-    case []: Collision{0,0,0,0,0,0.0,0.0}
+    case []: Collision{0,Effect.empty_slow(),0,0,0,0.0,0.0}
     case HitPlan{_,+id,+damage,+tx,+ty,+r,+area,+targets} <> rest: collision_add(hit_recipient(area,targets,target,x,y,radius,tx,ty,r),id,damage,tx,ty,collisions(rest,x,y,radius,target))
 def pull_x(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
   ((sumX / U32.to_f32(U32.max(1,count)) - x) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
@@ -591,7 +583,7 @@ def pull_y(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
 # Dawn's pursuer takes damage but cannot be frozen, slowed or displaced.
 def immune_collision(immune: Bool,collision: Collision) -> Collision:
   match immune collision:
-    case True{} Collision{damage,_,burn,_,_,_,_}: Collision{damage,0,burn,0,0,0.0,0.0}
+    case True{} Collision{damage,_,burn,_,_,_,_}: Collision{damage,Effect.empty_slow(),burn,0,0,0.0,0.0}
     case False{} collision: collision
 def relic_result(collected: Bool,+stage: U32,+px: F32,+py: F32) -> EntityRow:
   match collected:
@@ -1087,12 +1079,6 @@ def effect_origin_index(snapshots: List<&2,Snapshot>) -> BI.Index<U32>:
     case ProjectileSnapshot{Shot.State{_,seed,_,_,Components.Trajectory{_,_,_,_,_,_,_,Some{sourcePlayer}}}} <> rest: BI.insert(~U32,effect_origin_index(rest),seed,sourcePlayer)
     case _ <> rest: effect_origin_index(rest)
 def effect_indexed_source(origins: BI.Index<U32>,shot: U32) -> U32: BI.get(~U32,origins,shot,0)
-def effect_burn_duration(+burn: U32) -> U32: (burn % 65536 : U32)
-def effect_burn_source(+burn: U32) -> U32: (burn / 65536 : U32)
-def effect_pack_burn(+duration: U32,effect_source: U32) -> U32: (duration + 65536 * effect_source * Bool.to_u32(U32.is_lt(0,duration)) : U32)
-def effect_cool_burn(+burn: U32) -> U32: effect_pack_burn(dec(effect_burn_duration(burn)),effect_burn_source(burn))
-def effect_stronger_burn(+old: U32,+fresh: U32) -> U32:
-  Bool.pick(U32,Bool.or(U32.is_lt(effect_burn_duration(old),effect_burn_duration(fresh)),Bool.and(U32.is_eq(effect_burn_duration(old),effect_burn_duration(fresh)),U32.is_lt(effect_burn_source(fresh),effect_burn_source(old)))),fresh,old)
 def effect_source_hit(keep: Bool,row: HitPlan,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
   match keep:
     case True{}: row <> tail
@@ -1102,22 +1088,28 @@ def effect_indexed_hits(rows: List<&2,HitPlan>,+origins: BI.Index<U32>,+id: U32)
     case []: []
     case HitPlan{+shot,+weapon,+damage,+x,+y,+radius,+area,+targets} <> rest: effect_source_hit(U32.is_eq(effect_indexed_source(origins,shot),id),HitPlan{shot,weapon,damage,x,y,radius,area,targets},effect_indexed_hits(rest,origins,id))
 
-type effect_Effects is Data: effect_Effects{damage: U32,slow: U32,burn: U32,dx: F32,dy: F32}
+type effect_Effects is Data: effect_Effects{damage: U32,slow: Effect.Slow,burn: Effect.Burn,dx: F32,dy: F32}
 def effect_one_effects(+oldX: F32,+oldY: F32,id: U32,collision: Collision,stat: effect_EffectStats) -> effect_Effects:
   match collision stat:
     case Collision{damage,slow,+burn,+pull,+knock,+sumX,+sumY} effect_EffectStats{_,+px,+py,+passives,+arcana,_,_}:
-      effect_Effects{damage,slow,effect_pack_burn((burn * (1 + Bool.to_u32(U32.is_eq(arcana,7))) : U32),id),((oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11))) + pull_x(oldX,oldY,sumX,sumY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32),((oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11))) + pull_y(oldX,oldY,sumX,sumY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32)}
+      effect_Effects{damage,slow,Effect.burn((burn * (1 + Bool.to_u32(U32.is_eq(arcana,7))) : U32),id),((oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11))) + pull_x(oldX,oldY,sumX,sumY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32),((oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11))) + pull_y(oldX,oldY,sumX,sumY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32)}
 def effect_add_effects(left: effect_Effects,right: effect_Effects) -> effect_Effects:
   match left right:
-    case effect_Effects{d,s,b,x,y} effect_Effects{d2,s2,b2,x2,y2}: effect_Effects{(d + d2 : U32),U32.max(s,s2),effect_stronger_burn(b,b2),(x + x2 : F32),(y + y2 : F32)}
+    case effect_Effects{d,s,b,x,y} effect_Effects{d2,s2,b2,x2,y2}: effect_Effects{(d + d2 : U32),Effect.stronger_slow(s,s2),Effect.stronger_burn(b,b2),(x + x2 : F32),(y + y2 : F32)}
 def effect_gather(players: List<&2,effect_Player>,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>,+oldX: F32,+oldY: F32,+radius: F32,+target: U32,+immune: Bool) -> effect_Effects:
   match players:
-    case []: effect_Effects{0,0,0,0.0,0.0}
+    case []: effect_Effects{0,Effect.empty_slow(),Effect.empty_burn(),0.0,0.0}
     case effect_Player{+id,run,eligible} <> rest: effect_add_effects(effect_one_effects(oldX,oldY,id,immune_collision(immune,collisions(effect_indexed_hits(hits,origins,id),oldX,oldY,radius,target)),effect_stats(eligible,run)),effect_gather(rest,hits,origins,oldX,oldY,radius,target,immune))
-def effect_indexed_killer(rows: List<&2,HitPlan>,+origins: BI.Index<U32>,+x: F32,+y: F32,+radius: F32,+target: U32,+hp: U32,+fallback: U32) -> U32:
+def effect_indexed_killer(rows: List<&2,HitPlan>,+origins: BI.Index<U32>,+x: F32,+y: F32,+radius: F32,+target: U32,+hp: U32,+fallback: Maybe<&2,U32>) -> Maybe<&2,U32>:
   match rows:
     case []: fallback
-    case HitPlan{+shot,_,+damage,+tx,+ty,+r,+area,+targets} <> rest: Bool.pick(U32,Bool.and(hit_recipient(area,targets,target,x,y,radius,tx,ty,r),U32.is_le(hp,damage)),effect_indexed_source(origins,shot),effect_indexed_killer(rest,origins,x,y,radius,target,Combat.lose(hp,(damage * Bool.to_u32(hit_recipient(area,targets,target,x,y,radius,tx,ty,r)) : U32)),fallback))
+    case HitPlan{+shot,_,+damage,+tx,+ty,+r,+area,+targets} <> rest: Bool.pick(Maybe<&2,U32>,Bool.and(hit_recipient(area,targets,target,x,y,radius,tx,ty,r),U32.is_le(hp,damage)),Some{effect_indexed_source(origins,shot)},effect_indexed_killer(rest,origins,x,y,radius,target,Combat.lose(hp,(damage * Bool.to_u32(hit_recipient(area,targets,target,x,y,radius,tx,ty,r)) : U32)),fallback))
+# Missing credit uses the established player-zero statistics policy, without
+# inventing a burn owner. Actual death reward ownership remains optional.
+def effect_stats_for_credit(players: List<&2,effect_Player>,source: Maybe<&2,U32>) -> effect_EffectStats:
+  match source:
+    case None{}: effect_find_stats(players,0)
+    case Some{id}: effect_find_stats(players,id)
 def effect_stats_distance(+x: F32,+y: F32,stat: effect_EffectStats) -> F32:
   match stat:
     case effect_EffectStats{_,px,py,_,_,_,_}: distance2(x,y,px,py)
@@ -1128,9 +1120,9 @@ def effect_nearest_target(players: List<&2,effect_Player>,+x: F32,+y: F32,+best:
   match players:
     case []: best
     case effect_Player{_,+run,+eligible} <> rest: effect_nearest_target(rest,x,y,Bool.pick(effect_EffectStats,Bool.and(effect_stats_living(effect_stats(eligible,run)),Bool.or(Bool.not(effect_stats_living(best)),F32.is_lt(effect_stats_distance(x,y,effect_stats(eligible,run)),effect_stats_distance(x,y,best)))),effect_stats(eligible,run),best))
-def effect_burn_damage(+burn: U32,stat: effect_EffectStats) -> U32:
+def effect_burn_damage(+burn: Effect.Burn,stat: effect_EffectStats) -> U32:
   match stat:
-    case effect_EffectStats{+tick,_,_,_,arcana,_,_}: ((2 + 2 * Bool.to_u32(U32.is_eq(arcana,7))) * Bool.to_u32(Bool.and(U32.is_lt(0,effect_burn_duration(burn)),U32.is_eq((tick % 30 : U32),0))) : U32)
+    case effect_EffectStats{+tick,_,_,_,arcana,_,_}: ((2 + 2 * Bool.to_u32(U32.is_eq(arcana,7))) * Bool.to_u32(Bool.and(Effect.burn_active(burn),U32.is_eq((tick % 30 : U32),0))) : U32)
 def effect_effect_luck(stat: effect_EffectStats) -> U32:
   match stat:
     case effect_EffectStats{_,_,_,passives,_,_,_}: at(passives,10)
@@ -1150,13 +1142,13 @@ def enemy_single_offense(run: Run) -> Enemy.SingleOffense:
 def enemy_effects_single(oldX: F32,oldY: F32,+enemy: Enemy.State,collision: Collision,run: Run) -> Enemy.Outcome:
   match enemy:
     case Enemy.State{_,archetype,_,_,_}: Enemy.resolve_single(oldX,oldY,Enemy.immune(enemy),enemy_single_hit(immune_collision(U32.is_eq(archetype,30),collision)),enemy_single_offense(run))
-def enemy_effects_resolved(oldX: F32,oldY: F32,+enemy: Enemy.State,effects: effect_Effects,oldBurnDamage: U32,luck: U32,+target: effect_EffectStats,killer: U32) -> Enemy.Outcome:
+def enemy_effects_resolved(oldX: F32,oldY: F32,+enemy: Enemy.State,effects: effect_Effects,oldBurnDamage: U32,luck: U32,+target: effect_EffectStats,killer: Maybe<&2,U32>) -> Enemy.Outcome:
   match enemy effects:
-    case Enemy.State{_,_,_,_,Components.Status{+slow,+burn}} effect_Effects{damage,+freshSlow,freshBurn,dx,dy}: Enemy.resolve(enemy,oldX,oldY,Enemy.Effects{damage,freshSlow,dx,dy},Components.Status{U32.max(cool_status(slow),freshSlow),effect_stronger_burn(effect_cool_burn(burn),freshBurn)},oldBurnDamage,luck,effect_target_x(target),effect_target_y(target),Some{killer})
+    case Enemy.State{_,_,_,_,Components.Status{+slow,+burn}} effect_Effects{damage,+freshSlow,freshBurn,dx,dy}: Enemy.resolve(enemy,oldX,oldY,Enemy.Effects{damage,freshSlow,dx,dy},Components.Status{Effect.stronger_slow(Effect.cool_slow(slow),freshSlow),Effect.stronger_burn(Effect.cool_burn(burn),freshBurn)},oldBurnDamage,luck,effect_target_x(target),effect_target_y(target),killer)
 def enemy_effects_multiple(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+enemy: Enemy.State,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> Enemy.Outcome:
   match enemy:
     case Enemy.State{Space.Spatial{_,_,_,+radius},+archetype,+identity,Components.Vitals{+health,_},Components.Status{_,+burn}}:
-      enemy_effects_resolved(oldX,oldY,Enemy.immune(enemy),effect_gather(players,hits,origins,oldX,oldY,radius,identity,U32.is_eq(archetype,30)),effect_burn_damage(burn,effect_find_stats(players,effect_burn_source(burn))),effect_effect_luck(effect_find_stats(players,effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,effect_burn_source(burn)))),effect_nearest_target(players,oldX,oldY,effect_fallback_stats()),effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,effect_burn_source(burn)))
+      enemy_effects_resolved(oldX,oldY,Enemy.immune(enemy),effect_gather(players,hits,origins,oldX,oldY,radius,identity,U32.is_eq(archetype,30)),effect_burn_damage(burn,effect_stats_for_credit(players,Effect.source(burn))),effect_effect_luck(effect_stats_for_credit(players,effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,Effect.source(burn)))),effect_nearest_target(players,oldX,oldY,effect_fallback_stats()),effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,Effect.source(burn)))
 def enemy_effects_indexed(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+enemy: Enemy.State,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> Enemy.Outcome:
   match players enemy:
     case effect_Player{0,run,_} <> [] Enemy.State{Space.Spatial{_,_,_,radius},_,identity,_,_}: enemy_effects_single(oldX,oldY,enemy,collisions(hits,oldX,oldY,radius,identity),run)
@@ -1416,9 +1408,9 @@ def team_projectile_observed(~H: Type,~ops: ProjectileOps<H>,team: Team,result: 
     case (ctx,C.Found{role}): team_projectile_identity(~H,~ops,role,team,Cap.read(~H,~Components.Identity,~projectile_identity_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def team_projectile_system(~H: Type,~ops: ProjectileOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_projectile_observed(~H,~ops,team,Cap.read(~H,~Role.Role,~projectile_role_cap(~H,ops),ctx))
-def move_space_toward(space: Space.Spatial,variant: U32,slow: U32,+run: Run) -> Space.Spatial:
+def move_space_toward(space: Space.Spatial,variant: U32,slow: Effect.Slow,+run: Run) -> Space.Spatial:
   Space.step(space,variant,slow,run_tick(run),run_px(run),run_py(run))
-def team_move_space(team: Team,+space: Space.Spatial,variant: U32,slow: U32) -> Space.Spatial:
+def team_move_space(team: Team,+space: Space.Spatial,variant: U32,slow: Effect.Slow) -> Space.Spatial:
   match space:
     case Space.Spatial{x,y,_,_}: move_space_toward(space,variant,slow,view_run(team_nearest(team,x,y)))
 def team_move_status(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,variant: U32,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & Unit):
@@ -1514,7 +1506,7 @@ def sleeping_enemy(enemy: Enemy.State) -> Enemy.Outcome:
 def enemy_identity(enemy: Enemy.State) -> U32:
   match enemy:
     case Enemy.State{_,_,identity,_,_}: identity
-def enemy_status_slow(status: Components.Status) -> U32:
+def enemy_status_slow(status: Components.Status) -> Effect.Slow:
   match status:
     case Components.Status{slow,_}: slow
 def enemy_old_x(enemy: Enemy.State) -> F32:
@@ -1533,7 +1525,7 @@ def team_enemy_continued(phase: Enemy.Phase,+team: Team,+enemy: Enemy.State) -> 
     case Enemy.OccupiedByLoot{_}: Enemy.LootTurn{True{},False{}}
 def enemy_clear_status(enemy: Enemy.State) -> Enemy.State:
   match enemy:
-    case Enemy.State{space,archetype,identity,vitals,_}: Enemy.State{space,archetype,identity,vitals,Components.Status{0,0}}
+    case Enemy.State{space,archetype,identity,vitals,_}: Enemy.State{space,archetype,identity,vitals,Components.Status{Effect.empty_slow(),Effect.empty_burn()}}
 def team_enemy_rejected(phase: Enemy.Phase,previous: Enemy.State) -> Enemy.Decision:
   match phase:
     case Enemy.ActiveEnemy{_}: Enemy.Resolved{Enemy.Alive{enemy_clear_status(previous),0}}
@@ -1592,7 +1584,7 @@ def write_enemy_outcome(~H: Type,~ops: Ops<H>,ctx: H,+outcome: Enemy.Outcome) ->
 def enemy_loot_requested(~H: Type,~ops: Ops<H>,reset: Bool,advance: Bool,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match reset:
     case False{}: (ctx,(T.Success{},LootRequest{advance}))
-    case True{}: (Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx,Components.Status{0,0}),(T.Success{},LootRequest{advance}))
+    case True{}: (Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx,Components.Status{Effect.empty_slow(),Effect.empty_burn()}),(T.Success{},LootRequest{advance}))
 def write_enemy_decision(~H: Type,~ops: Ops<H>,ctx: H,decision: Enemy.Decision) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match decision:
     case Enemy.Resolved{outcome}: write_enemy_outcome(~H,~ops,ctx,outcome)
