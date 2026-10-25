@@ -4,8 +4,18 @@ A Vampire Survivors clone built as a Bendvy ECS example. See [setup](../../READM
 
 ## ECS
 
-The schema, affine world ownership and checked system contracts are defined in
-[`game.bend`](game.bend). Immutable role definitions belong to
+The schema, affine world ownership and component-family bindings are defined in
+[`game-storage.bend`](game-storage.bend), depending on the pure payloads in
+[`game-components.bend`](game-components.bend). Systems, queries and checked
+access contracts remain visible together in [`game.bend`](game.bend).
+Enemy/relic spatial state and movement policy belong to
+[`enemy-spatial.bend`](enemy-spatial.bend): movement writes position and age,
+preserves radius, and has read-only metadata and status access. Its sparse
+column covers every enemy/relic slot, including dormant and loot occupants;
+stored legacy Body geometry words for these slots are erased. See the
+[spatial migration contract](../../research/survivors-spatial-migration.md) for
+phase validity and the temporary boundaries owned by later migration slices.
+Immutable role definitions belong to
 [`entity-role.bend`](entity-role.bend), with [kernel laws](entity-role/LAWS.bend);
 query membership has [its own policy](movement-membership.bend) and
 [laws](movement-selection/LAWS.bend). Those sources define the implementation;
