@@ -19,14 +19,30 @@ function install(state,rows){
 function advance(state){const packet=G.advance_live(state,0,0);assert.equal(packet.$,'Packet');return packet.state;}
 function fresh(){const packet=G.start_seed(0,0,12345);assert.equal(packet.$,'Packet');return packet.state;}
 for(const [item,identity,field,expected] of [
-  [{$:'Xp',amount:17,accumulator:false},1056,'xp',17],
+  [{$:'Xp',amount:17,accumulator:true},1056,'xp',17],
   [{$:'Gold',coins:13},0,'gold',13],
 ]){
   const next=advance(install(fresh(),[pickup(identity,item)]));
   assert.equal(next.run.session[field],expected,'actual reward through storage/query/finish');
   const retired=array(next.snapshots).find(row=>row.$==='PickupSnapshot'&&row.pickup.identity===identity).pickup;
   assert.equal(retired.payload.active,false);assert.equal(retired.payload.generation,456);
-  assert.equal(advance(next).run.session[field],expected,'actual next query cannot collect twice');
+  const idle=advance(next);
+  assert.equal(idle.run.session[field],expected,'actual next query cannot collect twice');
+  if(identity===1056){
+    assert.equal(retired.payload.item.accumulator,true,'collection tick preserves the old accumulator marker');
+    const dormant=array(idle.snapshots).find(row=>row.$==='PickupSnapshot'&&row.pickup.identity===identity).pickup;
+    assert.deepEqual(dormant.payload,{$:'Payload',item:{$:'Xp',amount:0,accumulator:false},generation:0,active:false},
+      'next inactive XP pool turn clears amount, marker and generation');
+    assert.deepEqual(dormant.spatial,{...retired.spatial,age:0,radius:0},'idle XP retains position and resets age/radius');
+    assert.equal(dormant.identity,retired.identity,'idle XP retains canonical identity');
+  }else{
+    const unchanged=G.pickup_turn({$:'PickupCall',team:G.solo_team(G.combat_args(next.run,0,0,list([]))),advance:true,relic:false},retired);
+    assert.deepEqual(unchanged.state,retired,'inactive non-XP loot is unaffected by XP idle reset');
+  }
+  const unused=array(next.snapshots).find(row=>row.$==='PickupSnapshot'&&row.pickup.identity===1057).pickup;
+  assert.equal(unused.spatial.age,0,'first inactive pool query clears bootstrap slot age');
+  assert.equal(unused.payload.generation,0);
+
 }
 for(const [kind,item] of [[{$:'XpDrop'},{$:'Xp',amount:7,accumulator:false}],[{$:'GoldDrop'},{$:'Gold',coins:7}]]){
   const dormant=pickup(1056,{$:'Xp',amount:0,accumulator:false});dormant.payload.active=false;
