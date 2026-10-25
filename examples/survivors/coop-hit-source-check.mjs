@@ -52,10 +52,11 @@ function shot({
   x, y = 1000, weapon = 18, damage = 7, age = 10, seed = 900,
   radius = 1, vx = 100, vy = 0, pierce = 3, owner = 2, slot = 0,
 }) {
-  return snapshot({
-    x, y, kind: 1, variant: weapon, hp: damage, age, seed, radius,
-    motion: { vx, vy, life: 30, pierce, ownerBase: owner, logicalSlot: slot },
-  });
+  return {$: 'ProjectileSnapshot', projectile: {
+    $: 'State', spatial: {$: 'Spatial', x, y, age, radius}, identity: seed,
+    side: {$: 'PlayerShot'}, payload: {$: 'ShotPayload', weapon, damage, active: {$: 'True'}},
+    trajectory: {$: 'Trajectory', vx, vy, life: 30, pierce, visited: nil(), ownerBase: owner, logicalSlot: slot},
+  }};
 }
 
 // Targeting consumes a narrow immutable phase projection. Health and reward
