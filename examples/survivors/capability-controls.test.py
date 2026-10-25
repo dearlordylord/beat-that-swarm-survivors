@@ -47,8 +47,16 @@ CASES = [
      'read', 'Components.Pickup', 'read-to-write'),
     ('projectile-role-read', 'ProjectileOps', 'projectile_role_cap', 'Role.Role',
      'read', 'Role.Role', 'read-to-write'),
-    ('projectile-body-family', 'ProjectileOps', 'projectile_body_cap', 'Components.Body',
+    ('projectile-spatial-health', 'ProjectileOps', 'projectile_spatial_cap', 'Space.Spatial',
      'write', 'Components.Vitals', 'cross-family'),
+    ('projectile-payload-health', 'ProjectileOps', 'projectile_payload_cap', 'Components.ShotPayload',
+     'write', 'Components.Vitals', 'cross-family'),
+    ('projectile-payload-xp', 'ProjectileOps', 'projectile_payload_cap', 'Components.ShotPayload',
+     'write', 'Components.Pickup', 'cross-family'),
+    ('projectile-trajectory-health', 'ProjectileOps', 'projectile_trajectory_cap', 'Components.Trajectory',
+     'write', 'Components.Vitals', 'cross-family'),
+    ('projectile-identity-read', 'ProjectileOps', 'projectile_identity_cap', 'Components.Identity',
+     'read', 'Components.Identity', 'read-to-write'),
 ]
 
 
