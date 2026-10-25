@@ -1,3 +1,6 @@
+import pickup-state.bend as Pickup
+import enemy-spatial.bend as Space
+import native_draw.bend as D
 import run-state.bend as RS
 # Real native UI event flow; upgrade/terminal boundaries are explicitly fabricated.
 import Base
@@ -122,6 +125,28 @@ def quit_result(result: Maybe<N.Native>) -> IO(Unit):
   match result:
     case None{}: IO.print("PASS Close event exits")
     case Some{_}: IO.die(Unit,1,"FAIL Close event exits")
+def map_pickup(identity: U32,item: Pickup.Item,active: Bool,x: F32,y: F32) -> G.Snapshot:
+  G.PickupSnapshot{Pickup.State{Space.Spatial{x,y,0,6.0},Pickup.Payload{item,1,active},identity}}
+def map_fixtures() -> List<&2,G.Snapshot>:
+  [map_pickup(100,Pickup.Chest{},True{},3600.0,5400.0),map_pickup(511,Pickup.Relic{0},True{},10800.0,9000.0),map_pickup(200,Pickup.Chest{},False{},1800.0,1800.0),map_pickup(1056,Pickup.Xp{7,False{}},True{},5400.0,1800.0)]
+def map_rect(rows: List<&2,D.Rect>,+expectedX: F32,+expectedY: F32,+expectedColor: U32) -> Bool:
+  match rows:
+    case []: False{}
+    case D.Rect{x,y,w,h,color} <> rest: Bool.or(Bool.and(Bool.and(F32.is_eq(x,expectedX),F32.is_eq(y,expectedY)),Bool.and(Bool.and(F32.is_eq(w,5.0),F32.is_eq(h,5.0)),U32.is_eq(color,expectedColor))),map_rect(rest,expectedX,expectedY,expectedColor))
+def map_fixture_rows(+rows: List<&2,D.Rect>) -> IO(Unit):
+  do IO<Unit>:
+    expect(map_rect(rows,(N.map_coord(3600.0,48.0) - 2.0 : F32),(N.map_coord(5400.0,96.0) - 2.0 : F32),16768903),"native pause map uses active typed chest coordinates")
+    expect(map_rect(rows,(N.map_coord(10800.0,48.0) - 2.0 : F32),(N.map_coord(9000.0,96.0) - 2.0 : F32),13948927),"native pause map uses active typed relic coordinates")
+    expect(Bool.not(map_rect(rows,(N.map_coord(1800.0,48.0) - 2.0 : F32),(N.map_coord(1800.0,96.0) - 2.0 : F32),16768903)),"native pause map hides inactive chest")
+    expect(Bool.not(map_rect(rows,(N.map_coord(5400.0,48.0) - 2.0 : F32),(N.map_coord(1800.0,96.0) - 2.0 : F32),16768903)),"native pause map excludes XP")
+    Capture.save("map.ppm",D.image(rows))
+def map_fixture_test(state: N.Native) -> IO(N.Native):
+  match state:
+    case N.Native{G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending}},+ui,profile}:
+      do IO<N.Native>:
+        map_fixture_rows(N.gameplay_rows(run,rows,offers,ui,map_fixtures()))
+        return N.Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile}
+    case _: IO.die(N.Native,1,"Native map fixture engine failure")
 def main() -> IO(Unit):
   do IO<Unit>:
     state : N.Native <- Capture.view("menu.ppm",N.initial(P.fresh()))
@@ -137,7 +162,7 @@ def main() -> IO(Unit):
     state : N.Native <- check(frames(5n,key(27,state)),+o => Bool.and(U32.is_eq(N.ui_paused(ui(o)),1),U32.is_eq(N.run_tick(run(o)),10)),"pause stops simulation")
     state : N.Native <- check(frames(1n,key(27,state)),+o => Bool.and(U32.is_eq(N.ui_paused(ui(o)),0),U32.is_eq(N.run_tick(run(o)),11)),"resume continues simulation")
     state : N.Native <- check(frames(2n,key(109,state)),+o => Bool.and(U32.is_eq(N.ui_paused(ui(o)),1),U32.is_eq(N.run_tick(run(o)),11)),"M map stops simulation")
-    state : N.Native <- Capture.view("map.ppm",state)
+    state : N.Native <- map_fixture_test(state)
     state : N.Native <- check(key(109,state),o => U32.is_eq(N.ui_paused(ui(o)),0),"M closes map")
     state : N.Native <- check(busy(160n,state),o => U32.is_ge(N.run_tick(run(o)),120),"genuine ECS battlefield advanced at least120 ticks")
     state : N.Native <- Capture.view("gameplay.ppm",state)
