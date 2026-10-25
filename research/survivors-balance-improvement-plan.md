@@ -1,152 +1,152 @@
-# План: баланс Survivors, набор ботов и улучшатель
+# Plan: Survivors balance, bot set and improver
 
-Дата: 2026-10-25. Статус: исследование и предлагаемый план реализации. Баланс игры не изменён; новая кампания забегов не запускалась. Улучшатель — Codex: анализирует исполнения, предлагает и проверяет изменения кода/параметров между кампаниями. Постоянные вызовы классификатора внутри массовых забегов не требуются.
+Date: 2026-10-25. Status: Study and proposed implementation plan. The game balance has not been changed; a new race campaign was not launched. Improver - Codex: Analyzes executions, suggests and verifies code/parameter changes between campaigns. Constant calls to the classifier within mass races are not required.
 
-## Что обнаружено
+## What was discovered
 
-1. Есть нативный Bend → C бот с памятью об XP и маршрутизацией. Массовый runner пока только соло, с одним контроллером и двумя фиксированными preset. `--profile both` чередует preset по индексу: это не скрещённый эксперимент «каждый seed × каждый профиль».
-2. Уже есть `party-difficulty.bend`: ordinary spawn budget умножается на число живых подключённых игроков, с потолком 500. Это бюджет активных слотов со ступенчатым допуском, а не фиксированная частота «мобов в секунду». Новая HP и допуск зависят также от выбранного по seed player view и личного Curse; это отдельное взаимодействие для проверки. Подробности и исходники — в [аудите движка](balance-bots-engine-audit.md).
-3. Старые 100 нативных забегов охватывают по 30 игровых секунд и другую версию игры. Они не проверяют нынешнюю раннюю сложность, полный десятиминутный забег или кооператив.
-4. В Jev найдена настоящая лаборатория `canonical-defense/lab`: реальный Bend simulation, равные бюджеты, baseline/A/B/A+B, replay и tuning/held-out разделение. Её короткие учебные результаты сами помечены как недостаточная квалификация. Переносим методы, не числа: [локальное исследование](balance-bots-local-history.md).
-5. [Официальный online FAQ poncle](https://poncle.games/vs-online-faq) говорит, что враги не масштабируются с количеством игроков. В [local-co-op FAQ](https://poncle.games/coop-faq) среди рычагов баланса названы ограничения оружейных слотов. У нас другие правила прогрессии, поэтому наш `×2` — проверяемая гипотеза, а не требование оригинала; прямое копирование одного коэффициента тоже не решает баланс.
+1. There is a native Bend → C bot with XP memory and routing. The mass runner is currently only solo, with one controller and two fixed presets. `--profile both` alternates preset by index: this is not a crossed “every seed × every profile” experiment.
+2. There is already `party-difficulty.bend`: ordinary spawn budget is multiplied by the number of living connected players, with a ceiling of 500. This is a budget of active slots with a stepped tolerance, and not a fixed frequency of “mobs per second”. New HP and admission also depend on the selected seed player view and personal Curse; this is a separate interaction to test. Details and sources are in [engine audit ](balance-bots-engine-audit.md).
+3. The old 100 native races cover 30 game seconds and a different version of the game. They don't test the current early difficulty, full ten minute run, or co-op.
+4. A real `canonical-defense/lab` laboratory was found in Jev: real Bend simulation, equal budgets, baseline/A/B/A+B, replay and tuning/held-out division. Her short training results are themselves marked as insufficient qualifications. We transfer methods, not numbers: [local study](balance-bots-local-history.md).
+5. [Official online FAQ poncle](https://poncle.games/vs-online-faq) says that enemies do not scale with the number of players. In [local-co-op FAQ](https://poncle.games/coop-faq), restrictions on weapon slots are listed among the balance levers. We have different progression rules, so our `×2` is a testable hypothesis, not a requirement of the original; Direct copying of one coefficient also does not solve the balance.
 
-## Уточнённая первая цель: слишком много монстров вдвоём
+## Clarified first goal: too many monsters for two
 
-Пользователь отдельно подтвердил, что сейчас чрезмерно именно количество монстров при двух игроках. Это исходное дизайнерское требование; не нужно сначала доказывать пользователю, что его ощущение ошибочно, или строить весь улучшатель до первого облегчения кооператива.
+The user separately confirmed that the number of monsters with two players is currently excessive. This is the original design requirement; there is no need to first prove to the user that his perception is wrong, or to build the entire improver before the first co-op relief.
 
-Первый узкий эксперимент меняет только кооперативную population-надбавку. Соло, базовая временная кривая, HP/урон/скорость врагов, XP, оружие и паузы выбора остаются контролями. Пример сравниваемых лимитов для standard mode без Curse/Hyper:
+The first narrow experiment changes only the cooperative population premium. Solo, base time curve, enemy HP/damage/speed, XP, weapons and choice pauses remain controls. Example of compared limits for standard mode without Curse/Hyper:
 
-| Коэффициент при двух живых | При базовом лимите 96 | При базовом лимите 300 |
+| Odds for two live | With a base limit of 96 | With a base limit of 300 |
 | --- | --- | --- |
-| Текущий ×2 | 192 | 500 (cap) |
-| Кандидат ×1.5 | 144 | 450 |
-| Кандидат ×1.25 | 120 | 375 |
-| Контроль ×1 | 96 | 300 |
+| Current ×2 | 192 | 500 (cap) |
+| Candidate ×1.5 | 144 | 450 |
+| Candidate ×1.25 | 120 | 375 |
+| Control ×1 | 96 | 300 |
 
-Это лимиты обычных активных слотов, не уже измеренные количества живых мобов и не результат тестирования. Начальный практический кандидат — ×1.25; ×1 и ×1.5 нужны как соседние контроли. Окончательный коэффициент выбирается после короткого сопоставимого прогона и мобильного кооперативного просмотра. Поскольку коэффициент действует весь забег, перед выпуском нужен также небольшой регрессионный набор с полным 10-минутным горизонтом (например, 2–4 заранее выбранных seeds с подходящими контрольными setup). Ранняя смерть остаётся исходом; если никто не дошёл до поздних окон, поздний баланс остаётся непроверенным. Один живой игрок должен сохранять прежний базовый population limit; для нуля сохраняется отсутствие новых ordinary admissions.
+These are the limits of regular active slots, not the already measured numbers of living mobs and not the result of testing. Initial practical candidate - ×1.25; ×1 and ×1.5 are needed as neighboring controls. The final odds are selected after a short comparable run and mobile co-op viewing. Since the coefficient is valid for the entire run, before release you also need a small regression set with a full 10-minute horizon (for example, 2-4 pre-selected seeds with suitable control setups). Early death remains the outcome; if no one reaches the late windows, the late balance remains unchecked. One living player must maintain the same base population limit; for zero, the absence of new ordinary admissions is maintained.
 
-Достаточная первая лаборатория: один shared `CoopCore`, два фиксированных контроллера, существующие сведения об enemy population/HP/XP/phase плюс краткие временные samples. Полная атрибуция каждого урона, четыре новых persona, новый RNG и большой оптимизатор не блокируют этот первый шаг. Сохранение XP-формулы не обещает прежний темп XP: меньше мобов меняет количество дропа и безопасность его сбора. Измеряем этот посредующий эффект, не компенсируя его незаявленным изменением XP в том же кандидате. Последующие этапы ниже расширяют постоянный цикл проверки. Эксперимент по crowd damage выполняем только если после уменьшения надбавки остаётся отдельная подтверждённая проблема; он не подмешивается в первый результат.
+A sufficient first laboratory: one shared `CoopCore`, two fixed controllers, existing information about the enemy population/HP/XP/phase plus short time samples. Full attribution of every damage, four new persona, new RNG and a large optimizer do not block this first step. Maintaining the XP formula does not promise the same XP rate: fewer mobs changes the amount of drops and the safety of collecting them. We measure this mediating effect without compensating for it with an unreported change in XP in the same candidate. Subsequent steps below expand the ongoing review cycle. We carry out a crowd damage experiment only if, after reducing the premium, a separate confirmed problem remains; it is not mixed into the first result.
 
-## Какие приёмы берём из исследований
+## What techniques do we take from research?
 
-| Приём | Для чего применяем | Чего он не устанавливает |
+| Reception | What do we use it for? | What it doesn't install |
 | --- | --- | --- |
-| Фазы нарастания, пика и передышки у [Valve L4D](https://steamcdn-a.akamaihd.net/apps/valve/2009/ai_systems_of_l4d_mike_booth.pdf) | Проектируем временную кривую и измеряем фактически пережитое давление каждого игрока | Не вводим незапрошенную динамическую подстройку сложности под успех игрока |
-| Цели дизайнера и ограниченный поиск из [Metagame Autobalancing](https://ieee-cog.org/2020/papers/paper_100.pdf) | Подбираем несколько параметров под набор исходов и стилей | Максимальный счёт бота не равен хорошему балансу; PvP win rate не переносится в наш PvE |
-| Разнообразие стратегий из [MIMIC](https://arxiv.org/html/2510.01635v1) | Сохраняем разные политики вместо одного «самого умного» бота | Названные нами стили не являются измеренной популяцией людей |
-| Память о попытках и executable skills из [Reflexion](https://arxiv.org/abs/2303.11366), [Voyager](https://arxiv.org/abs/2305.16291) | Я веду ретроспективу и предлагаю проверяемый патч контроллера | Объяснение модели не доказывает причину смерти или улучшение |
-| Раздельные development/test миры из [Procgen](https://proceedings.mlr.press/v119/cobbe20a.html) | Не принимаем бота, выучившего только набор знакомых seeds | Один финальный набор не доказывает качество на всех возможных мирах |
-| [NIST: блокирование](https://www.itl.nist.gov/div898/handbook/pri/section3/pri332.htm) и факторные эксперименты | Сравниваем пары при одинаковом setup и отдельно проверяем взаимодействия | Тысячи кадров одного забега — не тысячи независимых наблюдений |
+| Rising, peak and rest phases for [Valve L4D](https://steamcdn-a.akamaihd.net/apps/valve/2009/ai_systems_of_l4d_mike_booth.pdf) | We design a time curve and measure the actual pressure experienced by each player | We do not introduce unsolicited dynamic adjustment of difficulty to the player’s success |
+| Designer goals and limited search from [Metagame Autobalancing](https://ieee-cog.org/2020/papers/paper_100.pdf) | We select several parameters for a set of outcomes and styles | A bot's maximum score does not equal a good balance; PvP win rate does not carry over to our PvE |
+| Variety of strategies from [MIMIC](https://arxiv.org/html/2510.01635v1) | We save different policies instead of one “smartest” bot | The styles we named are not a measured population of people |
+| Memory of attempts and executable skills from [Reflexion](https://arxiv.org/abs/2303.11366), [Voyager](https://arxiv.org/abs/2305.16291) | I'm doing a retrospective and offering a testable controller patch | Model explanation does not prove cause of death or improvement |
+| Separate development/test worlds from [Procgen](https://proceedings.mlr.press/v119/cobbe20a.html) | We do not accept a bot that has only learned a set of familiar seeds | One final set does not prove quality in all possible worlds |
+| [NIST: ](https://www.itl.nist.gov/div898/handbook/pri/section3/pri332.htm) blocking and factorial experiments | We compare pairs with the same setup and check interactions separately | Thousands of frames of one race - not thousands of independent observations |
 
-Полные источники, их ограничения и возможные инструменты: [основные статьи](balance-bots-primary-sources.md), [PLDB, улучшатель и дизайн экспериментов](balance-bots-pldb-methods.md), [запись поисковых запросов](balance-bots-pldb-search.json). Это целевой обзор первичных источников, не утверждение о единственном лучшем алгоритме на сегодня.
+Full sources, their limitations and possible tools: [main articles](balance-bots-primary-sources.md), [PLDB, improver and experimental design](balance-bots-pldb-methods.md), [search query entry](balance-bots-pldb-search.json). This is a targeted review of primary sources, not a statement about the single best algorithm available today.
 
-## Два раздельных цикла
+## Two separate cycles
 
 ```mermaid
 flowchart LR
-  G[Зафиксированная игра] --> R[Забеги и ретроспектива]
-  R --> B[Кандидат бота]
-  B --> V[Проверка на новых сценариях]
-  V --> P[Зафиксированный набор политик]
-  P --> C[Кандидат баланса]
-  C --> E[Парные забеги и независимая проверка]
-  E --> H[Просмотр и игра человеком]
+  G[Frozen game version] --> R[Runs and retrospective]
+  R --> B[Bot candidate]
+  B --> V[Validation on new scenarios]
+  V --> P[Frozen policy roster]
+  P --> C[Balance candidate]
+  C --> E[Paired runs and independent validation]
+  E --> H[Human review and playtesting]
 ```
 
-В одном сравнении меняем либо игру, либо бота. Семантически нейтральное извлечение общего ядра идёт отдельным шагом с проверкой равенства. После принятия новой игры проверяем всю сохранённую панель ботов, включая прежние контрольные версии. Рост качества «своего» бота не должен становиться поводом бесконечно повышать сложность для людей.
+In one comparison, we change either the game or the bot. Semantically neutral extraction of the common kernel follows a separate step with equality checking. After accepting a new game, we check the entire saved bot panel, including previous control versions. Increasing the quality of “your” bot should not become a reason to endlessly increase the difficulty for people.
 
-## Очередь реализации и критерии готовности
+## Implementation queue and readiness criteria
 
-| Приоритет | Результат | Принимаем, когда |
+| Priority | Result | We accept when |
 | --- | --- | --- |
-| 1 | Минимальный воспроизводимый solo/co-op baseline | Один настоящий `CoopCore`, две памяти контроллеров, реальные offers, enemy counts/HP/XP/phase, явные исходы и стоимость pilot |
-| 2 | Снижение надбавки мобов для двух живых | Сравнены ×2/×1.5/×1.25/×1; solo и остальные параметры сохранены, новые seeds и мобильная игра подтверждают направление |
-| 3 | Причинная телеметрия, несколько политик и ретроспектива | Урон и лечение различимы, видны разные стратегии и конкретные ошибки; история сохраняется между запусками |
-| 4 | Следующие исправления временной кривой | По отдельной гипотезе улучшено раннее окно, сохранены толпа/рост угрозы и поздний вызов; результат не смешан с улучшением бота |
-| 5 | Регулярный цикл улучшателя и полные забеги | Кандидаты проходят контрольные политики, новые контексты, бюджеты исполнения и человеческую проверку; нет деградации поздней игры |
+| 1 | Minimum playable solo/co-op baseline | One real `CoopCore`, two controller memories, real offers, enemy counts/HP/XP/phase, explicit outcomes and cost pilot |
+| 2 | Reduced mob bonus for two living ones | Compared ×2/×1.5/×1.25/×1; solo and other parameters are saved, new seeds and a mobile game confirm the direction |
+| 3 | Causal telemetry, multiple policies and retrospective | Damage and healing are distinguishable, different strategies and specific errors are visible; history is saved between launches |
+| 4 | The following time curve fixes | On a separate hypothesis, the early window was improved, the crowd/threat growth and late challenge were preserved; the result is not mixed with bot improvement |
+| 5 | Regular improver cycle and full runs | Candidates undergo benchmark policies, new contexts, execution budgets and human review; no late game degradation |
 
-### 1. Измеряем давление, а не только итоговый HP
+### 1. We measure pressure, not just final HP
 
-Нативный Bend runner накапливает компактные показатели по игровому времени: бакеты по секунде, итоговые графики с окнами 5/15 секунд. Полный мир каждый тик в JSON не сериализуем. Для редких критических решений оставляем подробный контекст и ближайшие игровые исходы. Схема включает:
+The native Bend runner accumulates compact indicators of game time: buckets per second, final graphs with windows of 5/15 seconds. The full world of every tick in JSON is not serializable. For rare critical decisions, we leave a detailed context and immediate game outcomes. The scheme includes:
 
-- фактический applied damage по источникам и его компоненты: контакт/вражеский снаряд, временная/толповая надбавка, опасность сцены; отдельно absorbed/blocked damage, invulnerability, лечение и изменение max HP;
-- living enemies, новые admission/spawn, ближайшие угрозы и опасные снаряды; crowd cap и очередь ожидающих слотов; по возможности свободные направления выхода как явно обозначенный proxy;
-- XP созданная, физически подобранная, бонусная и оставшаяся; сохранение XP в кучках не приравниваем к доступности безопасного подбора;
-- уровень, моменты апгрейдов, индивидуальные выборы/ранги оружия; общие уровни кооператива не выдаём за две независимые XP-шкалы;
-- смерть каждого игрока и команды, тайм-аут/исчерпание fuel/ошибка, достижение заданного горизонта и штатный terminal phase;
-- время чистого шага и решения контроллера, память, стоимость сборки отдельно от исполнения.
+- actual applied damage by sources and its components: contact/enemy projectile, temporary/crowd bonus, stage hazard; separately absorbed/blocked damage, invulnerability, healing and changing max HP;
+- living enemies, new admission/spawn, nearby threats and dangerous projectiles; crowd cap and queue of waiting slots; whenever possible, free exit directions as an explicitly designated proxy;
+- XP created, physically matched, bonus and remaining; saving XP in piles does not equate to the availability of safe selection;
+- level, upgrade moments, individual weapon selections/ranks; We do not pass off the general levels of the cooperative as two independent XP scales;
+- death of each player and team, timeout/fuel exhaustion/error, reaching a given horizon and the regular terminal phase;
+- pure step and controller decision time, memory, assembly cost separately from execution.
 
-HP после лечения не является total damage; kills не являются DPS. Бounded horizon — правое цензурирование, не победа. Для этой игры phase 4 имеет собственную семантику финала: не классифицируем его как обычную смерть только по HP 0. На графиках показываем число оставшихся под наблюдением и survival curve; улучшение HP только среди выживших не скрывает умерших.
+HP after healing is not total damage; kills are not DPS. Bounded horizon - right censoring, not a victory. For this game, phase 4 has its own ending semantics: we do not classify it as an ordinary death only by HP 0. The graphs show the number of those remaining under observation and the survival curve; improving HP only among survivors does not hide the dead.
 
-Первый pilot — небольшой фиксированный набор, например 4 seeds × 2 исходных setup на 120 игровых секунд, с внешним ограничением wall time. Это измерение стоимости и качества телеметрии, не статистическое заключение о балансе. Размер массовой кампании выбираем после pilot, без обещаний «тысячи игр за минуту». Этот baseline-pilot ещё не выбирает коэффициент. До первого candidate-run сохраняем отдельный experiment manifest с критериями выбора: окна количества/плотности мобов, survival milestones, время первых апгрейдов, допустимые регрессионные отклонения и правило работы с неопределённостью. Численные границы предстоит откалибровать на baseline и желаемом опыте; они не выводятся задним числом из понравившегося кандидата.
+The first pilot is a small fixed set, for example 4 seeds × 2 initial setup for 120 game seconds, with an external wall time limitation. This is a measurement of the cost and quality of telemetry, not a statistical statement of balance. We choose the size of the mass campaign after the pilot, without promises of “thousands of games per minute.” This baseline-pilot does not select a coefficient yet. Before the first candidate-run, we save a separate experiment manifest with selection criteria: windows of the number/density of mobs, survival milestones, time of the first upgrades, acceptable regression deviations and a rule for working with uncertainty. The numerical boundaries have to be calibrated against the baseline and the desired experience; they are not retroactively derived from the preferred candidate.
 
-### 2. Кривая давления и модуль multiplayer balance
+### 2. Pressure curve and multiplayer balance module
 
-Предлагаем выделить общий pure Bend `BalanceConfig`/pressure policy и расширить существующий `party-difficulty.bend` либо заменить его единым `multiplayer-balance.bend`. Не заводим параллельные формулы в браузере, соло и batch runner.
+We propose to select a common pure Bend `BalanceConfig`/pressure policy and expand the existing `party-difficulty.bend` or replace it with a single `multiplayer-balance.bend`. We do not create parallel formulas in the browser, solo and batch runner.
 
-Базовая кривая задаёт population/admission budget, состав/HP врагов, контактные компоненты и hazard schedule по игровому tick/stage/mode. Кооперативная часть явно получает число живых/подключённых, выбранную политику личного Curse и правила будущего спавна. Семантику `seed parity` сначала сохраняем и измеряем; агрегирование Curse по максимуму/среднему — отдельное решение и отдельный кандидат, не скрытая часть рефакторинга.
+The base curve sets the population/admission budget, composition/HP of enemies, contact components and hazard schedule according to the game tick/stage/mode. The cooperative part obviously receives the number of living/connected ones, the selected personal Curse policy and the rules for future spawning. We first save and measure the semantics of `seed parity`; Curse aggregation by maximum/average is a separate solution and a separate candidate, not a hidden part of the refactoring.
 
-Первый желаемый рисунок: вход с возможностью собрать стартовый билд → волны роста и передышки для возврата за XP → заметные проверки силы билда → сложная поздняя часть. Не делаем всю кривую монотонной, если в ней задуманы передышки. Конкретные диапазоны survival/урона/темпа уровней сначала объявляем по baseline и человеческому просмотру, до поиска коэффициентов. Стартовый фокус — первые 30/60/120/180 секунд; затем настоящий полный забег стандартного режима (36,000 ticks, 10 игровых минут). Поздний вывод не строим на пережитых первых 30 секундах.
+First desired pattern: entry with the ability to put together a starting build → waves of growth and breathing room to return for XP → noticeable tests of the strength of the build → challenging late part. We do not make the entire curve monotonous if there are breaks in it. Specific ranges of survival/damage/pace of levels are first announced based on baseline and human viewing, before searching for coefficients. Starting focus - first 30/60/120/180 seconds; then a real full run of standard mode (36,000 ticks, 10 game minutes). We don’t base a late conclusion on the first 30 seconds we experienced.
 
-Для первой диагностики сравниваем текущий multiplayer budget `×2` с заранее перечисленными кандидатами, например `×1`, `×1.25`, `×1.5`, сохраняя остальные правила. Это предложенный search space, не уже найденные хорошие значения. Если первая коррекция не устраняет подтверждённую проблему окружения, затем отдельный 2×2 эксперимент: baseline, A — мягче ранний бюджет, B — мягче толповая надбавка урона, A+B. Четыре плеча нужны, чтобы увидеть взаимодействие давления и наказания за окружение.
+For the first diagnosis, we compare the current multiplayer budget `×2` with pre-listed candidates, for example `×1`, `×1.25`, `×1.5`, preserving the remaining rules. This is a suggested search space, not already found good values. If the first correction does not fix the confirmed environmental problem, then a separate 2x2 experiment: baseline, A - softer early budget, B - softer crowd damage bonus, A+B. The four shoulders are needed to see the interaction of pressure and environmental punishment.
 
-Модуль не меняет HP уже существующих монстров при смерти напарника и не удаляет толпу ради улучшения метрики. Измеряем отдельно, насколько опасен переход от двух живых к одному. Общую XP, chest ownership, simultaneous upgrades и отсутствие нового revive-механизма сохраняем, пока отдельное решение о механике не принято.
+The module does not change the HP of existing monsters when a partner dies and does not remove the crowd to improve the metric. We measure separately how dangerous the transition from two living to one is. We will keep the general XP, chest ownership, simultaneous upgrades and the absence of a new revive mechanism until a separate decision on the mechanics is made.
 
-### 3. Один реальный мир на двух ботов
+### 3. One real world for two bots
 
-Новый native harness использует общий игровой `CoopCore`: подключение второго record до tick 0, два контроллера с независимой памятью, совместный шаг и обслуживание каждого требуемого выбора через настоящий catalog/offer/round. Два соло-забега не заменяют этот сценарий.
+The new native harness uses a common gaming `CoopCore`: connecting a second record to tick 0, two controllers with independent memory, a joint step and servicing each required selection through a real catalog/offer/round. Two solo runs do not replace this scenario.
 
-Для большой кампании нужен тихий типизированный путь общего шага: renderer, полный frame JSON и косметический hit journal не должны становиться обязательной ценой каждого headless tick. Общий расчёт движения/попаданий/награды остаётся тем же. Проверяем соответствие состояниям обычного entry на фиксированных входах, включая natural level-up, смерть и подбор; не копируем gameplay в быстрый альтернативный симулятор. При проверке quiet/ordinary недостаточно совпадения конечных kills/HP: сравниваем канонические наблюдения игроков, компонентов врагов/снарядов и ожидающих наград на тех же командах; сохраняем точную область этой конечной проверки. Маленький pilot может сначала использовать обычный путь и фиксировать его стоимость — отдельный большой quiet-рефакторинг не обязан блокировать первое уменьшение надбавки. Причинное сравнение коэффициента — `Core2(current)` против `Core2(candidate)`. Продуктовый solo — отдельный контроль регрессий; `Core1` не объявляем его полной копией: текущие revive/offers различаются. Сценарий одного живого в кооперативе проверяется отдельно как `Core1`/состояние после гибели напарника. Массовая проверка баланса идёт без сети; браузерные и мобильные проверки остаются отдельными интеграционными условиями.
+For a large campaign, a quiet typed path of the general step is needed: a renderer, a full frame JSON and a cosmetic hit journal should not become a mandatory price for each headless tick. The overall movement/hit/reward calculation remains the same. We check compliance with the states of a regular entry on fixed inputs, including natural level-up, death and selection; We don’t copy gameplay into a fast alternative simulator. When checking quiet/ordinary, the coincidence of the final kills/HP is not enough: we compare the canonical observations of players, components of enemies/projectiles and awaiting rewards on the same teams; we save the exact area of ​​this final check. A small pilot can first use the normal path and fix its cost - a separate large quiet refactoring does not have to block the first reduction in the premium. Causal coefficient comparison - `Core2(current)` vs `Core2(candidate)`. Product solo - separate regression control; We do not declare `Core1` a complete copy: the current revive/offers are different. The scenario of one living in a cooperative is checked separately as `Core1`/state after the death of a partner. Mass balance check occurs without a network; browser and mobile checks remain separate integration terms.
 
-Панель кооператива: одинаковые политики рядом; XP-сборщик + осторожный; агрессивный + осторожный; игроки далеко друг от друга; сильный + начинающий; один погибает или временно не действует. Отсоединение/возврат проверяем с текущей семантикой паузы, не выдумываем продолжение игры во время сетевой паузы. Идентичные персонажи и разные пары нужны отдельно. Разные роли/персонажи проверяем в обеих перестановках A/B и B/A: seed-parity view, tie при подборе и личные бонусы XP могут сделать player slot существенным. Curse14/Arcana5 влияют также на earned XP; фиксируем исходный состав пары и отдельно наблюдаем raw/bonus XP. Для каждого случая видны командный исход и вклад/смерть/выборы каждого игрока, а не только сумма kills.
+Co-op panel: identical policies side by side; XP-assembler + careful; aggressive + cautious; players are far from each other; strong + beginner; one dies or is temporarily inactive. We check the disconnect/return with the current pause semantics, we do not invent the continuation of the game during the network pause. Identical characters and different couples are needed separately. We check different roles/characters in both A/B and B/A permutations: seed-parity view, tie during selection and personal XP bonuses can make the player slot significant. Curse14/Arcana5 also affects earned XP; We fix the initial composition of the pair and separately observe the raw/bonus XP. For each case, the team outcome and the contribution/death/choices of each player are visible, and not just the total kills.
 
-### 4. Набор ботов и моя ретроспектива
+### 4. A set of bots and my retrospective
 
-Сохраняем текущего `resource-memory-v1` как контроль. Добавляем параметризованные варианты: осторожный, XP-ориентированный, агрессивный и ограниченный по наблюдению/реакции. Последний использует видимость и память о ранее замеченной XP; ограничения симулируются игровыми ticks и отдельно калибруются по наблюдаемой игре человека. Полный доступ к миру остаётся явно помеченным oracle-контролем, не «обычным игроком». Названия стилей сами по себе не доказывают разнообразие: сравниваем траектории, дистанцию до угроз/XP и последовательности решений.
+We save the current `resource-memory-v1` as a control. We add parameterized options: cautious, XP-oriented, aggressive and limited in observation/reaction. The latter uses the visibility and memory of previously seen XP; the limits are simulated by game ticks and separately calibrated based on the person's observed play. Full access to the world remains clearly marked by oracle control, not by the “regular player”. The names of styles in themselves do not prove diversity: we compare trajectories, distance to threats/XP and sequences of decisions.
 
-После серии забегов я:
+After a series of races I:
 
-1. выбираю повторяющийся провал по трассе и отделяю ошибку контроллера от предполагаемой проблемы механики;
-2. сохраняю минимальный сценарий и снимок фактов: цель, видимые альтернативы, risk/path estimate, положение XP, HP, выбранное движение/upgrade, версия политики;
-3. записываю гипотезу и один патч: например, hysteresis удержания XP-цели, выход из локального тупика, резервирование разных кластеров двумя ботами или оценка реально предложенного апгрейда;
-4. заранее объявляю основной эффект, ограничения стиля и стоимость решения; фиксирую игру, seed/setup и контроли;
-5. исполняю кандидата и baseline на development-когорте, проверяю новый контрпример и все старые регрессии;
-6. принимаю новую версию только после отдельной проверки; оставляю прежнюю в control roster и архивирую отвергнутые кандидаты с причиной.
+1. I select a repeating failure along the route and separate the controller error from the suspected mechanical problem;
+2. I save a minimal scenario and a snapshot of facts: goal, visible alternatives, risk/path estimate, XP position, HP, selected movement/upgrade, policy version;
+3. I write down a hypothesis and one patch: for example, hysteresis of holding an XP target, breaking a local deadlock, reserving different clusters with two bots, or evaluating an actually proposed upgrade;
+4. I announce in advance the main effect, style limitations and cost of the solution; I fix the game, seed/setup and controls;
+5. I execute the candidate and baseline on the development cohort, check the new counterexample and all the old regressions;
+6. I accept the new version only after separate verification; I leave the old one in the control roster and archive the rejected candidates with a reason.
 
-Новая политика не получает автоподбор, дополнительную XP, больший радиус атаки, знание незамеченных объектов или запрещённые действия. Нельзя «улучшить» осторожного бота превращением его в такого же кайтера, как всех остальных. Альтернативы и механика улучшений берутся из Bend; classifier остаётся необязательным дорогим диагностическим плечом, не зависимостью кампании. Решение бота должно укладываться в заявленный ресурсный бюджет.
+The new policy does not receive auto-matching, additional XP, greater attack range, knowledge of undetected objects, or prohibited actions. You can't "improve" a cautious bot by turning it into a kiter like everyone else. Alternatives and upgrade mechanics are taken from Bend; classifier remains an optional, expensive diagnostic arm, not a campaign dependency. The bot's solution must fit within the stated resource budget.
 
-Улучшатель не обязан быть нейросетевым обучением. Начинаем с изменения понятных весов/порогов и небольших алгоритмических патчей на основании выполнения. [Reflexion](https://arxiv.org/abs/2303.11366) поддерживает идею сохраняемой обратной связи, но приёмку здесь даёт повторное исполнение. Если данных недостаточно, итог ретроспективы — «нужна телеметрия/гипотеза не подтверждена», а не сочинённая причина.
+The improver does not have to be neural network learning. We start by changing understandable weights/thresholds and small algorithmic patches based on execution. [Reflexion](https://arxiv.org/abs/2303.11366) supports the idea of ​​retained feedback, but the acceptance here comes from repeated execution. If there is insufficient data, the result of the retrospective is “telemetry is needed / the hypothesis is not confirmed”, and not a made-up reason.
 
-### 5. Протокол сравнения и защита от подгонки
+### 5. Comparison protocol and anti-fitting protection
 
-Каждая строка manifest — явный tuple: seed, stage, mode, horizon, профиль/персонажи/Arcana/meta, party size, policy IDs, balance config. Кандидат и baseline получают ту же панель. Отдельно фиксируются source/binary/compiler/BendHub hashes, terminal schema и worker/thread settings. Разные preset не смешиваем в одной «средней сложности».
+Each manifest line is an explicit tuple: seed, stage, mode, horizon, profile/characters/Arcana/meta, party size, policy IDs, balance config. The candidate and baseline receive the same panel. Source/binary/compiler/BendHub hashes, terminal schema and worker/thread settings are recorded separately. We do not mix different presets into one “medium complexity”.
 
-Рабочий первый размер после pilot: 32 development seeds, 16 validation и 32 финальных подтверждающих, с числом setup, уменьшенным до посильного бюджета. Это предлагаемая начальная раскладка, не доказанная достаточная статистическая мощность. Development применяется для поиска; validation — для выбора кандидата; финальная когорта открывается после заморозки. Если её результаты используются для следующего патча, она помечается израсходованной и перестаёт быть независимой проверкой. Ledger использования общий для обоих циклов: seed, открытый при улучшении бота, нельзя переименовать в «независимый» при настройке игры, и наоборот. Это правило распространяется и на просмотр подробных провалов, а не только на оптимизатор.
+The working first size after pilot: 32 development seeds, 16 validation and 32 final confirmatory ones, with the number of setup reduced to the feasible budget. This is a suggested initial layout, not proven to have sufficient statistical power. Development is used for searching; validation - to select a candidate; the final cohort is unlocked after being frozen. If its results are used for the next patch, it is marked expended and ceases to be an independent check. The Ledger of use is common to both cycles: a seed opened when improving a bot cannot be renamed “independent” when setting up a game, and vice versa. This rule applies to viewing detailed failures, not just the optimizer.
 
-Одинаковый seed не означает идентичные встречи после изменения действий: порядок RNG-вызовов может расходиться. Парность остаётся учётом начальных условий, но не доказательством причинного равенства эпизодов. Исследуем coupling и при необходимости отдельно проектируем именованные RNG-потоки/ключи событий; изменение RNG не маскируем под настройку коэффициента.
+The same seed does not mean identical encounters after changing actions: the order of RNG calls may diverge. Pairing remains a consideration of initial conditions, but not proof of the causal equality of episodes. We explore coupling and, if necessary, separately design named RNG streams/event keys; We do not disguise the RNG change as a coefficient adjustment.
 
-Показываем парные различия и распределения по seeds, интервалы неопределённости, survival milestones и ранние/поздние окна отдельно. Кадры не объявляем независимыми samples. Целевой поиск тяжёлых случаев ведём отдельно от репрезентативной когорты: найденные adversarial seeds — регрессии, а не оценка вероятности смерти обычного игрока. Не выкидываем невыгодные исходы/таймауты; технический отказ помечает сравнение как незавершённое.
+We show pairwise differences and distributions by seeds, uncertainty intervals, survival milestones and early/late windows separately. We do not declare frames as independent samples. We carry out a targeted search for severe cases separately from the representative cohort: the adversarial seeds found are regressions, and not an assessment of the probability of death of an ordinary player. We don’t throw away unfavorable outcomes/timeouts; a technical failure marks the comparison as incomplete.
 
-Большой автоматический поиск пока не нужен. После проверки чувствительности метрик можно добавить optional supervisor с ограниченным списком параметров/числом trials, например TPE/Optuna. Все правила и bot policy остаются в Bend. У поиска есть ограничения на ранние смерти, перегрузку CPU, игнорирование XP и обнуление давления; несколько удачных tradeoff-кандидатов выбираем для просмотра вместо одного непрозрачного «fun score».
+A large automatic search is not needed yet. After checking the sensitivity of the metrics, you can add an optional supervisor with a limited list of parameters/number of trials, for example TPE/Optuna. All rules and bot policy remain in Bend. Search has restrictions on early deaths, CPU overload, ignoring XP and zeroing pressure; We select several successful tradeoff candidates for viewing instead of one opaque “fun score”.
 
-### 6. Законы, просмотр и выпуск
+### 6. Laws, review and release
 
-Законы Bend закрепляют точные решения: границы/округление конфигурации и отсутствие overflow; равенство старой/извлечённой формулы при исходном config; single-player identity там, где она предусмотрена; living-count 0/1/2 и future-spawn переходы; неизменность HP уже созданных врагов; компоненты applied damage; shared XP/physical collector и уникальность choices; детерминизм policy ties и допустимость действий. Контракты составляются для фактического общего callsite и проверяются мутантами.
+Bend laws fix exact solutions: boundaries/rounding of the configuration and absence of overflow; equality of the old/extracted formula with the original config; single-player identity where provided; living-count 0/1/2 and future-spawn transitions; unchanged HP of already created enemies; applied damage components; shared XP/physical collector and unique choices; determinism of policy ties and admissibility of actions. Contracts are drawn up for the actual common callsite and verified by the mutants.
 
-Не пишем закон «игра весёлая», «survival не меньше X для всех seeds» или «давление всегда растёт». Такие цели проверяются экспериментально и человеком. Телеметрия не должна менять состояние/исходы: сравниваем instrumented/quiet исполнения на одинаковых командах. До утверждения нового баланса сохраняются проверенные сетевые гарантии и off-screen spawn закон.
+We don’t write the law “the game is fun”, “survival is at least X for all seeds” or “the pressure is always increasing”. Such goals are tested experimentally and by humans. Telemetry should not change the state/outcomes: we compare instrumented/quiet executions on the same commands. Until the new balance is approved, verified network guarantees and off-screen spawn law are maintained.
 
-Для каждого финалиста смотрим несколько заранее выбранных удачных, медианных и плохих забегов; затем играем соло и вдвоём на телефонах. Проверяем, была ли возможность собрать билд/вернуться за XP, читается ли причина смерти, есть ли передышки и остаётся ли угроза в поздней игре. Тачскрин и неудобство управления нельзя вывести из headless policy.
+For each finalist, we look at several pre-selected good, median and bad races; then we play solo and together on phones. We check whether there was an opportunity to assemble a build/return for XP, whether the cause of death is readable, whether there are respites and whether the threat remains in the late game. The touchscreen and the inconvenience of control cannot be deduced from the headless policy.
 
-Принимаем облегчение ранней игры только при улучшении объявленных исходов на независимых контекстах без скрытого уничтожения толпы, позднего давления, прогрессии или кооперативной роли второго игрока. После этого обновляем графики, manifest и baseline. Сборка/публикация следует существующему fresh-source release-процессу; исследовательский документ сам по себе не меняет публичную игру.
+We accept early game relief only when improving announced outcomes in independent contexts without hidden crowd destruction, late pressure, progression or co-op role of the second player. After this, we update the graphs, manifest and baseline. The build/publish follows the existing fresh-source release process; a research document by itself does not change the public game.
 
-## Независимая проверка плана
+## Independent review of the plan
 
-[Ревью Астры](balance-bots-plan-review.md) проверило выполнимость первого узкого шага и экспериментальные ловушки. В план включены зеркальные player-slot пары, посредующий эффект XP, общий holdout ledger для обоих циклов, различие Core1/продуктового solo и небольшой полный регрессионный прогон до выпуска. Это ревью плана, не подтверждение численных кандидатов.
+[The Astra](balance-bots-plan-review.md) review tested the feasibility of the first narrow step and experimental pitfalls. The plan includes mirrored player-slot pairs, a mediating XP effect, a common holdout ledger for both cycles, a Core1/product solo distinction, and a small full regression run before release. This is a plan review, not a confirmation of numerical candidates.
 
-## Первый конкретный цикл реализации
+## First concrete implementation cycle
 
-1. Зафиксировать текущие конфигурации и минимальные временные samples; сделать настоящий shared-core кооперативный pilot с двумя существующими контроллерами и соло-контролем.
-2. Менять только надбавку ordinary population для двух живых: ×2 baseline, кандидаты ×1.5/×1.25/×1. Выбрать облегчение по репрезентативным seed-сравнениям и совместной игре на телефонах; перед выпуском выполнить небольшой полный-horizon регрессионный набор. Не ждать полной системы обучения ботов.
-3. После первого облегчения добавить причинную телеметрию и ограниченный по наблюдению вариант бота. Ретроспектива может открыть отдельный bot experiment по поиску XP/выходу из окружения.
-4. Заморозить обновлённую панель. По отдельным гипотезам исследовать временные окна и crowd damage, включая взаимодействия, с новыми подтверждающими seeds и полными забегами.
-5. Расширять roster/билды и автоматический поиск после проверенной измерительной основы. На каждом цикле я являюсь автором проверяемого кандидата, а сохранённые контроли и независимое ревью ограничивают возможность подогнать вывод под свой патч.
+1. Record current configurations and minimum time samples; make a real shared-core cooperative pilot with two existing controllers and solo control.
+2. Change only the ordinary population allowance for two living ones: ×2 baseline, candidates ×1.5/×1.25/×1. Choose relief from representative seed comparisons and playing together on phones; Run a small full-horizon regression set before releasing. Don't wait for a complete bot training system.
+3. After the first relief, add causal telemetry and a limited observation bot option. A retrospective may open a separate bot experiment on finding XP/exiting the environment.
+4. Freeze the updated panel. For individual hypotheses, explore time windows and crowd damage, including interactions, with new confirmatory seeds and full runs.
+5. Expand roster/builds and automatic search following a proven measurement basis. At each cycle, I am the author of the candidate being tested, and saved controls and independent review limit the ability to tailor the output to my patch.

@@ -1,55 +1,55 @@
-# Как сравниваем кандидатов
+# How candidates are compared
 
-Это аналитические критерии исследования, а не новые требования к Bendvy или утверждённые законы.
+These are analytical research criteria, not new Bendvy requirements or approved laws.
 
-## Две разные цели
+## Two different goals
 
-- **Самое полное раскрытие ECS**: сколько независимых игровых механизмов естественно используют композицию, запросы, события, отношения, фазы и жизненные циклы.
-- **Лучший первый клон**: можно ли получить узнаваемую законченную игру с текущим ECS и ограниченным host, не построив сначала новый движок.
+- **The fullest demonstration of ECS:** how many independent gameplay mechanics naturally use composition, queries, events, relations, phases and lifecycles.
+- **The best first clone:** whether a recognizable, complete game can be built with the current ECS and a bounded host layer without first building a new engine.
 
-Нельзя скрывать различие этих целей одним средним баллом. Результат должен показывать выбор для каждой и объяснять компромисс.
+Do not hide the distinction behind one average score. The result must present a choice for each goal and explain the tradeoff.
 
-## Порядковая оценка
+## Ordinal assessment
 
-Любые баллы в итоговом сравнении — экспертная оценка координатора, не результаты измерений. Шкала: 0 — отсутствует, 1 — слабо, 2 — заметно, 3 — определяет игру. Дробные оценки и итоговая псевдоточная сумма не нужны.
+Any scores in the final comparison are the coordinator's expert judgment, not measurement results. Scale: 0 — absent, 1 — weak, 2 — noticeable, 3 — defines the game. Fractional scores and a spuriously precise total are unnecessary.
 
-| Критерий | Что нужно показать |
+| Criterion | What must be demonstrated |
 |---|---|
-| Комбинирование | Повторно используемые возможности создают разные игровые объекты без нового монолитного класса комбинации или универсального диспетчера всех обязанностей |
-| Пересекающиеся запросы | Одна сущность участвует в нескольких системах, системы работают и с разными семействами сущностей |
-| Изменение состава | Добавление/удаление компонентов меняет доступное поведение в ходе игры |
-| События и фазы | Несколько независимых реакций на событие и видимый смысл порядка систем/барьеров |
-| Отношения | Владение, перенос, оснащение, цели, экипаж, цепочки — с корректной очисткой ссылок |
-| Пригодность первого среза | Малый законченный игровой цикл остаётся узнаваемым после урезания контента |
-| Нагрузка за пределами ECS | Нужны ли сложная физика, сетевой код, редактор, огромный контент, специализированные решатели |
-| Новизна относительно arena | Что проверяет такой потребитель сверх существующего compound Body + direct query demo |
+| Composition | Reusable capabilities create different game objects without a new monolithic class for each combination or a universal dispatcher of all responsibilities |
+| Intersecting queries | One entity participates in several systems, and systems also operate across different entity families |
+| Structural changes | Adding/removing components changes available behavior during play |
+| Events and phases | Several independent reactions to an event and visible meaning in system/barrier order |
+| Relations | Ownership, carrying, equipping, targets, crew and chains, with correct reference cleanup |
+| First-slice suitability | A small complete gameplay loop remains recognizable after content cuts |
+| Work outside ECS | Whether complex physics, networking, an editor, huge content or specialized solvers are required |
+| Novelty relative to arena | What this consumer checks beyond the existing compound Body + direct query demo |
 
-## Обязательные возражения
+## Mandatory objections
 
-1. Можно ли реализовать весь срез одним массивом структур с коротким update? Если да, чем ECS помогает пользователю, а не только автору библиотеки?
-2. Не скрыта ли основная сложность в pathfinding, graph solver, cellular automaton, renderer или authored content?
-3. Получится ли после сокращений узнаваемый клон выбранной игры, или только абстрактный sandbox?
-4. Не предлагаем ли системы только ради покрытия API? Транзакционный отказ, инспекция и snapshots должны решать реальную задачу.
-5. Есть ли доказательства исходной архитектуры? Из слов «components», «entities» и «millions of pixels» нельзя вывести data-oriented ECS.
-6. Проверен ли приоритет игрока: какой выбор он делает, что видит после действия, как выигрывает/проигрывает?
+1. Could the entire slice be implemented as one array of structs with a short update? If so, how does ECS help the user, rather than only the library author?
+2. Is most complexity hidden in pathfinding, a graph solver, cellular automaton, renderer or authored content?
+3. Will the cuts leave a recognizable clone of the selected game, or only an abstract sandbox?
+4. Are systems being proposed merely for API coverage? Transactional failure, inspection and snapshots must solve a real problem.
+5. Is there evidence for the original architecture? Words such as “components,” “entities” and “millions of pixels” do not establish data-oriented ECS.
+6. Has the player perspective been checked: what choice do they make, what do they see after acting, and how do they win/lose?
 
-## Привязка к текущему проекту
+## Relation to the current project
 
-Источник: локальные `bendvy/docs/reference/ordinary-app.md`, `examples/scheduled-health/README.md`, `examples/arena/README.md`, `docs/SPEC.md` на момент исследования.
+Source: local `bendvy/docs/reference/ordinary-app.md`, `examples/scheduled-health/README.md`, `examples/arena/README.md` and `docs/SPEC.md` at the time of research.
 
-- Новое приложение должно рассматривать ordinary App registration как основной вход. Arena полезна для browser host, но не как образец полноты ECS-модели.
-- Зарегистрированные системы выполняются в заданном порядке; автоматическая parallel execution не является подтверждённым свойством.
-- Доступы объявляются capability API, world передаётся аффинно. Нельзя планировать свободные мутации по alias-ссылкам как в C#/Lua.
-- Запросы компонентов допускают Type payload через owner-preserving bindings, но повторяемые Args/Out имеют Data ограничения на указанном ordinary route.
-- ECS rollback имеет границы: внешние IO и некоторые capture changes не откатываются вместе с миром. Игровой UI/audio не должен публиковать победу до commit.
-- Deferred commands видимы на явном barrier. Снаряд, созданный в текущей фазе, не должен случайно получать несколько тиков из-за порядка обхода.
-- Снимок мира не означает точный checkpoint исполнения: очереди, event readers и runtime state требуют явной политики. Basic/graph save отказывается при pending structural commands.
-- ECS не предоставляет автоматически spatial index, collision solver, navmesh, renderer, input, audio и network replication.
+- A new application should treat ordinary App registration as its main entry point. Arena is useful for a browser host, not as a model of ECS completeness.
+- Registered systems execute in the specified order; automatic parallel execution is not an established property.
+- Accesses are declared through the capability API, and the world is passed affinely. Do not plan unrestricted mutations through aliased references as in C#/Lua.
+- Component queries allow Type payloads through owner-preserving bindings, but repeated Args/Out have Data constraints on the specified ordinary route.
+- ECS rollback has boundaries: external IO and some capture changes are not rolled back with the world. Gameplay UI/audio must not publish victory before commit.
+- Deferred commands become visible at an explicit barrier. A projectile created in the current phase must not accidentally receive several ticks due to traversal order.
+- A world snapshot is not an exact execution checkpoint: queues, event readers and runtime state require an explicit policy. Basic/graph save rejects pending structural commands.
+- ECS does not automatically provide a spatial index, collision solver, navmesh, renderer, input, audio or network replication.
 
-Потенциальные будущие проверки среза описываются как предложения. В рамках этого исследования они не запускаются и не квалифицируют производительность.
+Potential future slice checks are proposals. They are not run in this study and do not qualify performance.
 
-## Уточнение после проверки гранулярности
+## Clarification after granularity review
 
-Число marker-компонентов и отсутствие любых `kind`/enum веток не являются критериями качества ECS. Связанные данные можно держать в составном компоненте, flags или enum; локальная интерпретация такого значения совместима с ECS. Проверяется независимое владение данными, выбор сущностей и повторное использование правил, а не дробление каждого поля. Динамическое изменение поведения через resource/rule table отличается от структурной вставки/удаления компонентов; обе формы допустимы и должны оцениваться отдельно. Изменение поведения не обязывает материализовать каждый derived tag в World. [Проверка гранулярности](23-component-granularity-audit.md).
+Marker-component counts and the absence of all `kind`/enum branches are not ECS quality criteria. Related data may live in a composite component, flags or an enum; local interpretation of such values is compatible with ECS. Evaluate independent data ownership, entity selection and rule reuse, not splitting every field. Dynamic behavior changes through a resource/rule table differ from structural component insertion/removal; both are valid and must be assessed separately. Behavior changes do not require materializing every derived tag in World. [Granularity review](23-component-granularity-audit.md).
 
-При трактовке «раскрыть ECS» как регулярные массовые проходы и явные disjoint accesses другой лидер возможен среди swarm/shapez/RTS. Это концептуальный выбор workload, не замер производительности и не обещание параллельного исполнения текущего Bendvy. [Альтернативная трактовка](22-data-oriented-counterargument.md).
+If “demonstrate ECS” means regular bulk passes and explicit disjoint accesses, swarm/shapez/RTS may lead instead. This is a conceptual workload choice, not a performance measurement or a promise of parallel execution in the current Bendvy. [Alternative interpretation](22-data-oriented-counterargument.md).

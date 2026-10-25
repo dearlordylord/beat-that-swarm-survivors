@@ -1,66 +1,45 @@
-# Survivors — требования
+# Survivors — requirements
 
-Клон Vampire Survivors как пример ECS на Bendvy. Настройка опубликованной BendHub-зависимости — в [корневом README](../../README.md).
+A Vampire Survivors clone as a Bendvy ECS example. Published BendHub dependency setup is described in the [root README](../../README.md).
 
-## Обязательное требование пользователя
+## Mandatory user requirement
 
-Собственный набор не должен уступать оригинальной Vampire Survivors по богатству. Это требование к разнообразию решений, взаимодействий, развитию сборок, врагам и повторным прохождениям; число записей каталога само по себе его не выполняет. Первоначальный небольшой набор является промежуточным этапом, а не готовым результатом. Точное копирование названий, графики и контента оригинала не требуется. Мультиплеер исключён. Пользователь разрешил английский язык игры; интерфейс и каталог реализуются на английском, переписка остаётся на русском.
+The original content set must match the richness of the original Vampire Survivors. This requires variety in decisions, interactions, build development, enemies and replayability; the number of catalog entries alone does not satisfy it. The initial small content set is an intermediate stage, not a finished result. Exact copies of the original names, graphics and content are not required. Multiplayer is excluded. The user approved English for the game; the interface and catalog are implemented in English, while correspondence remains in Russian.
 
-## Игровой объём
+## Gameplay scope
 
-Собственный каталог должен давать разные стратегии оружия, эволюций, слияний,
-пассивных улучшений и аркан. Герои должны влиять на выбор сборки, арены —
-различаться расписаниями волн, опасностями и целями. Развитие сборки включает
-выбор улучшений, переброс, пропуск и изгнание; модификаторы забега и
-испытательная конфигурация должны менять условия прохождения. Первичные
-источники и критерии разнообразия — в [REFERENCE_SCOPE.md](REFERENCE_SCOPE.md).
-Реализованный каталог — в [menu-catalog.bend](menu-catalog.bend), игровые правила —
-в [game.bend](game.bend), [projectile.bend](projectile.bend) и
-[encounters.bend](encounters.bend).
+The original catalog must support different strategies through weapons, evolutions, unions, passive upgrades and arcana. Characters must influence build choices, and stages must differ in wave schedules, hazards and objectives. Build development includes upgrade selection, rerolling, skipping and banishing; run modifiers and the challenge configuration must change the conditions of play. Primary sources and diversity criteria are in [REFERENCE_SCOPE.md](REFERENCE_SCOPE.md). The implemented catalog is in [menu-catalog.bend](menu-catalog.bend), and gameplay rules are in [game.bend](game.bend), [projectile.bend](projectile.bend) and [encounters.bend](encounters.bend).
 
-Между забегами — постоянные улучшения, открытие содержимого, коллекция и достижения. Полный цикл: выбор героя и арены → бой → развитие сборки → поражение или победа → награды → следующий забег.
+Between runs: permanent upgrades, content unlocks, a collection and achievements. The complete loop is character and stage selection → combat → build development → defeat or victory → rewards → the next run.
 
-Перед завершением требуется проверить механическое разнообразие и наличие доступного пользователю законченного цикла; каталог сам по себе не доказывает равенства оригиналу.
+Before completion, verify mechanical variety and a complete loop accessible to the user; the catalog alone does not establish parity with the original.
 
-## Bend и ECS
+## Bend and ECS
 
-Bend владеет состоянием и исполняет авторитетные правила движения, боя, попаданий, добычи, опыта, выбора улучшений, эволюций, появления врагов и завершения забега. По уточнению пользователя от 2026-10-22 основная версия полностью реализуется на Bend: нативное окно, отрисовка, ввод, звук, меню и файловый профиль. Прежняя браузерная версия сохраняется для сравнения и тестов. Лаунчер пересобирает локальные исходники при запуске на macOS Apple Silicon.
+Bend owns the state and executes authoritative rules for movement, combat, hits, loot, experience, upgrade selection, evolutions, enemy spawning and run completion. Following the user's clarification on 2026-10-22, the main version is implemented entirely in Bend: native window, rendering, input, audio, menus and a file-backed profile. The previous browser version is retained for comparison and testing. The launcher rebuilds local sources on startup on macOS Apple Silicon.
 
-Используются настоящий мир Bendvy, типизированные компоненты, запросы систем с объявленным доступом, линейное владение состоянием и явные структурные границы. Большой объект с переключателем типов не считается достаточной демонстрацией ECS. Независимые данные движения и боевого состояния должны разделяться там, где это даёт системам осмысленные независимые доступы. Пример использует опубликованные модули BendHub без изменения или копирования ядра ECS.
+Use a real Bendvy world, typed components, system queries with declared access, linear state ownership and explicit structural boundaries. A large object with a type switch is not a sufficient ECS demonstration. Separate independent movement and combat state where this gives systems meaningful independent access. The example uses published BendHub modules without modifying or copying the ECS core.
 
-## Проверка завершения
+## Completion checks
 
-Проверяются сборка Bend→ESM, целостность каталога и соответствие механик описаниям, ограничения слотов, рост уровня, эволюции, боссы, поражение и победа, длительный забег без исчерпания идентификаторов, сохранение профиля и работа браузерного интерфейса. Проверка включает настоящий браузер и независимое сопоставление реализации с этой спецификацией и стандартами репозитория. Непроверенные свойства не выдаются за доказанные.
+Check Bend→ESM compilation, catalog integrity and agreement between mechanics and descriptions, slot limits, leveling, evolutions, bosses, defeat and victory, a long run without identifier exhaustion, profile persistence and the browser interface. Validation includes a real browser and an independent comparison of the implementation against this specification and repository standards. Do not present unverified properties as proven.
 
+## Native version and wave pressure
 
-## Нативная версия и давление волн
+[pools.bend](pools.bend) defines capacities and identifier allocation; [projectile-pool.bend](projectile-pool.bend) defines shot allocation. Model capacity is not a performance promise.
 
-Ёмкости и распределение идентификаторов задаёт [pools.bend](pools.bend),
-назначение выстрелов — [projectile-pool.bend](projectile-pool.bend). Ёмкость
-модели не является обещанием производительности.
+XP tuning must produce meaningful build decisions. XP, reward and selection-queue rules belong to [game.bend](game.bend); loot presentation policy belongs to [loot-visual.bend](loot-visual.bend). Tuning goals and evaluation limits are in [BALANCE.md](BALANCE.md).
 
-Настройка опыта должна давать осмысленные решения по сборке. Правила опыта,
-награды и очереди выбора принадлежат [game.bend](game.bend), визуальная политика
-добычи — [loot-visual.bend](loot-visual.bend). Цель настройки и границы её оценки —
-в [BALANCE.md](BALANCE.md).
+Opening waves must create noticeable pressure immediately; density, composition and danger increase throughout the run. Movement and build development must affect survival. After dawn in normal mode, a dangerous pursuer appears and ends the run through actual death; reaching dawn preserves completion credit. Endless mode excludes this pursuer.
 
-Начальные волны должны создавать заметное давление сразу; плотность, состав и опасность растут по ходу забега. Перемещение и развитие сборки должны влиять на выживание. После рассвета в обычном режиме появляется опасный преследователь, заканчивающий забег реальной смертью; достижение рассвета сохраняет зачёт прохождения. Бесконечный режим исключает этого преследователя.
+Custom towers and rescuable wisps are excluded: they do not spawn, deal damage or award XP, gold or healing. Demonstrate ECS through gameplay entities and systems without adding these mechanics.
 
-Самодельные башни и спасаемые огоньки исключены: они не появляются, не наносят урон и не дают XP, золото или лечение. ECS демонстрируется игровыми сущностями и системами без добавления таких механик.
+Deeper balance tuning must use reproducible scenarios, different builds and movement strategies, followed by a separate user assessment. Current tuning is not claimed to be numerically equivalent to Vampire Survivors.
 
-Более глубокая настройка баланса должна опираться на воспроизводимые сценарии, разные сборки и стратегии движения, затем отдельную пользовательскую оценку. Текущая настройка не объявляется численно эквивалентной Vampire Survivors.
+Executed checks, observations and their limits are recorded in [VALIDATION.md](VALIDATION.md).
 
-Исполненные проверки, наблюдения и их ограничения — в [VALIDATION.md](VALIDATION.md).
+## Map and boundaries
 
-## Карта и границы
+World geometry and boundaries are defined in [arena.bend](arena.bend), and relic placement in [game.bend](game.bend). The pause map must help navigation and finding objectives while preserving the priority of an open reward choice. It is not an enemy radar.
 
-Геометрия мира и границы определяются в [arena.bend](arena.bend), размещение
-реликвий — в [game.bend](game.bend). Карта паузы должна помогать ориентироваться
-и находить цели, сохраняя приоритет открытого выбора награды. Она не служит
-радаром противников.
-
-Рождение врагов должно оставаться за экраном, а перемещение и отбрасывание —
-удерживать полный силуэт внутри мира. Углы должны сохранять возможность
-контактного боя. Увеличение мира не должно требовать обхода всей карты при
-отрисовке. Связанные свойства и границы доказательств — в
-[spawn-policy/README.md](spawn-policy/README.md).
+Enemies must spawn offscreen, while movement and knockback must keep their complete visual footprint inside the world. Corners must still allow contact combat. Enlarging the world must not require traversing the entire map during rendering. Related properties and proof boundaries are described in [spawn-policy/README.md](spawn-policy/README.md).

@@ -1,41 +1,32 @@
-# Vampire Survivors: ограничения числа сущностей
+# Vampire Survivors: entity-count limits
 
-Локальное сопоставление ниже описывает пример до пересмотра пулов (коммит `6c5acd9`). Актуальная схема — в [pools.bend](../examples/survivors/pools.bend).
+The local comparison below describes the example before the pool revision (commit `6c5acd9`). The current layout is in [pools.bend](../examples/survivors/pools.bend).
 
-Дата проверки: 2026-10-23. Речь об оригинальной игре poncle, а не о клонах. Для ориентира по версии: официальное объявление от 16 октября называет стабильной версию **1.16.111**, а 1.17.108 — PC public beta; обновление остальных платформ ещё распространяется. Поэтому числа ниже нельзя объявлять проверенными пределами всех актуальных платформ. [Официальные объявления poncle](https://steamcommunity.com/app/1794680/announcements/?l=english).
+Checked: 2026-10-23. This concerns poncle's original game, not clones. Version context: the official October 16 announcement identifies **1.16.111** as stable and 1.17.108 as the PC public beta; the update for other platforms is still rolling out. The numbers below therefore cannot be called verified limits for all current platforms. [Official poncle announcements](https://steamcommunity.com/app/1794680/announcements/?l=english).
 
-## Что подтверждают источники
+## What the sources support
 
-| Категория | Найденное ограничение | Статус доказательства |
+| Category | Reported limit | Evidence status |
 | --- | --- | --- |
-| XP на земле | После **более чем 400** Experience Gems новые отдельные гемы перестают выпадать; XP накапливается в одном красном геме. Это компрессия XP, а не потеря опыта. Формулировка источника не доказывает точный размер массива 400. | **Вторичный источник:** [community wiki, Experience Gem](https://vampire.survivors.wiki/w/Experience_Gem). Численного first-party подтверждения в просмотренных публичных материалах не найдено. |
-| Обычные враги | При **300 и более живых врагах** прекращается периодический спавн; боссы и враги map events продолжают появляться. Следовательно, 300 — порог спавнера, а не доказанный жёсткий предел общего числа сущностей. | **Вторичный источник:** [community wiki, Enemies](https://vampire.survivors.wiki/w/Enemies). |
-| Curse / Charm / Gold Finger | Страница Curse отдельно сообщает предел количества врагов **500** независимо от Curse/Charm; Gold Finger временно устанавливает число спавнящихся врагов в 500. | **Вторичные источники:** [Curse](https://vampire.survivors.wiki/w/Curse), [Gold Finger](https://vampire-survivors.fandom.com/wiki/Gold_Finger). Связь этого 500 с исключениями для боссов/events и точной версией не доказана; нельзя превращать два wiki-описания в единый подтверждённый allocator cap. |
-| Снаряды игрока | Wiki описывает **Pool limit как характеристику оружия**: например, Magic Wand — **60**, King Bible — **50**. Это свидетельство разных пулов оружия; общего подтверждённого лимита всех player projectiles не найдено. | **Вторичные источники:** [Weapons](https://vampire-survivors.fandom.com/wiki/Weapons), [Magic Wand](https://vampire-survivors.fandom.com/wiki/Magic_Wand), [King Bible](https://vampire-survivors.fandom.com/wiki/King_Bible). Область совместного использования пулов между копиями оружия/игроками здесь не установлена. |
-| Вражеские снаряды | Достоверного общего численного предела не найдено. | Открытый вопрос, не «безлимитно». |
-| Независимые акторы / спутники | Единого оригинального класса, соответствующего custom `actors`, не установлено. Есть конкретный first-party предел: в patch 1.15 исправлен максимум **10 followers Astarte**, ранее ошибочно 4. | **Первичный источник:** [poncle, Update 1.15 — list of fixes, 6 июня](https://steamcommunity.com/app/1794680/announcements/?l=english). Это предел конкретного персонажа/DLC, не всего мира. |
+| XP on the ground | After **more than 400** Experience Gems, new individual gems stop dropping; XP accumulates in one red gem. This compresses XP rather than losing it. The source wording does not establish an exact array size of 400. | **Secondary source:** [community wiki, Experience Gem](https://vampire.survivors.wiki/w/Experience_Gem). No numerical first-party confirmation was found in the public materials reviewed. |
+| Ordinary enemies | At **300 or more living enemies**, periodic spawning stops; bosses and map-event enemies continue appearing. Thus 300 is a spawner threshold, not a proven hard limit on total entity count. | **Secondary source:** [community wiki, Enemies](https://vampire.survivors.wiki/w/Enemies). |
+| Curse / Charm / Gold Finger | The Curse page separately reports an enemy-count limit of **500** regardless of Curse/Charm; Gold Finger temporarily sets the number of spawning enemies to 500. | **Secondary sources:** [Curse](https://vampire.survivors.wiki/w/Curse), [Gold Finger](https://vampire-survivors.fandom.com/wiki/Gold_Finger). The relationship between this 500, boss/event exceptions and an exact version is unproven; two wiki descriptions cannot be merged into one confirmed allocator cap. |
+| Player projectiles | The wiki describes **Pool limit as a weapon property**: for example, Magic Wand — **60**, King Bible — **50**. This supports distinct weapon pools; no confirmed total limit for all player projectiles was found. | **Secondary sources:** [Weapons](https://vampire-survivors.fandom.com/wiki/Weapons), [Magic Wand](https://vampire-survivors.fandom.com/wiki/Magic_Wand), [King Bible](https://vampire-survivors.fandom.com/wiki/King_Bible). Pool sharing across weapon copies/players is not established here. |
+| Hostile projectiles | No reliable overall numerical limit was found. | An open question, not “unlimited.” |
+| Independent actors / companions | No single original category corresponding to custom `actors` was established. One specific first-party limit exists: patch 1.15 fixed Astarte's maximum of **10 followers**, previously incorrectly 4. | **Primary source:** [poncle, Update 1.15 — list of fixes, June 6](https://steamcommunity.com/app/1794680/announcements/?l=english). This is a limit for a specific character/DLC, not the whole world. |
 
-## Стадии и режимы
+## Stages and modes
 
-Нельзя считать каждый параметр волны пределом хранилища. Например, Mad Forest имеет отдельные starting spawns, enemy minimum и spawn interval; Hyper меняет множитель enemy minimum с x1 до x1.25. У события Bat Swarm указан отдельный пакет 50 врагов. Это параметры наполнения/спавна, совместимые с исключениями из правила 300, а не доказательство другого глобального capacity. [Community wiki, Mad Forest](https://vampire.survivors.wiki/w/Mad_Forest), [таблица волн](https://vampire-survivors.fandom.com/wiki/Mad_Forest).
+Not every wave parameter is a storage limit. For example, Mad Forest has separate starting spawns, enemy minimum and spawn interval; Hyper changes the enemy-minimum multiplier from x1 to x1.25. The Bat Swarm event has a separate batch of 50 enemies. These are population/spawn parameters compatible with exceptions to the 300 rule, not evidence of another global capacity. [Community wiki, Mad Forest](https://vampire.survivors.wiki/w/Mad_Forest), [wave table](https://vampire-survivors.fandom.com/wiki/Mad_Forest).
 
-## Сопоставление с примером
+## Comparison with the example
 
-Авторитетные ограничения приложения задаёт [pools.bend](../examples/survivors/pools.bend),
-назначение оружия — [projectile-pool.bend](../examples/survivors/projectile-pool.bend),
-интеграцию опыта и рождения — [game.bend](../examples/survivors/game.bend).
-Этот отчёт не хранит копию локальных ёмкостей, диапазонов или алгоритмов.
+Authoritative application limits are defined in [pools.bend](../examples/survivors/pools.bend), weapon allocation in [projectile-pool.bend](../examples/survivors/projectile-pool.bend), and XP/spawn integration in [game.bend](../examples/survivors/game.bend). This report does not keep a duplicate of local capacities, ranges or algorithms.
 
-Вывод исторического сопоставления: ограничения приложения нельзя выдавать за
-предел Bendvy или за подтверждённый parity с оригинальной игрой. Разделение
-weapon pool, порога спавнера и общей ёмкости необходимо для такого сравнения.
+Historical comparison conclusion: application limits must not be presented as Bendvy limits or confirmed parity with the original game. Such a comparison must distinguish weapon pools, spawner thresholds and total capacity.
 
-Итог доказательности: публичные first-party материалы дали текущий контекст версии и частный follower limit; основные числа 400/300/500 и weapon pools здесь честно остаются вторичными wiki-сведениями без закреплённой сборки. Для точного parity-контракта нужен отдельный воспроизводимый замер выбранной легальной сборки/платформы; этот документ такого замера не заявляет.
+Evidence conclusion: public first-party materials supplied current version context and a specific follower limit. The main 400/300/500 figures and weapon pools remain secondary wiki information without a pinned build. An exact parity contract requires a separate reproducible measurement of a selected legal build/platform; this document claims no such measurement.
 
+## Implication for changes to the example
 
-## Следствие для изменения примера
-
-Изменение ёмкости требует проверки поведения оружия, сохранности опыта и плотной
-сцены. Увеличение хранилища само по себе не доказывает сохранение этих свойств и
-не является результатом измерения производительности. Результаты пересмотра
-записаны в [отчёте о пулах](shared-projectile-pool.md).
+Capacity changes require checks of weapon behavior, XP conservation and dense scenes. Increasing storage alone does not establish preservation of these properties and is not a performance measurement. Revision results are recorded in the [pool report](shared-projectile-pool.md).
