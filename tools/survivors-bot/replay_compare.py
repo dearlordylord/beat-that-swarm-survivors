@@ -170,7 +170,7 @@ def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes
             raise ReplayError(str(error)) from error
     expected = trace_contract(trace) if trace is not None else None
     chain = hashlib.sha256(); seen_start = False; seen_summary = False
-    count = 0; fixture = None; last_step = -1; last_tick = -1
+    count = 0; fixture = None; last_step = -1; last_tick = -1; last_clock = None
     sentinel = object()
     for position, (left, right) in enumerate(itertools.zip_longest(replay_records(baseline), replay_records(candidate), fillvalue=sentinel), 1):
         if left is sentinel or right is sentinel:
@@ -208,6 +208,10 @@ def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes
                         validator.validate_payload(record.get("payload"), current_tick, layout)
                 except ValueError as error:
                     raise ReplayError(str(error)) from error
+            current_clock = tuple(payload['metadata']['clock'][0])
+            if last_clock is not None and current_clock < last_clock:
+                raise ReplayError('Actual World clock regressed across checkpoints')
+            last_clock = current_clock
             # encoded above still contains the complete unprojected payload,
             # including actual clocks, physical stamps, columns and rosters.
             last_step, last_tick = step, current_tick

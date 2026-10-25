@@ -81,7 +81,7 @@ def validate_metadata(metadata, total):
     for value in allocator[:4]:
         R.integer(value, 'allocator scalar')
     next_id, high, capacity, depth, free, order, slots = allocator
-    if not (total <= high < capacity and 1 <= next_id <= capacity):
+    if capacity != 1 << depth or not (total == high < capacity and next_id == high + 1):
         raise ReplayError('Allocator capacity/high/next bounds')
     if len(sequence(slots, 'allocator slots')) != capacity:
         raise ReplayError('Allocator capacity mismatch')
@@ -93,6 +93,8 @@ def validate_metadata(metadata, total):
         R.u32(index, 'free index')
         if not 1 <= index <= high or slots[index][1] != 4:
             raise ReplayError('Invalid free index')
+    if free:
+        raise ReplayError('Fixed native pool unexpectedly has allocator free slots')
     if len(set(free)) != len(free):
         raise ReplayError('Duplicate free index')
     seen = set()
