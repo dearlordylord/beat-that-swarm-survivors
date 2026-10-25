@@ -1,8 +1,9 @@
 import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS, PASSIVES, UNIONS, ACHIEVEMENTS } from './content.mjs';
-import { loadProfile, validateSetup, metaCode, allowedWeapons, isUnlocked, observeRun, recordRun } from './progression.mjs';
+import { loadProfile, validateSetup, metaCode, allowedWeapons, isUnlocked, unlock, observeRun, recordRun } from './progression.mjs';
 import { Renderer } from './renderer.mjs';
 import { AudioEngine } from './audio.mjs';
 import { ObservationPresentation } from './coop-presentation.mjs';
+import { renderCoopSetup } from './expedition-menu.mjs';
 
 // Presentation and device IO only. The controller supplies authoritative Bend frames.
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -74,6 +75,10 @@ export class CoopUI {
     this.choiceBusy = false;
     this.events = new AbortController();
     const on = (target, type, listener, options = {}) => target.addEventListener(type, listener, { ...options, signal: this.events.signal });
+    const join = new URL(window.location.href).searchParams.get('join') ?? new URLSearchParams(window.location.hash.slice(1)).get('join');
+    this.entryRole = join ? 'guest' : 'host';
+    this.openPanel = null;
+    this.pendingUnlock = null;
     const initial = validateSetup(this.profile, {});
     for (const [kind, catalog] of Object.entries(catalogs)) {
       const select = this.$(`#coop-${kind}`);
@@ -82,12 +87,16 @@ export class CoopUI {
       on(select, 'change', () => this.updateSetup());
     }
     this.updateSetup();
-    const join = new URL(window.location.href).searchParams.get('join') ?? new URLSearchParams(window.location.hash.slice(1)).get('join');
     if (join) {
       this.$('#coop-ticket').value = window.location.href;
       this.status('Invitation ready. Choose your survivor, then join.');
     }
+    on(this.$('#coop-setup-preview'), 'click', event => this.selectSetup(event));
     on(this.$('#coop-host'), 'click', () => this.invoke('onHost', this.setup()));
+    on(this.$('#coop-invite-again'), 'click', () => this.openInvitation());
+    on(this.$('#coop-invite-close'), 'click', () => this.closeInvitation());
+    on(this.$('#coop-invitation'), 'click', event => { if (event.target === this.$('#coop-invitation')) this.closeInvitation(); });
+    on(this.$('#coop-close-room'), 'click', () => this.invoke('onLeave'));
     on(this.$('#coop-join-form'), 'submit', event => {
       event.preventDefault();
       const source = this.$('#coop-ticket').value;
@@ -95,15 +104,15 @@ export class CoopUI {
       try { session = new URL(source).searchParams.get('session') ?? session; } catch {}
       this.invoke('onJoin', invitationTicket(source, window.location.href), this.setup(), { session });
     });
-    on(this.$('#coop-copy'), 'click', async () => {
-      const input = this.$('#coop-invite-link');
-      try {
-        await window.navigator.clipboard.writeText(input.value);
-        this.$('#coop-copy').textContent = 'Copied';
-      } catch {
-        input.focus(); input.select();
-        this.status('Copy the selected link and send it to your friend.');
-      }
+    on(this.$('#coop-copy'), 'click', () => this.copyInvitation());
+    on(this.$('#coop-share'), 'click', async () => {
+      const url = this.$('#coop-invite-link').value;
+      const navigator = this.window.navigator;
+      if (navigator.share) {
+        try { await navigator.share({title:'Join my Survivors run',text:'Choose your survivor and join my party.',url});
+          this.$('#coop-share-status').textContent = 'Invitation shared. Waiting for your friend to join.';
+        } catch (error) { if (error.name !== 'AbortError') await this.copyInvitation(); }
+      } else await this.copyInvitation();
     });
     on(this.$('#coop-leave'), 'click', () => this.invoke('onLeave'));
     on(this.$('#coop-map-toggle'), 'click', () => this.toggleMap());
@@ -166,7 +175,50 @@ export class CoopUI {
   updateSetup() {
     const setup = this.setup();
     for (const kind of Object.keys(catalogs)) this.$(`#coop-${kind}`).value = setup[kind];
+    this.$('#coop-setup-preview').innerHTML = renderCoopSetup({profile:this.profile,...setup,
+      openPanel:this.openPanel,pendingUnlock:this.pendingUnlock},this.entryRole === 'guest');
+    this.$('#coop-wallet').textContent = `◈ ${this.profile.gold.toLocaleString('en-US')} · legacy gold`;
     this.$('#coop-setup-detail').textContent = `${CHARACTERS[setup.character]?.description || ''} ${ARCANA[setup.arcana]?.description || ''}`;
+  }
+  selectSetup(event) {
+    const button = event.target.closest('button');
+    if (!button || button.disabled || this.$('#coop-setup-fields').disabled) return;
+    if (button.dataset.menuPanel) {
+      this.openPanel = this.openPanel === button.dataset.menuPanel ? null : button.dataset.menuPanel;
+      this.pendingUnlock = null;
+    } else if (button.dataset.buyKind) {
+      if (unlock(this.profile,button.dataset.buyKind,Number(button.dataset.buyId))) {
+        const kind = button.dataset.buyKind, id = Number(button.dataset.buyId);
+        this.$(`#coop-${kind}`).querySelector(`option[value="${id}"]`).disabled = false;
+        this.$(`#coop-${kind}`).value = id;
+        this.pendingUnlock = null; this.openPanel = null;
+      }
+    } else for (const kind of Object.keys(catalogs)) {
+      if (button.dataset[kind] === undefined) continue;
+      const id = Number(button.dataset[kind]);
+      if (isUnlocked(this.profile,kind,id)) {
+        this.$(`#coop-${kind}`).value = id; this.openPanel = null; this.pendingUnlock = null;
+      } else this.pendingUnlock = {kind,id};
+      break;
+    }
+    this.updateSetup();
+    this.$('#coop-setup-preview').querySelector('[data-unlock-details]')?.focus({preventScroll:true});
+  }
+  openInvitation() {
+    const dialog = this.$('#coop-invitation');
+    if (!dialog.open) dialog.showModal();
+  }
+  closeInvitation() { this.$('#coop-invitation').close(); }
+  async copyInvitation() {
+    const input = this.$('#coop-invite-link');
+    try {
+      await this.window.navigator.clipboard.writeText(input.value);
+      this.$('#coop-copy').textContent = 'Copied';
+      this.$('#coop-share-status').textContent = 'Link copied. Paste it into your chat and send it to your friend.';
+    } catch {
+      input.focus(); input.select();
+      this.$('#coop-share-status').textContent = 'Copy the selected link, then send it to your friend.';
+    }
   }
   input() {
     return {
@@ -193,6 +245,10 @@ export class CoopUI {
     this.$('#coop-play-status').textContent = text;
     for (const selector of ['#coop-host', '#coop-join']) this.$(selector).disabled = busy;
     this.$('#coop-lobby').setAttribute('aria-busy', String(busy));
+    if (error && !this.frame && !this.$('#coop-invite-link').value) {
+      this.$('#coop-setup-fields').disabled = false;
+      this.$('#coop-host-actions').hidden = false;
+    }
   }
   invitation(ticket) {
     let url;
@@ -200,11 +256,19 @@ export class CoopUI {
       url = new URL(this.window.location.href); url.hash = ''; url.searchParams.set('join', ticket);
     }
     this.$('#coop-invite-link').value = url.href;
-    this.$('#coop-invitation').hidden = false;
-    this.status('Waiting for your friend. Send them the invitation link.');
+    this.$('#coop-host-actions').hidden = true;
+    this.$('#coop-room-ready').hidden = false;
+    this.$('#coop-room-title').textContent = 'Your party';
+    this.$('#coop-host-help').textContent = 'The run starts when your friend joins.';
+    this.openInvitation();
+    this.status('Room open. Invite your friend to begin.');
   }
   role(role) {
-    for (const element of this.document.querySelectorAll('[data-host-setup]')) element.hidden = role === 'guest';
+    this.entryRole = role;
+    this.document.documentElement.dataset.entry = role;
+    this.openPanel = null; this.pendingUnlock = null;
+    this.updateSetup();
+    this.$('#coop-setup-fields').disabled = true;
   }
   setChoicePending(pending) {
     this.choiceBusy = pending;
@@ -229,6 +293,8 @@ export class CoopUI {
     this.frame = frame;
     this.presentation.push(frame, this.window.performance.now());
     const saved = this.progress.observe(frame);
+    this.closeInvitation();
+    this.$('#menu').hidden = true;
     this.$('#coop-lobby').hidden = true;
     this.$('#coop-play').hidden = false;
     this.$('#coop-clock').textContent = time(frame.tick || 0);
@@ -289,7 +355,19 @@ export class CoopUI {
     this.progress.reset(); this.presentation.reset();
     this.renderer.reset(); this.audio.stop(true); this.toggleMap(false);
     this.$('#coop-lobby').hidden = false; this.$('#coop-play').hidden = true;
-    this.$('#coop-invitation').hidden = true; this.status('Choose your survivor to begin.');
+    this.closeInvitation();
+    this.$('#menu').hidden = false;
+    this.$('#coop-host-actions').hidden = false;
+    this.$('#coop-room-ready').hidden = true;
+    this.$('#coop-invite-link').value = '';
+    this.$('#coop-room-title').textContent = 'Host a run';
+    this.$('#coop-host-help').textContent = 'You choose the stage. Your friend chooses their survivor.';
+    this.$('#coop-copy').textContent = 'Copy invitation link';
+    this.$('#coop-share-status').textContent = 'The run starts when your friend joins. Keep this page open.';
+    this.$('#coop-setup-fields').disabled = false;
+    this.openPanel = null; this.pendingUnlock = null;
+    this.updateSetup();
+    this.status(this.entryRole === 'guest' ? 'Choose your survivor, then join your friend.' : 'Choose your survivor to begin.');
   }
   dispose() {
     this.clearInput(); this.events.abort(); this.window.cancelAnimationFrame(this.animation);

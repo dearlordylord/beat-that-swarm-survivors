@@ -52,8 +52,13 @@ try {
   await host.goto(base);
   await host.locator('#coop-host').click();
   await waitHost(() => document.querySelector('#coop-invite-link')?.value.includes('join='),null,{timeout:120000});
+  assert.equal(await host.locator('#coop-invitation').evaluate(dialog => dialog.open),true,'room creation opens the invitation immediately');
+  assert.equal(await host.locator('#coop-setup-fields').isDisabled(),true,'room settings are fixed after creation');
   const invitation = await host.locator('#coop-invite-link').inputValue();
   await guest.goto(invitation);
+  assert.equal(await guest.locator('#coop-host').isVisible(),false,'invited guests cannot accidentally create another room');
+  assert.equal(await guest.locator('#coop-join').isVisible(),true,'joining is the invitation screen primary action');
+  assert.equal(await guest.locator('#coop-setup-preview [data-menu-panel="stage"]').count(),0,'guests choose their own loadout, not host settings');
   await guest.locator('#coop-join').click();
   await waitHost(() => globalThis.__coopLatest?.players?.length === 2 && globalThis.__coopLatest.tick > 5,null,{timeout:120000});
   await guest.locator('#coop-play').waitFor({state:'visible'});

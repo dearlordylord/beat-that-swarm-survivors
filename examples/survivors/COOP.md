@@ -87,3 +87,18 @@ qualified by runtime tests, rather than a claim that the entire game is proved.
 birth distance from the displayed owner and continuing flight during a reversal.
 `COOP_PROJECTILE_DELAY_MS=800` adds a labeled observation-delay control. See
 [the projectile evidence](../../research/coop-projectile-visibility.md).
+
+## Co-op hall
+
+The Co-op tab shares the Moon Seal shell, expedition card and Bend-backed
+selection pickers with the solo menu. Its setup is prerendered by Astro.
+
+Create room fixes the host setup and immediately opens an invitation dialog.
+Share opens the device share sheet when available; Copy invitation link provides
+clipboard feedback or a selectable link. The room starts when the guest joins.
+An invitation URL opens the guest entry directly, with Survivor and Arcana
+choices and one Join party action; it never offers Create room. Close room
+releases the connection and restores setup editing.
+
+The accepted menu study was variant B (separate Co-op hall in the shared menu).
+The throwaway study and its local server have been removed.

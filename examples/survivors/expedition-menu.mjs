@@ -5,11 +5,11 @@ import { isUnlocked, purchaseStatus } from './progression.mjs';
 const catalog = { character: CHARACTERS, stage: STAGES, arcana: ARCANA, mode: RUN_MODES };
 const labels = { character: 'Survivor', stage: 'Stage', arcana: 'Arcana', mode: 'Mode' };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-function portrait(id=0,size='large'){
+export function portrait(id=0,size='large'){
  const color=CHARACTERS[id]?.color||'#8dcaff';
  return `<div class="pixel-portrait portrait-${size}" style="--survivor:${color}" aria-label="${esc(CHARACTERS[id]?.name)}"><svg viewBox="0 0 32 40" aria-hidden="true" shape-rendering="crispEdges"><path fill="#101b1b" d="M7 37h20v3H7z"/><path fill="${color}" d="M10 12h12v4h3v7h3v14H5V23h3v-7h2z"/><path fill="#111d22" d="M11 13h10v10H11z"/><path fill="#e9cfad" d="M12 14h8v7h-8z"/><path fill="#243235" d="M13 16h2v2h-2zm5 0h2v2h-2z"/><path fill="${color}" d="M7 12h18v3H7zm3-4h13v4H10zm3-4h8v4h-8z"/><path fill="#f1e5ae" d="M4 23h3v12H4zm-1-4h5v4H3z"/><path fill="#182629" d="M13 24h6v3h-6zm0 10h5v3h-5z"/><path fill="#ecdeb7" d="M8 24h3v4H8z"/></svg></div>`;
 }
-function stageArt(id=0){return `<div class="stage-art stage-art-${id}" aria-hidden="true"><div class="moon"></div><div class="ridge ridge-back"></div><div class="ridge"></div><div class="ground"></div><div class="tomb tomb-one"></div><div class="tomb tomb-two"></div><div class="tree tree-one"></div><div class="tree tree-two"></div><span class="stage-art-coordinate">${esc(STAGES[id].name.toUpperCase())}</span></div>`;}
+export function stageArt(id=0){return `<div class="stage-art stage-art-${id}" aria-hidden="true"><div class="moon"></div><div class="ridge ridge-back"></div><div class="ridge"></div><div class="ground"></div><div class="tomb tomb-one"></div><div class="tomb tomb-two"></div><div class="tree tree-one"></div><div class="tree tree-two"></div><span class="stage-art-coordinate">${esc(STAGES[id].name.toUpperCase())}</span></div>`;}
 
 function icon(kind, item) {
   if (kind === 'character') return portrait(item.id, 'small');
@@ -37,12 +37,26 @@ function picker(state, kind) {
   }).join('')}</div>${inspector(state.profile, state.pendingUnlock, kind)}`;
 }
 
+export function renderRunCard({ character = 0, stage = 0, arcana = 0, mode = 0 }) {
+  const c = CHARACTERS[character] || CHARACTERS[0];
+  const destination = STAGES[stage] || STAGES[0];
+  const charm = ARCANA[arcana] || ARCANA[0];
+  const runMode = RUN_MODES[mode] || RUN_MODES[0];
+  return `<section class="a-run-card" aria-label="Current run"><div class="a-survivor">${portrait(c.id)}<div><span class="eyebrow">${esc(c.title)}</span><h2>${esc(c.name)}</h2><p>${esc(WEAPONS[c.weapon].name)}</p></div></div><div class="a-stage">${stageArt(destination.id)}<div class="a-stage-caption"><span class="eyebrow">Destination</span><strong>${esc(destination.name)}</strong></div></div><div class="a-run-strip"><span>${esc(charm.icon)} ${esc(charm.name)}</span><span>${['◷','◑','∞','⚔'][runMode.id]} ${esc(runMode.name)} <i>·</i> ${runMode.durationLabel}</span></div></section>`;
+}
+
+export function renderRunSelectors(state, kinds = Object.keys(catalog), staticPickers = false) {
+  const selected = Object.fromEntries(kinds.map(kind => [kind, catalog[kind].find(item => item.id === state[kind]) || catalog[kind][0]]));
+  return `<div class="selection-rows">${kinds.map(kind => `<section class="selection-item"><button class="selection-row" data-menu-panel="${kind}" aria-expanded="${state.openPanel === kind}"><span>${labels[kind]}</span><strong class="selected-choice">${icon(kind, selected[kind])}<span>${esc(selected[kind].name)}</span></strong><span class="change-label">${state.openPanel === kind ? 'Close −' : 'Change +'}</span></button>${state.openPanel === kind || staticPickers ? `<div class="inline-picker" ${state.openPanel === kind ? '' : 'hidden'}>${picker(state, kind)}</div>` : ''}</section>`).join('')}</div>`;
+}
+
+export function renderCoopSetup(state, guest = false) {
+  return `<div class="expedition">${guest ? `<div class="coop-survivor-preview"><div>${portrait(state.character)}</div><div><p class="eyebrow">Your survivor</p><h2>${esc(CHARACTERS[state.character].name)}</h2><p>${esc(WEAPONS[CHARACTERS[state.character].weapon].name)}</p></div></div>` : renderRunCard(state)}<div class="a-loadout-heading"><h2>${guest ? 'Your loadout' : 'Run setup'}</h2><span class="muted">${guest ? 'Bring your own survivor' : 'Choose your next expedition'}</span></div>${renderRunSelectors(state, guest ? ['character', 'arcana'] : Object.keys(catalog))}</div>`;
+}
+
 export function renderExpedition({ profile, character, stage, arcana, mode, openPanel = null, pendingUnlock = null, staticPickers = false }) {
   const state = { profile, character, stage, arcana, mode, openPanel, pendingUnlock };
-  const selected = Object.fromEntries(Object.keys(catalog).map(kind => [kind, catalog[kind].find(item => item.id === state[kind]) || catalog[kind][0]]));
-  const c = selected.character;
-  const duration = selected.mode.durationLabel;
-  return `<div class="expedition"><div class="a-heading"><div><p class="eyebrow">Your next run</p><h1>Ready to play</h1></div><button id="start-top" class="primary start-button">${startControl}</button></div><section class="a-run-card" aria-label="Current run"><div class="a-survivor">${portrait(c.id)}<div><span class="eyebrow">${esc(c.title)}</span><h2>${esc(c.name)}</h2><p>${esc(WEAPONS[c.weapon].name)}</p></div></div><div class="a-stage">${stageArt(selected.stage.id)}<div class="a-stage-caption"><span class="eyebrow">Destination</span><strong>${esc(selected.stage.name)}</strong></div></div><div class="a-run-strip"><span>${esc(selected.arcana.icon)} ${esc(selected.arcana.name)}</span><span>${['◷','◑','∞','⚔'][selected.mode.id]} ${esc(selected.mode.name)} <i>·</i> ${duration}</span></div></section><div class="a-loadout-heading"><h2>Run setup</h2><span class="muted">Choose your next expedition</span></div><div class="selection-rows">${Object.keys(catalog).map(kind => `<section class="selection-item"><button class="selection-row" data-menu-panel="${kind}" aria-expanded="${openPanel === kind}"><span>${labels[kind]}</span><strong class="selected-choice">${icon(kind, selected[kind])}<span>${esc(selected[kind].name)}</span></strong><span class="change-label">${openPanel === kind ? 'Close −' : 'Change +'}</span></button>${openPanel === kind || staticPickers ? `<div class="inline-picker" ${openPanel === kind ? '' : 'hidden'}>${picker(state, kind)}</div>` : ''}</section>`).join('')}</div></div>`;
+  return `<div class="expedition"><div class="a-heading"><div><p class="eyebrow">Your next run</p><h1>Ready to play</h1></div><button id="start-top" class="primary start-button">${startControl}</button></div>${renderRunCard(state)}<div class="a-loadout-heading"><h2>Run setup</h2><span class="muted">Choose your next expedition</span></div>${renderRunSelectors(state, Object.keys(catalog), staticPickers)}</div>`;
 }
 
 export function renderExpeditionAction({ character = 0, stage = 0 }) {
