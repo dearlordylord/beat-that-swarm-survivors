@@ -277,13 +277,13 @@ def music_pressure(rows: List<&2,Components.Body>,+px: F32,+py: F32) -> U32:
   match rows:
     case []: 0
     case Components.Body{x,y,kind,variant,_,_,_,_,_} <> rest: U32.min(1000,(music_body_pressure(kind,variant,distance2(x,y,px,py)) + music_pressure(rest,px,py) : U32))
-def projectile_music_pressure(rows: List<&2,Shot.State>,+px: F32,+py: F32) -> U32:
+def projectile_threats(rows: List<&2,Shot.State>) -> List<&2,Music.ProjectileThreat>:
   match rows:
-    case []: 0
-    case Shot.State{Space.Spatial{x,y,_,_},_,Shot.HostileShot{},Components.ShotPayload{_,_,True{}},_} <> rest: U32.min(1000,(music_body_pressure(7,0,distance2(x,y,px,py)) + projectile_music_pressure(rest,px,py) : U32))
-    case _ <> rest: projectile_music_pressure(rest,px,py)
-def music_danger(hp: U32,maxHp: U32,+px: F32,+py: F32,rows: List<&2,Components.Body>,enemies: List<&2,Music.Threat>,projectiles: List<&2,Shot.State>) -> U32:
-  Music.danger(hp,maxHp,U32.min(1000,(music_pressure(rows,px,py) + Music.enemy_pressure(enemies,px,py) + projectile_music_pressure(projectiles,px,py) : U32)))
+    case []: []
+    case Shot.State{Space.Spatial{x,y,_,_},_,Shot.HostileShot{},Components.ShotPayload{_,_,True{}},_} <> rest: Music.ProjectileThreat{x,y} <> projectile_threats(rest)
+    case _ <> rest: projectile_threats(rest)
+def music_danger(hp: U32,maxHp: U32,+px: F32,+py: F32,hostiles: List<&2,Music.ProjectileThreat>,enemies: List<&2,Music.Threat>) -> U32:
+  Music.danger(hp,maxHp,U32.min(1000,(Music.projectile_pressure(hostiles,px,py) + Music.enemy_pressure(enemies,px,py) : U32)))
 
 # Early growth is quick; quadratic later costs prevent serial upgrade interruptions.
 def next_xp_need(+level: U32) -> U32: (40 + level * 6 + level * level / 3 : U32)
