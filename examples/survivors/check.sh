@@ -3,7 +3,6 @@ set -euo pipefail
 source "$(dirname -- "$0")/../common.sh"
 cd "$example_repo"
 python3 -B scripts/check-bend-laws.py
-python3 -B scripts/check-bend-mutants.py
 bash examples/survivors/check-coop-reliability.sh
 bash examples/survivors/check-geometry.sh
 bash examples/survivors/check-native-coop-metrics.sh

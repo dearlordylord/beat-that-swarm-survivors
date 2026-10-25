@@ -212,6 +212,8 @@ try {
     const bytes = encoder.encode(JSON.stringify(candidate)),
       compressed = await encodeSnapshot(bytes)
     assert.deepEqual(await decodeSnapshot(compressed), bytes)
+    const legacyBytes = encoder.encode(JSON.stringify(expected))
+    const legacyCompressed = await encodeSnapshot(legacyBytes)
     const oldTimes: number[] = [],
       newTimes: number[] = [],
       admissionTimes: number[] = []
@@ -252,6 +254,8 @@ try {
       name,
       sourceBodies: rows(state.bodies).length,
       samples,
+      legacyJsonBytes: legacyBytes.length,
+      legacyGzipBytes: legacyCompressed.length,
       jsonBytes: bytes.length,
       gzipBytes: compressed.length,
       legacyPipeline: stats(oldTimes),

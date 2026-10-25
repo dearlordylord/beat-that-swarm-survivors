@@ -101,12 +101,14 @@ bash examples/survivors/check.sh
 bash examples/survivors/check-coop-reliability.sh
 ```
 
-The full suite includes kernel proofs, semantic mutants and the fresh-model
-runner. Their scopes differ: see the
+The routine suite includes kernel proofs and the fresh-model runner. Semantic
+mutants are a separate manual check (`npm run check:mutants:manual`). Their scopes differ: see the
 [local projectile proof boundary](../../research/coop-local-projectiles-proof-boundary.md)
 and [reliability plan](../../research/coop-reliability-plan.md).
 The [results report](../../research/coop-reliability-results.md) records the
 qualified scenarios and remaining limits.
+
+The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI.
 
 The optional [actual-Iroh browser harness](../../tools/survivors-bot/coop-reliability-browser-check.mts)
 requires an existing Playwright installation with Chromium and its platform
@@ -117,7 +119,7 @@ libraries. It installs nothing. Serve a frozen prepared artifact containing
 PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
 COOP_URL=http://127.0.0.1:8713/coop.html \
 COOP_SOURCE_ARTIFACT_DIR=/absolute/path/to/prepared/dist \
-node tools/survivors-bot/coop-reliability-browser-check.mts
+npm run check:iroh:manual
 ```
 
 It checks source hashes, actual input application, remote motion, authority lag,
@@ -127,3 +129,23 @@ physical devices or networks.
 The repository-only [netcode skill](../../skills/realtime-netcode/SKILL.md) records
 review rules and pitfalls. It is not installed globally. Primary-source reading
 is collected in the [industry audit](../../research/coop-reliability-industry-audit.md).
+
+### Typed observations and byte delivery
+
+`Game.Packet` and `CorePacket` carry typed Bend observations. `None` means no
+observation; co-op `Clock` carries step/contact receipts and `Display` carries the
+presentation projection plus the detached prediction scene. Host adapters only
+reshape Bend collections for drawing. Local Bend and worker results are trusted
+through generated ABI types; they are not fully parsed again at runtime.
+
+The worker encodes a remote display envelope once as JSON/UTF-8 and transfers
+its owned buffer to the main thread. Compression consumes bytes. Incoming
+snapshots are decompressed within the existing bounds, decoded and checked once
+against a schema generated from Bend declarations before admission or receipts.
+The raw/compressed limits, connection epochs and application receipt window are
+unchanged. The normal local draw path and local projectile projection no longer
+format and parse Bend JSON strings.
+
+Run `npm run benchmark:observations` for the current production observation
+comparison against the fixed pre-change master. This measures serialization
+work, not Iroh latency or FPS; captures belong outside tracked source.

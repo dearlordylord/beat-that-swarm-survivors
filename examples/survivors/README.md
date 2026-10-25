@@ -78,13 +78,15 @@ bash examples/survivors/build-web.sh
 python3 -m http.server 8713 --directory examples/survivors/dist/web
 ```
 
+The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI.
+
 For the optional actual-Iroh browser check, keep the server running and use a
 second terminal with Playwright and Chromium already available:
 
 ```sh
 PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
 COOP_URL=http://127.0.0.1:8713/coop.html \
-node tools/survivors-bot/coop-reliability-browser-check.mts
+npm run check:iroh:manual
 ```
 
 A local build writes `version.json` with the Git revision, dirty state and
@@ -178,6 +180,20 @@ NIGHTFALL_X11_SYSROOT=/ bash examples/survivors/native-window-smoke.sh
 
 `NIGHTFALL_X11_SYSROOT`, `XVFB`, `XDOTOOL` and `NIGHTFALL_BINARY` can point at an isolated development fixture. This diagnostic does not install packages.
 
+Native functional checks reuse compiled profile, UI and loot test binaries from
+`${XDG_CACHE_HOME:-$HOME/.cache}/bendvy-native-checks`. The cache key includes local
+Bend sources, installed Bend runtime/package contents, compiler binaries and
+platform settings. Tests still execute in fresh temporary data directories on
+every run. Set `NIGHTFALL_NATIVE_CHECK_CACHE` to use another cache location;
+delete that directory to force rebuilding.
+
+Audio benchmarking and the standalone native game build are separate manual steps:
+
+```sh
+npm run benchmark:native-audio:manual
+bash examples/survivors/run.command --build-only
+```
+
 The proof and host checks:
 
 ```sh
@@ -190,6 +206,17 @@ The [proof gate](../../scripts/check-bend-laws.py) discovers the proof modules;
 the [mutation gate](../../scripts/check-bend-mutants.py) checks that type-correct
 semantic faults are rejected. Their executable manifests live in
 [scripts/law-mutants](../../scripts/law-mutants). Native programs retain actual file, image, audio and application integration checks.
+Mutation checks are manual-only and excluded from `check.sh` and CI. When adding
+or changing laws and mutants, implementers should run the affected manifests
+locally; a full mutation sweep is available when explicitly needed:
+
+```sh
+# Only the affected manifest (one or more paths are accepted):
+npm run check:mutants:manual -- scripts/law-mutants/combat.json
+# All manifests:
+npm run check:mutants:manual
+```
+
 The [native geometry check](check-geometry.sh) also exercises physical pickup,
 swept combat and the real rendered spawn footprint. Its floating-point
 observations supplement the encoded-coordinate and structural laws; they do
