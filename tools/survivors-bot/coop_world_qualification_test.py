@@ -28,6 +28,21 @@ class CoopWorldQualification(unittest.TestCase):
         for change in (lambda p,r:r.__setitem__(9,(1,1)),lambda p,r:p['components']['players'][8][1].__setitem__(0,0),lambda p,r:p['components']['players'][8][2][1].__setitem__(1,2)):
             p,refs=party();change(p,refs)
             with self.assertRaises(R.ReplayError):self.validate(p,refs)
+    def test_store_reader_opens_only_actual_canonical_owner(self):
+        fields={'$':'StoreFields',**{name:object() for name in ('vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots')}}
+        owner={'$':'Owned','state':fields}
+        self.assertIs(W.store_fields(owner),fields)
+        self.assertIs(W.store_fields(owner)['spaces'],fields['spaces'])
+        for invalid in (
+            {'$':'Store',**{k:v for k,v in fields.items() if k!='$'}},
+            fields,
+            {'$':'Wrapped','inner':owner},
+            {'$':'Owned','state':{'$':'Store',**{k:v for k,v in fields.items() if k!='$'}}},
+            {'$':'Owned','state':fields,'cached':fields},
+            {'$':'Owned','state':{k:v for k,v in fields.items() if k!='identities'}},
+        ):
+            with self.subTest(layout=invalid['$']):
+                with self.assertRaises(R.ReplayError):W.store_fields(invalid)
     def test_indexed_reader_rejects_authority_outside_issued_scope(self):
         none={'$':'None'};stamp={'$':'Some','value':{'$':'Tick','epoch':0,'low':1}}
         value={'$':'Indexed','state':{'$':'IndexedOrdinaryOwned','state':{'$':'IndexedOrdinaryState','values':[none,{'$':'Some','value':3}],'metadata':{'$':'Metadata','capacity':2,'depth':1,'added':[none,stamp],'changed':[none,stamp],'exceptional':{'$':'Nil'}}}}}

@@ -184,9 +184,10 @@ def observed_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column
     case (rest,column): observed_column_done(~C,~Rest,~put,rest,column_rows(~C,~V,~project,~show,PL.total_nat(),1,column))
 def observed_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest & Col.Column<Storage.Schema,C>,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~show: V -> String,store: Storage.Store) -> Storage.Store & String:
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
-def store_logical(vs: String,ts: String,ss: String,ps: String,rs: String,es: String,qs: String,phases: String,ids: String,owner: Storage.Store) -> Storage.Store & String:
+def store_logical_fields(vs: String,ts: String,ss: String,ps: String,rs: String,es: String,qs: String,phases: String,ids: String,owner: Storage.StoreFields) -> Storage.Store & String:
   match owner:
-    case Storage.Store{v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},"{\"vitals\":[" ++ vs ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"shots\":[" ++ qs ++ "],\"enemyPhases\":[" ++ phases ++ "],\"identities\":[" ++ ids ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+    case Storage.StoreFields{v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Owned{Storage.StoreFields{v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots}},"{\"vitals\":[" ++ vs ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"shots\":[" ++ qs ++ "],\"enemyPhases\":[" ++ phases ++ "],\"identities\":[" ++ ids ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+def store_logical(vs: String,ts: String,ss: String,ps: String,rs: String,es: String,qs: String,phases: String,ids: String,owner: Storage.Store) -> Storage.Store & String: store_logical_fields(vs,ts,ss,ps,rs,es,qs,phases,ids,Storage.unseal(owner))
 def store_shots(vs: String,ts: String,ss: String,ps: String,rs: String,es: String,phases: String,ids: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,qs): store_logical(vs,ts,ss,ps,rs,es,qs,phases,ids,owner)
@@ -412,9 +413,12 @@ def force_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column<St
     case (rest,column): force_column_done(~C,~Rest,~put,rest,force_column(~C,~V,~project,~fold,PL.total_nat(),1,column,acc))
 def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest & Col.Column<Storage.Schema,C>,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~fold: V -> U32 -> U32,acc: U32,store: Storage.Store) -> Storage.Store & U32:
   force_column_split(~C,~V,~Rest,~put,~project,~fold,acc,take(store))
+def force_store_routing_fields(result: Storage.StoreFields & U32) -> Storage.Store & U32:
+  match result:
+    case (Storage.StoreFields{v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},acc): (Storage.Owned{Storage.StoreFields{v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots}},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
 def force_store_routing(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (Storage.Store{v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},acc): (Storage.Store{v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
+    case (owner,acc): force_store_routing_fields((Storage.unseal(owner),acc))
 def fold_phase(value: Enemy.Phase,acc: U32) -> U32: fold_words(codes(enemy_phase(value)),acc)
 def fold_identity(value: Components.Identity,acc: U32) -> U32:
   match value:

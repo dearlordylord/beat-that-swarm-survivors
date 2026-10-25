@@ -15,6 +15,10 @@ def data(value,ctor,fields):
     if value['$']!=ctor:raise R.ReplayError('Expected '+ctor+' constructor')
     return value
 
+def store_fields(value):
+    owner=data(value,'Owned',{'state'})
+    return data(owner['state'],'StoreFields',{'vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots'})
+
 def number(value):return R.u32(value,'Bend U32')
 def boolean(value):
     if type(value) is not bool:raise R.ReplayError('Expected Bend Bool')
@@ -121,7 +125,7 @@ def extract(row):
     core=data(row['physical'],'CoreState',{'world','shared','refs','snapshots','round','required','offers','pending'})
     if core['shared']!=row['shared'] or P.array(core['refs'])!=row['refs']:raise R.ReplayError('Actual Core observations/refs incoherent')
     world=core['world'];m=metadata(world);now=tuple(m['clock'][0]);total=C.DEFAULT_LAYOUT['totalCount']
-    store=data(world['store'],'Store',{'vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots'})
+    store=store_fields(world['store'])
     converters=dict(vitals=vitals,motions=trajectory,statuses=status,pickups=pickup,roles=role,spaces=spatial,enemyPhases=phase,identities=identity,shots=shot)
     c={('trajectories' if name=='motions' else name):column(store[name],convert,total,now) for name,convert in converters.items()}
     movement=store['movement'];candidates=store['candidates']
@@ -157,14 +161,14 @@ def controls(row):
     import copy
     original=facts(row)
     def raw(store,name):return store[name]['state']['state']['values']
-    actual=row['physical']['world']['store']
+    actual=store_fields(row['physical']['world']['store'])
     shots=raw(actual,'shots');motions=raw(actual,'motions');pickups=raw(actual,'pickups');phases=raw(actual,'enemyPhases')
     shot_index=next(i for i,v in enumerate(shots) if v['$']=='Some' and v['value']['active'] and motions[i]['value']['sourcePlayer']=={'$':'Some','value':1})
     xp_index=next(i for i,v in enumerate(pickups) if v['$']=='Some' and v['value']['active'] and v['value']['item']['$']=='Xp')
     loot_index=next(i for i,v in enumerate(pickups) if v['$']=='Some' and v['value']['active'] and v['value']['item']['$']=='Gold')
     enemy_index=next(i for i,v in enumerate(phases) if v['$']=='Some' and v['value']['$']=='ActiveEnemy')
     for label in ('damage','xp','generation','status','identity','source-player','pickup-age','pickup-accumulator','loot-amount','future-stamp','routing-order'):
-        changed=copy.deepcopy(row);core=changed['physical'];store=core['world']['store']
+        changed=copy.deepcopy(row);core=changed['physical'];store=store_fields(core['world']['store'])
         if label=='xp':
             core['shared']['xp']=(core['shared']['xp']+1)&0xffffffff;changed['shared']['xp']=core['shared']['xp']
         elif label=='identity':

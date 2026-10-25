@@ -233,9 +233,10 @@ def boot_pool(remaining: Nat,+slot: U32,world: Storage.World()) -> Storage.World
 # Bootstrap/setup snapshots use real allocator-visible handles and checked Role.
 # Only allocation interprets numeric ranges; systems select immutable composition.
 # Lifecycle later refreshes active membership during its existing traversal.
-def movement_roster_store(handles: List<&2,W.Handle<Storage.Schema>>,store: Storage.Store) -> Storage.Store & Unit:
+def movement_roster_store_fields(handles: List<&2,W.Handle<Storage.Schema>>,store: Storage.StoreFields) -> Storage.Store & Unit:
   match store:
-    case Storage.Store{vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities,shots},Unit{})
+    case Storage.StoreFields{vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Owned{Storage.StoreFields{vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities,shots}},Unit{})
+def movement_roster_store(handles: List<&2,W.Handle<Storage.Schema>>,store: Storage.Store) -> Storage.Store & Unit: movement_roster_store_fields(handles,Storage.unseal(store))
 def movement_roster_save(world: Storage.World(),handles: List<&2,W.Handle<Storage.Schema>>) -> Storage.World():
   routing_world(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Unit,movement_roster_store(handles),world))
 def movement_roster_keep(selected: Bool,handle: W.Handle<Storage.Schema>,reversed: List<&2,W.Handle<Storage.Schema>>) -> List<&2,W.Handle<Storage.Schema>>:
@@ -243,9 +244,10 @@ def movement_roster_keep(selected: Bool,handle: W.Handle<Storage.Schema>,reverse
     case True{}: handle <> reversed
     case False{}: reversed
 type RoutingCapture is Data: RoutingCapture{projectiles: List<&2,W.Handle<Storage.Schema>>,pool: List<&2,W.Handle<Storage.Schema>>,active: List<&2,W.Handle<Storage.Schema>>}
-def routing_capture_store(capture: RoutingCapture,store: Storage.Store) -> Storage.Store & Unit:
+def routing_capture_store_fields(capture: RoutingCapture,store: Storage.StoreFields) -> Storage.Store & Unit:
   match capture store:
-    case RoutingCapture{projectiles,pool,active} Storage.Store{vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities,shots},Unit{})
+    case RoutingCapture{projectiles,pool,active} Storage.StoreFields{vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities,shots}: (Storage.Owned{Storage.StoreFields{vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities,shots}},Unit{})
+def routing_capture_store(capture: RoutingCapture,store: Storage.Store) -> Storage.Store & Unit: routing_capture_store_fields(capture,Storage.unseal(store))
 def routing_capture_keep(+role: Role.Role,+handle: W.Handle<Storage.Schema>,active: Bool,capture: RoutingCapture) -> RoutingCapture:
   match capture:
     case RoutingCapture{projectiles,pool,movement}: RoutingCapture{movement_roster_keep(Role.projectile(role),handle,projectiles),movement_roster_keep(Role.pool(role),handle,pool),movement_roster_keep(active,handle,movement)}
@@ -632,9 +634,10 @@ def move_status_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Components.Status>:
     case MoveOps{_,_,status}: status
 def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family())},selected_enemy}
 
-def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster:
+def movement_roster_read_fields(store: Storage.StoreFields) -> Storage.Store & Storage.MovementRoster:
   match store:
-    case Storage.Store{vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},movement)
+    case Storage.StoreFields{vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Owned{Storage.StoreFields{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}},movement)
+def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster: movement_roster_read_fields(Storage.unseal(store))
 type PickupCall is Data: PickupCall{team: Team,advance: Bool,relic: Bool} XpPoolCall{team: Team}
 type PickupOps<-H: Type> is Type: PickupOps{spatial: Cap.Read<H,Space.Spatial>,pickup: Cap.Read<H,Pickup.Payload>,identity: Cap.Read<H,Components.Identity>}
 def PickupOpsType(H: Type) -> Type: PickupOps<H>
@@ -809,9 +812,10 @@ def xp_route_args(rows: List<&2,EntityRow>,args: Args) -> List<&2,EntityRow>:
 
 # The trusted schema adapter narrows only enumeration; capabilities, selector,
 # transaction finish, rollback and mixed allocator order remain the public query's.
-def candidate_roster_read(store: Storage.Store) -> Storage.Store & Storage.CandidateRoster:
+def candidate_roster_read_fields(store: Storage.StoreFields) -> Storage.Store & Storage.CandidateRoster:
   match store:
-    case Storage.Store{vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},candidates)
+    case Storage.StoreFields{vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Owned{Storage.StoreFields{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}},candidates)
+def candidate_roster_read(store: Storage.Store) -> Storage.Store & Storage.CandidateRoster: candidate_roster_read_fields(Storage.unseal(store))
 def candidate_roster_handles(projectile: Bool,roster: Storage.CandidateRoster) -> List<&2,W.Handle<Storage.Schema>>:
   match projectile roster:
     case True{} Storage.CandidatesPrepared{projectiles,_}: projectiles
