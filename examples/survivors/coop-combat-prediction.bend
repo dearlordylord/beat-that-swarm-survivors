@@ -1,5 +1,6 @@
 import Base
 import game-components.bend as Components
+import projectile-state.bend as Shot
 import ./game.bend as G
 import ./enemy-spatial.bend as Space
 import ./coop-prediction.bend as P
@@ -24,6 +25,7 @@ def active(snapshot:G.Snapshot) -> Bool:
   match snapshot:
     case G.Snapshot{Components.Body{_,_,+kind,_,hp,_,_,_,_},G.Motion{_,_,life,pierce,_,_,_,_,_}}:
       Bool.and(Policy.cohort_kind(kind),Bool.pick(Bool,U32.is_eq(kind,0),U32.is_gt(hp,0),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))))
+    case G.ProjectileSnapshot{state}: Shot.active(state)
 def add_snapshot(allowed:Bool,row:G.Snapshot,tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match allowed:
     case False{}: tail
@@ -47,6 +49,7 @@ def normalize_snapshot(value:G.Snapshot) -> G.Snapshot:
   match value:
     case G.Snapshot{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}}:
       G.Snapshot{Components.Body{Policy.normalize(x),Policy.normalize(y),kind,variant,hp,maximum,age,seed,Policy.normalize(radius)},G.Motion{Policy.normalize(vx),Policy.normalize(vy),life,pierce,visited,slow,burn,owner,slot}}
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}}: G.ProjectileSnapshot{Shot.State{Space.Spatial{Policy.normalize(x),Policy.normalize(y),age,Policy.normalize(radius)},identity,side,payload,Components.Trajectory{Policy.normalize(vx),Policy.normalize(vy),life,pierce,visited,owner,slot}}}
 def normalize_snapshots(rows:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
@@ -65,12 +68,11 @@ def bodies(rows:List<&2,G.Snapshot>) -> List<&2,Components.Body>:
   match rows:
     case []: []
     case G.Snapshot{body,_} <> tail: body <> bodies(tail)
+    case _ <> tail: bodies(tail)
 def body_seed(body:Components.Body) -> U32:
   match body:
     case Components.Body{_,_,_,_,_,_,_,seed,_}: seed
-def snapshot_body(snapshot:G.Snapshot) -> Components.Body:
-  match snapshot:
-    case G.Snapshot{body,_}: body
+
 def find_run(players:List<&2,G.PlayerSnapshot>,+id:U32) -> Maybe<&2,G.Run>:
   match players:
     case []: None{}
@@ -135,31 +137,36 @@ def freeze_movement(rows:List<&2,G.Snapshot>,+team:G.Team) -> Moving:
     case []: Moving{[],BI.Empty{}}
     case G.Snapshot{Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion} <> tail: freeze_enemy(team,Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},motion,freeze_movement(tail,team))
     case _ <> tail: freeze_movement(tail,team)
-def freeze_shot(+team:G.Team,+body:Components.Body,+motion:G.Motion,index:BI.Index<Projectile.Shot>) -> BI.Index<Projectile.Shot>:
-  match body motion:
-    case Components.Body{+x,+y,_,_,_,_,_,+seed,_} G.Motion{_,_,_,_,_,_,_,_,+slot}: BI.insert(~Projectile.Shot,index,seed,G.contact_shot_next(body,motion,G.team_args(team,G.team_for_id(team,(slot / 65536 : U32))),G.nearest_from_args(G.team_base(team),x,y)))
+def freeze_shot(+team:G.Team,+state:Shot.State,index:BI.Index<Projectile.Shot>) -> BI.Index<Projectile.Shot>:
+  match state:
+    case Shot.State{Space.Spatial{x,y,_,_},seed,_,_,Components.Trajectory{_,_,_,_,_,_,slot}}: BI.insert(~Projectile.Shot,index,seed,Shot.next(state,G.contact_shot_input(G.team_args(team,G.team_for_id(team,(slot / 65536 : U32))),G.nearest_from_args(G.team_base(team),x,y))))
+
 def freeze_next(rows:List<&2,G.Snapshot>,+team:G.Team) -> BI.Index<Projectile.Shot>:
   match rows:
     case []: BI.Empty{}
-    case G.Snapshot{Components.Body{x,y,1,variant,hp,maximum,age,seed,radius},motion} <> tail: freeze_shot(team,Components.Body{x,y,1,variant,hp,maximum,age,seed,radius},motion,freeze_next(tail,team))
+    case G.ProjectileSnapshot{Shot.State{+space,+identity,Shot.PlayerShot{},+payload,+trajectory}} <> tail: freeze_shot(team,Shot.State{space,identity,Shot.PlayerShot{},payload,trajectory},freeze_next(tail,team))
     case _ <> tail: freeze_next(tail,team)
+
 def contact_candidates(unlimited:Bool,index:Broadphase.Index,+x:F32,+y:F32,+radius:F32,+pierce:U32,visited:List<&2,U32>,+next:Projectile.Shot) -> List<&2,U32>:
   match unlimited next:
     case True{} _: G.contact_shot_targets(True{},[],x,y,radius,pierce,visited,next)
     case False{} Projectile.Shot{x1,y1,_,_,_,_,_}: G.contact_shot_targets(False{},Broadphase.query(index,x,y,x1,y1,radius,visited),x,y,radius,pierce,[],next)
-def contact_cached(allowed:Bool,body:Components.Body,motion:G.Motion,index:Broadphase.Index,next:Projectile.Shot,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
-  match allowed body motion:
-    case False{} _ _: tail
-    case True{} Components.Body{+x,+y,_,+id,+damage,_,_,+seed,+radius} G.Motion{_,_,_,+pierce,visited,_,_,_,_}: G.HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),contact_candidates(U32.is_le(9999,pierce),index,x,y,radius,pierce,visited,next)} <> tail
-def contact_next(found:Maybe<&2,Projectile.Shot>,+team:G.Team,+body:Components.Body,+motion:G.Motion,targets:List<&2,Contact.Target>,index:Broadphase.Index,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
-  match found body motion:
-    case None{} Components.Body{_,_,_,+id,_,_,+age,_,_} G.Motion{_,_,+life,+pierce,_,_,_,_,_}: G.contact_shot_plan(Bool.and(Projectile.active_hit(id,age),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))),body,motion,team,targets,tail)
-    case Some{next} Components.Body{_,_,_,+id,_,_,+age,_,_} G.Motion{_,_,+life,+pierce,_,_,_,_,_}: contact_cached(Bool.and(Projectile.active_hit(id,age),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))),body,motion,index,next,tail)
+def contact_cached(allowed:Bool,state:Shot.State,index:Broadphase.Index,next:Projectile.Shot,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
+  match allowed state:
+    case False{} _: tail
+    case True{} Shot.State{Space.Spatial{+x,+y,_,+radius},seed,_,Components.ShotPayload{id,damage,_},Components.Trajectory{_,_,_,+pierce,visited,_,_}}: G.HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),contact_candidates(U32.is_le(9999,pierce),index,x,y,radius,pierce,visited,next)} <> tail
+
+def contact_next(found:Maybe<&2,Projectile.Shot>,+team:G.Team,+state:Shot.State,targets:List<&2,Contact.Target>,index:Broadphase.Index,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
+  match found state:
+    case None{} Shot.State{Space.Spatial{_,_,age,_},_,_,Components.ShotPayload{id,_,_},_}: G.contact_shot_plan(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,team,targets,tail)
+    case Some{next} Shot.State{Space.Spatial{_,_,age,_},_,_,Components.ShotPayload{id,_,_},_}: contact_cached(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,index,next,tail)
+
 def contact_cached_rows(rows:List<&2,G.Snapshot>,+team:G.Team,+targets:List<&2,Contact.Target>,+next:BI.Index<Projectile.Shot>,+index:Broadphase.Index) -> List<&2,G.HitPlan>:
   match rows:
     case []: []
-    case G.Snapshot{Components.Body{+x,+y,1,+variant,+hp,+maximum,+age,+seed,+radius},motion} <> tail: contact_next(BI.find(~Projectile.Shot,next,seed),team,Components.Body{x,y,1,variant,hp,maximum,age,seed,radius},motion,targets,index,contact_cached_rows(tail,team,targets,next,index))
+    case G.ProjectileSnapshot{Shot.State{+space,+identity,Shot.PlayerShot{},+payload,+trajectory}} <> tail: contact_next(BI.find(~Projectile.Shot,next,identity),team,Shot.State{space,identity,Shot.PlayerShot{},payload,trajectory},targets,index,contact_cached_rows(tail,team,targets,next,index))
     case _ <> tail: contact_cached_rows(tail,team,targets,next,index)
+
 def prepared_contacts(reference:Bool,+team:G.Team,+snapshots:List<&2,G.Snapshot>,+targets:List<&2,Contact.Target>,moved:BI.Index<Space.Spatial>,+next:BI.Index<Projectile.Shot>) -> Prepared:
   match reference:
     case True{}: Prepared{G.contact_team(team),targets,moved,next}
@@ -186,26 +193,34 @@ def prepared_next(state:Prepared) -> BI.Index<Projectile.Shot>:
 def row_snapshot(row:G.EntityRow,tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match row:
     case G.EntityRow{G.Row{+body,_,_,_,_,_,_,_},+motion}: add_snapshot(active(G.Snapshot{body,motion}),G.Snapshot{body,motion},tail)
+    case G.ProjectileRow{Shot.Outcome{+state,_}}: add_snapshot(active(G.ProjectileSnapshot{state}),G.ProjectileSnapshot{state},tail)
 def projectile_row(+team:G.Team,snapshot:G.Snapshot) -> G.EntityRow:
   match snapshot:
-    case G.Snapshot{+body,motion}: G.team_projectile_role(Role.assigned(body_seed(body)),team,body,G.trajectory_of(motion))
+    case G.ProjectileSnapshot{+state}: G.team_projectile_role(Role.assigned(Shot.identity(state)),team,state)
+    case _: G.missing_row()
+
 def existing_projectiles(rows:List<&2,G.Snapshot>,+team:G.Team) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case G.Snapshot{Components.Body{_,_,0,_,_,_,_,_,_},_} <> tail: existing_projectiles(tail,team)
-    case head <> tail: row_snapshot(projectile_row(team,head),existing_projectiles(tail,team))
-def projectile_cached(next:Projectile.Shot,body:Components.Body,motion:G.Motion,team:G.Team) -> G.EntityRow:
-  match body motion team:
-    case Components.Body{_,_,_,id,damage,_,age,+seed,_} G.Motion{_,_,_,_,visited,_,_,owner,slot} G.Team{_,G.Args{_,_,_,_,_,hits},_,_}: G.with_shot_owner(G.shot_contacted(id,age,seed,damage,visited,G.hit_targets(hits,seed),next),owner,slot)
+    case G.ProjectileSnapshot{state} <> tail: row_snapshot(projectile_row(team,G.ProjectileSnapshot{state}),existing_projectiles(tail,team))
+    case _ <> tail: existing_projectiles(tail,team)
+
+def projectile_cached(next:Projectile.Shot,+state:Shot.State,team:G.Team) -> G.EntityRow:
+  match team:
+    case G.Team{_,G.Args{_,_,_,_,_,hits},_,_}: G.ProjectileRow{Shot.contacted(state,G.hit_targets(hits,Shot.identity(state)),next)}
+
 def projectile_next(found:Maybe<&2,Projectile.Shot>,+snapshot:G.Snapshot,+team:G.Team) -> G.EntityRow:
   match found snapshot:
     case None{} _: projectile_row(team,snapshot)
-    case Some{next} G.Snapshot{body,motion}: projectile_cached(next,body,motion,team)
+    case Some{next} G.ProjectileSnapshot{state}: projectile_cached(next,state,team)
+    case _ _: G.missing_row()
+
 def existing_projectiles_cached(rows:List<&2,G.Snapshot>,+team:G.Team,+next:BI.Index<Projectile.Shot>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case G.Snapshot{Components.Body{_,_,0,_,_,_,_,_,_},_} <> tail: existing_projectiles_cached(tail,team,next)
-    case G.Snapshot{Components.Body{+x,+y,+kind,+variant,+hp,+maximum,+age,+seed,+radius},+motion} <> tail: row_snapshot(projectile_next(BI.find(~Projectile.Shot,next,seed),G.Snapshot{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},motion},team),existing_projectiles_cached(tail,team,next))
+    case G.ProjectileSnapshot{+state} <> tail: row_snapshot(projectile_next(BI.find(~Projectile.Shot,next,Shot.identity(state)),G.ProjectileSnapshot{state},team),existing_projectiles_cached(tail,team,next))
+    case _ <> tail: existing_projectiles_cached(tail,team,next)
+
 def choose_projectiles(reference:Bool,rows:List<&2,G.Snapshot>,team:G.Team,next:BI.Index<Projectile.Shot>) -> List<&2,G.Snapshot>:
   match reference:
     case True{}: existing_projectiles(rows,team)
@@ -361,7 +376,8 @@ def choose_enemies(reference:Bool,+rows:List<&2,G.Snapshot>,+team:G.Team,moved:B
 def snapshot_index(rows:List<&2,G.Snapshot>) -> BI.Index<G.Snapshot>:
   match rows:
     case []: BI.Empty{}
-    case G.Snapshot{+body,+motion} <> tail: BI.insert(~G.Snapshot,snapshot_index(tail),body_seed(body),G.Snapshot{body,motion})
+    case +snapshot <> tail: BI.insert(~G.Snapshot,snapshot_index(tail),G.snapshot_identity(snapshot),snapshot)
+
 def target_index(rows:List<&2,Contact.Target>) -> BI.Index<Contact.Target>:
   match rows:
     case []: BI.Empty{}
@@ -383,16 +399,20 @@ def witnesses_for_targets(ids:List<&2,U32>,+tick:U32,+shot:U32,+x:F32,+y:F32,+ra
     case head <> tail: add_witness(witness_target(tick,shot,x,y,radius,next,BI.find(~Contact.Target,targets,head)),witnesses_for_targets(tail,tick,shot,x,y,radius,next,targets))
 def witness_shot(+tick:U32,+team:G.Team,ids:List<&2,U32>,targets:BI.Index<Contact.Target>,snapshot:G.Snapshot) -> List<&2,Policy.Witness>:
   match snapshot:
-    case G.Snapshot{Components.Body{+x,+y,+kind,+variant,+hp,+maximum,+age,+seed,+radius},G.Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}}:
-      witnesses_for_targets(ids,tick,seed,x,y,radius,G.contact_shot_next(Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},G.team_args(team,G.team_for_id(team,(slot / 65536 : U32))),G.nearest_from_args(G.team_base(team),x,y)),targets)
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{+x,+y,+age,+radius},+seed,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}}:
+      witnesses_for_targets(ids,tick,seed,x,y,radius,Shot.next(Shot.State{Space.Spatial{x,y,age,radius},seed,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},G.contact_shot_input(G.team_args(team,G.team_for_id(team,(slot / 65536 : U32))),G.nearest_from_args(G.team_base(team),x,y))),targets)
+    case _: []
+
 def witness_next(found:Maybe<&2,Projectile.Shot>,tick:U32,team:G.Team,ids:List<&2,U32>,targets:BI.Index<Contact.Target>,snapshot:G.Snapshot) -> List<&2,Policy.Witness>:
   match found snapshot:
     case None{} _: witness_shot(tick,team,ids,targets,snapshot)
-    case Some{next} G.Snapshot{Components.Body{x,y,_,_,_,_,_,seed,radius},_}: witnesses_for_targets(ids,tick,seed,x,y,radius,next,targets)
+    case Some{next} G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,_,radius},seed,_,_,_}}: witnesses_for_targets(ids,tick,seed,x,y,radius,next,targets)
+    case _ _: []
+
 def witness_source(tick:U32,team:G.Team,ids:List<&2,U32>,targets:BI.Index<Contact.Target>,next:BI.Index<Projectile.Shot>,snapshot:Maybe<&2,G.Snapshot>) -> List<&2,Policy.Witness>:
   match snapshot:
     case None{}: []
-    case Some{+shot}: witness_next(BI.find(~Projectile.Shot,next,body_seed(snapshot_body(shot))),tick,team,ids,targets,shot)
+    case Some{+shot}: witness_next(BI.find(~Projectile.Shot,next,G.snapshot_identity(shot)),tick,team,ids,targets,shot)
 def area_witnesses(targets:List<&2,Contact.Target>,+tick:U32,+shot:U32,+x:F32,+y:F32,+radius:F32) -> List<&2,Policy.Witness>:
   match targets:
     case []: []
