@@ -1,3 +1,4 @@
+import pickup-state.bend as Pickup
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
@@ -91,25 +92,18 @@ def floor_cell(+value: F32) -> F32:
 def same_cluster(+a: Point,+b: Point) -> Bool:
   match a b:
     case Point{x,y} Point{u,v}: Bool.and(F32.is_eq(x,u),F32.is_eq(y,v))
-def stable_generation(kind: U32,generation: U32,tick: U32,age: U32) -> U32:
-  match kind:
-    case 2: generation
-    case 9: 0
-    case _: (tick - age : U32)
-def goals_at(+rows: List<&2,Components.Body>,+tick: U32) -> List<&2,Goal>:
+def pickup_goal(+x: F32,+y: F32,+seed: U32,+generation: U32,item: Pickup.Item,tail: List<&2,Goal>) -> List<&2,Goal>:
+  match item:
+    case Pickup.Xp{amount,_}: Goal{seed,generation,2,x,y,U32.to_f32(amount),Point{floor_cell(x),floor_cell(y)}} <> tail
+    case Pickup.Chest{}: Goal{seed,generation,5,x,y,14.0,Point{floor_cell(x),floor_cell(y)}} <> tail
+    case Pickup.Relic{_}: Goal{seed,0,9,x,y,9.0,Point{floor_cell(x),floor_cell(y)}} <> tail
+    case _: tail
+def goals_at(rows: List<&2,G.Snapshot>,+tick: U32) -> List<&2,Goal>:
   match rows:
     case []: []
-    case Components.Body{+x,+y,+kind,+variant,+hp,+generation,+age,+seed,+radius} <> rest:
-      +tail=goals_at(rest,tick)
-      +eligible=Bool.or(Bool.and(U32.is_eq(kind,2),U32.is_lt(0,hp)),Bool.or(U32.is_eq(kind,5),U32.is_eq(kind,9)))
-      branch(~(List<&2,Goal>),eligible,(_ =>
-          +value=yes(U32.is_eq(kind,2),U32.to_f32(G.xp_amount(Components.Body{x,y,kind,variant,hp,generation,age,seed,radius})),yes(U32.is_eq(kind,5),14.0,yes(U32.is_eq(kind,9),9.0,5.0)))
-          Goal{seed,stable_generation(kind,generation,tick,age),kind,x,y,value,Point{floor_cell(x),floor_cell(y)}} <> tail
-
-      ),(_ =>
-          tail
-      ))
-def goals(rows: List<&2,Components.Body>) -> List<&2,Goal>: goals_at(rows,0)
+    case G.PickupSnapshot{Pickup.State{Space.Spatial{x,y,_,_},Pickup.Payload{item,generation,True{}},seed}} <> rest: pickup_goal(x,y,seed,generation,item,goals_at(rest,tick))
+    case _ <> rest: goals_at(rest,tick)
+def goals(rows: List<&2,G.Snapshot>) -> List<&2,Goal>: goals_at(rows,0)
 
 # Omniscient refresh removes collected XP; pool members retain seed + generation.
 # Aggregate reward per 120px XP cluster; use its nearest live member as target.
@@ -597,7 +591,7 @@ def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>,+snap
       ))
       +stuck=U32.is_le(120,(tick - since : U32))
       +damaged=Bool.and(initialized,U32.is_lt(hp,lastHp))
-      +observed=List.append(&2,Goal,cardinals(px,py),goals_at(bodies,tick))
+      +observed=List.append(&2,Goal,cardinals(px,py),goals_at(snapshots,tick))
       +keys=only_xp(observed)
       +fresh=refresh(old,observed,here)
       +invalid=invalidated(old,fresh)
