@@ -2,6 +2,7 @@ import Base
 import coop-reward-policy.bend as RP
 import game.bend as G
 import coop-prediction.bend as Prediction
+import coop-weapon-prediction.bend as WeaponPrediction
 import arena.bend as A
 import entity-role.bend as Role
 import spawn-policy.bend as S
@@ -219,9 +220,13 @@ def observer_run(+shared: G.Run,+players: List<&2,G.PlayerRecord>,+id: U32) -> G
   +own = projection(shared,find_player(players,id,shared))
   +target = spectator_target(players,own)
   Bool.pick(G.Run,U32.is_eq(run_hp(own),0),with_py(with_px(own,run_px(target)),run_py(target)),own)
+def weapon_forecast_extra(id: U32,run: G.Run,snapshots: List<&2,G.Snapshot>,bodies: List<&2,G.Body>) -> String:
+  match id:
+    case 1: ",\"weaponForecast\":" ++ WeaponPrediction.observe(run,1,snapshots,bodies)
+    case _: ""
 def observe_loaded(+shared: G.Run,+refs: List<&2,PlayerRef>,+bodies: List<&2,G.Body>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
   match result:
-    case (world,+players): observe_packet(shared,refs,round,required,offers,pending,G.packet_extra(G.State{world,observer_run(shared,players,id),bodies,offers_for(offers,id),snapshots,[]},coop_extra(shared,players,id,round,required)))
+    case (world,+players): observe_packet(shared,refs,round,required,offers,pending,G.packet_extra(G.State{world,observer_run(shared,players,id),bodies,offers_for(offers,id),snapshots,[]},coop_extra(shared,players,id,round,required) ++ weapon_forecast_extra(id,observer_run(shared,players,id),snapshots,bodies)))
 def core_observe(state: CoreState,+id: U32) -> CorePacket:
   match state:
     case CoreState{world,+shared,+refs,+bodies,+snapshots,+round,+required,+offers,+pending}: observe_loaded(shared,refs,bodies,snapshots,round,required,offers,pending,id,load_players(refs,[],world))

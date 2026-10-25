@@ -10,17 +10,17 @@ const modules = process.env.COOP_LATENCY_MODULE_DIR || fileURLToPath(new URL('./
 const Prediction = (await import(pathToFileURL(path.join(modules,'coop-prediction.mjs')))).default;
 const source = (await readFile(new URL('./coop-browser.mjs',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
 function freeze(value) { if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value; }
-function harness(){
+function harness(WeaponForecast,WeaponReconcile={rebase:(_prior,fresh)=>fresh}){
  let now=0, callbacks, receive;const displayed=[],sent=[];
  class UI {constructor(value){callbacks=value;}role(){}status(){}setChoicePending(){}present(frame){displayed.push(freeze(frame));}reset(){}}
  const channel={send:async text=>sent.push(text),join:async()=>receive({type:'connected',peerId:'host'}),close(){}};
- const context=vm.createContext({Prediction,Protocol:{encode:JSON.stringify},CoopTransport:{create:async callback=>{receive=callback;return channel;}},CoopUI:UI,
+ const context=vm.createContext({Prediction,WeaponForecast,WeaponReconcile,Set,Protocol:{encode:JSON.stringify},CoopTransport:{create:async callback=>{receive=callback;return channel;}},CoopUI:UI,
   Worker:class {constructor(){throw Error('Guest must not construct an authoritative world');}},
   performance:{now:()=>now},crypto:{getRandomValues:array=>array},Uint32Array,TextDecoder,URL,Math,Number,JSON,Boolean,
   location:{href:'https://fixture.invalid/coop.html?session=123'},setInterval:()=>1,clearInterval(){},addEventListener(){},console});
  vm.runInContext(source,context);
  return {displayed,sent,get callbacks(){return callbacks;},async join(){await callbacks.onJoin('ticket',{character:0,arcana:0,meta:0,allowedWeapons:1},{session:123});},
-  observe(frame,observationSeq,receipt={$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false}){receive({type:'message',bytes:new TextEncoder().encode(JSON.stringify({type:'frame',predictionModel:'input-ticks-v1',frame,observationSeq,receipt}))});},
+  observe(frame,observationSeq,receipt={$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false}){receive({type:'message',bytes:new TextEncoder().encode(JSON.stringify({type:'frame',predictionModel:'input-ticks-weapons-v1',frame,observationSeq,receipt}))});},
   draw(at){now=at;return callbacks.onDisplay(displayed.at(-1),now);},at(value){now=value;},
  };
 }
@@ -101,4 +101,68 @@ test('an older RAF timestamp cannot rewind a prediction clock sampled by a netwo
  assert.equal(h.draw(33).px,7202.5,'only one fixed input tick fits in 33 milliseconds');
  assert.equal(h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick').length,1);
  assert.equal(h.draw(34).px,7205,'the second input tick appears only at its actual fixed-step boundary');
+});
+
+test('weapon forecast replaces only own visuals after interpolation and never mutates received gameplay',async()=>{
+ const calls=[];
+ const WeaponForecast={
+  forecast:(metadata,prediction)=>{calls.push({type:'forecast',metadata,age:prediction.age});return {metadata,steps:0};},
+  advance:(state,x,y)=>{calls.push({type:'advance',x,y});return {...state,steps:state.steps+1};},
+  render:state=>JSON.stringify({ownSeeds:[900],bodies:[[7200+state.steps,7200,1,0,8,8,state.steps,901,6,'player1:volley7:slot0',1]]}),
+ };
+ const h=harness(WeaponForecast);await h.join();
+ const ownShot=[7000,7200,1,0,8,8,3,900,6],remoteShot=[7100,7200,1,0,8,8,3,800,6],enemy=[7300,7300,0,0,12,12,4,100,6];
+ h.observe(frame({weaponForecast:{$:'Frame',player:1},bodies:[enemy,remoteShot,ownShot]}),1);
+ const authority=h.displayed.at(-1),before=JSON.stringify(authority);
+ h.callbacks.onInput({x:1,y:0});const display=h.draw(17);
+ assert.equal(calls.filter(call=>call.type==='advance').length,1,'weapons advance with the same one local movement tick');
+ assert.deepEqual(calls.find(call=>call.type==='advance'),{type:'advance',x:2,y:1});
+ assert.equal(display.bodies.length,3,'own authoritative visual is replaced rather than duplicated');
+ assert.equal(display.bodies[0],authority.bodies[0],'enemy is still the authoritative object');
+ assert.equal(display.bodies[1],authority.bodies[1],'remote shot is still the authoritative object');
+ assert.equal(display.bodies[2][9],'player1:volley7:slot0','Bend supplies semantic visual identity');
+ assert.equal(display.bodies[2][10],1);
+ assert.equal(JSON.stringify(authority),before,'forecast cannot alter the frozen host frame');
+ for(const key of ['tick','phase','hp','maxHp','xp','level','gold','offers','weapons'])assert.deepEqual(display[key],authority[key]);
+ assert.equal(h.displayed.length,1,'weapon rendering cannot fabricate a gameplay observation');
+ h.at(18);h.observe(frame({phase:1,predictionAllowed:false,weaponForecast:{$:'Frame',player:1},bodies:[enemy,remoteShot,ownShot]}),2);
+ const paused=h.draw(100);
+ assert.equal(paused.bodies,h.displayed.at(-1).bodies,'pause removes speculative visuals immediately');
+ assert.equal(calls.filter(call=>call.type==='advance').length,1,'paused prediction cannot advance weapons');
+});
+
+test('weapon forecast is rebuilt from each accepted anchor and only the reconciled pending suffix',async()=>{
+ const replayed=[];
+ const WeaponForecast={
+  forecast:(metadata,prediction)=>{replayed.push({metadata,age:prediction.age});return {metadata};},
+  advance:state=>state,
+  render:()=>JSON.stringify({ownSeeds:[],bodies:[]}),
+ };
+ const h=harness(WeaponForecast);await h.join();
+ h.observe(frame({weaponForecast:{anchor:1},roundId:0}),1);h.callbacks.onInput({x:1,y:0});h.draw(34);
+ const ticks=h.sent.map(JSON.parse).filter(command=>command.action.$==='MovementTick');
+ h.at(35);h.observe(frame({weaponForecast:{anchor:2},roundId:0,px:7202.5}),2,{$:'Receipt',seq:ticks[0].seq,steps:1,x:2,y:1,expired:false});
+ assert.deepEqual(replayed.at(-1),{metadata:{anchor:2},age:1},'one acknowledged input is absent from weapon replay');
+ h.at(36);h.observe(frame({weaponForecast:{anchor:3},roundId:1,px:7210}),3);
+ assert.deepEqual(replayed.at(-1),{metadata:{anchor:3},age:0},'reward-epoch reset cannot forecast pre-pause movement');
+ h.observe(frame({weaponForecast:{anchor:0},roundId:0}),2);
+ assert.equal(replayed.length,3,'stale anchor never reaches weapon forecast');
+});
+
+test('continuing weapon trajectories are reconciled in Bend only within the same active prediction epoch',async()=>{
+ const rebased=[];
+ const WeaponForecast={
+  forecast:(metadata,prediction)=>({anchor:metadata.anchor,steps:prediction.age}),
+  advance:state=>({...state,steps:state.steps+1}),
+  render:()=>JSON.stringify({ownSeeds:[],bodies:[]}),
+ };
+ const WeaponReconcile={rebase:(prior,fresh)=>{rebased.push({prior,fresh});return {...fresh,retained:true};}};
+ const h=harness(WeaponForecast,WeaponReconcile);await h.join();
+ h.observe(frame({roundId:0,weaponForecast:{anchor:1}}),1);h.callbacks.onInput({x:1,y:0});h.draw(17);
+ h.at(18);h.observe(frame({roundId:0,weaponForecast:{anchor:2}}),2);
+ assert.deepEqual(rebased,[{prior:{anchor:1,steps:1},fresh:{anchor:2,steps:1}}]);
+ h.at(19);h.observe(frame({roundId:1,weaponForecast:{anchor:3}}),3);
+ assert.equal(rebased.length,1,'new reward epoch must not inherit prior flight history');
+ h.at(20);h.observe(frame({roundId:1,phase:1,predictionAllowed:false,weaponForecast:{anchor:4}}),4);
+ assert.equal(rebased.length,1,'pause must not retain speculative trajectories');
 });

@@ -2,6 +2,8 @@ import Game from "./dist/game.mjs";
 
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
 const TAU = Math.PI * 2;
+const shotIdentity = body => typeof body[9] === "string"
+  ? `generation:${body[9]}` : `slot:${body[7]}:${body[9] ?? ""}`;
 const THEMES = [
   ["#121c20", "#1c2b2b", "#334139", "#76917a"],
   ["#211d26", "#302835", "#534452", "#b79b79"],
@@ -102,6 +104,11 @@ export class Renderer {
     this.boundary();
     this.hazards();
     const bodies = Array.isArray(frame.bodies) ? frame.bodies : [];
+    // A forecast may reconcile a volley into another physical pool slot.
+    // Heading belongs to its semantic lifetime, and expires with that lifetime.
+    const shotKeys = new Set(bodies.filter(b => b[2] === 1 || b[2] === 7).map(shotIdentity));
+    for (const key of this.shotPositions?.keys() || [])
+      if (!shotKeys.has(key)) this.shotPositions.delete(key);
     for (const b of bodies) if (b[2] === 6) this.effect(b, true);
     const ordered = bodies
       .filter((b) => b[2] !== 6)
@@ -924,12 +931,13 @@ export class Renderer {
     }
     const r = radius,
       a = (this.options.reducedMotion ? 0 : age * 0.15) + (b[7] || 0);
-    const previous = this.shotPositions.get(b[7]);
+    const key = shotIdentity(b);
+    const previous = this.shotPositions.get(key);
     const moved = previous && (previous.x !== b[0] || previous.y !== b[1]);
     const heading = moved
       ? Math.atan2(b[1] - previous.y, b[0] - previous.x)
       : previous?.angle || 0;
-    this.shotPositions.set(b[7], { x: b[0], y: b[1], angle: heading });
+    this.shotPositions.set(key, { x: b[0], y: b[1], angle: heading });
     c.rotate([1, 10, 13, 18].includes(id) || hostile ? heading : a);
     c.shadowColor = col;
     c.shadowBlur = hostile ? 4 : 5;

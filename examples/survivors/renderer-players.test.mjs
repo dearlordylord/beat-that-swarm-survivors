@@ -24,3 +24,14 @@ test('co-op actors are depth-sorted together with bodies and drawn once', () => 
   }, 1 / 60, { reducedMotion: true, showDamage: false });
   assert.deepEqual(drawn, ['body2', 'player0', 'body1', 'player1', 'body3']);
 });
+
+test('projectile heading follows its semantic lifetime across physical pool reassignment',()=>{
+ const rotations=[];const ctx=new Proxy({rotate:angle=>rotations.push(angle)},{get:(object,key)=>object[key]??(()=>{})});
+ const renderer={ctx,options:{reducedMotion:true},time:0,shotPositions:new Map()};
+ const shot=(seed,x,y,generation)=>[x,y,1,1,1,1,4,seed,4,generation,1];
+ Renderer.prototype.projectile.call(renderer,0,0,1,shot(513,10,10,'1:41:1:0'),false);
+ Renderer.prototype.projectile.call(renderer,0,0,1,shot(515,10,20,'1:41:1:0'),false);
+ assert.equal(rotations.at(-1),Math.PI/2,'same shot keeps heading when its pool slot changes');
+ Renderer.prototype.projectile.call(renderer,0,0,1,shot(515,30,40,'1:81:1:0'),false);
+ assert.equal(rotations.at(-1),0,'a new volley does not inherit the old slot trajectory');
+});

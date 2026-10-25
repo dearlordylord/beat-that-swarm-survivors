@@ -1,6 +1,8 @@
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from './dist/coop-protocol.mjs';
 import Prediction from './dist/coop-prediction.mjs';
+import WeaponForecast from './dist/coop-weapon-prediction.mjs';
+import WeaponReconcile from './dist/coop-weapon-reconcile.mjs';
 import { CoopTransport } from './coop-transport.mjs';
 import { CoopUI } from './coop-ui.mjs';
 let transport, worker, role, sessionId, sequence = 0, tick = 0, epoch = 0;
@@ -10,6 +12,7 @@ let latestSnapshot, sendingSnapshot = false;
 const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
 let deliverySequence = 0;
 let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
+let weaponForecast, weaponPresentation, weaponPresentationState, weaponPresentationSeeds;
 const PREDICTION_STEP = 1000 / 60;
 const bendBool = value => Boolean(value);
 function advancePrediction(now = performance.now()) {
@@ -25,6 +28,8 @@ function advancePrediction(now = performance.now()) {
       sendAction({$:'MovementTick',round:predictionRound ?? 0,
         x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
       prediction = Prediction.tick(prediction);
+      if (weaponForecast) weaponForecast = WeaponForecast.advance(weaponForecast,
+        Math.sign(input.x)+1,Math.sign(input.y)+1);
     }
     predictionRemainder -= PREDICTION_STEP;
   }
@@ -45,6 +50,10 @@ function reconcilePrediction(envelope) {
     frame.stepDistance,bendBool(frame.predictionAllowed),receipt);
   if (prediction.observation !== envelope.observationSeq) return false;
   authorityFrame = frame;
+  const freshWeapons = frame.predictionAllowed && frame.weaponForecast
+    ? WeaponForecast.forecast(frame.weaponForecast,prediction) : null;
+  weaponForecast = freshWeapons && weaponForecast && !reset && wasEnabled
+    ? WeaponReconcile.rebase(weaponForecast,freshWeapons) : freshWeapons;
   if (!frame.predictionAllowed || !wasEnabled) { predictionAt = now; predictionRemainder = 0; }
   return true;
 }
@@ -54,7 +63,19 @@ function displayFrame(frame, now) {
   const point = prediction ? Prediction.view(prediction) : {x:authorityFrame.px,y:authorityFrame.py};
   const own = authorityFrame.players?.find(player => player.id === authorityFrame.ownPlayerId);
   const predicting = authorityFrame.predictionAllowed;
-  return {...frame,px:predicting ? point.x : authorityFrame.px,py:predicting ? point.y : authorityFrame.py,
+  let bodies = frame.bodies;
+  if (predicting && weaponForecast) {
+    if (weaponPresentationState !== weaponForecast) {
+      weaponPresentationState = weaponForecast;
+      weaponPresentation = JSON.parse(WeaponForecast.render(weaponForecast));
+      weaponPresentationSeeds = new Set(weaponPresentation.ownSeeds);
+    }
+    // Replace only this player's weapon visuals. Remote shots, enemies, damage
+    // and pickups remain the received/interpolated authoritative observation.
+    bodies = (frame.bodies || []).filter(body => body[2] !== 1 || !weaponPresentationSeeds.has(body[7]))
+      .concat(weaponPresentation.bodies);
+  }
+  return {...frame,bodies,px:predicting ? point.x : authorityFrame.px,py:predicting ? point.y : authorityFrame.py,
     players:frame.players?.map(player => player.id === authorityFrame.ownPlayerId && own
       ? {...player,...own,px:predicting ? point.x : own.px,py:predicting ? point.y : own.py} : player)};
 }
@@ -92,7 +113,7 @@ function sendAction(action) {
       if (generation !== epoch) return;
       if (action.$ === 'Choice') ui.setChoicePending(false);
       if (action.$ === 'MovementTick') {
-        connected = false; prediction = null; authorityFrame = null;
+        connected = false; prediction = null; authorityFrame = null; weaponForecast = null;
         clearInterval(inputTimer); transport?.close();
       }
       ui.status(error.message,{error:true});
@@ -143,7 +164,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         else {
           const envelope = JSON.parse(text);
           if (envelope.type !== 'frame') return;
-          if (envelope.predictionModel !== 'input-ticks-v1' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
+          if (envelope.predictionModel !== 'input-ticks-weapons-v1' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
               || typeof envelope.frame?.predictionAllowed !== 'boolean') {
             cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
           }
@@ -155,7 +176,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         }
       } catch (error) { showError(error); }
     } else if (event.type === 'disconnected') {
-      connected = false; prediction = null; authorityFrame = null;
+      connected = false; prediction = null; authorityFrame = null; weaponForecast = null;
       if (kind !== 'host') clearInterval(inputTimer);
       if (kind === 'host') { transport?.close(); worker?.postMessage({type:'disconnect'}); ui.status('Guest left. The run continues.'); }
       else ui.status('Host disconnected. Session ended.',{error:true});
@@ -171,7 +192,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
       if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
       else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
       else if (message.type === 'remote-frame') {
-        latestSnapshot = {type:'frame',predictionModel:'input-ticks-v1',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,observationSeq:message.observationSeq}; flushSnapshot();
+        latestSnapshot = {type:'frame',predictionModel:'input-ticks-weapons-v1',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,observationSeq:message.observationSeq}; flushSnapshot();
       } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
         refuseGuest(message.type === 'guest-input-overflow'
           ? 'Guest input queue overflowed. The guest was disconnected.'
@@ -190,7 +211,8 @@ async function connect(kind, ticket, setup, invitation = {}) {
 function showError(error) { ui.status(error.message || String(error),{error:true}); console.error(error); }
 function cleanup() {
   epoch++; pendingCommands.clear(); receivedFrame = false; stalled = false;
-  prediction = null; authorityFrame = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
+  prediction = null; authorityFrame = null; weaponForecast = null; weaponPresentation = null;
+  weaponPresentationState = null; weaponPresentationSeeds = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
   connected = false; clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
   worker?.terminate(); worker = null; transport?.close(); transport = null;
   input = {x:0,y:0};

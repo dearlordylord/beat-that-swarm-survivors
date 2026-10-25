@@ -52,7 +52,7 @@ Guest input is sampled on the next fixed 60 Hz tick. Each numbered tick is
 predicted once and sent through Iroh; the host consumes at most one queued tick
 per world step and acknowledges its exact number. Reconciliation repeats only
 the remaining ticks, rather than estimating durations between heartbeats.
-A small Bend core predicts only your displayed position and camera. The world still
+A small Bend core predicts your displayed position, camera and own weapon visuals. The world still
 confirms damage, pickups, XP and rewards. Remote actors retain interpolation.
 A known reward pause or death disables prediction. Its history/horizon are bounded;
 it freezes when it cannot safely extend the forecast. Reload both peers after
@@ -67,3 +67,23 @@ real Bend reward pause. See [the evidence](../../research/survivors-coop-input-l
 position during sustained movement, reversal and release, with delayed and
 uneven packet delivery. It checks corrections and trajectory continuity; a fast
 first response and eventual convergence alone are insufficient.
+
+Own weapons use detached Bend forecasts with the same spawning and trajectory
+helpers as the host. They replay the same pending input ticks as the player.
+Each visual shot has a semantic identity (player, birth tick, base weapon and
+volley slot), independent of its physical pool slot. A continuing shot retains
+its displayed trajectory across observations; a new target snapshot must not
+recreate its past flight. Its birth identity is stored separately from visual
+age: a burst of authoritative clock updates cannot advance its flight a second
+time. Only local fixed ticks advance an already displayed shot. Remote weapons
+remain received observations.
+
+These forecasts use the latest observed enemy geometry. They never resolve
+damage, pickups, XP or rewards. The small replay/guard/identity/continuity policy
+kernel has checked laws and negative mutations; the shared Game adapters are
+qualified by runtime tests, rather than a claim that the entire game is proved.
+
+`node examples/survivors/coop-projectiles-browser.mjs` checks actual Iroh delivery,
+birth distance from the displayed owner and continuing flight during a reversal.
+`COOP_PROJECTILE_DELAY_MS=800` adds a labeled observation-delay control. See
+[the projectile evidence](../../research/coop-projectile-visibility.md).
