@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "branch": "survivors-geometry-laws",
+  "baseCommit": "5c172fe",
+  "implemented": [
+    {
+      "area": "loot accessibility",
+      "runtime": "examples/survivors/loot-placement.bend",
+      "integration": [
+        "enemy death",
+        "XP pool birth",
+        "persistent overflow merge"
+      ],
+      "laws": "examples/survivors/loot-placement/LAWS.bend"
+    },
+    {
+      "area": "finite-pierce player projectile contacts",
+      "runtime": "examples/survivors/projectile-contact.bend",
+      "integration": "relative movement-stage paths, earliest entry then stable enemy identity",
+      "laws": "examples/survivors/projectile-contact/LAWS.bend"
+    }
+  ],
+  "verifiedWithoutRuntimeChange": [
+    "catalog enemy corner melee reach",
+    "spawn admission and actual native rendered footprint after predicted camera movement"
+  ],
+  "deferred": [
+    {
+      "area": "universal IEEE arithmetic geometry",
+      "reason": "Base F32 operations are opaque; pinned mathlib has no IEEE arithmetic theory. Encoded bounds and structural laws are proved; numerical collision arithmetic is independently probed."
+    },
+    {
+      "area": "movement normalization error theorem",
+      "reason": "A useful universal bound requires an independent IEEE rounding model; no speculative epsilon or coordinate migration added."
+    },
+    {
+      "area": "trajectory subdivision theorem",
+      "reason": "An exact set-equality theorem for rounded F32 subsegments needs a numerical model and has lower immediate value than fixing physical pickup and missed contacts."
+    },
+    {
+      "area": "global collector permutation theorem",
+      "reason": "The algorithm orders by encoded contact time and stable identity; adversarial permutations pass, but global permutation invariance is not proved."
+    }
+  ],
+  "scopeLimits": [
+    "Sweep covers finite-pierce player projectiles; area fields and hostile projectile behavior retain their existing paths.",
+    "Relative paths end at the movement stage, before post-contact knockback and pull.",
+    "Native viewport checks execute the real renderer; browser footprint bounds were inspected in source.",
+    "No publication or master merge is part of this implementation."
+  ],
+  "checks": {
+    "newLaws": 21,
+    "newSemanticMutants": {
+      "rejected": 13,
+      "namedLawFailures": 9,
+      "sharedProofHelperFailures": 4
+    },
+    "proofReachability": {
+      "definitions": 327,
+      "reachable": 327,
+      "unusedHelpers": 0,
+      "duplicateHelperGroups": 0
+    },
+    "nativeNumericalContactCases": 274,
+    "nativeRenderedCameraCases": 89280,
+    "lawcheck": {
+      "contactLawsSkipped": 16,
+      "reason": "no F32 generator; native numerical probes and kernel checks used instead"
+    },
+    "finalIntegration": {
+      "result": "pass",
+      "commands": [
+        "bash examples/survivors/build.sh",
+        "bash examples/survivors/check.sh",
+        "bash examples/survivors/build-web.sh",
+        "bash examples/survivors/check-native-full.sh"
+      ],
+      "evidence": [
+        "/tmp/survivors-geometry-check-complete.log",
+        "/tmp/survivors-geometry-final-check.log",
+        "/tmp/survivors-geometry-full-final.log"
+      ]
+    },
+    "nativeFullRun": {
+      "result": "pass",
+      "terminalTick": 36733,
+      "terminalPhase": 4,
+      "boss": true,
+      "chest": true,
+      "evolution": true,
+      "evidence": "/tmp/survivors-geometry-full-final.log"
+    },
+    "dependencyAudit": {
+      "result": "pass",
+      "modules": 124
+    },
+    "browser": {
+      "result": "pass",
+      "probes": [
+        {
+          "check": "web-smoke.mjs",
+          "exitCode": 0
+        },
+        {
+          "check": "browser-smoke.mjs",
+          "exitCode": 0
+        },
+        {
+          "check": "coop-latency-browser.mjs",
+          "exitCode": 0
+        },
+        {
+          "check": "coop-browser-smoke.mjs",
+          "exitCode": 0
+        }
+      ],
+      "evidence": "/tmp/survivors-geometry-browser"
+    },
+    "totalLaws": 211,
+    "totalSemanticMutants": 116,
+    "proofFiles": 30,
+    "nativeGeometryIntegration": {
+      "result": "pass",
+      "paths": [
+        "examples/survivors/geometry-spawn-check.bend",
+        "examples/survivors/geometry-game-check.bend"
+      ],
+      "predictionPaddingRemovalControl": "compiled and rejected by rendered-footprint check"
+    },
+    "completionNotes": [
+      "An initial common check lacked the local build artifact; the documented build.sh plus check.sh sequence passed in full afterward.",
+      "An earlier native run was superseded while unused-branch cleanup was in progress; the final native run passed on the frozen executable paths."
+    ]
+  },
+  "authoredSourceSha256": {
+    "examples/survivors/loot-placement.bend": "c2f85c1b3f6fb6783bb4b1cbb411c3cda54246b98081a1c40f2a9a9211d2cb04",
+    "examples/survivors/loot-placement/LAWS.bend": "a169fccf88807b66d5d693aaba2b0ae3fdfc4260085f63c14b22bd28c7ecb02e",
+    "examples/survivors/loot-placement/PROOF.bend": "ae7c692391a68c3cd9bcb7bb2123c5d0dd26d17d2141f4a53dd06d661e29565c",
+    "examples/survivors/projectile-contact.bend": "bc01c0c0dc97c755bf982bf1e2f1627e28ed9025501ea8eb6860490fc0306188",
+    "examples/survivors/projectile-contact/LAWS.bend": "3c68eb0fc84ad03296f996ff3b2513fa215ab9dfefbc034e96b3f0f3e0ed80b9",
+    "examples/survivors/projectile-contact/PROOF.bend": "7e2327dbe6bcb6cb779ec0e2df29c617982fc8de48a4b0739ff729a423718f3b",
+    "examples/survivors/game.bend": "ade3fd64481115575006f266114e30dfcc98c80ce047f7833a3bede4699e4153"
+  }
+}

@@ -168,6 +168,10 @@ semantic faults are rejected. Their executable manifests live in
 [scripts/law-mutants](../../scripts/law-mutants). JavaScript checks exercise the
 browser hosts, transport, rendering and persistence adapters. Native programs
 retain actual file, image, audio and application integration checks.
+The [native geometry check](check-geometry.sh) also exercises physical pickup,
+swept combat and the real rendered spawn footprint. Its floating-point
+observations supplement the encoded-coordinate and structural laws; they do
+not prove real-number collision arithmetic.
 
 The [full-run controller](native-full-run.bend) drives public inputs for a native
 functional observation. A scenario observation does not prove balance or every
