@@ -24,7 +24,7 @@ while(packet.$==='Packet' && packet.state.run.tick<target && actions.length<targ
     while(move+1<moves.length && moves[move+1][0]<=run.tick) move++;
     const [,x,y]=stationary==='true'?[0,0,0]:moves[move];
     actions.push(`0 ${run.tick} 0 ${x} ${y}`);
-    packet=G.advance_quiet(packet.state,decode(x),decode(y));
+    packet=G.advance(packet.state,decode(x),decode(y));
   } else if(run.phase===1 || run.phase===2) {
     actions.push(`1 ${run.tick} ${run.phase} 0`);
     packet=G.choose(packet.state,0);

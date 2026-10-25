@@ -6,9 +6,13 @@ import {writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 
-const [corePath, output] = process.argv.slice(2);
-assert.ok(corePath && output, 'usage: qualification-coop-capture.mjs CORE.mjs OUTPUT.json');
-const {default: Core} = await import(pathToFileURL(resolve(corePath)));
+const [corePath, output, encoderPath] = process.argv.slice(2);
+assert.ok(corePath && output, 'usage: qualification-coop-capture.mjs CORE.mjs OUTPUT.json [ENCODER.mjs]');
+const coreUrl=pathToFileURL(resolve(corePath));
+const [{default: Core},{default: Encoder}] = await Promise.all([
+  import(coreUrl),
+  import(encoderPath ? pathToFileURL(resolve(encoderPath)) : new URL('coop-encoder.mjs',coreUrl)),
+]);
 const rows = [];
 const array = list => {
   const values=[];
@@ -30,8 +34,10 @@ function capture(label, current) {
   for (const player of players) assert.equal(player.$, 'PlayerRecord');
   const observed=Core.core_observe(current,0);
   current=state(observed);
+  const encoded=Encoder.encode(observed.observation);
+  assert.equal(encoded.$,'Some');
   rows.push({label, tick:current.shared.tick, shared:current.shared,
-    players, refs:array(current.refs), frame:JSON.parse(observed.frame),
+    players, refs:array(current.refs), frame:JSON.parse(encoded.value),
     physical:JSON.parse(JSON.stringify(current))});
   return current;
 }
