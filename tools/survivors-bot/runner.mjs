@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from './context.mjs';
-import { createPlanner, planMovement, advisePlanner } from './planner.mjs';
+import { createPlanner, planMovement, advisePlanner, actorThreats } from './planner.mjs';
 
 export function heuristicUpgrade(frame) {
   const weapons = [4, 19, 10, 0, 2, 17], passives = [11, 1, 6, 2, 0, 7];
@@ -17,20 +17,19 @@ export function heuristicUpgrade(frame) {
 
 export function steering(frame, target, mechanics = {}) {
   const worldSize=frame.worldSize??14400,margin=frame.worldMargin??128,center=worldSize/2;
-  const enemies = frame.bodies.filter((b) => b[2] === 0 && b[4] > 0);
-  const nearest = enemies.reduce((best, b) => Math.hypot(b[0] - frame.px, b[1] - frame.py) < Math.hypot(best[0] - frame.px, best[1] - frame.py) ? b : best, enemies[0] ?? [frame.px + 300, frame.py]);
+  const enemies = frame.enemies.filter(enemy => enemy.health > 0);
+  const nearest = enemies.reduce((best, b) => Math.hypot(b.x - frame.px, b.y - frame.py) < Math.hypot(best.x - frame.px, best.y - frame.py) ? b : best, enemies[0] ?? {x:frame.px + 300,y:frame.py,radius:12});
   const stats=mechanics.current?.weaponStats ?? [];
   const closeOnly=enemies.length>0 && stats.length>0 && stats.every(w=>w.selfFieldRadius>0);
   const aura=closeOnly ? Math.max(...stats.map(w=>w.selfFieldRadius)) : 0;
-  const desired=closeOnly ? Math.max((nearest[8]??12)+26,aura+(nearest[8]??12)-6) : 220;
-  const nx = frame.px - nearest[0], ny = frame.py - nearest[1], nd = Math.max(1, Math.hypot(nx, ny));
+  const desired=closeOnly ? Math.max(nearest.radius+26,aura+nearest.radius-6) : 220;
+  const nx = frame.px - nearest.x, ny = frame.py - nearest.y, nd = Math.max(1, Math.hypot(nx, ny));
   let dx = target ? target.x - frame.px : nx / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 + ny / nd * (closeOnly?12:35) + (center - frame.px) * 0.05;
   let dy = target ? target.y - frame.py : ny / nd * (closeOnly ? Math.max(-30,Math.min(30,desired-nd)) : Math.max(0, 220-nd)) * 6 - nx / nd * (closeOnly?12:35) + (center - frame.py) * 0.05;
-  for (const b of frame.bodies) {
-    if (![0, 7].includes(b[2])) continue;
-    const x = frame.px - b[0], y = frame.py - b[1], d = Math.max(1, Math.hypot(x, y));
-    const avoidance=closeOnly && b[2]===0 ? (b[8]??12)+26 : 140;
-    const force=Math.max(0,avoidance-d)*(closeOnly && b[2]===0 ? 12 : 4);
+  for (const b of actorThreats(frame)) {
+    const x = frame.px - b.x, y = frame.py - b.y, d = Math.max(1, Math.hypot(x, y));
+    const avoidance=closeOnly && !b.hostile ? b.radius+26 : 140;
+    const force=Math.max(0,avoidance-d)*(closeOnly && !b.hostile ? 12 : 4);
     dx += x / d * force; dy += y / d * force;
   }
   dx += (frame.px < margin+180 ? 1000 : 0) - (frame.px > worldSize-margin-180 ? 1000 : 0);
@@ -60,13 +59,12 @@ export async function runBot(Game, {
     return { state: observed.state, frame, catalog:JSON.parse(observed.actions), engineMechanics:JSON.parse(observed.mechanics) };
   };
   const startSeed=profile==='fresh'?Game.fresh_start_seed:Game.advanced_start_seed;
-  if(!startSeed && seed!==12345) throw new Error('Rebuild bot facade for explicit seed control');
-  let current = accept(startSeed ? startSeed(seed) : profile === 'fresh' ? Game.fresh_start() : Game.advanced_start());
+  let current = accept(startSeed(seed));
   let sequence = 0, nextGoalTick = 1, lastAdviceTick = -300, choices = 0, goals = 0, fallbacks = 0, waitMs = 0, maxLiving = 0, firstRewardTick = null;
   const plannerMemory=createPlanner();
   const calls = { upgrade: 0, goal: 0 }, successes = { upgrade: 0, goal: 0 }, history = [];
   const meta = profile === 'fresh' ? 0 : 364304237, started = performance.now();
-  emit({ type: 'start', runId, mode, profile, decisions, ticks, maxUpgradeRequests, maxGoalRequests, timeoutMs, seed, seedControl: startSeed?'explicit U32 seed':'legacy fixed seed', initial: { hp: current.frame.hp, character: current.frame.character, arcana: current.frame.arcana } });
+  emit({ type: 'start', runId, mode, profile, decisions, ticks, maxUpgradeRequests, maxGoalRequests, timeoutMs, seed, seedControl: 'explicit U32 seed', initial: { hp: current.frame.hp, character: current.frame.character, arcana: current.frame.arcana } });
   async function select(request, resolve, fallback, catalog) {
     let selected = fallback, source = 'heuristic', reason;
     const ceiling = request.kind === 'upgrade' ? maxUpgradeRequests : maxGoalRequests;
@@ -94,7 +92,7 @@ export async function runBot(Game, {
   // Bound choice processing as well as simulation ticks: no infinite menu loop.
   for (let fuel = 0; fuel < ticks * 4 + 100 && current.frame.tick < ticks && ![3, 4].includes(current.frame.phase); fuel++) {
     const {frame,catalog,engineMechanics}=current;
-    maxLiving = Math.max(maxLiving, frame.bodies.filter((b) => b[2] === 0 && b[4] > 0).length);
+    maxLiving = Math.max(maxLiving, frame.enemies.filter(enemy => enemy.health > 0).length);
     if (history.length === 0 || frame.tick - history.at(-1).tick >= 30 || history.at(-1).hp !== frame.hp) history.push({ tick: frame.tick, hp: frame.hp });
     while (history.length > 32) history.shift();
     if ([1, 2].includes(frame.phase)) {
@@ -124,8 +122,8 @@ export async function runBot(Game, {
     current = accept(Game.advance(state, dx, dy));
   }
   const f = current.frame;
-  maxLiving = Math.max(maxLiving, f.bodies.filter((b) => b[2] === 0 && b[4] > 0).length);
-  const summary = { type: 'summary', runId, mode, profile, decisions, seed, tick: f.tick, simulatedSeconds: f.tick / 60, phase: f.phase, hp: f.hp, level: f.level, xp:f.xp, xpNeed:f.xpNeed, uncollectedBaseXp:f.bodies.filter(b=>b[2]===2).reduce((sum,b)=>sum+b[4],0), xpPiles:f.bodies.filter(b=>b[2]===2).length, kills: f.kills, gold: f.gold, evolvedWeapons: f.weapons.filter((rank) => rank >= 9).length, choices, goals, firstRewardTick, maxLiving, classifierAttempts: calls, successes, fallbacks, classifierWaitMs: waitMs, wallMs: performance.now() - started, outcome: [3, 4].includes(f.phase) ? 'terminal' : 'bounded-observation', planner:{knownResources:Object.keys(plannerMemory.objects).length,clusters:plannerMemory.clusters.length,current:plannerMemory.current?.clusterId??null}, lastFrameHash: createHash('sha256').update(JSON.stringify(f)).digest('hex') };
+  maxLiving = Math.max(maxLiving, f.enemies.filter(enemy => enemy.health > 0).length);
+  const summary = { type: 'summary', runId, mode, profile, decisions, seed, tick: f.tick, simulatedSeconds: f.tick / 60, phase: f.phase, hp: f.hp, level: f.level, xp:f.xp, xpNeed:f.xpNeed, uncollectedBaseXp:f.pickups.filter(p=>p.active&&p.item.kind==='xp').reduce((sum,p)=>sum+p.item.amount,0), xpPiles:f.pickups.filter(p=>p.active&&p.item.kind==='xp').length, kills: f.kills, gold: f.gold, evolvedWeapons: f.weapons.filter((rank) => rank >= 9).length, choices, goals, firstRewardTick, maxLiving, classifierAttempts: calls, successes, fallbacks, classifierWaitMs: waitMs, wallMs: performance.now() - started, outcome: [3, 4].includes(f.phase) ? 'terminal' : 'bounded-observation', planner:{knownResources:Object.keys(plannerMemory.objects).length,clusters:plannerMemory.clusters.length,current:plannerMemory.current?.clusterId??null}, lastFrameHash: createHash('sha256').update(JSON.stringify(f)).digest('hex') };
   emit(summary);
   return summary;
 }

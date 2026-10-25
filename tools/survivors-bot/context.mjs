@@ -83,9 +83,9 @@ function hazards(f) {
 }
 
 function threats(f) {
-  const enemies=(f.bodies??[]).filter((b)=>b[2]===0&&b[4]>0);
-  const distances=enemies.map((b)=>Math.hypot(b[0]-f.px,b[1]-f.py));
-  return { source:'Observed engine body rows; geometric counts, not predicted danger or DPS.', livingEnemies:enemies.length, within60:distances.filter((d)=>d<=60).length, within150:distances.filter((d)=>d<=150).length, nearestEnemyDistance:distances.length?Math.min(...distances):null, bosses:enemies.filter((b)=>b[3]>=20&&b[3]<30).length, dawnReapers:enemies.filter((b)=>b[3]===30).length, hostileProjectiles:(f.bodies??[]).filter((b)=>b[2]===7).length };
+  const enemies=f.enemies.filter(enemy=>enemy.health>0);
+  const distances=enemies.map((b)=>Math.hypot(b.x-f.px,b.y-f.py));
+  return { source:'Observed typed enemy and projectile records; geometric counts, not predicted danger or DPS.', livingEnemies:enemies.length, within60:distances.filter((d)=>d<=60).length, within150:distances.filter((d)=>d<=150).length, nearestEnemyDistance:distances.length?Math.min(...distances):null, bosses:enemies.filter((b)=>b.archetype>=20&&b.archetype<30).length, dawnReapers:enemies.filter((b)=>b.archetype===30).length, hostileProjectiles:f.projectiles.filter(projectile=>projectile.hostile).length };
 }
 
 function candidateEffect(o,f,meta) {
@@ -138,8 +138,8 @@ function catalogOf(frame, catalog) {
   for (const g of catalog) {
     if (!g || typeof g.id !== 'string' || !g.id || ids.has(g.id) || !GOAL_KINDS.has(g.kind) || g.observedTick !== frame.tick || !Number.isFinite(g.distance) || g.distance < 0 || !Number.isFinite(g.target?.x) || !Number.isFinite(g.target?.y) || g.target.x < (frame.worldMargin??128) || g.target.x > (frame.worldSize??14400)-(frame.worldMargin??128) || g.target.y < (frame.worldMargin??128) || g.target.y > (frame.worldSize??14400)-(frame.worldMargin??128)) throw new Error('Invalid, duplicate or expired engine goal');
     if(g.kind==='approach_experience') {
-      const [seed,kind,variant,age]=g.id.split(':').slice(2).map(Number),r=g.resource;
-      if(!r || !Number.isSafeInteger(r.baseXp)||r.baseXp<=0 || !Number.isSafeInteger(r.generation)||r.generation<0 || r.autoClaimTicks!==null || !frame.bodies.some(b=>b[7]===seed&&b[2]===kind&&kind===2&&b[3]===variant&&b[6]===age&&b[4]===r.baseXp&&b[5]===r.generation&&b[0]===g.target.x&&b[1]===g.target.y)) throw new Error('XP goal does not match a current persistent engine pile');
+      const [slot,itemKind,ageText]=g.id.split(':').slice(2),age=Number(ageText),r=g.resource;
+      if(!r || !Number.isSafeInteger(r.baseXp)||r.baseXp<=0 || !Number.isSafeInteger(r.generation)||r.generation<0 || r.autoClaimTicks!==null || !frame.pickups.some(p=>p.active&&p.slot===Number(slot)&&p.item.kind===itemKind&&itemKind==='xp'&&p.age===age&&p.item.amount===r.baseXp&&p.generation===r.generation&&p.x===g.target.x&&p.y===g.target.y)) throw new Error('XP goal does not match a current persistent engine pile');
     }
     ids.add(g.id);
   }
@@ -176,13 +176,13 @@ export function buildGoalDecision(frame, engineCatalog, {runId,decisionSeq,meta=
     approach_chest:'Approach a real chest. Collection grants a reward choice; evolution/union eligibility depends on the current build. Travel and collection are not guaranteed safe.',
     approach_relic:'Approach the stage relic, which unlocks its associated weapon for future runs. It does not guarantee immediate combat power or a safe route.',
   };
-  const enemies=(frame.bodies??[]).filter((b)=>b[2]===0&&b[4]>0);
+  const enemies=frame.enemies.filter(enemy=>enemy.health>0);
   const candidates=selected.map((goal)=>{
-    const targetThreats=enemies.map((b)=>Math.hypot(b[0]-goal.target.x,b[1]-goal.target.y));
+    const targetThreats=enemies.map((b)=>Math.hypot(b.x-goal.target.x,b.y-goal.target.y));
     const effect={intent:goal.kind,target:safeCopy(goal.target),distance:goal.distance,safety:'unassessed',targetGeometry:{enemiesWithin60:targetThreats.filter(d=>d<=60).length,enemiesWithin150:targetThreats.filter(d=>d<=150).length,nearestEnemyDistance:targetThreats.length?Math.min(...targetThreats):null,qualification:'Snapshot geometry only. Does not assess the path, moving enemies, projectile danger or time to arrival.'},rule:descriptions[goal.kind]??'Move toward this bounded cardinal point. This is a geometric direction, not a guaranteed safe retreat or beneficial maneuver.'};
     if(goal.kind==='approach_experience') {
-      const [seed,kind,variant,age]=goal.id.split(':').slice(2).map(Number);
-      effect.resource={...safeCopy(goal.resource??{}),kind:'experience',seed,variant,ageTicks:age,autoClaimTicks:null,pickupRadius:engineMechanics?.current?.pickupRadius??null,benefit:'Collect experience to progress toward the next upgrade; XP persists until approached.'};
+      const [slot,itemKind,ageText]=goal.id.split(':').slice(2),age=Number(ageText);
+      effect.resource={...safeCopy(goal.resource??{}),kind:'experience',slot:Number(slot),itemKind,ageTicks:age,autoClaimTicks:null,pickupRadius:engineMechanics?.current?.pickupRadius??null,benefit:'Collect experience to progress toward the next upgrade; XP persists until approached.'};
     }
     const route=planner?.candidates?.find(c=>c.goal.id===goal.id);
     if(route) effect.route=safeCopy({waypoints:route.waypoints,risk:route.risk,etaTicks:route.etaTicks,reward:route.reward,length:route.length,clusterId:route.clusterId,partial:route.partial??false,qualification:'Bounded local-window route; remaining distance is a straight-line estimate and risk beyond the local segment is unassessed. Not a guarantee against moving threats.'});

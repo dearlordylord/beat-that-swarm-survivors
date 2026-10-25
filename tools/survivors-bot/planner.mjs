@@ -1,13 +1,23 @@
 // Pure, bounded spatial planning. The classifier is deliberately outside this module.
 const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
 const position = f => ({x:f.px,y:f.py});
-const identity = (g,tick) => {
+const identity = (g,frame) => {
   if(g.kind.startsWith('move_')) return g.kind;
-  if(g.kind==='approach_experience'&&Number.isFinite(g.resource?.generation)) return `${g.kind}:${g.id.split(':')[2]}:${g.resource.generation}`;
-  const p=g.id.split(':');
-  if (p.length<6) return g.id;
-  return [g.kind,...p.slice(2,5), Number(p[3])===9?0:tick-Number(p[5])].join(':');
+  const [, ,slot,itemKind]=g.id.split(':');
+  const pickup=frame.pickups.find(p=>p.active&&p.slot===Number(slot)&&p.item.kind===itemKind);
+  if(!pickup) throw new Error('Goal has no current pickup');
+  return `${g.kind}:${slot}:${itemKind}:${pickup.generation}`;
 };
+// Preserve actor query order when summing steering and risk contributions.
+export function actorThreats(frame) {
+  const enemies=new Map(frame.enemies.map(enemy=>[enemy.identity,enemy]));
+  const projectiles=new Map(frame.projectiles.map(projectile=>[projectile.identity,projectile]));
+  return frame.actorOrder.flatMap(ref=>{
+    if(ref.enemy!==undefined){const enemy=enemies.get(ref.enemy);return [{x:enemy.x,y:enemy.y,radius:enemy.radius,health:enemy.health,hostile:false}];}
+    if(ref.projectile!==undefined){const projectile=projectiles.get(ref.projectile);return projectile.hostile?[{x:projectile.x,y:projectile.y,radius:projectile.radius,hostile:true}]:[];}
+    return [];
+  });
+}
 export function createPlanner(options={}) {
   return {options:{cell:60,worldSize:null,maxExpanded:1200,maxCandidates:8,replanTicks:30,...options},objects:{},clusters:[],candidates:[],current:null,lastPlan:-Infinity,lastHp:null,lastPosition:null,stuckSince:null,reason:'initial'};
 }
@@ -21,15 +31,15 @@ function riskGrid(frame,options){
   const margin=frame.worldMargin??0,span=Math.min(3600,worldSize-2*margin),n=Math.ceil(span/cell);
   const origin={x:Math.min(worldSize-margin-span,Math.max(margin,Math.floor(Math.max(0,frame.px-span/2)/cell)*cell)),y:Math.min(worldSize-margin-span,Math.max(margin,Math.floor(Math.max(0,frame.py-span/2)/cell)*cell))};
   const risk=new Float64Array(n*n),blocked=new Uint8Array(n*n);
-  for(const b of frame.bodies){
-    if(!((b[2]===0&&b[4]>0)||b[2]===7))continue;
-    const radius=(b[8]??12)+(b[2]===7?12:18), reach=radius+120;
-    for(let y=Math.max(0,Math.floor((b[1]-origin.y-reach)/cell));y<=Math.min(n-1,Math.floor((b[1]-origin.y+reach)/cell));y++)
-      for(let x=Math.max(0,Math.floor((b[0]-origin.x-reach)/cell));x<=Math.min(n-1,Math.floor((b[0]-origin.x+reach)/cell));x++){
-        const d=Math.hypot(origin.x+(x+.5)*cell-b[0],origin.y+(y+.5)*cell-b[1]),i=y*n+x;
+  for(const b of actorThreats(frame)){
+    if(!b.hostile&&b.health<=0)continue;
+    const radius=b.radius+(b.hostile?12:18), reach=radius+120;
+    for(let y=Math.max(0,Math.floor((b.y-origin.y-reach)/cell));y<=Math.min(n-1,Math.floor((b.y-origin.y+reach)/cell));y++)
+      for(let x=Math.max(0,Math.floor((b.x-origin.x-reach)/cell));x<=Math.min(n-1,Math.floor((b.x-origin.x+reach)/cell));x++){
+        const d=Math.hypot(origin.x+(x+.5)*cell-b.x,origin.y+(y+.5)*cell-b.y),i=y*n+x;
         // A cell intersecting contact space cannot serve as a safe corridor.
         if(d<radius+cell*.35)blocked[i]=1;
-        risk[i]+=Math.max(0,1-d/reach)*(b[2]===7?8:4);
+        risk[i]+=Math.max(0,1-d/reach)*(b.hostile?8:4);
       }
   }
   return {n,risk,blocked,cell,origin,span};
@@ -57,11 +67,11 @@ export function routePath(frame,target,options={},suppliedGrid){
   return {reachable:false,waypoints:[],length:Infinity,risk:Infinity,expanded};
 }
 function observe(memory,frame,catalog,mechanics){
-  const objects={},xpBodies=new Map(frame.bodies.filter(b=>b[2]===2).map(b=>[b[7],b]));
+  const objects={},xpPickups=new Map(frame.pickups.filter(p=>p.active&&p.item.kind==='xp').map(p=>[p.slot,p]));
   for(const goal of catalog.filter(g=>g.kind==='approach_experience')){
-    const key=identity(goal,frame.tick),prior=memory.objects[key];
-    const body=xpBodies.get(Number(goal.id.split(':')[2]));
-    const value=Number.isFinite(goal.resource?.baseXp)?goal.resource.baseXp:Number.isFinite(goal.reward?.xp)?goal.reward.xp:Number.isFinite(goal.experience)?goal.experience:body?.[4]>0?body[4]:mechanics.resourceRules?.xpDefaultValue??1;
+    const key=identity(goal,frame),prior=memory.objects[key];
+    const pickup=xpPickups.get(Number(goal.id.split(':')[2]));
+    const value=Number.isFinite(goal.resource?.baseXp)?goal.resource.baseXp:Number.isFinite(goal.reward?.xp)?goal.reward.xp:Number.isFinite(goal.experience)?goal.experience:pickup?.item.amount>0?pickup.item.amount:mechanics.resourceRules?.xpDefaultValue??1;
     objects[key]={key,goal,value,firstSeen:prior?.firstSeen??frame.tick,lastSeen:frame.tick};
   }
   // Observation is omniscient: disappeared pickups are removed, never remembered as available.
@@ -84,7 +94,7 @@ export function planMovement(memory,frame,catalog,mechanics={}){
   catalog=catalog.filter(goal=>availableGoalKinds.has(goal.kind));
   observe(memory,frame,catalog,mechanics);
   const here=position(frame),current=memory.current;
-  const currentGoal=current&&catalog.find(g=>identity(g,frame.tick)===current.identity);
+  const currentGoal=current&&catalog.find(g=>identity(g,frame)===current.identity);
   const damaged=memory.lastHp!==null&&frame.hp<memory.lastHp;
   if(memory.lastPosition&&distance(here,memory.lastPosition)>12){memory.lastPosition=here;memory.stuckSince=frame.tick;}
   if(!memory.lastPosition){memory.lastPosition=here;memory.stuckSince=frame.tick;}
@@ -123,7 +133,7 @@ export function planMovement(memory,frame,catalog,mechanics={}){
       }
       expanded+=used;if(!route)continue;
       const etaTicks=route.length/(2.5*Math.max(.1,mechanics.current?.speedMultiplier??1));
-      candidates.push({...p,goal,...route,etaTicks,identity:identity(goal,frame.tick),score:p.reward/(1+etaTicks/60)/(1+route.risk*(frame.hp<frame.maxHp*.35?4:1))});
+      candidates.push({...p,goal,...route,etaTicks,identity:identity(goal,frame),score:p.reward/(1+etaTicks/60)/(1+route.risk*(frame.hp<frame.maxHp*.35?4:1))});
     }
     if(stuck)for(const candidate of candidates)if(candidate.identity===current?.identity)candidate.score*=0.2;
     candidates.sort((a,b)=>b.score-a.score||a.goal.id.localeCompare(b.goal.id));
@@ -135,7 +145,7 @@ export function planMovement(memory,frame,catalog,mechanics={}){
     if(stuck){memory.lastPosition=here;memory.stuckSince=frame.tick;}
   }else if(currentGoal){memory.current.goal=currentGoal;}
   // Refresh snapshot-scoped IDs without replacing stable objectives or route memory.
-  memory.candidates=memory.candidates.flatMap(c=>{const g=catalog.find(g=>identity(g,frame.tick)===c.identity);return g?[{...c,goal:g}]:[];});
+  memory.candidates=memory.candidates.flatMap(c=>{const g=catalog.find(g=>identity(g,frame)===c.identity);return g?[{...c,goal:g}]:[];});
   if(memory.current){const fresh=memory.candidates.find(c=>c.identity===memory.current.identity);memory.current=fresh??null;}
   memory.lastHp=frame.hp;
   if(memory.current){while(memory.current.waypoints.length>1&&distance(here,memory.current.waypoints[0])<35)memory.current.waypoints.shift();}
