@@ -31,6 +31,7 @@ or publication is performed without a subsequent coordinator instruction.
 | Issue 3: typed simulation/encoding boundary | `3267660`, `86c4b16`, `104e044` | Standards and Spec reviewers passed round 2 after diagnostic callers and benchmark timing were repaired | `50f62d5`, `c0b38f3`, `2ec740c` | Coordinator's native receipt: 15 checkpoints across three traces exactly matched baseline sparse ECS payloads, with Node unavailable and stable native source fingerprint; full co-op reliability, 43 UI checks, typed boundary, dense contacts, five rejoin mutants and attach proof passed. Integration reran changed JavaScript syntax, dependency audit (199 Bend modules) and whitespace checks | Completed worker worktree and branch removed; external receipts retained |
 | Issue 8: explicit player/session authority | `38f0f6b`, `9f2a949`, `a3d2bc9` | Standards and Spec reviewers passed formal round 1 with no unresolved findings | `8bc3d2f`, `8bff3d9`, `bccc187` | Tracked authority receipt: 15 native checkpoints across three traces exactly matched baseline, six co-op states matched after explicit authority partition/tag changes with physical metadata retained, five raw authority controls detected mutations, public journeys and full co-op checks passed. Integration verified changed tooling syntax, all five external artifact hashes, dependency audit (200 modules) and whitespace | Worker stopped; clean completed worktree and branch removed; external receipts retained |
 | Issue 4: spatial movement and targeting | `a4819af`, `9a73716`, `25fcf65`, `afdffe6`, `1ea25d7`, `0ee404e` | Standards and Spec reviewers passed round 2 and final receipt inspection, no unresolved findings | `ba31af7`, `73244bd`, `20a5d3b`, `faa20fc`, `8689d39`, `99d2842` | Tracked spatial receipt: 15 native checkpoints matched baseline facts with strict current physical checks; six co-op states passed closed authority/spatial projection and raw controls; fresh co-op suite, nine capability pairs, two kernel laws, two semantic mutants and comparator controls passed. Integration verified changed tooling/JSON syntax, all recorded external artifact hashes, dependency audit (206 modules), and whitespace | Worker stopped; clean completed worktree and branch removed; external captures retained |
+| Issue 9 supporting slice: canonical transport framing only | `c3813f8` | Standards and Spec reviewers passed round 1 with no unresolved findings; coordinator verified actual browser producers and valid-syntax fallback controls | `ae00453` | Tracked transport receipt: two kernel proofs, 45 typed semantic mutants, 152 codec checks and three actual browser producers passed. Integration verified 14 artifact hashes, changed JavaScript/JSON syntax, dependency audit (206 modules), and whitespace | Clean stopped supporting worker worktree and branch removed; external transport artifacts retained |
 
 Issue 2's baseline remains at
 `/tmp/bendvy-survivors-ecs-baseline-01b4164`. The integration check initially
@@ -62,10 +63,28 @@ Issue 4 evidence is tracked in `survivors-spatial-receipt.json` and explained in
 the explicit cross-schema projection. Ordinary current-schema replay remains
 strict. Integration did not repeat the already qualified heavy builds/suites.
 
+The issue 9 supporting slice is limited to canonical command framing and
+compressed snapshots with a separately routed plaintext connection handshake.
+Its receipt is `survivors-transport-cleanup-receipt.json`, and artifacts remain
+at `/tmp/survivors-compat-cleanup`. It does not complete issue 9 or qualify the
+unintegrated entity migration, real-network behavior, native gameplay or speed.
+
 ## Completion status
 
 Implementation and qualification are pending. This record alone does not prove
 completion of any gameplay migration or performance requirement.
+
+**Issue 8 completion correction:** the coordinator reopened issue 8 after a
+broader audit exposed stale player/session consumers in the actual
+`offline-coop-batch` and `offline-coop-metrics-check` entry points. Their old
+Run/projection/player-lookup assumptions fail typechecking against the current
+Session authority. The prior passing evidence remains valid for its stated
+scope, but did not establish complete consumer migration. The 18-entrypoint
+audit recorded 16 passes and these two failures at
+`/tmp/survivors-entrypoint-audit/receipt.json`; the independent initial gap check
+is `/tmp/survivors-offline-coop-gap-check.log`. The issue 7 worker owns the
+remaining consumer fixes as part of the combined entity group. Actual
+entrypoint typechecks and runs are required before issue 8 can close again.
 
 ## Planned atomic integration exception: issues 5, 6 and 7
 
