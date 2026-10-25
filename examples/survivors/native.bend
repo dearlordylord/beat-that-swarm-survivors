@@ -2,6 +2,9 @@ import run-state.bend as RS
 import Base
 import game-components.bend as Components
 import game.bend as G
+import enemy-combat.bend as Enemy
+import enemy-spatial.bend as Space
+import enemy-presentation.bend as EnemyView
 import encounters.bend as E
 import native_draw.bend as D
 import native_art.bend as Art
@@ -239,9 +242,10 @@ def menu_rows(+ui: Ui,+profile: P.Profile) -> List<&2,D.Rect>:
 
 # The native renderer observes ECS bodies. Shape and color both distinguish
 # enemies, pickups, friendly attacks, hostile attacks and the player.
+def enemy_color(archetype: U32) -> U32:
+  G.at([12752028,11699166,11900012,10192793,14520952,11063764],(archetype % 6 : U32))
 def body_color(kind: U32,variant: U32) -> U32:
   match kind:
-    case 0: G.at([12752028,11699166,11900012,10192793,14520952,11063764],(variant % 6 : U32))
     case 1: G.at([7985384,16760705,11900012,13948927,16768903,11137023],(variant % 6 : U32))
     case 2: 7985384
     case 3: 15584891
@@ -252,7 +256,7 @@ def body_color(kind: U32,variant: U32) -> U32:
     case _: 1186082
 
 def actor_visible(+kind: U32,hp: U32) -> Bool:
-  Bool.and(Bool.not(U32.is_eq(kind,8)),Bool.or(U32.is_lt(kind,10),U32.is_lt(0,hp)))
+  Bool.and(Bool.and(Bool.not(U32.is_eq(kind,0)),Bool.not(U32.is_eq(kind,8))),Bool.or(U32.is_lt(kind,10),U32.is_lt(0,hp)))
 def body_visible(visible: Bool,kind: U32,variant: U32,x: F32,y: F32,radius: F32,color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match visible:
     case True{}: Art.sprite(kind,variant,x,y,radius,color,tail)
@@ -274,26 +278,49 @@ def body_xp_visible(visible: Bool,+kind: U32,+variant: U32,+x: F32,+y: F32,+radi
     case True{} 2: Art.gem_scaled(x,y,LV.scale(amount),LV.pile_color(amount,U32.is_eq(variant,1)),tail)
     case True{} _: Art.sprite(kind,variant,x,y,radius,color,tail)
 
+def body_sprite(body: Components.Body,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match body:
+    case Components.Body{x,y,+kind,+variant,+hp,_,_,_,radius}:
+      +sx = V.native_x(x,px)
+      +sy = V.native_y(y,py)
+      +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
+      body_xp_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,hp,body_color(kind,variant),tail)
 def body_sprites(rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case Components.Body{x,y,+kind,+variant,+hp,maxHp,age,seed,radius} <> rest:
+    case body <> rest: body_sprite(body,px,py,body_sprites(rest,px,py,tail))
+def enemy_sprite(enemy: Enemy.State,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match enemy:
+    case Enemy.State{Space.Spatial{x,y,_,radius},archetype,_,Components.Vitals{health,_},_}:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
-      body_xp_visible(Bool.and(actor_visible(kind,hp),body_on_screen(sx,sy,scaled)),kind,variant,sx,sy,scaled,hp,body_color(kind,variant),body_sprites(rest,px,py,tail))
-
-# A separate overlay keeps a nearby sprite from hiding another enemy's HP.
-def body_healthbars(rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+      body_visible(Bool.and(U32.is_lt(0,health),body_on_screen(sx,sy,scaled)),0,archetype,sx,sy,scaled,enemy_color(archetype),tail)
+def enemy_sprites(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
-    case Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius} <> rest:
+    case enemy <> rest: enemy_sprite(enemy,px,py,enemy_sprites(rest,px,py,tail))
+# Draw the original completed phase order, rather than grouping the new types.
+def actor_sprites(rows: List<&2,G.Snapshot>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match rows:
+    case []: tail
+    case G.Snapshot{body,_} <> rest: body_sprite(body,px,py,actor_sprites(rest,px,py,tail))
+    case G.EnemySnapshot{enemy} <> rest: enemy_sprite(enemy,px,py,actor_sprites(rest,px,py,tail))
+# Health overlays are typed enemy observations and are drawn after every sprite.
+def enemy_healthbars(rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match rows:
+    case []: tail
+    case Enemy.State{Space.Spatial{x,y,_,radius},_,_,Components.Vitals{health,maximum},_} <> rest:
       +sx = V.native_x(x,px)
       +sy = V.native_y(y,py)
       +scaled = F32.max(2.0,(radius * V.native_scale() : F32))
-      healthbar_visible(body_on_screen(sx,sy,scaled),kind,hp,maxHp,sx,sy,scaled,body_healthbars(rest,px,py,tail))
-def bodies(+rows: List<&2,Components.Body>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  body_healthbars(rows,px,py,body_sprites(rows,px,py,tail))
+      healthbar_visible(body_on_screen(sx,sy,scaled),0,health,maximum,sx,sy,scaled,enemy_healthbars(rest,px,py,tail))
+def bodies(rows: List<&2,Components.Body>,px: F32,py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  body_sprites(rows,px,py,tail)
+def enemies(+rows: List<&2,Enemy.State>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  enemy_healthbars(rows,px,py,enemy_sprites(rows,px,py,tail))
+def actors(+rows: List<&2,G.Snapshot>,+px: F32,+py: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  enemy_healthbars(G.enemy_observations(rows),px,py,actor_sprites(rows,px,py,tail))
 
 def loadout(rows: List<&2,U32>,+index: U32,+x: F32,+y: F32,+category: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
@@ -436,10 +463,10 @@ def ground(fuel: Nat,+index: U32,+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D
       +period = G.at([360,420,240,300,180],run_stage(run))
       color = ground_color(Bool.or(Bool.or(F32.is_lt(wx,0.0),F32.is_lt(wy,0.0)),Bool.or(F32.is_lt(G.world_size(),wx),F32.is_lt(G.world_size(),wy))),ground_hazard(run_stage(run),wx,wy),U32.is_le((period - 120 : U32),(run_tick(run) % period : U32)),((F32.to_u32(F32.abs(wx)) / 64 + F32.to_u32(F32.abs(wy)) / 64) % 2 : U32))
       D.rect(x,y,16.0,16.0,color,ground(k,(index + 1 : U32),run,tail))
-def gameplay_rows(+run: G.Run,+rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,+ui: Ui,snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
+def gameplay_rows(+run: G.Run,+rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,+ui: Ui,+snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
   hud(run,world_modal(run,rows,offers,ui_paused(ui),
   Art.player(256.0,210.0,ui_character(ui),run_invuln(run),
-  bodies(rows,run_px(run),run_py(run),ground(768n,0,run,[])))))
+  actors(snapshots,run_px(run),run_py(run),ground(768n,0,run,[])))))
 
 def scene_screen(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image:
   match screen:
@@ -789,16 +816,16 @@ def sound_cue(muted: U32,damaged: Bool,levelled: Bool,killed: Bool) -> U32:
 def session_with_audio(native: Native,kills: U32,level: U32,health: U32,fps: Fps,result: Maybe<Audio> & Sound.Track) -> IO(Maybe<Session>):
   (audio,music) = result
   IO.pure(Maybe<Session>,Some{Session{native,audio,kills,level,health,music,fps}})
-def music_observation(due: Bool,+run: G.Run,rows: List<&2,Components.Body>,cached: U32) -> U32:
+def music_observation(due: Bool,+run: G.Run,rows: List<&2,Components.Body>,enemies: List<&2,Enemy.State>,cached: U32) -> U32:
   match due:
-    case True{}: G.music_danger(run_hp(run),run_maxHp(run),run_px(run),run_py(run),rows)
+    case True{}: G.music_danger(run_hp(run),run_maxHp(run),run_px(run),run_py(run),rows,EnemyView.pressures(enemies))
     case False{}: cached
 def session_sound(+now: Nat,audio: Maybe<Audio>,+music: Sound.Track,kills: U32,level: U32,health: U32,fps: Fps,cue: U32,native: Native) -> IO(Maybe<Session>):
   match native:
-    case Native{G.Packet{G.State{world,+run,+rows,offers,snapshots,pending}},+ui,profile}:
+    case Native{G.Packet{G.State{world,+run,+rows,offers,+snapshots,pending}},+ui,profile}:
       +active = Bool.and(U32.is_eq(ui_screen(ui),1),Bool.and(U32.is_eq(ui_paused(ui),0),Bool.and(U32.is_eq(ui_frames(ui),0),U32.is_le(run_phase(run),2))))
       +track = Sound.reset_if(Bool.or(Bool.not(U32.is_eq(ui_screen(ui),1)),U32.is_eq(run_tick(run),0)),music)
-      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},kills,level,health,fps))
+      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,G.enemy_observations(snapshots),Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},kills,level,health,fps))
     case native: IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,False{},0,0,Sound.initial()),0),session_with_audio(native,kills,level,health,fps))
 def session_metrics(now: Nat,audio: Maybe<Audio>,music: Sound.Track,oldKills: U32,oldLevel: U32,oldHealth: U32,fps: Fps,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
   (native,(+kills,+level,+health,muted)) = result
