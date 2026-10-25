@@ -32,7 +32,7 @@ function target(x, seed, { age = 90, hp = 100, radius = 8, y = 1000, archetype =
   return {$: 'EnemySnapshot', enemy: {
     $: 'State', spatial: {$: 'Spatial', x, y, age, radius}, archetype, identity: seed,
     vitals: {$: 'Vitals', health: hp, maximum: hp},
-    status: {$: 'Status', slow: 65536, burn: 0},
+    status: {$: 'Status', slow: {$:'Slow',ticks:0,frozen:true}, burn: {$:'Burn',ticks:0,sourcePlayer:{$:'None'}}},
   }};
 }
 
@@ -248,15 +248,15 @@ function close(actual, expected, label, epsilon = 0.0001) {
 
   const team = preparedTeam(101, [source, newborn]);
   assert.deepEqual(array(hitPlans(team)[0].targets), [77]);
-  const previousDormant = {...newborn.enemy,spatial:{...newborn.enemy.spatial,age:5},vitals:{$:'Vitals',health:0,maximum:100},status:{$:'Status',slow:65536,burn:37}};
+  const previousDormant = {...newborn.enemy,spatial:{...newborn.enemy.spatial,age:5},vitals:{$:'Vitals',health:0,maximum:100},status:{$:'Status',slow:{$:'Slow',ticks:0,frozen:true},burn:{$:'Burn',ticks:37,sourcePlayer:{$:'Some',value:0}}}};
   const candidate = {$:'Candidate',x:545,y:1000,archetype:1,identity:77,vitals:newborn.enemy.vitals,radius:8};
   const fresh = Game.team_enemy_updated(team, {$:'Dormant',archetype:1}, previousDormant, {$:'Some',value:candidate});
   assert.equal(fresh.outcome.$,'Born');
   assert.equal(fresh.outcome.newborn.candidate.vitals.health,100,'fresh birth bypasses prepared old-incarnation hit');
-  assert.deepEqual(fresh.outcome.newborn.status,{$:'Status',slow:0,burn:0});
+  assert.deepEqual(fresh.outcome.newborn.status,{$:'Status',slow:{$:'Slow',ticks:0,frozen:false},burn:{$:'Burn',ticks:0,sourcePlayer:{$:'None'}}});
   assert.equal(fresh.outcome.newborn.contactDamage,0);
   assert.deepEqual(fresh.outcome.newborn.killer,{$:'None'});
-  const existing = Game.team_enemy_updated(team, {$:'ActiveEnemy',archetype:1}, {...newborn.enemy,status:{$:'Status',slow:65536,burn:37}}, {$:'Some',value:candidate});
+  const existing = Game.team_enemy_updated(team, {$:'ActiveEnemy',archetype:1}, {...newborn.enemy,status:{$:'Status',slow:{$:'Slow',ticks:0,frozen:true},burn:{$:'Burn',ticks:37,sourcePlayer:{$:'Some',value:0}}}}, {$:'Some',value:candidate});
   assert.equal(existing.outcome.enemy.vitals.health,93,'the same prepared hit applies to an existing incarnation');
 }
 

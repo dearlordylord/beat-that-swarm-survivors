@@ -33,7 +33,7 @@ for(const [kind,item] of [[{$:'XpDrop'},{$:'Xp',amount:7,accumulator:false}],[{$
   const rows=G.xp_route_rows_at(list([
     {$:'EnemyRow',credit:{$:'Credit',contactDamage:0,kills:1},outcome:{$:'Killed',
       enemy:{$:'State',spatial:{$:'Spatial',x:7200,y:7200,age:1,radius:6},archetype:17,identity:0,
-        vitals:{$:'Vitals',health:0,maximum:1},status:{$:'Status',slow:0,burn:0}},
+        vitals:{$:'Vitals',health:0,maximum:1},status:{$:'Status',slow:{$:'Slow',ticks:0,frozen:false},burn:{$:'Burn',ticks:0,sourcePlayer:{$:'None'}}}},
       reward:{$:'DeathReward',kind,amount:7,x:7200,y:7200,archetype:17,identity:0,killer:{$:'Some',value:0}}}},
     {$:'PickupRow',outcome:{$:'Outcome',state:dormant,reward:{$:'Reward',xp:0,coins:0,healing:0,chests:0,relics:0}}}
   ]),66,7200,7200);

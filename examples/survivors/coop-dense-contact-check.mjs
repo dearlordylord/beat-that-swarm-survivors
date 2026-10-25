@@ -29,7 +29,7 @@ function array(rows) {
 function syntheticEvent(index, tick = 10802) {
   const shotSlot = index % 16;
   const player = Math.floor(shotSlot / 8);
-  const logicalSlot = player * 65536 + (shotSlot % 8);
+  const logicalSlot = shotSlot % 8;
   const shot = Journal.shot_id(player, tick - 1, 11, logicalSlot);
   const target = Math.floor(index / 16) % 500;
   const generation = tick - 1 - 500;
@@ -118,41 +118,19 @@ if (process.argv.includes('--journal-only')) {
   const requestCount = candidateRun => array(Game.shot_requests(
     24,
     fireTick % 24,
-    candidateRun,
+    Game.shot_schedule(candidateRun),
     Game.empty_owner_counts(),
-  )).filter(request => request.owner === 11).length;
+  )).filter(request => request.weaponOwner === 11).length;
   assert.equal(requestCount(fireRun), 8, 'each player schedules all eight weapon-11 slots');
 
   const targetAge = 500;
-  const targets = Array.from({ length: 500 }, (_, seed) => ({
-    $: 'Snapshot',
-    body: {
-      $: 'Body',
-      x: run.player.px + (seed % 25) * 3,
-      y: run.player.py + Math.floor(seed / 25) * 3,
-      kind: 0,
-      variant: 1,
-      hp: 10000,
-      maxHp: 10000,
-      age: targetAge,
-      seed,
-      radius: 8,
-    },
-    motion: {
-      $: 'Motion',
-      vx: 0,
-      vy: 0,
-      life: 0,
-      pierce: 0,
-      visited: nil(),
-      slow: 65536,
-      burn: 0,
-      ownerBase: 0,
-      logicalSlot: 0,
-    },
+  const targets = Array.from({ length: 500 }, (_, identity) => ({
+    $:'EnemySnapshot',enemy:{$:'State',
+      spatial:{$:'Spatial',x:run.player.px+(identity%25)*3,y:run.player.py+Math.floor(identity/25)*3,age:targetAge,radius:8},
+      archetype:1,identity,vitals:{$:'Vitals',health:10000,maximum:10000},
+      status:{$:'Status',slow:{$:'Slow',ticks:0,frozen:true},burn:{$:'Burn',ticks:0,sourcePlayer:{$:'None'}}}},
   }));
   const targetRows = list(targets);
-  const targetBodies = list(targets.map(target => target.body));
   const views = list([
     { $: 'PlayerView', id: 0, run, dx: 0, dy: 0, eligible: true },
     { $: 'PlayerView', id: 1, run, dx: 0, dy: 0, eligible: true },
@@ -160,7 +138,7 @@ if (process.argv.includes('--journal-only')) {
   const spawnTeam = {
     $: 'Team',
     players: views,
-    base: { $: 'Args', run, targets: Game.enemy_targets(targetBodies), dx: 0, dy: 0, snapshots: targetRows, hits: nil() },
+    base: { $: 'Args', run, targets: Game.enemy_targets(targetRows), dx: 0, dy: 0, snapshots: targetRows, hits: nil() },
     plan: Game.empty_shot_plan(),
     origins: Game.effect_origin_index(targetRows),
   };
@@ -168,23 +146,24 @@ if (process.argv.includes('--journal-only')) {
   const shots = [];
   for (let player = 0; player < 2; player += 1) {
     for (let slot = 0; slot < 8; slot += 1) {
-      const logicalSlot = slot + player * 65536;
+      const logicalSlot = slot;
       const request = {
         $: 'Some',
-        value: { $: 'Request', owner: 11, slot: logicalSlot, level: 8 },
+        value: { $: 'Request', weaponOwner: 11, slot: {$:'Emission',sourcePlayer:player,logicalSlot}, level: 8 },
       };
       const entity = Game.team_shot_spawn(spawnTeam, 512 + player * 8 + slot, request);
-      const { body } = entity.row;
-      const { motion } = entity;
-      assert.equal(body.variant, 11);
-      assert.equal(body.age, 0);
-      assert.equal(motion.life, 1);
-      assert.equal(motion.pierce, 9999);
-      assert.equal(motion.logicalSlot, logicalSlot);
+      assert.equal(entity.$,'ProjectileRow');
+      const projectile=entity.outcome.projectile;
+      assert.equal(projectile.payload.weapon,11);
+      assert.equal(projectile.spatial.age,0);
+      assert.equal(projectile.trajectory.life,1);
+      assert.equal(projectile.trajectory.pierce,9999);
+      assert.equal(projectile.trajectory.logicalSlot,logicalSlot);
+      assert.deepEqual(projectile.trajectory.sourcePlayer,{$:'Some',value:player});
       for (const target of targets) {
-        assert.ok(Math.hypot(body.x - target.body.x, body.y - target.body.y) <= body.radius + target.body.radius);
+        assert.ok(Math.hypot(projectile.spatial.x-target.enemy.spatial.x,projectile.spatial.y-target.enemy.spatial.y)<=projectile.spatial.radius+target.enemy.spatial.radius);
       }
-      shots.push({ $: 'Snapshot', body, motion });
+      shots.push({$:'ProjectileSnapshot',projectile});
     }
   }
 
@@ -193,7 +172,7 @@ if (process.argv.includes('--journal-only')) {
     $: 'Team',
     players: views,
     base: {
-      $: 'Args', run, targets: Game.enemy_targets(targetBodies), dx: 0, dy: 0, snapshots, hits: nil(),
+      $: 'Args', run, targets: Game.enemy_targets(targetRows), dx: 0, dy: 0, snapshots, hits: nil(),
     },
     plan: Game.team_plan(views, snapshots),
     origins: Game.effect_origin_index(snapshots),
