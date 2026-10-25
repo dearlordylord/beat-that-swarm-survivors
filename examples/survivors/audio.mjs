@@ -235,11 +235,24 @@ export class AudioEngine {
   }
   observe(frame) {
     let rows = {$:'Nil'};
-    for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
-      const body = frame.bodies[i];
-      rows = {$:'Con',head:{$:'Body',seed:body[7] >>> 0,kind:body[2] >>> 0,
-        variant:body[3] >>> 0,age:body[6] >>> 0,hp:body[4] >>> 0,x:Math.fround(body[0]),
-        radius:Math.fround(body[8]),generation:typeof body[9] === 'string' ? body[9] : ''},tail:rows};
+    const bodies = new Map(frame.bodies.map(body => [body[7], body]));
+    const enemies = new Map(frame.enemies.map(enemy => [enemy.identity, enemy]));
+    for (let i = frame.actorOrder.length - 1; i >= 0; i--) {
+      const reference = frame.actorOrder[i];
+      let observation;
+      if (Object.hasOwn(reference, 'enemy')) {
+        const enemy = enemies.get(reference.enemy);
+        observation = {$:'Body',seed:enemy.identity >>> 0,kind:0,
+          variant:enemy.archetype >>> 0,age:enemy.age >>> 0,hp:enemy.health >>> 0,
+          x:Math.fround(enemy.x),radius:Math.fround(enemy.radius),
+          generation:typeof enemy.lifetime === 'string' ? enemy.lifetime : ''};
+      } else {
+        const body = bodies.get(reference.body);
+        observation = {$:'Body',seed:body[7] >>> 0,kind:body[2] >>> 0,
+          variant:body[3] >>> 0,age:body[6] >>> 0,hp:body[4] >>> 0,x:Math.fround(body[0]),
+          radius:Math.fround(body[8]),generation:typeof body[9] === 'string' ? body[9] : ''};
+      }
+      rows = {$:'Con',head:observation,tail:rows};
     }
     this._playSounds(Sounds.observe(this.soundState,{$:'Meta',run:frame.runId || '',
       tick:frame.tick >>> 0,phase:frame.phase >>> 0,round:frame.roundId >>> 0,
@@ -261,11 +274,17 @@ export class AudioEngine {
     let bodies = { $: "Nil" };
     for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
       const b = frame.bodies[i];
-      if (b[2] !== 0 && b[2] !== 7) continue;
+      if (b[2] !== 7) continue;
       bodies = { $: "Con", head: { $: "Body", x: b[0], y: b[1], kind: b[2], variant: b[3],
         hp: b[4], maxHp: b[5], age: b[6], seed: b[7], radius: b[8] }, tail: bodies };
     }
-    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, bodies);
+    let enemies = {$:'Nil'};
+    for (let i = frame.enemies.length - 1; i >= 0; i--) {
+      const enemy = frame.enemies[i];
+      enemies = {$:'Con',head:{$:'Threat',x:Math.fround(enemy.x),y:Math.fround(enemy.y),
+        archetype:enemy.archetype >>> 0},tail:enemies};
+    }
+    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, bodies, enemies);
     this.danger = Game["music:smooth"](this.danger, raw);
     this.targetBand = Game["music:target_band"](this.targetBand, this.danger);
     this.lastDanger = now;

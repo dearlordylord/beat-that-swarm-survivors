@@ -111,22 +111,33 @@ export class Renderer {
     for (const key of this.shotPositions?.keys() || [])
       if (!shotKeys.has(key)) this.shotPositions.delete(key);
     for (const b of bodies) if (b[2] === 6) this.effect(b, true);
-    const ordered = bodies
-      .filter((b) => b[2] !== 6)
-      .slice()
-      .sort((a, b) => a[1] - b[1]);
+    const enemies = frame.enemies;
+    const bodyByIdentity = new Map(bodies.map(body => [body[7], body]));
+    const enemyByIdentity = new Map(enemies.map(enemy => [enemy.identity, enemy]));
+    // Resolve explicit phase-order references before the stable depth sort.
+    // This preserves ties and overlap across separate typed observations.
+    const ordered = frame.actorOrder.map(reference => {
+      if (Object.hasOwn(reference, "enemy")) {
+        const enemy = enemyByIdentity.get(reference.enemy);
+        return {kind: "enemy", value: enemy, y: enemy.y};
+      }
+      const body = bodyByIdentity.get(reference.body);
+      return {kind: "body", value: body, y: body[1]};
+    }).filter(actor => actor.kind !== "body" || actor.value[2] !== 6)
+      .sort((left, right) => left.y - right.y);
     const players = framePlayers(frame).slice().sort((a, b) => a.py - b.py || a.id - b.id);
     let playerIndex = 0;
-    for (const b of ordered) {
-      while (playerIndex < players.length && b[1] > players[playerIndex].py)
+    for (const actor of ordered) {
+      while (playerIndex < players.length && actor.y > players[playerIndex].py)
         this.observedPlayer(players[playerIndex++], players.length > 1);
-      this.drawBody(b);
+      if (actor.kind === "enemy") this.drawEnemy(actor.value);
+      else this.drawBody(actor.value);
     }
     while (playerIndex < players.length)
       this.observedPlayer(players[playerIndex++], players.length > 1);
     for (const b of bodies) if (b[2] === 6) this.effect(b, false);
-    for (const b of bodies) this.healthBar(b);
-    if (options.showDamage !== false) this.damage(bodies, dt);
+    for (const enemy of enemies) this.enemyHealthBar(enemy);
+    if (options.showDamage !== false) this.damage(enemies, dt);
     this.contactEffects(frame.combatImpacts || []);
     const shade = c.createRadialGradient(
       this.width / 2,
@@ -447,16 +458,25 @@ export class Renderer {
     c.ellipse(x, y + 3, rx, ry, 0, 0, TAU);
     c.fill();
   }
-  healthBar(b) {
-    if (b[2] !== 0 || !(b[4] > 0)) return;
-    const [x, y] = this.xy(b[0], b[1]);
-    const radius = Math.max(1, Number(b[8]) || 5);
+  enemyHealthBar(enemy) {
+    if (!(enemy.health > 0)) return;
+    const [x, y] = this.xy(enemy.x, enemy.y);
+    const radius = Math.max(1, enemy.radius);
     const width = Math.max(20, radius * 2);
     const top = y - Math.max(24, radius * 2) - 8;
-    const ratio = Math.min(1, b[4] / Math.max(1, b[5]));
+    const ratio = Math.min(1, enemy.health / Math.max(1, enemy.maximum));
     rect(this.ctx, x - width / 2 - 1, top - 1, width + 2, 5, "#eadbc9");
     rect(this.ctx, x - width / 2, top, width, 3, "#592434");
     rect(this.ctx, x - width / 2, top, width * ratio, 3, "#a5e2a0");
+  }
+  drawEnemy(enemy) {
+    const [x, y] = this.xy(enemy.x, enemy.y);
+    const margin = Math.max(100, enemy.radius);
+    if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return;
+    this.bodyOpacity = Number.isFinite(enemy.opacity) ? Math.max(0, Math.min(1, enemy.opacity)) : 1;
+    this.ctx.save(); this.setAlpha(1);
+    this.enemy(enemy);
+    this.ctx.restore(); this.bodyOpacity = 1;
   }
   setAlpha(opacity) { this.ctx.globalAlpha = opacity * (this.bodyOpacity ?? 1); }
   drawBody(body) {
@@ -489,10 +509,6 @@ export class Renderer {
       v = b[3] || 0,
       t = this.time,
       c = this.ctx;
-    if (k === 0) {
-      this.enemy(x, y, v, b);
-      return;
-    }
     if (k === 1 || k === 7) {
       this.projectile(x, y, v, b, k === 7);
       return;
@@ -700,12 +716,14 @@ export class Renderer {
     c.ellipse(x, y + 2, 15, 6, 0, 0, TAU);
     c.stroke();
   }
-  enemy(x, y, v, b) {
+  enemy(enemy) {
+    const [x, y] = this.xy(enemy.x, enemy.y);
+    const v = enemy.archetype;
     const c = this.ctx,
       boss = v >= 20,
       type = v % 10,
       r = boss ? 1.9 : 1,
-      seed = b[7] || 0,
+      seed = enemy.identity || 0,
       t = this.time,
       walk = this.options.reducedMotion ? 0 : Math.sin(t * 7 + seed) * 2;
     this.shadow(x, y, 10 * r, 4 * r);
@@ -719,7 +737,7 @@ export class Renderer {
       28: 240,
     };
     const chargePeriod = chargePeriods[v],
-      chargePhase = (b[6] || 0) % (chargePeriod || 1);
+      chargePhase = (enemy.age || 0) % (chargePeriod || 1);
     if (chargePeriod && chargePhase >= 90 && chargePhase < 120) {
       c.save();
       c.strokeStyle = "#f2b785";
@@ -822,14 +840,14 @@ export class Renderer {
       c.stroke();
     }
     c.restore();
-    if (boss || b[4] < b[5]) {
+    if (boss || enemy.health < enemy.maximum) {
       const width = boss ? 48 : 22;
       rect(c, x - width / 2, y - 33 * r, width, 3, "#100e16");
       rect(
         c,
         x - width / 2,
         y - 33 * r,
-        width * Math.max(0, b[4] / Math.max(1, b[5])),
+        width * Math.max(0, enemy.health / Math.max(1, enemy.maximum)),
         2,
         boss ? "#e3a376" : "#c56c78",
       );
@@ -1020,21 +1038,20 @@ export class Renderer {
     c.stroke();
     c.restore();
   }
-  damage(bodies, dt) {
+  damage(enemies, dt) {
     const c = this.ctx,
       next = new Map();
-    for (const b of bodies) {
-      if (b[2] !== 0) continue;
-      const key = typeof b[9] === "string" ? b[9] : `${b[3]}:${b[7]}`,
+    for (const enemy of enemies) {
+      const key = typeof enemy.lifetime === "string" ? enemy.lifetime : `${enemy.archetype}:${enemy.identity}`,
         old = this.previous.get(key);
-      if (old && old.hp > b[4] && this.labels.length < 65)
+      if (old && old.health > enemy.health && this.labels.length < 65)
         this.labels.push({
-          x: b[0],
-          y: b[1] - 28,
-          value: Math.round(old.hp - b[4]),
+          x: enemy.x,
+          y: enemy.y - 28,
+          value: Math.round(old.health - enemy.health),
           life: 0.65,
         });
-      next.set(key, { hp: b[4] });
+      next.set(key, { health: enemy.health });
     }
     this.previous = next;
     c.font = "bold 12px monospace";
