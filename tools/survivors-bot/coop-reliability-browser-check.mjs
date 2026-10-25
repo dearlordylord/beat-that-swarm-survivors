@@ -91,10 +91,10 @@ function motionOracle(rows,startWall){
    hostSteps.push(distance/(elapsedMs*60/1000));
    if(distance>allowed)violations.push({wall:row.wall,elapsedMs,distance,allowed,previousTick:previous.tick,tick:row.tick,previousPresentation:previous.remotePresentation,presentation:row.remotePresentation});
   }
-  const oldEnemies=new Map((previous.enemies||[]).map(enemy=>[enemy[2],enemy]));
+  const oldEnemies=new Map((previous.enemies||[]).map(enemy=>[`${enemy.identity}:${enemy.lifetime}`,enemy]));
   for(const enemy of row.enemies||[]){
-   const old=oldEnemies.get(enemy[2]);
-   if(old){const distance=Math.hypot(enemy[0]-old[0],enemy[1]-old[1]);if(Number.isFinite(distance))enemySteps.push(distance/(elapsedMs*60/1000));}
+   const old=oldEnemies.get(`${enemy.identity}:${enemy.lifetime}`);
+   if(old){const distance=Math.hypot(enemy.x-old.x,enemy.y-old.y);if(Number.isFinite(distance))enemySteps.push(distance/(elapsedMs*60/1000));}
   }
  }
  return {warmupMs:5000,maxPairGapMs:250,host:{samples:hostSteps.length,maxUnitsPerWallTick:hostSteps.length?Math.max(...hostSteps):0,p95UnitsPerWallTick:p95(hostSteps),violationCount:violations.length,violations:violations.slice(0,12)},enemies:{samples:enemySteps.length,maxUnitsPerWallTick:enemySteps.length?Math.max(...enemySteps):0,p95UnitsPerWallTick:p95(enemySteps),scope:'same-generation diagnostics; monster dash mechanics have no asserted speed bound'},buffer:{activeSamples,bufferedSamples,bufferEntries,bufferExits,recoveryEntries}};
@@ -133,7 +133,7 @@ async function instrument(page,role,errors){
   const trace=globalThis.__reliable;
   for(const type of['keydown','keyup'])addEventListener(type,e=>{if(e.code.startsWith('Arrow'))trace.inputs.push({at:performance.now(),type,code:e.code});});
   for(const type of['pointerdown','pointermove','pointerup','pointercancel'])addEventListener(type,e=>{if(e.pointerType==='touch')trace.pointerEvents.push({at:performance.now(),type,pointerId:e.pointerId,target:e.target?.id||''});},true);
-  globalThis.__reliableDraw=frame=>{trace.renders.push({at:performance.now(),wall:Date.now(),tick:frame.tick,phase:frame.phase,round:frame.roundId,runId:frame.runId,timing:frame.predictionTiming,presentationMeasurement:frame.presentationMeasurement,remotePresentation:frame.remotePresentation,players:frame.players,enemies:frame.bodies.filter(b=>b[2]===0).slice(0,16).map(b=>[b[0],b[1],b[9]??b[7]])});if(trace.renders.length>5000)trace.renders.shift();};
+  globalThis.__reliableDraw=frame=>{trace.renders.push({at:performance.now(),wall:Date.now(),tick:frame.tick,phase:frame.phase,round:frame.roundId,runId:frame.runId,timing:frame.predictionTiming,presentationMeasurement:frame.presentationMeasurement,remotePresentation:frame.remotePresentation,players:frame.players,enemies:frame.enemies.slice(0,16).map(({x,y,identity,lifetime})=>({x,y,identity,lifetime}))});if(trace.renders.length>5000)trace.renders.shift();};
   const NativeWorker=Worker;globalThis.Worker=class extends NativeWorker{constructor(...args){super(...args);this.addEventListener('message',e=>{if(e.data.type==='error')trace.workerErrors.push(e.data);if(e.data.type==='qa-input-resolution'){trace.inputResolutions.push(e.data);if(trace.inputResolutions.length>5000)trace.inputResolutions.shift();}if(e.data.type==='input-rejected'){trace.inputRejections.push(e.data);if(trace.inputRejections.length>5000)trace.inputRejections.shift();}});this.addEventListener('error',e=>trace.workerFailures.push({message:e.message,at:performance.now(),wall:Date.now()}));}postMessage(message,...rest){if(message?.type==='init'){const requestedSeed=message.seed;if(seedOverride!==null)message={...message,seed:seedOverride};trace.workerInitializations.push({wall:Date.now(),at:performance.now(),requestedSeed,seed:message.seed,overridden:seedOverride!==null,session:message.session});}return super.postMessage(message,...rest);}};
  },seedOverride);
  if(role==='host')await page.route('**/coop-worker.mjs',async route=>{
