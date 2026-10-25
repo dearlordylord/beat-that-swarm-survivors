@@ -1,6 +1,6 @@
 import { gameFrame } from "./observations.mts"
 import { displayText, defined, errorMessage, at, text } from "./host-values.mts"
-import { element } from "./dom.mts"
+import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { AudioEngine } from "./audio.mts"
 import type { Renderer } from "./renderer.mts"
 import { type Frame } from "./frame.mts"
@@ -470,6 +470,7 @@ function animation(now: number) {
   requestAnimationFrame(animation)
 }
 let banishing = false
+enableSecondaryRewardTouch($("#dialog"))
 document.addEventListener("click", (event) => {
   const b = event.target instanceof Element ? event.target.closest("button") : null
   if (!b || b.disabled) return
