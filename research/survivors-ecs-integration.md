@@ -66,3 +66,25 @@ strict. Integration did not repeat the already qualified heavy builds/suites.
 
 Implementation and qualification are pending. This record alone does not prove
 completion of any gameplay migration or performance requirement.
+
+## Planned atomic integration exception: issues 5, 6 and 7
+
+The coordinator authorized a combined integration group for enemy, projectile
+and pickup migration. The concrete inseparable boundaries are the shared
+snapshot/entity-row sum and enemy-slot occupied-loot dispatch. Making the enemy
+slice independently green would require throwaway legacy loot/Body adapters,
+contrary to the intended cleanup.
+
+Each worker continues in an isolated worktree and receives independent review.
+After those reviews, the integration agent will create a temporary candidate
+worktree from the canonical integration branch (architecture base `c089346`),
+assemble the group, and resolve shared header/storage-arity conflicts. Combined
+green checks and review, bounded to three rounds, precede canonical integration.
+No partial worker or candidate cleanup occurs before the verified group reaches
+the canonical integration branch. Issues 5, 6 and 7 remain incomplete until the
+combined evidence exists. Issue 9 residual cleanup and issue 10 full functional
+and bounded performance qualification remain unchanged.
+
+Current worker ownership: `typed_results` owns issue 5 enemy migration;
+`baseline` owns issue 6 projectile migration; `player_authority` owns issue 7
+pickup migration. No group code has been integrated at the time of this entry.
