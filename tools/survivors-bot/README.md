@@ -139,7 +139,7 @@ python3 -B tools/survivors-bot/compare-native-parallel_test.py
 bend examples/survivors/parallel/PROOF.bend --verdict
 ```
 
-The failure/fuel fixture `offline-parallel-test.bend` is included in `examples/survivors/check-native.sh`.
+The failure/fuel fixture `offline-parallel-test.bend` is included in `examples/survivors/check-launcher-profile-ui.sh`.
 
 ## Checks and evidence
 

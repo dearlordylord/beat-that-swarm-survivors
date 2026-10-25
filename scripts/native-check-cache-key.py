@@ -34,7 +34,7 @@ def cache_key(repo, bend, clang, runtime_roots):
         add(name, os.environ.get(name, "").encode())
     for name in sorted(name for name in os.environ if name.startswith('BEND_')):
         add(name, os.environ[name].encode())
-    for relative in ('examples/common.sh', 'examples/survivors/check-native.sh', 'scripts/native-check-cache-key.py'):
+    for relative in ('examples/common.sh', 'examples/survivors/check-launcher-profile-ui.sh', 'scripts/native-check-cache-key.py'):
         add(relative, (repo / relative).read_bytes())
     # Hash all local Bend sources conservatively, including new untracked files.
     roots = [repo, *runtime_roots]

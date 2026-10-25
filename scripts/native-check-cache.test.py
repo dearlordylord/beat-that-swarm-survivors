@@ -17,7 +17,7 @@ class NativeCacheTest(unittest.TestCase):
             app = root / 'examples/survivors'
             app.mkdir(parents=True)
             (root / 'scripts').mkdir()
-            shutil.copyfile(original / 'examples/survivors/check-native.sh', app / 'check-native.sh')
+            shutil.copyfile(original / 'examples/survivors/check-launcher-profile-ui.sh', app / 'check-launcher-profile-ui.sh')
             shutil.copyfile(original / 'scripts/native-check-cache-key.py', root / 'scripts/native-check-cache-key.py')
             (root / 'examples/common.sh').write_text('''example_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BEND="$FAKE_BEND"
@@ -68,7 +68,7 @@ chmod +x "$3"
                    'NIGHTFALL_NATIVE_CHECK_CACHE': str(cache)}
 
             def run(code=0):
-                result = subprocess.run(['bash', str(app / 'check-native.sh')], env=env,
+                result = subprocess.run(['bash', str(app / 'check-launcher-profile-ui.sh')], env=env,
                                         capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, code, result.stdout + result.stderr)
 
@@ -106,7 +106,7 @@ chmod +x "$3"
             invalidated(lambda: package.write_text('changed Hub package outside the checkout'))
             invalidated(lambda: tool.write_text(tool.read_text() + '\n# changed compiler\n'))
             invalidated(lambda: cc.write_text('#!/bin/sh\necho fake-clang-v2\n'))
-            builder = app / 'check-native.sh'
+            builder = app / 'check-launcher-profile-ui.sh'
             invalidated(lambda: builder.write_text(builder.read_text() + '\n# changed build flags\n'))
             before = builds()
             source.write_text('changed again')
