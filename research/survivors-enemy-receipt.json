@@ -1,0 +1,57 @@
+{
+  "scope": "GH5 focused checks; grouped native/presentation/physical qualification and final review remain required",
+  "freeze": "d7d7c914e6a318b8e73803c9a55d2dc230d18afc",
+  "checks": {
+    "gameCompile": "PASS",
+    "coreEmission": "PASS",
+    "encoderEmission": "PASS",
+    "productionBirthFixture": "PASS",
+    "analyticContactFixture": "PASS including fresh and existing prepared-contact incarnations",
+    "concreteBirthProof": "PASS --verdict CPU10 wall60",
+    "compiledProductionWiringMutant": "DETECTED; actual Game accepted branch reused old status and nonzero contact/killer; emission succeeded and fixture failed",
+    "capabilityPairs": 18,
+    "enemyCurrentSchemaControls": "PASS; deliberately permuted handle/slot identities; membership/phase/duplicate/futurestamp rejected"
+  },
+  "artifacts": {
+    "/tmp/issue5-group-game.mjs": "165cb453c17d396925d5a581dda6ae0375cb089ac713d541b32cce78f50239d1",
+    "/tmp/issue5-group-core.mjs": "c4cba8b72675e38dbb6599ef9ceb4ad2e30b5a6196a4afdfc5be6cf6501b6b0d",
+    "/tmp/issue5-group-encoder.mjs": "cf1710d7493f90225f722f8e09067239cfcf0eef195897c8a72d6e542ed8c61f",
+    "/tmp/issue5-wiring-mutant.mjs": "a79c11ac44f5ac47f9a2f40059f84bd5c6fe012bac2901298ffc63e9bc7ce56f",
+    "/tmp/issue5-group-authority/receipt.json": "268f044d9fa8409080f74e3e1be7cee25f96ea51b158aea13c3798de91a45335"
+  },
+  "status": "INCOMPLETE_PENDING_GROUP_QUALIFICATION_AND_REVIEW",
+  "compiler": "Bend 2.0.38",
+  "runtime": "Node.js 24.20.0 for development fixture execution only; native qualification pending",
+  "runtimeEmissionSource": "Game at1876e38; Core and Encoder assembled prerequisites plus1876e38; finald7d7c91 deletes only unused team_body_view, separately --check-only passed",
+  "implementationCommits": [
+    "2580b58",
+    "c6c4d0f",
+    "ebec1ca",
+    "c565cd3",
+    "904ffce",
+    "a8cc26e",
+    "a6d1f79",
+    "72baa14",
+    "1876e38",
+    "9974a8d",
+    "2453112",
+    "7e20a91",
+    "4e762f3",
+    "d7d7c91"
+  ],
+  "proof": {
+    "statement": "examples/survivors/enemy-lifecycle/LAWS.bend",
+    "sha256": "a8de85884f0d6463608971c3e437ff0fdd2b9b379771fc3bcdfd9eb7d500a06c",
+    "scope": "Concrete admitted birth preserves candidate and constructs clean age/status/contact/killer; not admission or whole-game correctness",
+    "bounds": {
+      "cpuSeconds": 10,
+      "wallSeconds": 60
+    }
+  },
+  "pending": [
+    "Fresh grouped native replay:15 checkpoints and exact semantic baseline facts",
+    "Strict complete CURRENT-schema physical validation and adversarial controls",
+    "Grouped browser/native presentation and co-op/replay consumer suites",
+    "Standards and Spec reviews and any required corrections"
+  ]
+}
