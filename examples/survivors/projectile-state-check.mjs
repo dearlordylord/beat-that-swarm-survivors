@@ -12,9 +12,10 @@ const input={$:'StepInput',px:100,py:100,tx:200,ty:100,reflect:false};
 let cases=0;
 for(const identity of [0,512,1023,1055,4294967295]) {
   const born=S.created(identity,{$:'PlayerShot'},1,17,7,65538,{$:'Shot',x:100,y:100,vx:10,vy:0,radius:5,life:10,pierce:2});
-  assert.equal(born.identity,identity);assert.equal(born.spatial.age,0);
-  assert.deepEqual(born.trajectory.visited,nil);assert.equal(born.trajectory.ownerBase,7);
-  assert.equal(born.trajectory.logicalSlot,65538);assert.equal(born.payload.damage,17);cases++;
+  assert.deepEqual(born, {$:'State', spatial:{$:'Spatial',x:100,y:100,age:0,radius:5},
+    identity,side:{$:'PlayerShot'},payload:{$:'ShotPayload',weapon:1,damage:17,active:true},
+    trajectory:{$:'Trajectory',vx:10,vy:0,life:10,pierce:2,visited:nil,ownerBase:7,logicalSlot:65538}});
+  cases++;
 }
 for(const age of [0,1,100,4294967295]) {
   const moved=S.step(state(age),input,nil).projectile;
