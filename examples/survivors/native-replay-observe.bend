@@ -2,6 +2,7 @@ import run-state.bend as RS
 import Base
 import enemy-combat.bend as Enemy
 import game-components.bend as Components
+import projectile-state.bend as Shot
 import game-storage.bend as Storage
 import game.bend as G
 import enemy-spatial.bend as Space
@@ -65,9 +66,18 @@ def motion(value: G.Motion) -> String:
 def offer(value: G.Offer) -> String:
   match value:
     case G.Offer{kind,id,level}: array([U32.show(kind),U32.show(id),U32.show(level)])
+def projectile_side(value: Shot.Side) -> String:
+  match value:
+    case Shot.PlayerShot{}: "\"player\""
+    case Shot.HostileShot{}: "\"hostile\""
+def projectile_state(value: Shot.State) -> String:
+  match value:
+    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}:
+      "{\"spatial\":" ++ array([fbits(x),fbits(y),U32.show(age),fbits(radius)]) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"side\":" ++ projectile_side(side) ++ ",\"payload\":" ++ array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))]) ++ ",\"trajectory\":" ++ array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)]) ++ "}"
 def snapshot_row(value: G.Snapshot) -> String:
   match value:
     case G.Snapshot{b,m}: array([body(b),motion(m)])
+    case G.ProjectileSnapshot{projectile}: "{\"projectile\":" ++ projectile_state(projectile) ++ "}"
 def bodies_items(rows: List<&2,Components.Body>) -> String:
   match rows:
     case []: ""
@@ -123,6 +133,9 @@ def movement_roster(value: Storage.MovementRoster) -> String:
     case Storage.MovementPrepared{handles}: "[" ++ roster_handles(handles) ++ "]"
 # Physical columns retain their actual membership and change stamps. Logical
 # Motion is a derived compatibility view only: no unified component/stamp exists.
+def shot_payload(value: Components.ShotPayload) -> String:
+  match value:
+    case Components.ShotPayload{weapon,damage,active}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))])
 def trajectory(value: Components.Trajectory) -> String:
   match value:
     case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)])
@@ -181,12 +194,15 @@ def observed_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column
     case (rest,column): observed_column_done(~C,~Rest,~put,rest,column_rows(~C,~V,~project,~show,PL.total_nat(),1,column))
 def observed_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest & Col.Column<Storage.Schema,C>,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,~project: C -> C & V,~show: V -> String,store: Storage.Store) -> Storage.Store & String:
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
-def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: Storage.Store & String) -> Storage.Store & String:
+def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,qs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"shots\":[" ++ qs ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+def store_shots(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: Storage.Store & String) -> Storage.Store & String:
+  match result:
+    case (owner,qs): store_logical(bs,vs,ts,ss,ps,rs,es,qs,logical_store(owner))
 def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,es): store_logical(bs,vs,ts,ss,ps,rs,es,logical_store(owner))
+    case (owner,es): store_shots(bs,vs,ts,ss,ps,rs,es,observed_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~shot_payload,owner))
 def store_role(bs: String,vs: String,ts: String,ss: String,ps: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,rs): store_spatial(bs,vs,ts,ss,ps,rs,observed_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~spatial,owner))
@@ -308,9 +324,17 @@ def fold_offer(value: G.Offer,acc: U32) -> U32:
 def fold_motion(value: G.Motion,acc: U32) -> U32:
   match value:
     case G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,slow,burn,owner,slot],acc))
+def fold_projectile_side(value: Shot.Side) -> U32:
+  match value:
+    case Shot.PlayerShot{}: 0
+    case Shot.HostileShot{}: 1
+def fold_shot_payload(value: Components.ShotPayload,acc: U32) -> U32:
+  match value:
+    case Components.ShotPayload{weapon,damage,active}: fold_words([weapon,damage,Bool.to_u32(active)],acc)
 def fold_snapshot(value: G.Snapshot,acc: U32) -> U32:
   match value:
     case G.Snapshot{b,m}: fold_motion(m,fold_body(b,acc))
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}}: fold_words(visited,fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius),identity,fold_projectile_side(side),weapon,damage,Bool.to_u32(active),F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
 def fold_bodies(rows: List<&2,Components.Body>,acc: U32) -> U32:
   match rows:
     case []: mix(acc,0)
@@ -380,9 +404,12 @@ def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Res
 def force_store_routing(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities,shots},acc): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
+def force_store_shots(result: Storage.Store & U32) -> Storage.Store & U32:
+  match result:
+    case (owner,acc): force_store_routing(force_store_column(~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotRest,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~fold_shot_payload,acc,owner))
 def force_store_role(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_routing(force_store_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~fold_spatial,acc,owner))
+    case (owner,acc): force_store_shots(force_store_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~fold_spatial,acc,owner))
 def force_store_pickup(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (owner,acc): force_store_role(force_store_column(~GRole.Role,~GRole.Role,~Storage.RoleRest,~Storage.take_role,~Storage.put_role,~Storage.project_role,~fold_role,acc,owner))
