@@ -1,5 +1,6 @@
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from './dist/coop-protocol.mjs';
+import Prediction from './dist/coop-prediction.mjs';
 import { CoopTransport } from './coop-transport.mjs';
 import { CoopUI } from './coop-ui.mjs';
 let transport, worker, role, sessionId, sequence = 0, tick = 0, epoch = 0;
@@ -8,6 +9,50 @@ let input = {x:0,y:0}, inputTimer, lastFrameAt = 0, connected = false;
 let latestSnapshot, sendingSnapshot = false;
 const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
 let deliverySequence = 0;
+let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
+const PREDICTION_STEP = 1000 / 60;
+const bendBool = value => Boolean(value);
+function advancePrediction(now = performance.now()) {
+  if (role !== 'guest' || !prediction) return;
+  predictionRemainder += Math.min(4 * PREDICTION_STEP, Math.max(0, now - predictionAt));
+  predictionAt = now;
+  let count = 0;
+  while (predictionRemainder >= PREDICTION_STEP && count++ < 4) {
+    prediction = Prediction.tick(prediction);
+    predictionRemainder -= PREDICTION_STEP;
+  }
+}
+function reconcilePrediction(envelope) {
+  const frame = envelope.frame, now = performance.now();
+  if (prediction && !Prediction.observation_newer(prediction,envelope.observationSeq)) return false;
+  const reset = !prediction || predictionRun !== frame.runId || predictionStage !== frame.stage
+    || predictionRound !== (frame.roundId ?? 0);
+  const wasEnabled = !reset && prediction.enabled === true;
+  if (reset) {
+    prediction = Prediction.fresh(frame.px, frame.py, frame.stepDistance, bendBool(frame.predictionAllowed));
+    predictionRun = frame.runId; predictionStage = frame.stage; predictionRound = frame.roundId ?? 0;
+    predictionAt = now; predictionRemainder = 0;
+  } else advancePrediction(now);
+  const receipt = envelope.receipt || {$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false};
+  prediction = Prediction.reconcile(prediction,envelope.observationSeq,frame.px,frame.py,
+    frame.stepDistance,bendBool(frame.predictionAllowed),receipt);
+  if (prediction.observation !== envelope.observationSeq) return false;
+  authorityFrame = frame;
+  if (!frame.predictionAllowed || !wasEnabled) { predictionAt = now; predictionRemainder = 0; }
+  if (frame.predictionAllowed && (reset || !wasEnabled))
+    sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
+  return true;
+}
+function displayFrame(frame, now) {
+  if (role !== 'guest' || !authorityFrame) return frame;
+  advancePrediction(now);
+  const point = prediction ? Prediction.view(prediction) : {x:authorityFrame.px,y:authorityFrame.py};
+  const own = authorityFrame.players?.find(player => player.id === authorityFrame.ownPlayerId);
+  const predicting = authorityFrame.predictionAllowed;
+  return {...frame,px:predicting ? point.x : authorityFrame.px,py:predicting ? point.y : authorityFrame.py,
+    players:frame.players?.map(player => player.id === authorityFrame.ownPlayerId && own
+      ? {...player,...own,px:predicting ? point.x : own.px,py:predicting ? point.y : own.py} : player)};
+}
 function postCommand(text, player) {
   if (!worker || pendingCommands.size >= MAX_COMMANDS) return false;
   const deliveryId = ++deliverySequence;
@@ -23,8 +68,12 @@ function refuseGuest(message) {
 const decoder = new TextDecoder('utf-8', {fatal:true});
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
 function command(action) {
+  const seq = ++sequence;
+  if (role === 'guest' && prediction && action.$ === 'Movement') {
+    advancePrediction(); prediction = Prediction.command(prediction,seq,action.x,action.y);
+  }
   return Protocol.encode({$: 'Command', session:sessionId, player:role === 'host' ? 0 : 1,
-    seq:++sequence, intendedTick:tick, action});
+    seq, intendedTick:tick, action});
 }
 function sendAction(action) {
   if (role === 'host' ? !worker : !connected) return;
@@ -84,6 +133,11 @@ async function connect(kind, ticket, setup, invitation = {}) {
         else {
           const envelope = JSON.parse(text);
           if (envelope.type !== 'frame') return;
+          if (!Number.isInteger(envelope.observationSeq) || !envelope.receipt
+              || typeof envelope.frame?.predictionAllowed !== 'boolean') {
+            cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
+          }
+          if (!reconcilePrediction(envelope)) return;
           lastFrameAt = performance.now(); tick = envelope.frame.tick;
           if (!receivedFrame || stalled) ui.status('');
           receivedFrame = true; stalled = false;
@@ -91,7 +145,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         }
       } catch (error) { showError(error); }
     } else if (event.type === 'disconnected') {
-      connected = false;
+      connected = false; prediction = null; authorityFrame = null;
       if (kind !== 'host') clearInterval(inputTimer);
       if (kind === 'host') { transport?.close(); worker?.postMessage({type:'disconnect'}); ui.status('Guest left. The run continues.'); }
       else ui.status('Host disconnected. Session ended.',{error:true});
@@ -107,7 +161,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
       if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
       else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
       else if (message.type === 'remote-frame') {
-        latestSnapshot = {type:'frame',frame:{...message.frame,runId},admission:message.admission}; flushSnapshot();
+        latestSnapshot = {type:'frame',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,observationSeq:message.observationSeq}; flushSnapshot();
       } else if (message.type === 'ready') {
         const link = new URL(location.href); link.search = '';
         link.searchParams.set('session',String(sessionId)); link.searchParams.set('join',transport.invitation());
@@ -122,6 +176,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
 function showError(error) { ui.status(error.message || String(error),{error:true}); console.error(error); }
 function cleanup() {
   epoch++; pendingCommands.clear(); receivedFrame = false; stalled = false;
+  prediction = null; authorityFrame = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
   connected = false; clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
   worker?.terminate(); worker = null; transport?.close(); transport = null;
   input = {x:0,y:0};
@@ -129,7 +184,11 @@ function cleanup() {
 const ui = new CoopUI({
   onHost: setup => connect('host',null,setup).catch(showError),
   onJoin: (ticket,setup,invitation) => connect('guest',ticket,setup,invitation).catch(showError),
-  onInput: value => { input = value; },
+  onInput: value => {
+    advancePrediction(); input = value;
+    sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
+  },
+  onDisplay: displayFrame,
   onChoice: ({round,index}) => sendAction({$:'Choice',round,index}),
   onLeave: () => { cleanup(); ui.reset(); },
 });

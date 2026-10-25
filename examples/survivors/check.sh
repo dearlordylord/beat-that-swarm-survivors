@@ -2,6 +2,7 @@
 set -euo pipefail
 source "$(dirname -- "$0")/../common.sh"
 cd "$example_repo"
+bash examples/survivors/check-coop-prediction.sh
 example_timeout 60 bash -c 'ulimit -t 10; exec "$@"' bend-role-proof "$BEND" examples/survivors/entity-role/PROOF.bend --verdict
 example_timeout 60 bash -c 'ulimit -t 10; exec "$@"' bend-movement-proof "$BEND" examples/survivors/movement-selection/PROOF.bend --verdict
 example_timeout 60 python3 -B examples/survivors/capability-controls.test.py

@@ -45,4 +45,19 @@ from the repository root; it requires Playwright and uses real public relays.
 The initial browser check uses two isolated contexts on one machine. It verifies
 shared-world input, map behavior and guest departure; it does not qualify different
 physical networks or native/browser floating-point agreement. Browser suspension
-can stall the host; no migration, rollback or mid-run rejoin is provided.
+can stall the host; no migration, whole-world rollback or mid-run rejoin is provided.
+
+## Guest input response
+
+Changed input is sent immediately. A small Bend core predicts only your displayed
+position and camera; host receipts reconcile the input history. The world still
+confirms damage, pickups, XP and rewards. Remote actors retain interpolation.
+A known reward pause or death disables prediction. Its history/horizon are bounded;
+it freezes when it cannot safely extend the forecast. Reload both peers after
+updating to a different host protocol version.
+
+`check-coop-prediction.sh` is included in the ordinary `check.sh`: kernel laws,
+negative mutations, movement comparisons and IO/controller checks.
+`node examples/survivors/coop-latency-browser.mjs` measures actual input-to-render
+response at RTT 100/250/500 ms, including release, reversal, reconciliation and a
+real Bend reward pause. See [the evidence](../../research/survivors-coop-input-latency.md).

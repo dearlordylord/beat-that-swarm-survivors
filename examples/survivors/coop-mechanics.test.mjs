@@ -32,10 +32,10 @@ test('one pickup gold credit uses collector Greed once and shared ledger is obse
  const f=fixture(),passives=Array(18).fill(0);passives[15]=4;player(f,0,{x:6800,y:7200});player(f,1,{x:7200,y:7200,passives});body(f,{kind:3});body(f,{seed:101,kind:3});f.call('core_step',0,0,0,0);assert.equal(f.frame(0).gold,6,'two2coin pickups aggregate4 before160% multiplier');assert.equal(f.frame(1).gold,6);
 });
 test('boss resets from all prior kinds reject a candidate inside the second camera',()=>{
- for(const kind of [0,2,3,4,5,8]){const f=fixture();player(f,0,{x:7200,y:7200});player(f,1,{x:12000,y:12000});f.state.shared.tick=7199;f.state.shared.seed=19544;const anchor=record(f,0).run;const candidate=G.enemy_new_seed(0,12345,7200,anchor.px,anchor.py,21,0,0);player(f,1,{x:candidate.x,y:candidate.y});body(f,{seed:0,x:7200,y:7200,kind,age:5,hp:kind===0?100:0,maxHp:100});f.call('core_step',0,0,0,0);const slot=values(f.state.world.store.bodies)[0].value;assert.notEqual(slot.age,0,`kind${kind} must not become newborn on camera`);}
+ for(const kind of [0,2,3,4,5,8]){const f=fixture();player(f,0,{x:7200,y:7200});player(f,1,{x:12000,y:12000});f.state.shared.tick=7199;f.state.shared.seed=19544;const anchor=record(f,0).run;const raw=G.enemy_new_seed(0,12345,7200,anchor.px,anchor.py,21,0,0);const oldGap=512+3*raw.radius+24+16;const padding=60*Math.max(G.run_step_distance(anchor),G.run_step_distance(record(f,1).run))+3;const scale=(oldGap+padding)/oldGap;const candidate={x:anchor.px+(raw.x-anchor.px)*scale,y:anchor.py+(raw.y-anchor.py)*scale};player(f,1,{x:candidate.x,y:candidate.y});body(f,{seed:0,x:7200,y:7200,kind,age:5,hp:kind===0?100:0,maxHp:100});f.call('core_step',0,0,0,0);const slot=values(f.state.world.store.bodies)[0].value;assert.notEqual(slot.age,0,`kind${kind} must not become newborn on camera`);}
 });
 test('ordinary spawns and boss births are outside both finalized moving cameras',()=>{
- const f=fixture();player(f,0,{x:7200,y:7200});player(f,1,{x:7750,y:7200});for(let i=0;i<18;i++){f.call('core_step',1,0,-1,1);const frame=f.frame(),players=frame.players.filter(p=>p.alive&&p.connected);for(const b of frame.bodies.filter(b=>b[2]===0&&b[6]===0))for(const p of players){assert.ok(Math.abs(b[0]-p.px)>512+3*b[8]+24||Math.abs(b[1]-p.py)>512+3*b[8]+24,'newborn outside every actual camera');}}
+ const f=fixture();player(f,0,{x:7200,y:7200});player(f,1,{x:7750,y:7200});for(let i=0;i<18;i++){f.call('core_step',1,0,-1,1);const frame=f.frame(),players=frame.players.filter(p=>p.alive&&p.connected);for(const b of frame.bodies.filter(b=>b[2]===0&&b[6]===0))for(const p of players){const margin=60*G.run_step_distance(record(f,p.id).run);for(const ox of [-margin,margin])for(const oy of [-margin,margin])assert.ok(Math.abs(b[0]-(p.px+ox))>512+3*b[8]+24||Math.abs(b[1]-(p.py+oy))>512+3*b[8]+24,'newborn outside every bounded predicted-camera corner');}}
 });
 test('sole surviving guest can allocate the full shared physical projectile pool',()=>{
  const f=fixture(),run={...record(f,1).run,tick:1},snapshots=[];
@@ -66,4 +66,13 @@ test('large co-op observations compose JSON without recursion over frame charact
   return kind===undefined?[]:[{...bodies[seed].value,x:7200+(seed%64),y:7200+(seed%31),kind,variant:0,hp:100,maxHp:100,age:120,radius:10}];
  });
  f.state.bodies=list(rows);const r=C.core_observe(f.state,1);assert.equal(r.$,'CorePacket');assert.ok(r.frame.length>50000,'fixture must exceed a browser character-recursion stack');const frame=JSON.parse(r.frame);assert.equal(frame.bodies.length,rows.length);assert.equal(frame.ownPlayerId,1);assert.equal(frame.players.length,2);assert.deepEqual(frame.requiredPlayers,[]);
+});
+
+test('close players with different speeds admit both enemy seed parities',()=>{
+ const f=fixture(),passives=Array(18).fill(0);passives[5]=8;player(f,0,{x:7200,y:7200});player(f,1,{x:7200,y:7200,passives,arcana:10});
+ assert.ok(G.run_step_distance(record(f,1).run)>G.run_step_distance(record(f,0).run));
+ for(let n=0;n<6;n++)f.call('core_step',0,0,0,0);
+ const enemies=f.frame().bodies.filter(body=>body[2]===0);
+ assert.ok(enemies.length>10,'padding must not reject the entire wave');
+ assert.deepEqual([...new Set(enemies.map(body=>body[7]%2))].sort(),[0,1]);
 });

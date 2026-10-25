@@ -20,6 +20,8 @@ function workerHarness() {
   Game.core_join = (...args) => { calls.push({name:'core_join',args}); return options.rejectJoin ? {$:'CoreRejected',state:args[0],message:'bad setup'} : result(); };
   Game.core_step = (...args) => { calls.push({name:'core_step',args}); if (!options.paused) coreTick++; return {...result(),frame:JSON.stringify({tick:coreTick,phase:options.paused?1:0,advanced:!options.paused})}; };
   const Session = {
+    receipt_fresh:()=>({$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false}),
+    receipt_step:(receipt,state,player)=>{calls.push({name:'receipt_step',args:[receipt,state,player]});return {...receipt,steps:receipt.steps+1};},
     fresh:session=>({session}), receive:(state,peer,command)=> {
       calls.push({name:'receive',args:[peer,command]}); return {state,accepted:options.accept};
     }, clock:state=>state, directions:()=>({x0:0,y0:0,x1:0,y1:0}),
@@ -181,4 +183,33 @@ test('worker mailbox is bounded and consumed acknowledgments release capacity',a
  send();assert.equal(t.closed,undefined);assert.equal(w.messages.filter(m=>m.type==='command').length,65);
  send();assert.equal(t.closed,true);assert.equal(w.messages.filter(m=>m.type==='command').length,65);
  assert.equal(w.terminated,undefined);
+});
+
+test('input change dispatches immediately without advancing the heartbeat timer',async()=>{
+ const h=browserHarness();await h.handlers.onHost(setup);
+ h.handlers.onInput({x:1,y:0});
+ const commands=h.workers[0].messages.filter(message=>message.type==='command');
+ assert.equal(commands.length,1);
+ assert.deepEqual(JSON.parse(commands[0].text).action,{$:'Movement',x:2,y:1});
+ h.handlers.onInput({x:0,y:0});
+ const released=h.workers[0].messages.filter(message=>message.type==='command');
+ assert.equal(released.length,2);
+ assert.deepEqual(JSON.parse(released[1].text).action,{$:'Movement',x:1,y:1});
+});
+test('only actual simulation steps advance guest prediction receipts',()=>{
+ const h=workerHarness();h.init();h.command({$:'Setup',...setup});h.advance(34);
+ const before=h.calls.filter(call=>call.name==='receipt_step').length;assert.ok(before>0);
+ h.options.paused=true;h.advance(34);
+ assert.equal(h.calls.filter(call=>call.name==='receipt_step').length,before);
+});
+
+test('pause and resume observations have unique ordered IDs even without a gameplay tick',()=>{
+ const h=workerHarness();h.init();h.command({$:'Setup',...setup});
+ h.command({$:'Choice',round:1,index:0});
+ const frames=h.output.filter(message=>message.type==='remote-frame');
+ assert.ok(frames.length>=2);
+ assert.equal(frames[0].frame.tick,frames[1].frame.tick);
+ assert.ok(frames[1].observationSeq>frames[0].observationSeq);
+ h.advance(17);
+ assert.ok(h.calls.filter(call=>call.name==='receipt_step').every(call=>call.args[2]===1));
 });

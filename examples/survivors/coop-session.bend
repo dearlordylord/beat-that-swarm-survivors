@@ -63,11 +63,7 @@ def apply_lane(tick: U32,lane: Lane) -> Lane:
 def applied(+tick: U32,state: State) -> State:
   match state:
     case State{session,now,host,guest,connected,ended}: State{session,now,apply_lane(tick,host),apply_lane(tick,guest),connected,ended}
-def axis(value: U32) -> F32:
-  match value:
-    case 0: (0.0 - 1.0 : F32)
-    case 2: 1.0
-    case _: 0.0
+def axis(+value: U32) -> F32: Bool.pick(F32,U32.is_eq(value,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(value,2),1.0,0.0))
 def directions(state: State) -> Directions:
   match state:
     case State{_,_,Lane{_,_,_,_,_,x0,y0},Lane{_,_,_,_,_,x1,y1},+connected,+ended}:
@@ -77,3 +73,15 @@ def disconnect(player: U32,state: State) -> State:
     case 0 State{session,now,host,guest,connected,_}: State{session,now,host,guest,connected,True{}}
     case 1 State{session,now,host,_,_,ended}: State{session,now,host,neutral(),False{},ended}
     case _ state: state
+
+# Receipt describes consumed movement, never merely the newest received input.
+# The worker updates it only after an authoritative gameplay step advanced.
+type Receipt is Data: Receipt{seq: U32,steps: U32,x: U32,y: U32,expired: Bool}
+def receipt_fresh() -> Receipt: Receipt{0,0,1,1,False{}}
+def receipt_lane(previous: Receipt,lane: Lane,+clock: U32,+enabled: Bool) -> Receipt:
+  match previous lane:
+    case Receipt{prior,+steps,_,_,_} Lane{_,+seq,_,_,+received,x,y}:
+      Receipt{seq,Bool.pick(U32,U32.is_eq(prior,seq),U32.min((steps + 1 : U32),65535),1),Bool.pick(U32,enabled,x,1),Bool.pick(U32,enabled,y,1),Bool.or(Bool.not(enabled),U32.is_ge((clock - received : U32),18))}
+def receipt_step(previous: Receipt,state: State,+player: U32) -> Receipt:
+  match state:
+    case State{_,clock,host,guest,connected,+ended}: receipt_lane(previous,lane_at(player,host,guest),clock,Bool.and(Bool.not(ended),Bool.or(U32.is_eq(player,0),connected)))

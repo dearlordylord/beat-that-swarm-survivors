@@ -5,6 +5,36 @@ They are not a description of current configuration or a qualification of later
 changes. Current rules and limits belong to [game.bend](game.bend),
 [pools.bend](pools.bend), [arena.bend](arena.bend) and [music.bend](music.bend).
 
+# Guest input response and prediction laws — 24 October 2026
+
+The guest now sends changed input immediately and predicts only its own displayed
+position/camera in Bend. Authoritative movement and prediction share the same
+movement helper. Server receipts acknowledge actual consumed steps; reconciliation
+replays the remaining input segments from the authoritative position. Rendering
+never changes HP, XP, gold, offers, other actors or the ECS world.
+
+Sixteen prediction laws and three spawn-policy laws pass `--verdict`. The initial
+law draft was independently rejected and strengthened before proof. Falsification
+found two actual candidate errors before proof: an older cumulative ACK reduced
+consumption, and expired input could restart movement. Fifteen typechecked
+negative controls are rejected by their related kernel proof/helper checks.
+The regular `check.sh` invokes this gate, including runtime movement comparisons
+and browser-controller boundary checks. Proof scope is the stated discrete machine
+transitions and exact policy expressions, not a wall-clock browser/network SLA.
+
+The final functional cohort passes effects159, solo948/request720, mechanics14,
+replay5, the entire main check suite and original Session compatibility. Native C
+`native-test` passes all43 UI/ECS assertions. Co-op spawn geometry intentionally
+reserves bounded predicted-camera travel; solo geometry remains unchanged.
+
+A real Worker/UI/Renderer test with explicitly delayed bytes measures final
+start/reversal at15.6/22.1 ms (RTT100),8.7/7.6 ms (RTT250),5.3/5.4 ms (RTT500).
+Stopping takes42.6/39.2/35.7 ms respectively. All motion precedes the host ACK;
+camera and final authoritative error are zero, and known reward pauses have zero
+movement. These are controlled scenarios; the separate Iroh smoke checks the
+actual public transport. Full evidence and limits are in
+`../../research/survivors-coop-input-latency.md`.
+
 # Shared-world browser co-op — 24 October 2026
 
 The co-op implementation and `survivors-remove-legacy` were merged in `ffa35b0`.

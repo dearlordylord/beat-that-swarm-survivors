@@ -75,6 +75,7 @@ Browser verification after building:
 ```sh
 node examples/survivors/web-smoke.mjs
 node examples/survivors/browser-smoke.mjs
+node examples/survivors/coop-latency-browser.mjs
 ```
 
 ## Publication
@@ -91,6 +92,14 @@ node scripts/verify-survivors-site.mjs --site-checkout /absolute/path/to/nightfa
 ```
 
 Preparation fetches `origin/master`, checks the branch/revision, snapshots the current authored inputs (including unsaved-to-Git files), installs the pinned Astro dependencies in that isolated snapshot and runs the complete Bend + Astro build. It does not reuse the source checkout's `dist` output. `SOURCE.json` records the input and asset hashes; `version.json` identifies the revision, source fingerprint and whether local edits were included. The complete authored snapshot is saved with the Site source. A failed build leaves the previous Site files intact.
+
+Before packaging, run the co-op input-to-render gate against the freshly prepared assets (Playwright is required):
+
+```sh
+COOP_LATENCY_WEB_DIR=/absolute/path/to/nightfall-survivors/dist node examples/survivors/coop-latency-browser.mjs
+```
+
+It injects RTT 100/250/500 ms while using the real Bend worker and renderer. It must pass before publication; FPS alone is insufficient. The ordinary `check.sh` also runs prediction laws, mutation controls and controller-boundary checks.
 
 Before editing the Site checkout, open it with the Sites source helper. Prepare with the command above, then include the verifier as a required command in the helper's packaging request. Pass `--repo /absolute/path/to/bendvy-ecs-examples` when running verification from the Site checkout. If the source changes after preparation, verification fails: prepare again. Publish only the archive and pushed source commit returned by that helper. The public `/version.json` allows the deployed source fingerprint to be checked after publication.
 

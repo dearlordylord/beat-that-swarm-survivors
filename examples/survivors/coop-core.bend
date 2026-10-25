@@ -1,5 +1,6 @@
 import Base
 import game.bend as G
+import coop-prediction.bend as Prediction
 import arena.bend as A
 import entity-role.bend as Role
 import spawn-policy.bend as S
@@ -199,8 +200,12 @@ def players_json(+shared: G.Run,players: List<&2,G.PlayerRecord>) -> String:
 # Compose fields before Game closes its JSON object. Never walk or trim the
 # serialized world's characters: browser stacks are bounded independently of
 # the number of entities the ECS can simulate.
-def coop_extra(+shared: G.Run,players: List<&2,G.PlayerRecord>,+id: U32,+round: U32,+required: List<&2,U32>) -> String:
-  ",\"coop\":true,\"ownPlayerId\":" ++ U32.show(id) ++ ",\"choicePending\":" ++ Bool.pick(String,G.contains(required,id),"true","false") ++ ",\"roundId\":" ++ U32.show(round) ++ ",\"requiredPlayers\":[" ++ G.nums_json(required) ++ "],\"players\":[" ++ players_json(shared,players) ++ "]"
+def player_connected(players: List<&2,G.PlayerRecord>,+id: U32) -> Bool:
+  match players:
+    case []: False{}
+    case G.PlayerRecord{+pid,_,connected} <> rest: Bool.pick(Bool,U32.is_eq(pid,id),connected,player_connected(rest,id))
+def coop_extra(+shared: G.Run,+players: List<&2,G.PlayerRecord>,+id: U32,+round: U32,+required: List<&2,U32>) -> String:
+  ",\"predictionAllowed\":" ++ Bool.pick(String,Prediction.allowed(run_phase(shared),run_hp(find_player(players,id,shared)),player_connected(players,id)),"true","false") ++ ",\"stepDistance\":" ++ F32.show(G.run_step_distance(find_player(players,id,shared))) ++ ",\"coop\":true,\"ownPlayerId\":" ++ U32.show(id) ++ ",\"choicePending\":" ++ Bool.pick(String,G.contains(required,id),"true","false") ++ ",\"roundId\":" ++ U32.show(round) ++ ",\"requiredPlayers\":[" ++ G.nums_json(required) ++ "],\"players\":[" ++ players_json(shared,players) ++ "]"
 def observe_packet(shared: G.Run,refs: List<&2,PlayerRef>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: G.Packet) -> CorePacket:
   match result:
     case G.Packet{G.State{world,_,bodies,_,snapshots,_},frame}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},frame}

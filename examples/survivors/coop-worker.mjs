@@ -3,7 +3,8 @@ import Game from './dist/coop-core.mjs';
 import Session from './dist/coop-session.mjs';
 import Protocol from './dist/coop-protocol.mjs';
 let core, session, timer, last = 0, accumulator = 0, active = false;
-let lastSnapshot = 0;
+let lastSnapshot = 0, observationSeq = 0, lastPhase;
+let guestReceipt = Session.receipt_fresh();
 const STEP = 1000 / 60;
 function packet(result) {
   if (result.state) core = result.state;
@@ -12,11 +13,12 @@ function packet(result) {
   return result.frame ? JSON.parse(result.frame) : null;
 }
 function publish(remote = true) {
+  const observation = ++observationSeq;
   const local = packet(Game.core_observe(core, 0));
   postMessage({type:'frame', frame:local});
   if (remote) {
     const guest = packet(Game.core_observe(core, 1));
-    postMessage({type:'remote-frame', frame:guest, admission:session});
+    postMessage({type:'remote-frame', frame:guest, admission:session, receipt:guestReceipt, observationSeq:observation});
   }
 }
 function accept(text, peer) {
@@ -52,7 +54,11 @@ function schedule() {
     session = Session.clock(session);
     const move = Session.directions(session);
     const frame = packet(Game.core_step(core, move.x0, move.y0, move.x1, move.y1));
-    if (frame?.advanced) session = Session.applied(frame.tick, session);
+    if (frame?.advanced) {
+      guestReceipt = Session.receipt_step(guestReceipt,session,1);
+      session = Session.applied(frame.tick, session);
+    }
+    if (frame && frame.phase !== lastPhase) { lastPhase = frame.phase; lastSnapshot = now; publish(); }
     accumulator -= STEP;
   }
   if (active && now - lastSnapshot >= 50) { lastSnapshot = now; publish(); }
@@ -63,6 +69,7 @@ onmessage = event => {
     switch (message.type) {
       case 'init': {
         clearInterval(timer); active = false; accumulator = 0;
+        observationSeq = 0; lastPhase = undefined; guestReceipt = Session.receipt_fresh();
         const s = message.setup;
         session = Session.fresh(message.session);
         packet(Game.core_start(s.character, s.meta, message.seed));

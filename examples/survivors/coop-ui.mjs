@@ -145,7 +145,7 @@ export class CoopUI {
       const delta = Math.max(0, Math.min(100, now - (this.previous || now)));
       this.previous = now;
       if (this.frame) {
-        const display = this.presentation.sample(now) || this.frame;
+        const display = this.displayFrame(now);
         this.renderer.draw(display, delta / 1000, this.profile.settings || {});
         if (!this.$('#coop-map-panel').hidden) this.renderer.drawMap(this.$('#coop-map'), display);
         if (delta > 0) this.fps = this.fps === undefined ? 1000 / delta : this.fps * .95 + 1000 / delta * .05;
@@ -154,6 +154,10 @@ export class CoopUI {
       this.animation = window.requestAnimationFrame(this.animate);
     };
     this.animation = window.requestAnimationFrame(this.animate);
+  }
+  displayFrame(now) {
+    const interpolated = this.presentation.sample(now) || this.frame;
+    return this.callbacks.onDisplay?.(interpolated,now) || interpolated;
   }
   setup() {
     const selected = Object.fromEntries(Object.keys(catalogs).map(kind => [kind, Number(this.$(`#coop-${kind}`).value)]));
@@ -215,7 +219,7 @@ export class CoopUI {
   toggleMap(open = this.$('#coop-map-panel').hidden) {
     this.$('#coop-map-panel').hidden = !open;
     this.$('#coop-map-toggle').setAttribute('aria-expanded', String(open));
-    if (open && this.frame) this.renderer.drawMap(this.$('#coop-map'), this.presentation.sample(this.window.performance.now()) || this.frame);
+    if (open && this.frame) this.renderer.drawMap(this.$('#coop-map'), this.displayFrame(this.window.performance.now()));
     // This is a local overlay; it never requests a pause from the controller.
   }
   present(frame) {

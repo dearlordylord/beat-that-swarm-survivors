@@ -1,6 +1,8 @@
 import Base
 import music.bend as Music
 import arena.bend as A
+import player-movement.bend as PlayerMovement
+import prediction-spawn.bend as PredictionSpawn
 import projectile.bend as P
 import encounters.bend as E
 import spawn-policy.bend as S
@@ -1688,9 +1690,20 @@ def team_body_view(+team: Team,body: Body) -> PlayerView:
     case Body{+x,+y,8,_,_,_,_,+seed,_}: team_spawn_view(team,(seed % 2 : U32))
     case Body{+x,+y,0,_,_,_,_,_,_}: team_nearest(team,x,y)
     case Body{+x,+y,_,_,_,_,_,_,_}: collector(team,x,y)
+def movement_x(point: PlayerMovement.Point) -> F32:
+  match point:
+    case PlayerMovement.Point{x,_}: x
+def movement_y(point: PlayerMovement.Point) -> F32:
+  match point:
+    case PlayerMovement.Point{_,y}: y
+def run_step_distance(+run: Run) -> F32: (2.5 * speed_bonus(run_passives(run),run_meta(run),run_arcana(run),run_character(run)) : F32)
+def move_point(x: F32,y: F32,distance: F32,dx: F32,dy: F32) -> PlayerMovement.Point: PlayerMovement.move_point(x,y,distance,dx,dy)
+def moved_run_point(run: Run,point: PlayerMovement.Point) -> Run:
+  match point:
+    case PlayerMovement.Point{x,y}: with_py(with_px(run,x),y)
 def moved_run(view: PlayerView) -> Run:
   match view:
-    case PlayerView{_,+run,+dx,+dy}: with_py(with_px(run,F32.clamp((run_px(run) + dx * (2.5 * speed_bonus(run_passives(run),run_meta(run),run_arcana(run),run_character(run)) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max())),F32.clamp((run_py(run) + dy * (2.5 * speed_bonus(run_passives(run),run_meta(run),run_arcana(run),run_character(run)) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()))
+    case PlayerView{_,+run,dx,dy}: moved_run_point(run,move_point(run_px(run),run_py(run),run_step_distance(run),dx,dy))
 def outside_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius: F32) -> Bool:
   match views:
     case []: True{}
@@ -1699,10 +1712,45 @@ def spawn_gate(allowed: Bool,previous: Body,row: EntityRow) -> EntityRow:
   match allowed:
     case True{}: row
     case False{}: EntityRow{Row{previous,0,0,0,0,0,0,0},empty_motion()}
-def team_spawn_fresh(fresh: Bool,team: Team,+previous: Body,+result: EntityRow) -> EntityRow:
-  match fresh team result:
-    case False{} _ _: result
-    case True{} Team{views,_,_,_} EntityRow{Row{Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_players(views,x,y,radius),previous,result)
+def multiple_views(views: List<&2,PlayerView>) -> Bool:
+  match views:
+    case []: False{}
+    case _ <> []: False{}
+    case _: True{}
+def spawn_camera(view: PlayerView) -> PredictionSpawn.Camera:
+  match view:
+    case PlayerView{_,+run,+dx,+dy}:
+      +distance = run_step_distance(run)
+      +moved = move_point(run_px(run),run_py(run),distance,dx,dy)
+      PredictionSpawn.Camera{movement_x(moved),movement_y(moved),distance}
+def outside_predicted_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius: F32) -> Bool:
+  match views:
+    case []: True{}
+    case +view <> rest: Bool.and(Bool.or(U32.is_eq(run_hp(view_run(view)),0),PredictionSpawn.admissible(x,y,spawn_camera(view),radius)),outside_predicted_players(rest,x,y,radius))
+def positioned_birth(row: EntityRow,point: S.Point) -> EntityRow:
+  match row point:
+    case EntityRow{Row{Body{_,_,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion} S.Point{x,y}: EntityRow{Row{Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}
+def prediction_birth_at(view: PlayerView,distance: F32,+row: EntityRow) -> EntityRow:
+  match view row:
+    case PlayerView{_,+run,_,_} EntityRow{Row{Body{_,_,_,_,_,_,_,+seed,radius},_,_,_,_,_,_,_},_}: positioned_birth(row,PredictionSpawn.choose((seed + ((run_seed(run) - run_tick(run) + 1 : U32) - 12345) * 31 : U32),wave_tick(run_mode(run),run_tick(run)),PredictionSpawn.Camera{run_px(run),run_py(run),distance},radius))
+def maximum_prediction_distance(views: List<&2,PlayerView>,+distance: F32) -> F32:
+  match views:
+    case []: distance
+    case PlayerView{_,+run,_,_} <> rest: maximum_prediction_distance(rest,F32.max(distance,Bool.pick(F32,U32.is_lt(0,run_hp(run)),run_step_distance(run),0.0)))
+def prediction_birth(+team: Team,+previous: Body,row: EntityRow) -> EntityRow:
+  match team:
+    case Team{+views,+base,+plan,+origins}: prediction_birth_at(team_body_view(Team{views,base,plan,origins},previous),maximum_prediction_distance(views,0.0),row)
+def predicted_birth_gate(views: List<&2,PlayerView>,previous: Body,+row: EntityRow) -> EntityRow:
+  match row:
+    case EntityRow{Row{Body{+x,+y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_predicted_players(views,x,y,radius),previous,row)
+def team_spawn_mode(padded: Bool,+team: Team,+previous: Body,+result: EntityRow) -> EntityRow:
+  match padded team result:
+    case False{} Team{views,_,_,_} EntityRow{Row{Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_players(views,x,y,radius),previous,result)
+    case True{} Team{+views,base,plan,origins} _: predicted_birth_gate(views,previous,prediction_birth(Team{views,base,plan,origins},previous,result))
+def team_spawn_fresh(fresh: Bool,+team: Team,+previous: Body,+result: EntityRow) -> EntityRow:
+  match fresh team:
+    case False{} _: result
+    case True{} Team{+views,+base,+plan,+origins}: team_spawn_mode(multiple_views(views),Team{views,base,plan,origins},previous,result)
 def team_spawn_gate(+team: Team,+previous: Body,+result: EntityRow) -> EntityRow:
   match previous result:
     case Body{_,_,previousKind,_,_,_,previousAge,_,_} EntityRow{Row{Body{_,_,kind,_,_,_,age,_,_},_,_,_,_,_,_,_},_}: team_spawn_fresh(SL.fresh_transition(SL.is_newborn(previousKind,previousAge),SL.is_newborn(kind,age)),team,previous,result)
@@ -1797,7 +1845,7 @@ def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,Ent
 def advance_raw_with(~emit: State -> Packet,state: State,+dx: F32,+dy: F32) -> Packet:
   match state:
     case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+snapshot,_,+snapshots,pending}:
-      executed_with(~emit,Run{0,(tick + 1 : U32),F32.clamp((px + dx * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),F32.clamp((py + dy * (2.5 * speed_bonus(passives,meta,arcana,character) : F32) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
+      executed_with(~emit,Run{0,(tick + 1 : U32),movement_x(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),movement_y(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
     case state: emit(state)
 def started_with(~emit: State -> Packet,+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
   match created:
