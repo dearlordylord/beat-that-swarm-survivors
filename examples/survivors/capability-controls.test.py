@@ -31,16 +31,42 @@ def cpu_bound():
 # Each refusal uses the same actual game accessor as its accepted control.
 # The opaque H and Ops(H) remain universally quantified, as in gameplay bodies.
 CASES = [
-    ('movement-status-read', 'MoveOps', 'move_status_cap', 'G.Status',
-     'read', 'G.Status', 'read-to-write'),
-    ('pickup-body-read', 'PickupOps', 'pickup_body_cap', 'G.Body',
-     'read', 'G.Body', 'read-to-write'),
-    ('pickup-payload-read', 'PickupOps', 'pickup_payload_cap', 'G.Pickup',
-     'read', 'G.Pickup', 'read-to-write'),
+    ('movement-spatial-health', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
+     'write', 'Components.Vitals', 'cross-family'),
+    ('movement-phase-read', 'MoveOps', 'move_phase_cap', 'Enemy.Phase',
+     'read', 'Enemy.Phase', 'read-to-write'),
+    ('movement-spatial-identity', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
+     'write', 'Components.Identity', 'cross-family'),
+    ('movement-spatial-pickup', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
+     'write', 'Pickup.Payload', 'cross-family'),
+    ('movement-status-read', 'MoveOps', 'move_status_cap', 'Components.Status',
+     'read', 'Components.Status', 'read-to-write'),
+    ('enemy-health-pickup', 'Ops', 'vital_cap', 'Components.Vitals',
+     'write', 'Pickup.Payload', 'cross-family'),
+    ('enemy-status-trajectory', 'Ops', 'status_cap', 'Components.Status',
+     'write', 'Components.Trajectory', 'cross-family'),
+    ('enemy-spatial-identity', 'Ops', 'enemy_spatial_cap', 'Space.Spatial',
+     'write', 'Components.Identity', 'cross-family'),
+    ('enemy-phase-pickup', 'Ops', 'enemy_phase_cap', 'Enemy.Phase',
+     'write', 'Pickup.Payload', 'cross-family'),
+    ('enemy-identity-read', 'Ops', 'enemy_identity_cap', 'Components.Identity',
+     'read', 'Components.Identity', 'read-to-write'),
+    ('pickup-identity-read', 'PickupOps', 'pickup_identity_cap', 'Components.Identity',
+     'read', 'Components.Identity', 'read-to-write'),
+    ('pickup-payload-read', 'PickupOps', 'pickup_payload_cap', 'Pickup.Payload',
+     'read', 'Pickup.Payload', 'read-to-write'),
     ('projectile-role-read', 'ProjectileOps', 'projectile_role_cap', 'Role.Role',
      'read', 'Role.Role', 'read-to-write'),
-    ('projectile-body-family', 'ProjectileOps', 'projectile_body_cap', 'G.Body',
-     'write', 'G.Vitals', 'cross-family'),
+    ('projectile-spatial-health', 'ProjectileOps', 'projectile_spatial_cap', 'Space.Spatial',
+     'write', 'Components.Vitals', 'cross-family'),
+    ('projectile-payload-health', 'ProjectileOps', 'projectile_payload_cap', 'Components.ShotPayload',
+     'write', 'Components.Vitals', 'cross-family'),
+    ('projectile-payload-xp', 'ProjectileOps', 'projectile_payload_cap', 'Components.ShotPayload',
+     'write', 'Pickup.Payload', 'cross-family'),
+    ('projectile-trajectory-health', 'ProjectileOps', 'projectile_trajectory_cap', 'Components.Trajectory',
+     'write', 'Components.Vitals', 'cross-family'),
+    ('projectile-identity-read', 'ProjectileOps', 'projectile_identity_cap', 'Components.Identity',
+     'read', 'Components.Identity', 'read-to-write'),
 ]
 
 
@@ -49,6 +75,10 @@ def module(directory, case, negative):
     component = rejected if negative else field
     header = '\n'.join([
         'import Base',
+        f'import {Path(os.path.relpath(HERE / "game-components.bend", directory)).as_posix()} as Components',
+        f'import {Path(os.path.relpath(HERE / "enemy-spatial.bend", directory)).as_posix()} as Space',
+        f'import {Path(os.path.relpath(HERE / "enemy-combat.bend", directory)).as_posix()} as Enemy',
+        f'import {Path(os.path.relpath(HERE / "pickup-state.bend", directory)).as_posix()} as Pickup',
         f'import {Path(os.path.relpath(GAME, directory)).as_posix()} as G',
         f'import {Path(os.path.relpath(HERE / "entity-role.bend", directory)).as_posix()} as Role',
         f'import {imported("Cap")} as Cap',
@@ -82,7 +112,7 @@ def check(directory, name, source):
 def refuse(diagnostic, case):
     # Restrict rejection to the intended term, type mismatch and constructors.
     # Parse/import/arity/affine failures do not qualify an authority boundary.
-    _, _, accessor, _, _, _, reason = case
+    _, _, accessor, field, _, rejected, reason = case
     assert 'Location: control' in diagnostic, diagnostic
     assert re.search(r'expected\s*:', diagnostic), diagnostic
     assert re.search(r'observed\s*:', diagnostic), diagnostic
@@ -95,7 +125,7 @@ def refuse(diagnostic, case):
         assert re.search(r'\bWrite\b', expected) and re.search(r'\bRead\b', observed), diagnostic
     else:
         assert re.search(r'\bWrite\b', expected) and re.search(r'\bWrite\b', observed), diagnostic
-        assert 'Vitals' in expected and 'Body' in observed, diagnostic
+        assert rejected.split('.')[-1] in expected and field.split('.')[-1] in observed, diagnostic
 
 
 def main():

@@ -1,7 +1,6 @@
 import { gameFrame } from "../../examples/survivors/observations.mts"
 import { parseGoals, parseMechanics } from "./observations.mts"
 import { at, defined, errorCode } from "../../examples/survivors/host-values.mts"
-import type { Body } from "../../examples/survivors/frame.mts"
 import type {
   Frame,
   Offer,
@@ -15,7 +14,7 @@ import type {
 } from "./observations.mts"
 import { createHash, randomUUID } from "node:crypto"
 import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from "./context.mts"
-import { createPlanner, planMovement, advisePlanner } from "./planner.mts"
+import { createPlanner, planMovement, advisePlanner, actorThreats } from "./planner.mts"
 export interface RunOptions {
   mode?: string
   profile?: string
@@ -51,19 +50,19 @@ export function steering(frame: Frame, target: Point | null, mechanics: Partial<
   const worldSize = frame.worldSize ?? 14400,
     margin = frame.worldMargin ?? 128,
     center = worldSize / 2
-  const enemies = frame.bodies.filter((b) => b[2] === 0 && b[4] > 0)
-  const fallback: Body = [frame.px + 300, frame.py, 0, 0, 0, 0, 0, 0, 12]
+  const enemies = frame.enemies.filter((b) => b.health > 0)
+  const fallback = { x: frame.px + 300, y: frame.py, radius: 12 }
   const nearest = enemies.reduce(
     (best, b) =>
-      Math.hypot(b[0] - frame.px, b[1] - frame.py) < Math.hypot(best[0] - frame.px, best[1] - frame.py) ? b : best,
+      Math.hypot(b.x - frame.px, b.y - frame.py) < Math.hypot(best.x - frame.px, best.y - frame.py) ? b : best,
     enemies[0] ?? fallback
   )
   const stats = mechanics.current?.weaponStats ?? []
   const closeOnly = enemies.length > 0 && stats.length > 0 && stats.every((w) => w.selfFieldRadius > 0)
   const aura = closeOnly ? Math.max(...stats.map((w) => w.selfFieldRadius)) : 0
-  const desired = closeOnly ? Math.max((nearest[8] ?? 12) + 26, aura + (nearest[8] ?? 12) - 6) : 220
-  const nx = frame.px - nearest[0],
-    ny = frame.py - nearest[1],
+  const desired = closeOnly ? Math.max(nearest.radius + 26, aura + nearest.radius - 6) : 220
+  const nx = frame.px - nearest.x,
+    ny = frame.py - nearest.y,
     nd = Math.max(1, Math.hypot(nx, ny))
   let dx = target
     ? target.x - frame.px
@@ -75,13 +74,12 @@ export function steering(frame: Frame, target: Point | null, mechanics: Partial<
     : (ny / nd) * (closeOnly ? Math.max(-30, Math.min(30, desired - nd)) : Math.max(0, 220 - nd)) * 6 -
       (nx / nd) * (closeOnly ? 12 : 35) +
       (center - frame.py) * 0.05
-  for (const b of frame.bodies) {
-    if (![0, 7].includes(b[2])) continue
-    const x = frame.px - b[0],
-      y = frame.py - b[1],
+  for (const b of actorThreats(frame)) {
+    const x = frame.px - b.x,
+      y = frame.py - b.y,
       d = Math.max(1, Math.hypot(x, y))
-    const avoidance = closeOnly && b[2] === 0 ? (b[8] ?? 12) + 26 : 140
-    const force = Math.max(0, avoidance - d) * (closeOnly && b[2] === 0 ? 12 : 4)
+    const avoidance = closeOnly && !b.hostile ? b.radius + 26 : 140
+    const force = Math.max(0, avoidance - d) * (closeOnly && !b.hostile ? 12 : 4)
     dx += (x / d) * force
     dy += (y / d) * force
   }
@@ -91,8 +89,10 @@ export function steering(frame: Frame, target: Point | null, mechanics: Partial<
   return [dx / length, dy / length]
 }
 
-type BotRuntime = Pick<BendABI.BotActions.API, "fresh_start" | "advanced_start" | "observe" | "advance" | "choose"> &
-  Partial<Pick<BendABI.BotActions.API, "fresh_start_seed" | "advanced_start_seed" | "observed_packet">>
+type BotRuntime = Pick<
+  BendABI.BotActions.API,
+  "fresh_start_seed" | "advanced_start_seed" | "observed_packet" | "advance" | "choose"
+>
 export async function runBot(
   Game: BotRuntime,
   {
@@ -131,14 +131,10 @@ export async function runBot(
     packet: BendABI.Game.Packet
   ): { state: BendABI.Game.State | undefined; frame: Frame; catalog: Goal[]; engineMechanics: Mechanics } => {
     if (packet.$ !== "Packet") throw new Error("Bend simulation rejected a transition")
-    // Each transition already serialized this frame. Consume that Packet once
-    // instead of asking G.packet to serialize the same owned world again.
-    const observed =
-      typeof Game.observed_packet === "function" ? Game.observed_packet(packet) : Game.observe(packet.state)
+    const observed = Game.observed_packet(packet)
     if (observed.$ !== "Observed") throw new Error("Bend observation failed")
     if (typeof observed.mechanics !== "string") throw new Error("Rebuild bot facade: engine mechanics are required")
     const frame = gameFrame(observed.frame)
-    if (!frame) throw Error("Missing Bend observation")
     if (!Number.isFinite(frame.px) || !Number.isFinite(frame.py) || frame.hp > frame.maxHp)
       throw new Error("Invalid Bend observation")
     return {
@@ -149,8 +145,7 @@ export async function runBot(
     }
   }
   const startSeed = profile === "fresh" ? Game.fresh_start_seed : Game.advanced_start_seed
-  if (!startSeed && seed !== 12345) throw new Error("Rebuild bot facade for explicit seed control")
-  let current = accept(startSeed ? startSeed(seed) : profile === "fresh" ? Game.fresh_start() : Game.advanced_start())
+  let current = accept(startSeed(seed))
   let sequence = 0,
     nextGoalTick = 1,
     lastAdviceTick = -300,
@@ -177,7 +172,7 @@ export async function runBot(
     maxGoalRequests,
     timeoutMs,
     seed,
-    seedControl: startSeed ? "explicit U32 seed" : "legacy fixed seed",
+    seedControl: "explicit U32 seed",
     initial: { hp: current.frame.hp, character: current.frame.character, arcana: current.frame.arcana }
   })
   async function select<R extends DecisionRequest, T>(
@@ -249,7 +244,7 @@ export async function runBot(
     fuel++
   ) {
     const { frame, catalog, engineMechanics } = current
-    maxLiving = Math.max(maxLiving, frame.bodies.filter((b) => b[2] === 0 && b[4] > 0).length)
+    maxLiving = Math.max(maxLiving, frame.enemies.filter((b) => b.health > 0).length)
     if (
       history.length === 0 ||
       frame.tick - defined(history.at(-1)).tick >= 30 ||
@@ -300,7 +295,7 @@ export async function runBot(
     current = accept(Game.advance(state, dx, dy))
   }
   const f = current.frame
-  maxLiving = Math.max(maxLiving, f.bodies.filter((b) => b[2] === 0 && b[4] > 0).length)
+  maxLiving = Math.max(maxLiving, f.enemies.filter((b) => b.health > 0).length)
   const summary = {
     type: "summary",
     runId,
@@ -315,8 +310,8 @@ export async function runBot(
     level: f.level,
     xp: f.xp,
     xpNeed: f.xpNeed,
-    uncollectedBaseXp: f.bodies.filter((b) => b[2] === 2).reduce((sum, b) => sum + b[4], 0),
-    xpPiles: f.bodies.filter((b) => b[2] === 2).length,
+    uncollectedBaseXp: f.pickups.reduce((sum, p) => sum + (p.active && p.item.kind === "xp" ? p.item.amount : 0), 0),
+    xpPiles: f.pickups.filter((p) => p.active && p.item.kind === "xp").length,
     kills: f.kills,
     gold: f.gold,
     evolvedWeapons: f.weapons.filter((rank) => rank >= 9).length,

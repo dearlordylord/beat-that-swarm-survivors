@@ -12,6 +12,7 @@ const D = (
       "complete",
       "decode",
       "encode",
+      "encode_command",
       "enqueue",
       "fail",
       "fresh",
@@ -159,11 +160,30 @@ for (const text of [
   "X".repeat(5191)
 ])
   assert.ok(D.decode(text).$ === "None", text.slice(0, 40))
-assert.equal(some(some(D.decode("BSA1|9|22")).receipt).observation, 22, "standalone receipt compatibility")
 const single = "BSC1|7|1|1|0|S|0|0|0|0"
-assert.equal(array(some(D.decode(single)).commands).length, 1, "plain Setup compatibility")
 const batchText = good.split("\n").slice(2).join("\n")
-assert.equal(array(some(D.decode(batchText)).commands).length, 3, "standalone batch compatibility")
+for (const legacy of ["BSA1|9|22", single, batchText])
+  assert.ok(D.decode(legacy).$ === "None", "standalone commands, receipts and batches are refused")
+const immediateActions: BendABI.CoopSession.Action[] = [
+  { $: "Setup", character: 0, arcana: 0, meta: 0, allowedWeapons: 0 },
+  { $: "Movement", x: 2, y: 1 },
+  { $: "Choice", round: 1, index: 0 }
+]
+for (const action of immediateActions) {
+  const value = command(1, 0, action),
+    decoded = D.decode(D.encode_command(value))
+  assert.ok(decoded.$ === "Some", "immediate producers use canonical composite framing")
+  assert.deepEqual(array(decoded.value.commands), [value])
+  assert.ok(decoded.value.receipt.$ === "None")
+}
+const batchOnly: BendABI.CoopClientDelivery.Packet = {
+  $: "Packet",
+  epoch: 1,
+  id: 3,
+  batch: { $: "Some", value: batch },
+  receipt: { $: "None" }
+}
+assert.equal(array(roundtrip(batchOnly).commands).length, 3, "batch-only composite remains current")
 const tooMany = {
   $: "Packet" as const,
   epoch: 1,

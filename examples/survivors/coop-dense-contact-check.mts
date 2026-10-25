@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 // Dense cosmetic journal regression. Core builds the real prepared geometry;
 // the small-stack branch exercises only the bounded journal policy.
 
-const parseCoreReceipt = (frame: BendMaybe<BendABI.CoopCore.Observation>) => {
+const parseCoreReceipt = (frame: BendABI.CoopCore.Observation) => {
   const view = coreFrame(frame)
   if (!view || !("contacts" in view)) throw Error("Missing contact receipt")
   return { ...view, contacts: defined(view.contacts), contactsOmitted: defined(view.contactsOmitted) }
@@ -41,7 +41,7 @@ const nil = () => ({ $: "Nil" as const })
 function syntheticEvent(index: number, tick = 10802) {
   const shotSlot = index % 16
   const player = Math.floor(shotSlot / 8)
-  const logicalSlot = player * 65536 + (shotSlot % 8)
+  const logicalSlot = shotSlot % 8
   const shot = Journal.shot_id(player, tick - 1, 11, logicalSlot)
   const target = Math.floor(index / 16) % 500
   const generation = tick - 1 - 500
@@ -105,6 +105,7 @@ if (process.argv.includes("--journal-only")) {
   const [{ default: Core }, { default: Game }] = await Promise.all([
     bendModule<BendABI.CoopCore.API>()(moduleUrl("COOP_CORE_MODULE", "./dist/web/dist/coop-core.mjs").href, [
       "core_start",
+      "core_observe",
       "journal_clock",
       "journal_team"
     ]),
@@ -114,6 +115,8 @@ if (process.argv.includes("--journal-only")) {
       "effect_origin_index",
       "empty_owner_counts",
       "empty_shot_plan",
+      "enemy_targets",
+      "shot_schedule",
       "projectile_amount",
       "shot_requests",
       "team_plan",
@@ -126,85 +129,100 @@ if (process.argv.includes("--journal-only")) {
   assert.ok(started.$ === "CorePacket")
   const weapons = Array.from({ length: 24 }, (_, index: number) => (index === 11 ? 8 : 0))
   const passives = Array.from({ length: 18 }, (_, index: number) => (index === 4 ? 5 : 0))
-  const run = { ...started.state.shared, tick: contactTick, weapons: list(weapons), passives: list(passives) }
-  const fireRun = { ...run, tick: fireTick }
-  const cooldown = Game.cooldown_for(11, run.passives, run.meta, run.arcana, run.character)
+  const observed = Core.core_observe(started.state, 0)
+  assert.ok(observed.$ === "CorePacket" && observed.observation.$ === "ViewObservation")
+  const observedRun = observed.observation.game.run
+  const run = {
+    ...observedRun,
+    session: { ...observedRun.session, tick: contactTick },
+    player: { ...observedRun.player, weapons: list(weapons), passives: list(passives) }
+  }
+  const fireRun = { ...run, session: { ...run.session, tick: fireTick } }
+  const cooldown = Game.cooldown_for(11, run.player.passives, run.player.meta, run.player.arcana, run.player.character)
   assert.equal(cooldown, 600)
   assert.equal(fireTick % cooldown, 1, "weapon 11 fires on the preceding tick")
-  assert.equal(Game.projectile_amount(11, 8, run.passives, run.arcana), 8)
+  assert.equal(Game.projectile_amount(11, 8, run.player.passives, run.player.arcana), 8)
+
   const requestCount = (candidateRun: BendABI.Game.Run) =>
-    array(Game.shot_requests(24, fireTick % 24, candidateRun, Game.empty_owner_counts())).filter(
-      (request) => request.owner === 11
+    array(Game.shot_requests(24, fireTick % 24, Game.shot_schedule(candidateRun), Game.empty_owner_counts())).filter(
+      (request) => request.weaponOwner === 11
     ).length
   assert.equal(requestCount(fireRun), 8, "each player schedules all eight weapon-11 slots")
+
   const targetAge = 500
-  const targets = Array.from({ length: 500 }, (_, seed: number) => ({
-    $: "Snapshot" as const,
-    body: {
-      $: "Body" as const,
-      x: run.px + (seed % 25) * 3,
-      y: run.py + Math.floor(seed / 25) * 3,
-      kind: 0,
-      variant: 1,
-      hp: 10000,
-      maxHp: 10000,
-      age: targetAge,
-      seed,
-      radius: 8
-    },
-    motion: {
-      $: "Motion" as const,
-      vx: 0,
-      vy: 0,
-      life: 0,
-      pierce: 0,
-      visited: nil(),
-      slow: 65536,
-      burn: 0,
-      ownerBase: 0,
-      logicalSlot: 0
-    }
-  }))
+  const targets: Extract<BendABI.Game.Snapshot, { $: "EnemySnapshot" }>[] = Array.from(
+    { length: 500 },
+    (_, identity) => ({
+      $: "EnemySnapshot",
+      enemy: {
+        $: "State",
+        spatial: {
+          $: "Spatial",
+          x: run.player.px + (identity % 25) * 3,
+          y: run.player.py + Math.floor(identity / 25) * 3,
+          age: targetAge,
+          radius: 8
+        },
+        archetype: 1,
+        identity,
+        vitals: { $: "Vitals", health: 10000, maximum: 10000 },
+        status: {
+          $: "Status",
+          slow: { $: "Slow", ticks: 0, frozen: true },
+          burn: { $: "Burn", ticks: 0, sourcePlayer: { $: "None" } }
+        }
+      }
+    })
+  )
   const targetRows = list(targets)
-  const targetBodies = list(targets.map((target) => target.body))
-  const views = list([
-    { $: "PlayerView" as const, id: 0, run, dx: 0, dy: 0 },
-    { $: "PlayerView" as const, id: 1, run, dx: 0, dy: 0 }
+  const views = list<BendABI.Game.PlayerView>([
+    { $: "PlayerView", id: 0, run, dx: 0, dy: 0, eligible: true },
+    { $: "PlayerView", id: 1, run, dx: 0, dy: 0, eligible: true }
   ])
-  const spawnTeam = {
-    $: "Team" as const,
+  const spawnTeam: BendABI.Game.Team = {
+    $: "Team",
     players: views,
-    base: { $: "Args" as const, run, bodies: targetBodies, dx: 0, dy: 0, snapshots: targetRows, hits: nil() },
+    base: { $: "Args", run, targets: Game.enemy_targets(targetRows), dx: 0, dy: 0, snapshots: targetRows, hits: nil() },
     plan: Game.empty_shot_plan(),
     origins: Game.effect_origin_index(targetRows)
   }
-  const shots = []
+
+  const shots: Extract<BendABI.Game.Snapshot, { $: "ProjectileSnapshot" }>[] = []
   for (let player = 0; player < 2; player += 1) {
     for (let slot = 0; slot < 8; slot += 1) {
-      const logicalSlot = slot + player * 65536
-      const request = { $: "Some" as const, value: { $: "Request" as const, owner: 11, slot: logicalSlot, level: 8 } }
-      const entity = Game.team_shot_spawn(spawnTeam, 512 + player * 8 + slot, request)
-      const { body } = entity.row
-      const { motion } = entity
-      assert.equal(body.variant, 11)
-      assert.equal(body.age, 0)
-      assert.equal(motion.life, 1)
-      assert.equal(motion.pierce, 9999)
-      assert.equal(motion.logicalSlot, logicalSlot)
-      for (const target of targets) {
-        assert.ok(Math.hypot(body.x - target.body.x, body.y - target.body.y) <= body.radius + target.body.radius)
+      const logicalSlot = slot
+      const request: BendMaybe<BendABI.ProjectilePool.Request> = {
+        $: "Some",
+        value: { $: "Request", weaponOwner: 11, slot: { $: "Emission", sourcePlayer: player, logicalSlot }, level: 8 }
       }
-      shots.push({ $: "Snapshot" as const, body, motion })
+      const entity = Game.team_shot_spawn(spawnTeam, 512 + player * 8 + slot, request)
+      assert.ok(entity.$ === "ProjectileRow")
+      const projectile = entity.outcome.projectile
+      assert.equal(projectile.payload.weapon, 11)
+      assert.equal(projectile.spatial.age, 0)
+      assert.equal(projectile.trajectory.life, 1)
+      assert.equal(projectile.trajectory.pierce, 9999)
+      assert.equal(projectile.trajectory.logicalSlot, logicalSlot)
+      assert.deepEqual(projectile.trajectory.sourcePlayer, { $: "Some", value: player })
+      for (const target of targets) {
+        assert.ok(
+          Math.hypot(projectile.spatial.x - target.enemy.spatial.x, projectile.spatial.y - target.enemy.spatial.y) <=
+            projectile.spatial.radius + target.enemy.spatial.radius
+        )
+      }
+      shots.push({ $: "ProjectileSnapshot", projectile })
     }
   }
+
   const snapshots = list([...shots, ...targets])
   const team = Game.contact_team({
-    $: "Team" as const,
+    $: "Team",
     players: views,
-    base: { $: "Args" as const, run, bodies: targetBodies, dx: 0, dy: 0, snapshots, hits: nil() },
+    base: { $: "Args", run, targets: Game.enemy_targets(targetRows), dx: 0, dy: 0, snapshots, hits: nil() },
     plan: Game.team_plan(views, snapshots),
     origins: Game.effect_origin_index(snapshots)
   })
+
   const journalStart = performance.now()
   const fullEvents = Core.journal_team(team)
   const journalMs = performance.now() - journalStart
@@ -226,7 +244,7 @@ if (process.argv.includes("--journal-only")) {
   const encodeMs = performance.now() - encodeStart
   assert.deepEqual(encodedPacket.state, corePacket.state, "journal serialization does not change Core state")
   const parseStart = performance.now()
-  const frame = parseCoreReceipt(encodedPacket.frame)
+  const frame = parseCoreReceipt(encodedPacket.observation)
   const parseMs = performance.now() - parseStart
   assert.equal(frame.tick, contactTick)
   assert.equal(frame.contactsOmitted, 7488)

@@ -8,6 +8,8 @@ const sourcePath = path.join(root, ".typescript/bend.d.ts")
 const outputPath = path.join(root, "examples/survivors/bend-codecs.generated.mts")
 const source = ts.createSourceFile(sourcePath, fs.readFileSync(sourcePath, "utf8"), ts.ScriptTarget.Latest, true)
 const roots = [
+  "Game.Observation",
+  "CoopCore.Observation",
   "CoopCombatPrediction.Scene",
   "CoopHitJournal.State",
   "CoopHitJournal.HitEvent",

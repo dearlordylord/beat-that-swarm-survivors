@@ -1,11 +1,18 @@
-import { at } from "./host-values.mts"
-import type { Frame, Body, Player } from "./frame.mts"
+import { at, defined } from "./host-values.mts"
+import type { Frame, Enemy, Projectile, Pickup, Player } from "./frame.mts"
 import { drawSurvivor } from "./survivor-art.mts"
 import Game from "./dist/game.mjs"
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
 const TAU = Math.PI * 2
-const shotIdentity = (body: Body) =>
-  typeof body[9] === "string" ? `generation:${body[9]}` : `slot:${body[7]}:${body[9] ?? ""}`
+const shotIdentity = (projectile: RenderProjectile) => {
+  if (!projectile.lifetime.length) throw Error("A projectile observation requires its explicit lifetime.")
+  return projectile.lifetime
+}
+type RenderEnemy = Enemy & { opacity?: number }
+type RenderProjectile = Pick<
+  Projectile,
+  "identity" | "lifetime" | "hostile" | "weapon" | "radius" | "age" | "x" | "y"
+> & { opacity?: number }
 const THEMES: [string, string, string, string][] = [
   ["#121c20", "#1c2b2b", "#334139", "#76917a"],
   ["#211d26", "#302835", "#534452", "#b79b79"],
@@ -46,18 +53,7 @@ function hash(x: number, y = 0) {
 }
 // Observed player positions only; this helper never advances or predicts gameplay.
 export function framePlayers(frame: Frame) {
-  return Array.isArray(frame.players) && frame.players.length
-    ? frame.players
-    : [
-        {
-          id: frame.ownPlayerId ?? 0,
-          px: frame.px,
-          py: frame.py,
-          hp: frame.hp,
-          maxHp: frame.maxHp,
-          character: frame.character
-        }
-      ]
+  return frame.players
 }
 function rect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string) {
   c.fillStyle = col
@@ -69,7 +65,7 @@ export class Renderer {
   handleResize!: () => void
   resizeObserver!: ResizeObserver | undefined
   time!: number
-  previous!: Map<string, { hp: number }>
+  previous!: Map<string, { health: number }>
   shotPositions!: Map<string, { x: number; y: number; angle: number }>
   labels!: { x: number; y: number; value: number; life: number }[]
   camera!: { x: number; y: number }
@@ -128,29 +124,60 @@ export class Renderer {
     this.ground()
     this.boundary()
     this.hazards()
-    const bodies = Array.isArray(frame.bodies) ? frame.bodies : []
     // A forecast may reconcile a volley into another physical pool slot.
     // Heading belongs to its semantic lifetime, and expires with that lifetime.
-    const shotKeys = new Set(bodies.filter((b) => b[2] === 1 || b[2] === 7).map(shotIdentity))
+    const projectiles = frame.projectiles
+    const localProjectiles = frame.localProjectiles || []
+    const shotKeys = new Set([...projectiles, ...localProjectiles].map(shotIdentity))
     for (const key of this.shotPositions?.keys() || []) if (!shotKeys.has(key)) this.shotPositions.delete(key)
-    for (const b of bodies) if (b[2] === 6) this.effect(b, true)
-    const ordered = bodies
-      .filter((b) => b[2] !== 6)
-      .slice()
-      .sort((a, b: Body) => a[1] - b[1])
+    const pickups = new Map(frame.pickups.map((pickup) => [pickup.slot, pickup]))
+    const enemies = frame.enemies
+    const enemyByIdentity = new Map(enemies.map((enemy) => [enemy.identity, enemy]))
+    const enemyFades = frame.enemyFades || []
+    const fadeByLifetime = new Map(enemyFades.map((enemy) => [enemy.lifetime, enemy]))
+    const projectileByIdentity = new Map(projectiles.map((projectile) => [projectile.identity, projectile]))
+    const localByLifetime = new Map(localProjectiles.map((projectile) => [projectile.lifetime, projectile]))
+    // Resolve explicit phase-order references before the stable depth sort.
+    // This preserves ties and overlap across separate typed observations.
+    const ordered = frame.actorOrder
+      .map((reference) => {
+        if ("pickup" in reference) {
+          const pickup = defined(pickups.get(reference.pickup))
+          return { kind: "pickup" as const, value: pickup, y: pickup.y }
+        }
+        if ("enemy" in reference) {
+          const enemy = defined(enemyByIdentity.get(reference.enemy))
+          return { kind: "enemy" as const, value: enemy, y: enemy.y }
+        }
+        if ("enemyFade" in reference) {
+          const enemy = defined(fadeByLifetime.get(reference.enemyFade))
+          return { kind: "enemy" as const, value: enemy, y: enemy.y }
+        }
+        if ("projectile" in reference) {
+          const projectile = defined(projectileByIdentity.get(reference.projectile))
+          return { kind: "projectile" as const, value: projectile, y: projectile.y }
+        }
+        if ("localProjectile" in reference) {
+          const projectile = defined(localByLifetime.get(reference.localProjectile))
+          return { kind: "projectile" as const, value: projectile, y: projectile.y }
+        }
+        throw Error("Unknown actor reference.")
+      })
+      .sort((left, right) => left.y - right.y)
     const players = framePlayers(frame)
       .slice()
       .sort((a, b) => a.py - b.py || a.id - b.id)
     let playerIndex = 0
-    for (const b of ordered) {
-      while (playerIndex < players.length && b[1] > at(players, playerIndex).py)
+    for (const actor of ordered) {
+      while (playerIndex < players.length && actor.y > at(players, playerIndex).py)
         this.observedPlayer(at(players, playerIndex++), players.length > 1)
-      this.drawBody(b)
+      if (actor.kind === "enemy") this.drawEnemy(actor.value)
+      else if (actor.kind === "projectile") this.drawProjectile(actor.value)
+      else if (actor.kind === "pickup") this.drawPickup(actor.value)
     }
     while (playerIndex < players.length) this.observedPlayer(at(players, playerIndex++), players.length > 1)
-    for (const b of bodies) if (b[2] === 6) this.effect(b, false)
-    for (const b of bodies) this.healthBar(b)
-    if (options.showDamage !== false) this.damage(bodies, dt)
+    for (const enemy of enemies) this.enemyHealthBar(enemy)
+    if (options.showDamage !== false) this.damage(enemies.concat(enemyFades), dt)
     this.contactEffects(frame.combatImpacts || [])
     const shade = c.createRadialGradient(
       this.width / 2,
@@ -213,9 +240,9 @@ export class Renderer {
     c.strokeStyle = "#b8c9ca"
     c.strokeRect(viewX, viewY, (right - left) * scale, (bottom - top) * scale)
     let chests = 0
-    for (const body of frame.bodies || []) {
-      if (body[2] !== 5) continue
-      const [x, y] = point(body[0], body[1])
+    for (const pickup of frame.pickups) {
+      if (pickup.item.kind !== "chest") continue
+      const [x, y] = point(pickup.x, pickup.y)
       c.fillStyle = "#f5d17b"
       c.fillRect(x - 3, y - 3, 6, 6)
       chests++
@@ -478,26 +505,47 @@ export class Renderer {
     c.ellipse(x, y + 3, rx, ry, 0, 0, TAU)
     c.fill()
   }
-  healthBar(b: Body) {
-    if (b[2] !== 0 || !(b[4] > 0)) return
-    const [x, y] = this.xy(b[0], b[1])
-    const radius = Math.max(1, Number(b[8]) || 5)
+  enemyHealthBar(enemy: RenderEnemy) {
+    if (!(enemy.health > 0)) return
+    const [x, y] = this.xy(enemy.x, enemy.y)
+    const radius = Math.max(1, enemy.radius)
     const width = Math.max(20, radius * 2)
     const top = y - Math.max(24, radius * 2) - 8
-    const ratio = Math.min(1, b[4] / Math.max(1, b[5]))
+    const ratio = Math.min(1, enemy.health / Math.max(1, enemy.maximum))
     rect(this.ctx, x - width / 2 - 1, top - 1, width + 2, 5, "#eadbc9")
     rect(this.ctx, x - width / 2, top, width, 3, "#592434")
     rect(this.ctx, x - width / 2, top, width * ratio, 3, "#a5e2a0")
   }
+  drawProjectile(projectile: RenderProjectile) {
+    const [x, y] = this.xy(projectile.x, projectile.y)
+    const margin = Math.max(100, projectile.radius)
+    if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return
+    this.bodyOpacity = projectile.opacity !== undefined ? Math.max(0, Math.min(1, projectile.opacity)) : 1
+    this.ctx.save()
+    this.setAlpha(1)
+    this.projectile(projectile)
+    this.ctx.restore()
+    this.bodyOpacity = 1
+  }
+  drawPickup(pickup: Pickup & { opacity?: number }) {
+    this.bodyOpacity = pickup.opacity !== undefined ? Math.max(0, Math.min(1, pickup.opacity)) : 1
+    this.ctx.save()
+    this.setAlpha(1)
+    this.pickup(pickup)
+    this.ctx.restore()
+    this.bodyOpacity = 1
+  }
   setAlpha(opacity: number) {
     this.ctx.globalAlpha = opacity * (this.bodyOpacity ?? 1)
   }
-  drawBody(body: Body) {
-    this.bodyOpacity =
-      typeof body[12] === "number" && Number.isFinite(body[12]) ? Math.max(0, Math.min(1, body[12])) : 1
+  drawEnemy(enemy: RenderEnemy) {
+    const [x, y] = this.xy(enemy.x, enemy.y)
+    const margin = Math.max(100, enemy.radius)
+    if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return
+    this.bodyOpacity = enemy.opacity !== undefined ? Math.max(0, Math.min(1, enemy.opacity)) : 1
     this.ctx.save()
     this.setAlpha(1)
-    this.body(body)
+    this.enemy(enemy)
     this.ctx.restore()
     this.bodyOpacity = 1
   }
@@ -517,28 +565,20 @@ export class Renderer {
       c.restore()
     }
   }
-  body(b: Body) {
-    const [x, y] = this.xy(b[0], b[1])
-    const margin = Math.max(100, Number(b[8]) || 0)
+  pickup(pickup: Pickup & { opacity?: number }) {
+    const [x, y] = this.xy(pickup.x, pickup.y)
+    const margin = Math.max(100, pickup.radius)
     if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return
-    const k = b[2],
-      v = b[3] || 0,
+    const k = pickup.item.kind,
+      v = pickup.item.kind === "relic" ? pickup.item.stage : 0,
       t = this.time,
       c = this.ctx
-    if (k === 0) {
-      this.enemy(x, y, v, b)
-      return
-    }
-    if (k === 1 || k === 7) {
-      this.projectile(x, y, v, b, k === 7)
-      return
-    }
-    const bob = this.options.reducedMotion ? 0 : Math.sin(t * 3 + (b[7] || 0)) * 2
-    if (k === 2) {
-      const r = Game.xp_visual_radius(b[4] >>> 0)
+    const bob = this.options.reducedMotion ? 0 : Math.sin(t * 3 + pickup.slot) * 2
+    if (pickup.item.kind === "xp") {
+      const r = Game.xp_visual_radius(pickup.item.amount >>> 0)
       const color =
         "#" +
-        Game.xp_pile_color(b[4] >>> 0, v >>> 0)
+        Game.xp_pile_color(pickup.item.amount >>> 0, Number(pickup.item.accumulator))
           .toString(16)
           .padStart(6, "0")
       c.fillStyle = color + "35"
@@ -554,24 +594,24 @@ export class Renderer {
       c.fill()
       rect(c, x - 1, y - r + 1 + bob, 1, 2, "#e4ffff")
     }
-    if (k === 3) {
+    if (k === "gold") {
       this.shadow(x, y, 5, 2)
       rect(c, x - 4, y - 6 + bob, 8, 7, "#a46b28")
       rect(c, x - 3, y - 7 + bob, 6, 6, "#edc363")
       rect(c, x - 1, y - 6 + bob, 1, 4, "#fff1b0")
     }
-    if (k === 4) {
+    if (k === "healing") {
       this.shadow(x, y, 7, 3)
       rect(c, x - 6, y - 7 + bob, 12, 7, "#a53348")
       rect(c, x - 4, y - 10 + bob, 8, 9, "#e76c75")
       rect(c, x - 2, y - 8 + bob, 4, 6, "#ffe4b5")
       rect(c, x - 3, y - 5 + bob, 6, 2, "#ffe4b5")
     }
-    if (k === 9) {
+    if (k === "relic") {
       this.relic(x, y, v)
       return
     }
-    if (k === 5) {
+    if (k === "chest") {
       this.shadow(x, y, 13, 4)
       c.fillStyle = "#f6cc5c18"
       c.beginPath()
@@ -724,26 +764,20 @@ export class Renderer {
     c.ellipse(x, y + 2, 15, 6, 0, 0, TAU)
     c.stroke()
   }
-  enemy(x: number, y: number, v: number, b: Body) {
+  enemy(enemy: RenderEnemy) {
+    const [x, y] = this.xy(enemy.x, enemy.y)
+    const v = enemy.archetype
     const c = this.ctx,
       boss = v >= 20,
       type = v % 10,
       r = boss ? 1.9 : 1,
-      seed = b[7] || 0,
+      seed = enemy.identity || 0,
       t = this.time,
       walk = this.options.reducedMotion ? 0 : Math.sin(t * 7 + seed) * 2
     this.shadow(x, y, 10 * r, 4 * r)
-    const chargePeriods: Partial<Record<number, number>> = {
-      4: 150,
-      12: 210,
-      19: 170,
-      20: 180,
-      23: 165,
-      25: 360,
-      28: 240
-    }
+    const chargePeriods: Record<number, number> = { 4: 150, 12: 210, 19: 170, 20: 180, 23: 165, 25: 360, 28: 240 }
     const chargePeriod = chargePeriods[v],
-      chargePhase = (b[6] || 0) % (chargePeriod || 1)
+      chargePhase = (enemy.age || 0) % (chargePeriod || 1)
     if (chargePeriod && chargePhase >= 90 && chargePhase < 120) {
       c.save()
       c.strokeStyle = "#f2b785"
@@ -831,18 +865,27 @@ export class Renderer {
       c.stroke()
     }
     c.restore()
-    if (boss || b[4] < b[5]) {
+    if (boss || enemy.health < enemy.maximum) {
       const width = boss ? 48 : 22
       rect(c, x - width / 2, y - 33 * r, width, 3, "#100e16")
-      rect(c, x - width / 2, y - 33 * r, width * Math.max(0, b[4] / Math.max(1, b[5])), 2, boss ? "#e3a376" : "#c56c78")
+      rect(
+        c,
+        x - width / 2,
+        y - 33 * r,
+        width * Math.max(0, enemy.health / Math.max(1, enemy.maximum)),
+        2,
+        boss ? "#e3a376" : "#c56c78"
+      )
     }
   }
-  projectile(x: number, y: number, v: number, b: Body, hostile: boolean) {
+  projectile(projectile: RenderProjectile) {
+    const [x, y] = this.xy(projectile.x, projectile.y)
+    const hostile = projectile.hostile
     const c = this.ctx,
-      id = v % 24,
+      id = projectile.weapon % 24,
       col = hostile ? "#f97678" : at(COLORS, id)
-    const radius = Math.max(1, Number(b[8]) || 5),
-      age = Number(b[6]) || 0
+    const radius = Math.max(1, Number(projectile.radius) || 5),
+      age = Number(projectile.age) || 0
     const area = !hostile && ([4, 5, 7, 9, 11, 20, 22].includes(id) || ([14, 17].includes(id) && radius > 30))
     c.save()
     c.translate(x, y)
@@ -900,12 +943,12 @@ export class Renderer {
       return
     }
     const r = radius,
-      a = (this.options.reducedMotion ? 0 : age * 0.15) + (b[7] || 0)
-    const key = shotIdentity(b)
+      a = (this.options.reducedMotion ? 0 : age * 0.15) + (projectile.identity || 0)
+    const key = shotIdentity(projectile)
     const previous = this.shotPositions.get(key)
-    const moved = previous && (previous.x !== b[0] || previous.y !== b[1])
-    const heading = moved ? Math.atan2(b[1] - previous.y, b[0] - previous.x) : previous?.angle || 0
-    this.shotPositions.set(key, { x: b[0], y: b[1], angle: heading })
+    const moved = previous && (previous.x !== projectile.x || previous.y !== projectile.y)
+    const heading = moved ? Math.atan2(projectile.y - previous.y, projectile.x - previous.x) : previous?.angle || 0
+    this.shotPositions.set(key, { x: projectile.x, y: projectile.y, angle: heading })
     c.rotate([1, 10, 13, 18].includes(id) || hostile ? heading : a)
     c.shadowColor = col
     c.shadowBlur = hostile ? 4 : 5
@@ -978,33 +1021,15 @@ export class Renderer {
     }
     c.restore()
   }
-  effect(b: Body, under: boolean) {
-    // Legacy hit particles are cosmetic points, never additional damage areas.
-    if (under) return
+  damage(enemies: RenderEnemy[], dt: number) {
     const c = this.ctx,
-      [x, y] = this.xy(b[0], b[1]),
-      r = Math.min(6, Math.max(1, Number(b[8]) || 3))
-    c.save()
-    c.strokeStyle = at(COLORS, (b[3] || 0) % 24)
-    this.setAlpha(0.5)
-    c.beginPath()
-    c.moveTo(x - r, y)
-    c.lineTo(x + r, y)
-    c.moveTo(x, y - r)
-    c.lineTo(x, y + r)
-    c.stroke()
-    c.restore()
-  }
-  damage(bodies: Body[], dt: number) {
-    const c = this.ctx,
-      next = new Map<string, { hp: number }>()
-    for (const b of bodies) {
-      if (b[2] !== 0) continue
-      const key = typeof b[9] === "string" ? b[9] : `${b[3]}:${b[7]}`,
+      next = new Map<string, { health: number }>()
+    for (const enemy of enemies) {
+      const key = enemy.lifetime,
         old = this.previous.get(key)
-      if (old && old.hp > b[4] && this.labels.length < 65)
-        this.labels.push({ x: b[0], y: b[1] - 28, value: Math.round(old.hp - b[4]), life: 0.65 })
-      next.set(key, { hp: b[4] })
+      if (old && old.health > enemy.health && this.labels.length < 65)
+        this.labels.push({ x: enemy.x, y: enemy.y - 28, value: Math.round(old.health - enemy.health), life: 0.65 })
+      next.set(key, { health: enemy.health })
     }
     this.previous = next
     c.font = "bold 12px monospace"

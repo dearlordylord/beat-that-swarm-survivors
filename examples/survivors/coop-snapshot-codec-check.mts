@@ -1,3 +1,7 @@
+import { decodeControlFrame } from "./coop-control-frame.mts"
+import { bendModule } from "../bend-module.mts"
+import { resolve } from "node:path"
+import { pathToFileURL } from "node:url"
 import { defined } from "./host-values.mts"
 import assert from "node:assert/strict"
 import {
@@ -9,6 +13,10 @@ import {
   MAX_SNAPSHOT_DECODE_JOBS,
   MAX_SNAPSHOT_DECODE_QUEUE_BYTES
 } from "./coop-snapshot-codec.mts"
+const { default: Connection } = await bendModule<BendABI.CoopConnection.API>()(
+  pathToFileURL(resolve(process.argv[2] || "examples/survivors/dist/web/dist/coop-connection.mjs")).href,
+  ["encode_action", "decode"]
+)
 // Node Web Streams check for the browser-compatible snapshot byte codec.
 
 assert.equal(typeof CompressionStream, "function")
@@ -131,12 +139,30 @@ for (let seed = 1; seed <= 40; seed++) {
   equalBytes(await decodeSnapshot(frame), raw, `UTF-8 byte round-trip seed ${seed}`)
   check(textDecoder.decode(await decodeSnapshot(frame)) === text, `UTF-8 text round-trip seed ${seed}`)
 }
-const control = textEncoder.encode("BSA1|4294967295|18420")
-equalBytes(await decodeSnapshot(control), control, "plain ACK/control frames pass through exactly")
+const control = textEncoder.encode(Connection.encode_action({ $: "SendHello", version: 1, token: 42 }))
+assert.deepEqual(decodeControlFrame(control, Connection.decode), {
+  $: "Some",
+  value: { $: "Hello", version: 1, token: 42 }
+})
+const actions: BendABI.CoopConnection.Action[] = [
+  { $: "HelloAckAndSetup", version: 1, token: 42 },
+  { $: "SendReadyAck", token: 42, observation: 9 },
+  { $: "StartAndConfirm", token: 42 },
+  { $: "CloseConnection", reason: { $: "ProtocolError" } }
+]
+for (const action of actions) {
+  const text = Connection.encode_action(action)
+  assert.deepEqual(decodeControlFrame(textEncoder.encode(text), Connection.decode), Connection.decode(text))
+  assert.equal(Connection.decode(text).$, "Some")
+}
 const plainJson = textEncoder.encode('{"kind":"frame","tick":17}')
-equalBytes(await decodeSnapshot(plainJson), plainJson, "plain JSON remains backward-compatible")
-const plainCopy = await decodeSnapshot(control)
-check(plainCopy.buffer !== control.buffer, "plain pass-through returns caller-independent bytes")
+for (const bytes of [control, plainJson, textEncoder.encode("BSA1|9|17")])
+  await assert.rejects(decodeSnapshot(bytes), /magic/i)
+assert.equal(decodeControlFrame(sceneEncoded, Connection.decode).$, "None")
+assert.equal(decodeControlFrame(plainJson, Connection.decode).$, "None")
+assert.throws(() => decodeControlFrame(textEncoder.encode("BSC-HS1|S|01"), Connection.decode), /invalid/i)
+assert.throws(() => decodeControlFrame(textEncoder.encode("BSC-HS1|" + "0".repeat(160)), Connection.decode), /large/i)
+checks += 16
 await assert.rejects(encodeSnapshot(null), TypeError)
 await assert.rejects(decodeSnapshot(new ArrayBuffer(2)), TypeError)
 checks += 2
@@ -201,7 +227,8 @@ const ordered = new SnapshotDecoder({
 })
 const orderedJobs = queuedFrames.map((frame) => ordered.decode(frame))
 check(orderedStarts.length === 1, "only the active compressed decode starts")
-equalBytes(await ordered.decode(control), control, "plain control bypasses the active decode pipeline")
+assert.equal(decodeControlFrame(control, Connection.decode).$, "Some")
+await assert.rejects(ordered.decode(control), /magic/i)
 check(orderedStarts.length === 1, "plain control does not activate or occupy a compressed job")
 for (let index = 0; index < orderedJobs.length; index++) {
   check(orderedStarts.length === index + 1, "compressed jobs start in FIFO order without overlap")
@@ -234,7 +261,8 @@ check(
 check(overflowCalls.length === 1, "one compressed job is active while fifteen wait")
 await assert.rejects(blocked.decode(fullSizeFrame), /queue is full/i)
 checks++
-equalBytes(await blocked.decode(control), control, "plain controls pass while compressed queue is full")
+assert.equal(decodeControlFrame(control, Connection.decode).$, "Some")
+await assert.rejects(blocked.decode(control), /magic/i)
 for (let index = 0; index < overflowJobs.length; index++) {
   defined(overflowResolvers[index])(Uint8Array.of(index))
   equalBytes(await overflowJobs[index], Uint8Array.of(index), `bounded queue completion ${index}`)

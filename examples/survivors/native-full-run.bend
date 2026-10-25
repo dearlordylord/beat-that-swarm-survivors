@@ -1,38 +1,44 @@
+import pickup-state.bend as Pickup
+import run-state.bend as RS
 # Native complete-run consumer: only public start/configure/choose/advance inputs.
 # No injected clock, inventory, entity, health or terminal state.
 import Base
+import game-components.bend as Components
 import game.bend as G
+import enemy-combat.bend as Enemy
+import enemy-presentation.bend as EnemyView
+import game-encoder.bend as Encoder
 import offline-policy.bend as Policy
 
 type Stats is Data: Stats{boss: Bool,chest: Bool,level: Bool,decisions: U32}
 type Controlled is Type: Controlled{memory: Policy.Memory,packet: G.Packet}
 def phase(run: G.Run) -> U32:
   match run:
-    case G.Run{phase,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: phase
+    case G.Run{RS.Session{phase,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: phase
 def tick(run: G.Run) -> U32:
   match run:
-    case G.Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: tick
+    case G.Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: tick
 def hp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: hp
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}: hp
 def maxHp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,maxHp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: maxHp
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,maxHp,_,_,_,_,_,_,_,_,_,_,_,_}}: maxHp
 def weapons(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,weapons,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: weapons
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,weapons,_,_,_,_,_,_,_,_,_,_}}: weapons
 def passives(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,passives,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: passives
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,passives,_,_,_,_,_,_,_,_,_}}: passives
 def level(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,level,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: level
+    case G.Run{RS.Session{_,_,_,_,level,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: level
 def kills(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,kills,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: kills
+    case G.Run{RS.Session{_,_,_,_,_,kills,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: kills
 def gold(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: gold
+    case G.Run{RS.Session{_,_,_,_,_,_,gold,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: gold
 def contains(values: List<&2,U32>,+id: U32) -> Bool:
   match values:
     case []: False{}
@@ -46,16 +52,16 @@ def starter_evolved(run: G.Run) -> Bool: U32.is_le(9,G.at(weapons(run),witness_w
 def missing_prerequisite(run: G.Run) -> Bool: U32.is_eq(G.at(passives(run),required_passive()),0)
 def seed(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,seed,_,_,_,_,_,_,_,_,_,_,_,_,_}: seed
+    case G.Run{RS.Session{_,_,_,_,_,_,_,seed,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: seed
 def banned_weapons(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned,_,_,_}: banned
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned,_}}: banned
 def banned_passives(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned,_,_}: banned
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banned}}: banned
 def rerolls(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,rerolls,_,_,_,_,_,_}: rerolls
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,rerolls,_,_,_,_}}: rerolls
 def preferred_weapon(id: U32) -> Bool: contains([4,19,10,0,2,17],id)
 def passive_rank(id: U32) -> U32: G.at([4,1,3,99,99,99,2,5,99,99,99,0,99,99,99,99,99,99],id)
 def broad_offer_score(offer: G.Offer,+run: G.Run) -> U32:
@@ -123,31 +129,28 @@ def evolution_ready(offer: G.Offer) -> Bool:
     case _: False{}
 def chest_ready(+run: G.Run) -> Bool:
   Bool.or(starter_evolved(run),evolution_ready(G.evolution_offer(weapons(run),0,passives(run))))
-def chest_goal_keep(ready: Bool,+body: G.Body,+rest: List<&2,G.Body>) -> List<&2,G.Body>:
-  match body:
-    case G.Body{_,_,5,_,_,_,_,_,_}: Bool.pick(List<&2,G.Body>,ready,body <> rest,rest)
-    case _: body <> rest
-def movement_rows(+ready: Bool,rows: List<&2,G.Body>) -> List<&2,G.Body>:
+def chest_goal_keep(ready: Bool,+snapshot: G.Snapshot,+rest: List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
+  match snapshot:
+    case G.PickupSnapshot{Pickup.State{_,Pickup.Payload{Pickup.Chest{},_,_},_}}: Bool.pick(List<&2,G.Snapshot>,ready,snapshot <> rest,rest)
+    case _: snapshot <> rest
+def movement_snapshots(+ready: Bool,rows: List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case body <> rest: chest_goal_keep(ready,body,movement_rows(ready,rest))
+    case body <> rest: chest_goal_keep(ready,body,movement_snapshots(ready,rest))
 # Reuse the ordinary controller's retained spatial-planning memory. Movement
-# observes the real run and bodies and feeds only public gameplay input.
+# observes the real run and typed snapshots and feeds only public gameplay input.
 # Full game observations remain unchanged; only planner goals defer early chests.
 def move(state: G.State,result: Policy.Memory & (F32 & F32)) -> Controlled:
   (memory,direction) = result
   (dx,dy) = direction
   Controlled{memory,G.advance(state,dx,dy)}
-def step(phase: U32,state: G.State,+run: G.Run,rows: List<&2,G.Body>,offers: List<&2,G.Offer>,memory: Policy.Memory) -> Controlled:
+def step(phase: U32,state: G.State,+run: G.Run,offers: List<&2,G.Offer>,memory: Policy.Memory,snapshots: List<&2,G.Snapshot>) -> Controlled:
   match phase:
     case 1: Controlled{memory,apply_reward(state,reward_action(offers,run))}
     case 2: Controlled{memory,apply_reward(state,reward_action(offers,run))}
-    case _: move(state,Policy.movement(memory,run,movement_rows(chest_ready(run),rows)))
-def saw_boss(rows: List<&2,G.Body>) -> Bool:
-  match rows:
-    case []: False{}
-    case G.Body{_,_,+kind,variant,_,_,_,_,_} <> rest: Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_le(20,variant)),saw_boss(rest))
-def observe(stats: Stats,+run: G.Run,rows: List<&2,G.Body>) -> Stats:
+    case _: move(state,Policy.movement(memory,run,movement_snapshots(chest_ready(run),snapshots)))
+def saw_boss(rows: List<&2,Enemy.State>) -> Bool: EnemyView.boss_seen(rows)
+def observe(stats: Stats,+run: G.Run,rows: List<&2,Enemy.State>) -> Stats:
   match stats:
     case Stats{boss,chest,level,decisions}: Stats{Bool.or(boss,saw_boss(rows)),Bool.or(chest,U32.is_eq(phase(run),2)),Bool.or(level,U32.is_eq(phase(run),1)),(decisions + Bool.to_u32(Bool.or(U32.is_eq(phase(run),1),U32.is_eq(phase(run),2))) : U32)}
 def evolved(weapons: List<&2,U32>) -> Bool:
@@ -156,7 +159,7 @@ def evolved(weapons: List<&2,U32>) -> Bool:
     case level <> rest: Bool.or(U32.is_le(9,level),evolved(rest))
 def build_observation(+run: G.Run,stats: Stats) -> String:
   match stats:
-    case Stats{boss,chest,seenLevel,decisions}: " boss=" ++ U32.show(Bool.to_u32(boss)) ++ " chest=" ++ U32.show(Bool.to_u32(chest)) ++ " seenLevel=" ++ U32.show(Bool.to_u32(seenLevel)) ++ " evolved=" ++ U32.show(Bool.to_u32(evolved(weapons(run)))) ++ " weapons=[" ++ G.nums_json(weapons(run)) ++ "] passives=[" ++ G.nums_json(passives(run)) ++ "]"
+    case Stats{boss,chest,seenLevel,decisions}: " boss=" ++ U32.show(Bool.to_u32(boss)) ++ " chest=" ++ U32.show(Bool.to_u32(chest)) ++ " seenLevel=" ++ U32.show(Bool.to_u32(seenLevel)) ++ " evolved=" ++ U32.show(Bool.to_u32(evolved(weapons(run)))) ++ " weapons=[" ++ Encoder.nums_json(weapons(run)) ++ "] passives=[" ++ Encoder.nums_json(passives(run)) ++ "]"
 def finish(ok: Bool,message: String) -> IO(Unit):
   match ok:
     case True{}: IO.print("PASS native full run " ++ message)
@@ -186,16 +189,16 @@ def reward_progress(log: Bool,+run: G.Run,offers: List<&2,G.Offer>) -> IO(Unit):
         return Unit{}
 def loop(fuel: Nat,active: Bool,controlled: Controlled,+stats: Stats) -> IO(Unit):
   match fuel active controlled:
-    case 0n _ Controlled{_,G.Packet{G.State{_,run,_,_,_,_},_}}: report(run,stats)
-    case _ False{} Controlled{_,G.Packet{G.State{_,run,_,_,_,_},_}}: report(run,stats)
-    case 1n+rest True{} Controlled{memory,G.Packet{G.State{world,+run,+rows,+offers,+snapshots,+pending},_}}:
+    case 0n _ Controlled{_,G.Packet{G.State{_,run,_,_,_}}}: report(run,stats)
+    case _ False{} Controlled{_,G.Packet{G.State{_,run,_,_,_}}}: report(run,stats)
+    case 1n+rest True{} Controlled{memory,G.Packet{G.State{world,+run,+offers,+snapshots,+pending}}}:
       do IO<Unit>:
         progress(Bool.and(U32.is_eq(phase(run),0),U32.is_eq((tick(run) % 3600 : U32),0)),run,stats)
         reward_progress(Bool.or(U32.is_eq(phase(run),1),U32.is_eq(phase(run),2)),run,offers)
-        loop(rest,Bool.not(Bool.or(U32.is_eq(phase(run),3),U32.is_eq(phase(run),4))),step(phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory),observe(stats,run,rows))
+        loop(rest,Bool.not(Bool.or(U32.is_eq(phase(run),3),U32.is_eq(phase(run),4))),step(phase(run),G.State{world,run,offers,snapshots,pending},run,offers,memory,snapshots),observe(stats,run,G.enemy_observations(snapshots)))
     case _ _ _: IO.die(Unit,1,"Game packet failure")
 def configured(packet: G.Packet) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure(state,0,9)
+    case G.Packet{state}: G.configure(state,0,9)
     case packet: packet
 def main() -> IO(Unit): loop(42000n,True{},Controlled{Policy.initial(),configured(G.start(2,364304237))},Stats{False{},False{},False{},0})

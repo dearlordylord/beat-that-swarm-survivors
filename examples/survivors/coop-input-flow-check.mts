@@ -99,11 +99,7 @@ assert.ok(Flow.decode(broken.join("\n")).$ === "None", "a malformed middle row r
 assert.ok(Flow.decode("X".repeat(Flow.max_frame_bytes() + 1)).$ === "None", "oversized frames are refused")
 assert.ok(Flow.decode("BSB1").$ === "None")
 assert.ok(Flow.decode(encoded + "\n").$ === "None")
-assert.deepEqual(
-  array(some(Flow.decode(defined(encoded.split("\n")[1])))),
-  [rows[0]],
-  "legacy single Setup remains supported"
-)
+assert.ok(Flow.decode(defined(encoded.split("\n")[1])).$ === "None", "standalone Setup is refused")
 let reserved = Flow.fresh(5)
 for (let index = 0; index < 62; index++) {
   const admitted = Flow.enqueue(reserved, command(index + 1, index + 1))

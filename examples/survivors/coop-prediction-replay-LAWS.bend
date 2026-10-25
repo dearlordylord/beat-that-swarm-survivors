@@ -106,4 +106,4 @@ law generation_exact:
   for +age:U32
   for +owner:U32
   for +slot:U32
-  {R.generation(player,tick,age,owner,slot) == U32.show(player) ++ ":" ++ U32.show((tick - age : U32)) ++ ":" ++ U32.show(owner) ++ ":" ++ U32.show((slot % 65536 : U32)) : String}
+  {R.generation(player,tick,age,owner,slot) == U32.show(player) ++ ":" ++ U32.show((tick - age : U32)) ++ ":" ++ U32.show(owner) ++ ":" ++ U32.show(slot) : String}

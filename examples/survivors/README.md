@@ -4,12 +4,42 @@ A Vampire Survivors clone built as a Bendvy ECS example. See [setup](../../READM
 
 ## ECS
 
-The schema, affine world ownership and checked system contracts are defined in
-[`game.bend`](game.bend). Immutable role definitions belong to
+The schema, affine world ownership and component-family bindings are defined in
+[`game-storage.bend`](game-storage.bend), depending on the pure payloads in
+[`game-components.bend`](game-components.bend). Systems, queries and checked
+access contracts remain visible together in [`game.bend`](game.bend).
+Enemy movement policy belongs to [`enemy-spatial.bend`](enemy-spatial.bend).
+Combat and lifetime decisions belong to [`enemy-combat.bend`](enemy-combat.bend)
+and [`enemy-lifecycle.bend`](enemy-lifecycle.bend). Canonical Spatial, Vitals,
+Status, Phase and read-only slot identity hold enemy authority. Projectile damage
+and trajectory and typed pickup payloads have their own columns; the world has
+no universal actor component.
+See the [enemy authority contract](../../research/survivors-enemy-migration.md)
+for current access rights, snapshot timing and the narrow birth proof scope.
+Immutable role definitions belong to
 [`entity-role.bend`](entity-role.bend), with [kernel laws](entity-role/LAWS.bend);
 query membership has [its own policy](movement-membership.bend) and
 [laws](movement-selection/LAWS.bend). Those sources define the implementation;
 this guide does not duplicate their component layouts or dispatch rules.
+
+Phase snapshots are constructed from the committed typed query results. They
+freeze inputs for the next contact/targeting and projectile-allocation pass;
+prepared rosters contain issued handles only. Observations derive the visible
+enemy, projectile and pickup lists and ordered actor references from that phase
+snapshot. They are immutable consumers, never a second writable authority.
+Run/session context is likewise a read-only rule input; co-op persists Session
+once and personal PlayerState only in the player column.
+
+Simulation returns typed results: solo `Packet` owns only its state; co-op
+`CorePacket` carries state and an immutable typed observation (a view, a step
+receipt, or no observation for commands). Native consumers use those values
+without generating JSON. Browser and bot adapters project trusted local Bend
+observations directly into named actor records. Network ingress validates the
+current raw Data graph before projection. Generated ABI and observation schemas
+derive from the Bend declarations. Explicit text consumers use the separate Bend
+encoders in `game-encoder.bend`, `coop-encoder.bend` and
+`coop-combat-encoder.bend`. Simulation does not import these encoders. There are
+no serialized or quiet variants of the simulation API.
 
 The authoritative pool layout and admission limits are in [`pools.bend`](pools.bend).
 Party-size difficulty belongs to [`party-difficulty.bend`](party-difficulty.bend):
@@ -156,12 +186,12 @@ bash examples/survivors/check-native-full.sh
 ```
 
 The ordinary suite includes [capability controls](capability-controls.test.py)
-and checks of the replay-comparison tools. Comparing a replay from the former component
-schema requires the explicit [migration verifier](../../tools/survivors-bot/ecs_migration_compare.py);
-its receipt lists the representation changes excluded from gameplay equality.
-For same-schema comparisons, the [exact replay verifier](../../tools/survivors-bot/replay_compare.py)
-accepts the explicit layout and compares actual metadata without migration
-exclusions; see its `--help`.
+and checks of the [exact replay verifier](../../tools/survivors-bot/replay_compare.py).
+It accepts only the current schema: nine actor columns, the three prepared
+rosters, actual player authority and typed phase snapshots. Every component
+stamp, allocator identity, world clock and snapshot order is compared exactly;
+only named outer timing fields are excluded. There is no historical-format
+detection or migration projection in ordinary checks. See its `--help`.
 
 An optional fresh-profile kiting observation reports survival, damage, progression and enemy density without requiring survival as a pass condition:
 

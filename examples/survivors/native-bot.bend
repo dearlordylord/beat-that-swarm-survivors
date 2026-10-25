@@ -1,3 +1,5 @@
+import game-encoder.bend as Encoder
+import run-state.bend as RS
 import Base
 import game.bend as G
 import bot-actions.bend as B
@@ -64,14 +66,15 @@ def read(path: String) -> IO(String):
 
 def published(observed: B.Observed,+directory: String,+sequence: U32,last: Nat) -> IO(Bot):
   match observed:
-    case B.Observed{state,+frame,actions,mechanics}:
+    case B.Observed{state,observation,actions,mechanics}:
+      +frame = Encoder.encode(observation)
       do IO<Bot>:
         write(directory ++ "/observation.json","{\"sequence\":" ++ U32.show(sequence) ++ ",\"frame\":" ++ frame ++ ",\"actions\":" ++ actions ++ ",\"mechanics\":" ++ mechanics ++ "}")
-        return Bot{G.Packet{state,frame},directory,sequence,1,0,0.0,0.0,last}
+        return Bot{G.Packet{state},directory,sequence,1,0,0.0,0.0,last}
     case B.ObserveFailed{error}: IO.pure(Bot,Bot{G.Failed{error},directory,sequence,1,0,0.0,0.0,last})
 def publish(state: Bot) -> IO(Bot):
   match state:
-    case Bot{G.Packet{game,_},directory,sequence,0,_,_,_,last}: published(B.observe(game),directory,sequence,last)
+    case Bot{G.Packet{game},directory,sequence,0,_,_,_,last}: published(B.observe(game),directory,sequence,last)
     case state: IO.pure(Bot,state)
 
 def apply_upgrade(valid: Bool,state: G.State,index: U32) -> G.Packet:
@@ -80,8 +83,8 @@ def apply_upgrade(valid: Bool,state: G.State,index: U32) -> G.Packet:
     case False{}: G.packet(state)
 def upgrade(state: G.State,+index: U32) -> G.Packet:
   match state:
-    case G.State{world,+run,rows,+offers,snapshots,pending}:
-      apply_upgrade(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,rows,offers,snapshots,pending},index)
+    case G.State{world,+run,+offers,snapshots,pending}:
+      apply_upgrade(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,offers,snapshots,pending},index)
 def command_move(valid: Bool,state: Bot,command: Command) -> Bot:
   match valid state command:
     case True{} Bot{game,directory,sequence,_,_,_,_,last} Command{_,x,y,_,horizon}: Bot{game,directory,sequence,1,horizon,axis(x),axis(y),last}
@@ -92,10 +95,10 @@ def command_upgrade_valid(valid: Bool,game: G.State,directory: String,sequence: 
     case False{}: Bot{G.packet(game),directory,sequence,published,0,0.0,0.0,last}
 def command_upgrade(state: G.State,directory: String,sequence: U32,published: U32,last: Nat,+index: U32) -> Bot:
   match state:
-    case G.State{world,+run,rows,+offers,snapshots,pending}: command_upgrade_valid(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,rows,offers,snapshots,pending},directory,sequence,published,last,index)
+    case G.State{world,+run,+offers,snapshots,pending}: command_upgrade_valid(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,offers,snapshots,pending},directory,sequence,published,last,index)
 def command(state: Bot,+cmd: Command) -> Bot:
   match state cmd:
-    case Bot{G.Packet{game,_},directory,sequence,published,0,_,_,last} Command{1,_,_,index,_}: command_upgrade(game,directory,sequence,published,last,index)
+    case Bot{G.Packet{game},directory,sequence,published,0,_,_,last} Command{1,_,_,index,_}: command_upgrade(game,directory,sequence,published,last,index)
     case state cmd: command_move(valid_move(cmd),state,cmd)
 def poll(state: Bot) -> IO(Bot):
   match state:
@@ -113,12 +116,12 @@ def finish_step(active: Bool,packet: G.Packet,directory: String,sequence: U32,le
 
 def after_step(packet: G.Packet,directory: String,sequence: U32,left: U32,dx: F32,dy: F32,last: Nat) -> Bot:
   match packet:
-    case G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame}:
-      finish_step(U32.is_eq(N.run_phase(run),0),G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},directory,sequence,left,dx,dy,last)
+    case G.Packet{G.State{world,+run,offers,snapshots,pending}}:
+      finish_step(U32.is_eq(N.run_phase(run),0),G.Packet{G.State{world,run,offers,snapshots,pending}},directory,sequence,left,dx,dy,last)
     case packet: Bot{packet,directory,(sequence + 1 : U32),0,0,dx,dy,last}
 def step_ready(ready: Bool,state: Bot,now: Nat) -> Bot:
   match ready state:
-    case True{} Bot{G.Packet{game,_},directory,sequence,published,left,+dx,+dy,_}: after_step(G.advance(game,dx,dy),directory,sequence,(left - 1 : U32),dx,dy,now)
+    case True{} Bot{G.Packet{game},directory,sequence,published,left,+dx,+dy,_}: after_step(G.advance(game,dx,dy),directory,sequence,(left - 1 : U32),dx,dy,now)
     case _ state: state
 
 def step(+now: Nat,state: Bot) -> Bot:
@@ -146,11 +149,11 @@ def tick_closed(closed: Bool,state: Bot) -> IO(Maybe<Bot>):
 def tick(events: List<Event>,state: Bot) -> IO(Maybe<Bot>): tick_closed(closes(events),state)
 def rendering_run(run: G.Run,packet: G.Packet) -> N.Native:
   match run:
-    case G.Run{+phase,_,_,_,_,_,_,_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: N.Native{packet,N.set_character(N.set_paused(N.set_screen(N.initial_ui(),1),(Bool.to_u32(Bool.or(U32.is_eq(phase,1),U32.is_eq(phase,2))) * 2 : U32)),character),P.fresh()}
+    case G.Run{RS.Session{+phase,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_}}: N.Native{packet,N.set_character(N.set_paused(N.set_screen(N.initial_ui(),1),(Bool.to_u32(Bool.or(U32.is_eq(phase,1),U32.is_eq(phase,2))) * 2 : U32)),character),P.fresh()}
 def rendering_native(packet: G.Packet) -> N.Native:
   match packet:
-    case G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame}:
-      rendering_run(run,G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame})
+    case G.Packet{G.State{world,+run,offers,snapshots,pending}}:
+      rendering_run(run,G.Packet{G.State{world,run,offers,snapshots,pending}})
     case packet: N.Native{packet,N.set_screen(N.initial_ui(),1),P.fresh()}
 def bot_view_return(directory: String,sequence: U32,published: U32,left: U32,dx: F32,dy: F32,last: Nat,native: N.Native,image: Image) -> Bot & Image:
   match native:

@@ -1,9 +1,9 @@
-import { projectileFrame } from "./observations.mts"
+import { projectileFrame, coreFrame } from "./observations.mts"
+import { decodeControlFrame } from "./coop-control-frame.mts"
 import { admitSnapshot } from "./snapshot-envelope.mts"
 import { displayText, defined, list as nativeList, errorMessage, at, parseJson, object } from "./host-values.mts"
-import type { Frame, Body, CoopFrame } from "./frame.mts"
+import type { Frame, Enemy, DrawActorRef, CoopFrame } from "./frame.mts"
 import type { CoopSetup } from "./coop-ui.mts"
-import Protocol from "./dist/coop-protocol.mjs"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
 import SnapshotFlow from "./dist/coop-snapshot-flow.mjs"
@@ -172,8 +172,13 @@ function observeInputAcknowledgement(envelope: SnapshotEnvelope, now: number) {
   // Sample first: the first eligible frame must include its Setup round trip.
   for (const seq of sentCommandTimes.keys()) if (seq <= acknowledged) sentCommandTimes.delete(seq)
 }
+function snapshotFrame(envelope: SnapshotEnvelope): CoopFrame {
+  const frame = coreFrame(envelope.frame)
+  if (!frame || !("combatForecast" in frame)) throw Error("Missing authoritative view observation")
+  return { ...frame, runId: envelope.runId }
+}
 function reconcilePrediction(envelope: SnapshotEnvelope) {
-  const frame = envelope.frame,
+  const frame = snapshotFrame(envelope),
     now = performance.now()
   if (prediction && !Prediction.observation_newer(prediction, envelope.observationSeq)) return false
   observeInputAcknowledgement(envelope, now)
@@ -254,16 +259,16 @@ function prepareDisplayFrame(now: number) {
     remotePresentation: { sourceTick: authorityFrame.tick, tick: authorityFrame.tick }
   }
   const targets = []
-  for (const body of frame.bodies || []) {
+  for (const enemy of frame.enemies) {
     const target = LocalProjectiles.observed_target(
-      body[7],
-      body[2],
-      body[6],
+      enemy.identity,
+      0,
+      enemy.age,
       defined(frame.remotePresentation).sourceTick,
-      body[0],
-      body[1],
-      body[8],
-      body[4]
+      enemy.x,
+      enemy.y,
+      enemy.radius,
+      enemy.health
     )
     if (target.$ === "Some") targets.push(target.value)
   }
@@ -297,16 +302,16 @@ function displayFrame(frame: Frame | null): Frame | null {
   if (role !== "guest" || !authorityFrame || !frame) return frame
   remoteFrame = frame
   const targets = []
-  for (const body of frame.bodies || []) {
+  for (const enemy of frame.enemies) {
     const target = LocalProjectiles.observed_target(
-      body[7],
-      body[2],
-      body[6],
+      enemy.identity,
+      0,
+      enemy.age,
       defined(frame.remotePresentation).sourceTick,
-      body[0],
-      body[1],
-      body[8],
-      body[4]
+      enemy.x,
+      enemy.y,
+      enemy.radius,
+      enemy.health
     )
     if (target.$ === "Some") targets.push(target.value)
   }
@@ -325,65 +330,61 @@ function displayFrame(frame: Frame | null): Frame | null {
     LocalProjectiles.render_frame(localShots, 1, defined(frame.remotePresentation).tick, localTargets)
   )
   const visibility = LocalProjectiles.prepare_visibility(localShots)
-  const bodies = (frame.bodies || [])
-    .filter((body) =>
-      LocalProjectiles.should_show_prepared(
-        visibility,
-        1,
-        body[2],
-        body[10] ?? 0,
-        typeof body[9] === "string" ? body[9] : ""
-      )
+  const projectiles = frame.projectiles.filter((projectile) =>
+    LocalProjectiles.should_show_prepared(
+      visibility,
+      1,
+      projectile.hostile ? 7 : 1,
+      projectile.sourcePlayer === null ? 4294967295 : projectile.sourcePlayer,
+      projectile.lifetime
     )
-    .concat(
-      visual.shots.map(
-        (shot): Body => [
-          shot.x,
-          shot.y,
-          shot.kind,
-          shot.weapon,
-          0,
-          0,
-          shot.age,
-          shot.seed,
-          shot.radius,
-          shot.id,
-          shot.player,
-          0,
-          shot.opacity
-        ]
-      )
-    )
+  )
+  const localProjectiles = visual.shots.map((shot) => ({
+    identity: shot.seed,
+    lifetime: shot.id,
+    sourcePlayer: shot.player,
+    hostile: false,
+    weapon: shot.weapon,
+    age: shot.age,
+    x: shot.x,
+    y: shot.y,
+    radius: shot.radius,
+    life: shot.life,
+    opacity: shot.opacity
+  }))
+  const projectileIds = new Set(projectiles.map((projectile) => projectile.identity))
+  const enemies = frame.enemies
+  const enemyFades: (Enemy & { opacity: number })[] = []
+  const actorOrder: DrawActorRef[] = frame.actorOrder.filter(
+    (reference) => !("projectile" in reference) || projectileIds.has(reference.projectile)
+  )
+  for (const projectile of localProjectiles) actorOrder.push({ localProjectile: projectile.lifetime })
   for (const corpse of visual.corpses) {
-    const metadata = ui.presentation.bodyMetadata(corpse.seed, corpse.id)
+    const metadata = ui.presentation.enemyMetadata(corpse.seed, corpse.id)
     if (metadata) {
-      const body: Body = [...metadata]
-      body[0] = corpse.x
-      body[1] = corpse.y
-      body[4] = 0
-      body[12] = 0.45
-      bodies.push(body)
+      enemyFades.push({ ...metadata, x: corpse.x, y: corpse.y, health: 0, opacity: 0.45, lifetime: corpse.id })
+      actorOrder.push({ enemyFade: corpse.id })
     }
   }
   return {
     ...frame,
-    bodies,
+    projectiles,
+    localProjectiles,
+    enemies,
+    enemyFades,
+    actorOrder,
     px: point.x,
     py: point.y,
-    ...(frame.players
-      ? {
-          players: frame.players.map((player) =>
-            player.id === defined(authorityFrame).ownPlayerId
-              ? {
-                  ...player,
-                  ...defined(authorityFrame).players?.find((own) => own.id === player.id),
-                  px: point.x,
-                  py: point.y
-                }
-              : player
-          )
-        }
-      : {}),
+    players: frame.players.map((player) =>
+      player.id === defined(authorityFrame).ownPlayerId
+        ? {
+            ...player,
+            ...defined(authorityFrame).players.find((own) => own.id === player.id),
+            px: point.x,
+            py: point.y
+          }
+        : player
+    ),
     ...(prediction
       ? {
           predictionTiming: {
@@ -417,7 +418,7 @@ function command(action: BendABI.CoopSession.Action) {
   }
   if (role === "guest" && prediction && action.$ === "MovementTick")
     prediction = Prediction.command(prediction, seq, action.x, action.y)
-  return Protocol.encode({
+  return ClientDelivery.encode_command({
     $: "Command",
     session: sessionId,
     player: role === "host" ? 0 : 1,
@@ -479,18 +480,14 @@ function connectionAction(action: BendABI.CoopConnection.Action, envelope?: Snap
     }
     case "PresentSnapshot": {
       try {
-        if (!envelope?.frame || typeof envelope.frame.predictionAllowed !== "boolean" || !envelope.receipt)
-          throw Error("Invalid authoritative snapshot")
+        if (!envelope?.frame || !envelope.receipt) throw Error("Invalid authoritative snapshot")
         if (!reconcilePrediction(envelope)) return
         lastFrameAt = performance.now()
-        tick = envelope.frame.tick
+        const frame = snapshotFrame(envelope)
+        tick = frame.tick
         if (stalled && Connection.running(connectionState)) ui.status("")
         stalled = false
-        ui.present({
-          ...envelope.frame,
-          observationSeq: envelope.observationSeq,
-          contactJournal: envelope.contactJournal
-        })
+        ui.present({ ...frame, observationSeq: envelope.observationSeq, contactJournal: envelope.contactJournal })
         if (!Connection.running(connectionState)) ui.setChoicePending(true)
         signalConnection({ $: "SnapshotSeen", token: action.token, observation: action.observation })
         clientDelivery = ClientDelivery.offer_receipt(clientDelivery, action.token, action.observation)
@@ -728,14 +725,14 @@ async function connect(
             signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
             return
           }
-          const bytes = kind === "guest" ? await messageDecoder.decode(event.bytes) : event.bytes
-          if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return
-          const text = decoder.decode(bytes)
-          const control = Connection.decode(text)
+          const control = decodeControlFrame(event.bytes, (text) => Connection.decode(text))
           if (control.$ === "Some") {
             signalConnection(control.value)
             return
           }
+          const bytes = kind === "guest" ? await messageDecoder.decode(event.bytes) : event.bytes
+          if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return
+          const text = decoder.decode(bytes)
           if (kind === "host") {
             const decoded = ClientDelivery.decode(text)
             if (decoded.$ !== "Some") {

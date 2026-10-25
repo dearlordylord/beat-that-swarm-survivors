@@ -248,11 +248,11 @@ function motionOracle(rows: RenderRow[], startWall: number) {
           presentation: row.remotePresentation
         })
     }
-    const oldEnemies = new Map((previous.enemies || []).map((enemy) => [enemy[2], enemy]))
+    const oldEnemies = new Map((previous.enemies || []).map((enemy) => [`${enemy.identity}:${enemy.lifetime}`, enemy]))
     for (const enemy of row.enemies || []) {
-      const old = oldEnemies.get(enemy[2])
+      const old = oldEnemies.get(`${enemy.identity}:${enemy.lifetime}`)
       if (old) {
-        const distance = Math.hypot(enemy[0] - old[0], enemy[1] - old[1])
+        const distance = Math.hypot(enemy.x - old.x, enemy.y - old.y)
         if (Number.isFinite(distance)) enemySteps.push(distance / ((elapsedMs * 60) / 1000))
       }
     }
@@ -431,10 +431,7 @@ async function instrument(page: Page, role: Role, errors: BrowserError[]) {
         presentationMeasurement: frame.presentationMeasurement,
         remotePresentation: frame.remotePresentation,
         players: frame.players,
-        enemies: frame.bodies
-          .filter((b) => b[2] === 0)
-          .slice(0, 16)
-          .map((b) => [b[0], b[1], b[9] ?? b[7]])
+        enemies: frame.enemies.slice(0, 16).map(({ x, y, identity, lifetime }) => ({ x, y, identity, lifetime }))
       })
       if (trace.renders.length > 5000) trace.renders.shift()
     }
@@ -593,7 +590,7 @@ async function instrument(page: Page, role: Role, errors: BrowserError[]) {
       source = source.replace(
         send,
         send +
-          "{let depth=0;for(let row=snapshotFlow.flights;row.$==='Con';row=row.tail)depth++;const sentFrame=message?.bytes?JSON.parse(new TextDecoder().decode(message.bytes)).frame:message?.frame;const rows=globalThis.__reliable.snapshotSends;rows.push({at:performance.now(),wall:Date.now(),token:message?.token,observation:message?.observationSeq,tick:sentFrame?.tick,phase:sentFrame?.phase,round:sentFrame?.roundId,depth});if(rows.length>5000)rows.shift();}"
+          "{let depth=0;for(let row=snapshotFlow.flights;row.$==='Con';row=row.tail)depth++;const sentView=message?.bytes?JSON.parse(new TextDecoder().decode(message.bytes)).frame:null;const sentFrame=message?.frame;const rows=globalThis.__reliable.snapshotSends;rows.push({at:performance.now(),wall:Date.now(),token:message?.token,observation:message?.observationSeq,tick:sentView?sentView.game.run.session.tick:sentFrame?.tick,phase:sentView?sentView.game.run.session.phase:sentFrame?.phase,round:sentView?sentView.round:sentFrame?.roundId,depth});if(rows.length>5000)rows.shift();}"
       )
       source = source.replace(
         ack,
@@ -613,7 +610,7 @@ async function instrument(page: Page, role: Role, errors: BrowserError[]) {
         .replace(
           marker,
           marker +
-            "if(envelope.frame)globalThis.__reliable.arrivals.push({at:performance.now(),wall:Date.now(),tick:envelope.frame.tick,observation:envelope.observationSeq,admissionGuestLastSeq:envelope.admission?.guest?.lastSeq,receipt:envelope.receipt,inputTiming:envelope.inputTiming});"
+            "if(envelope.frame)globalThis.__reliable.arrivals.push({at:performance.now(),wall:Date.now(),tick:envelope.frame.game.run.session.tick,observation:envelope.observationSeq,admissionGuestLastSeq:envelope.admission?.guest?.lastSeq,receipt:envelope.receipt,inputTiming:envelope.inputTiming});"
         )
         .replace(
           inputMarker,

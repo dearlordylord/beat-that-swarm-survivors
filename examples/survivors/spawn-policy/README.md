@@ -1,27 +1,38 @@
-# Offscreen birth invariant
+# Offscreen spawn admission
 
-`LAWS.bend` and `PROOF.bend` verify the admission and lifecycle core used by the game. The main safety law is `accepted_newborn_is_outside`: for every coordinate, camera coordinate, radius and supplied clean Motion value, admission implies that the unchanged newborn point satisfies the offscreen exclusion predicate. It is a universal kernel-checked implication, not a sampled placement claim.
-
-Other laws preserve the entire payload, supply exactly the clean status, reject dormant revival, and distinguish actual births/boss resets from an existing age counter wrapping to zero. A well-typed mutation that admits every candidate fails the safety law. Mutations that always choose Fresh/Existing or ignore prior identity fail their corresponding laws.
+`LAWS.bend` and `PROOF.bend` verify the geometric admission policy. The safety
+law `accepted_candidate_is_outside` states, for every candidate coordinate,
+camera coordinate and radius, that accepted admission implies the complete
+appearance lies outside the viewport exclusion. `admission_matches_geometry`
+and `fitting_side_selected` retain the exact gate and side-selection guarantees.
+These are universal kernel-checked statements, not sampled placement claims.
 
 ## Production connection
 
-`game.bend` routes the updated row through `spawn-lifecycle.bend`. A fresh row bypasses previous-incarnation combat and returns its accepted coordinates and initial health with `empty_motion()`. Existing rows use the original combat path. ECS writes install the new Vitals/Motion and commit the returned Body.
+The application uses the typed spawn and lifecycle policies in
+[`enemy-spawn.bend`](../enemy-spawn.bend),
+[`enemy-combat.bend`](../enemy-combat.bend) and
+[`enemy-lifecycle.bend`](../enemy-lifecycle.bend). The birth operation itself
+constructs clean status, age, contact damage and killer state; callers cannot
+supply a supposedly clean motion payload. Its concrete law and the production
+birth admission fixture cover that separate responsibility, including the
+wiring mutation that carries old status forward.
 
-This fixes a reproduced defect: spawning was initially offscreen, but combat interpolated the new point from the corpse position using the previous occupant's slow/freeze. A frozen slot could therefore put its replacement exactly at the player. Tower pulses could also damage the replacement at the old corpse position. Newborn status reset prevents that interpolation and those old-position hits.
+Spatial position and age, Vitals, Status, Phase and stable Identity each have
+explicit authority. The former generic payload/status passthrough and numeric
+kind/age routing helpers are removed. A new lifetime cannot inherit slow,
+freeze, burn or contact effects from the former occupant.
 
 ## Scope and checks
 
-The formal proof covers the small admission/lifecycle core. It does not prove the entire ECS query interpreter, every game callsite, camera rendering, or IEEE floating-point implementation. The exclusion geometry conservatively includes the native raster and supported browser camera; independent tests cover all enemy variants and arena edges. A separate proof attempt importing the complete game exceeded its fixed kernel CPU budget and was archived as unverified, not shipped as a completed proof.
-
-The production connection is additionally checked by native C regressions for old slow/freeze/burn/tower hits.
-
-From the repository root, with the matching development proof toolchain installed:
+These proofs do not establish the whole ECS interpreter, every callsite,
+rendering, or real-number collision arithmetic. Independent geometry fixtures
+cover enemy variants and arena edges; the concrete birth fixture checks the
+actual production transition. Run the kernel checks from the repository root:
 
 ```sh
-ELAN_TOOLCHAIN=leanprover/lean4:v4.34.0 bend examples/survivors/spawn-policy/PROOF.bend --verdict
+python3 scripts/check-bend-laws.py examples/survivors/spawn-policy/PROOF.bend examples/survivors/enemy-lifecycle/PROOF.bend
 ```
 
-Game launch itself does not require the proof toolchain. Source-bound receipts and rejected mutants are stored outside the checkout in `../bend-games/research/survivors-fps-spawn-20261023/`.
-
-Arena geometry and movement bounds belong to [arena.bend](../arena.bend).
+Game launch does not require the proof toolchain. Arena and viewport bounds
+belong to [arena.bend](../arena.bend) and [viewport.bend](../viewport.bend).

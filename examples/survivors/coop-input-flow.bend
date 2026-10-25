@@ -73,9 +73,10 @@ def encode_rows(rows:List<&2,S.Command>) -> String:
     case []: ""
     case head <> []: Protocol.encode(head)
     case head <> tail: Protocol.encode(head) ++ "\n" ++ encode_rows(tail)
+def encode_commands(commands:List<&2,S.Command>) -> String: "BSB1\n" ++ encode_rows(commands)
 def encode(batch:Batch) -> String:
   match batch:
-    case Batch{_,_,commands}: "BSB1\n" ++ encode_rows(commands)
+    case Batch{_,_,commands}: encode_commands(commands)
 def line_choice(newline:Bool,yes:Unit -> List<&2,String>,no:Unit -> List<&2,String>) -> List<&2,String>:
   match newline:
     case True{}: yes(Unit{})
@@ -97,20 +98,16 @@ def parse_selected(allowed:Bool,rows:List<&2,String>) -> Maybe<&2,List<&2,S.Comm
   match allowed:
     case False{}: None{}
     case True{}: parse_rows(rows)
-def decoded_single(value:Maybe<&2,S.Command>) -> Maybe<&2,List<&2,S.Command>>:
-  match value:
-    case None{}: None{}
-    case Some{command}: Some{[command]}
-def decode_kind(batch:Bool,+rows:List<&2,String>,text:String) -> Maybe<&2,List<&2,S.Command>>:
+def decode_kind(batch:Bool,+rows:List<&2,String>) -> Maybe<&2,List<&2,S.Command>>:
   match batch:
     case True{}: parse_selected(rows_allowed(rows),rows)
-    case False{}: decoded_single(Protocol.decode(text))
-def decode_lines(rows:List<&2,String>,text:String) -> Maybe<&2,List<&2,S.Command>>:
+    case False{}: None{}
+def decode_lines(rows:List<&2,String>) -> Maybe<&2,List<&2,S.Command>>:
   match rows:
-    case []: decoded_single(Protocol.decode(text))
-    case head <> tail: decode_kind(String.eq(head,"BSB1"),tail,text)
+    case []: None{}
+    case head <> tail: decode_kind(String.eq(head,"BSB1"),tail)
 def decode_selected(allowed:Bool,+text:String) -> Maybe<&2,List<&2,S.Command>>:
   match allowed:
     case False{}: None{}
-    case True{}: decode_lines(lines(text,""),text)
+    case True{}: decode_lines(lines(text,""))
 def decode(+text:String) -> Maybe<&2,List<&2,S.Command>>: decode_selected(Nat.is_le(String.length(text),U32.to_nat(max_frame_bytes())),text)

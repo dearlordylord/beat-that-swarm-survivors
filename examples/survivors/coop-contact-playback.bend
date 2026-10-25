@@ -38,7 +38,7 @@ def point(actor:P.Actor) -> Point:
     case P.Actor{_,_,_,x,y,_,_,_}: Point{x,y}
 def positioned(actor:P.Actor,point:Point) -> P.Actor:
   match actor point:
-    case P.Actor{key,kind,generation,_,_,age,hp,owner} Point{x,y}: P.Actor{key,kind,generation,x,y,age,hp,owner}
+    case P.Actor{key,kind,generation,_,_,age,alive,owner} Point{x,y}: P.Actor{key,kind,generation,x,y,age,alive,owner}
 def impact(event:J.HitEvent) -> Point:
   match event:
     case J.HitEvent{_,_,_,_,_,_,_,_,x,y,_,_,_,_}: Point{x,y}

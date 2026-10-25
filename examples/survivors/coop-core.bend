@@ -1,4 +1,12 @@
+import pickup-state.bend as Pickup
+import enemy-spatial.bend as PickupSpace
+import run-state.bend as RS
 import Base
+import enemy-combat.bend as Enemy
+import game-components.bend as Components
+import projectile-state.bend as Shot
+import enemy-spatial.bend as Space
+import game-storage.bend as Storage
 import coop-hit-journal.bend as Journal
 import coop-combat-prediction-policy.bend as ContactPolicy
 import projectile-contact.bend as Contact
@@ -11,7 +19,6 @@ import coop-combat-prediction.bend as CombatPrediction
 import arena.bend as A
 import entity-role.bend as Role
 import spawn-policy.bend as S
-import spawn-lifecycle.bend as SL
 import pools.bend as PL
 import projectile-pool.bend as SP
 import body-index.bend as BI
@@ -21,292 +28,284 @@ import bendvy-ecs-core@0.1.0.1/transaction.bend as T
 import bendvy-ecs-core@0.1.0.1/compose.bend as Q
 import bendvy-ecs-core@0.1.0.1/capabilities.bend as Cap
 
-type PlayerRef is Data: PlayerRef{id: U32,handle: W.Handle<G.Schema>}
+type PlayerRef is Data: PlayerRef{id: U32,handle: W.Handle<Storage.Schema>}
 type PlayerOffers is Data: PlayerOffers{id: U32,offers: List<&2,G.Offer>}
 type Reward is Data: Reward{kind: U32,collector: U32}
 type CoreState is Type:
-  CoreState{world: G.World(),shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>}
-type ObservedPlayer is Data: ObservedPlayer{id:U32,px:F32,py:F32,hp:U32,maxHp:U32,character:U32,connected:Bool,alive:Bool}
-type Details is Data: Details{predictionAllowed:Bool,stepDistance:F32,coop:Bool,ownPlayerId:U32,choicePending:Bool,roundId:U32,requiredPlayers:List<&2,U32>,players:List<&2,ObservedPlayer>,combatForecast:CombatPrediction.Scene}
+  CoreState{world: Storage.World(),shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>}
+# Observations are immutable outputs, never a serialized simulation result.
 type Observation is Data:
-  Display{base:G.Observation,details:Details}
-  Clock{tick:U32,phase:U32,advanced:Bool,contacts:List<&2,Journal.HitEvent>,contactsOmitted:U32}
+  NoObservation{}
+  ViewObservation{game: G.Observation,predictionAllowed: Bool,stepDistance: F32,ownPlayerId: U32,choicePending: Bool,round: U32,required: List<&2,U32>,players: List<&2,Components.PlayerRecord>,forecast: CombatPrediction.Scene}
+  StepObservation{tick: U32,phase: U32,advanced: Bool,contacts: List<&2,Journal.HitEvent>,contactsOmitted: U32}
 type CorePacket is Type:
-  CorePacket{state: CoreState,frame: Maybe<&2,Observation>}
+  CorePacket{state: CoreState,observation: Observation}
   CoreRejected{state: CoreState,message: String}
   CoreFailed{message: String}
 def run_phase(run: G.Run) -> U32:
   match run:
-    case G.Run{phase,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: phase
+    case G.Run{RS.Session{phase,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: phase
 def run_tick(run: G.Run) -> U32:
   match run:
-    case G.Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: tick
+    case G.Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: tick
 def run_px(run: G.Run) -> F32:
   match run:
-    case G.Run{_,_,px,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: px
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{px,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: px
 def run_py(run: G.Run) -> F32:
   match run:
-    case G.Run{_,_,_,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: py
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: py
 def run_hp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: hp
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,hp,_,_,_,_,_,_,_,_,_,_,_,_,_}}: hp
 def run_maxHp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,maxHp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: maxHp
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,maxHp,_,_,_,_,_,_,_,_,_,_,_,_}}: maxHp
 def run_xp(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,xp,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: xp
+    case G.Run{RS.Session{_,_,xp,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: xp
 def run_xpNeed(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,xpNeed,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: xpNeed
+    case G.Run{RS.Session{_,_,_,xpNeed,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: xpNeed
 def run_level(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,level,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: level
+    case G.Run{RS.Session{_,_,_,_,level,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: level
 def run_kills(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,kills,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: kills
+    case G.Run{RS.Session{_,_,_,_,_,kills,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: kills
 def run_gold(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,gold,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: gold
+    case G.Run{RS.Session{_,_,_,_,_,_,gold,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: gold
 def run_character(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: character
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_}}: character
 def run_weapons(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,weapons,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: weapons
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,weapons,_,_,_,_,_,_,_,_,_,_}}: weapons
 def run_passives(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,passives,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: passives
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,passives,_,_,_,_,_,_,_,_,_}}: passives
 def run_invuln(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,invuln,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: invuln
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,invuln,_,_,_,_,_,_,_,_}}: invuln
 def run_seed(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,seed,_,_,_,_,_,_,_,_,_,_,_,_,_}: seed
+    case G.Run{RS.Session{_,_,_,_,_,_,_,seed,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: seed
 def run_stage(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,stage,_,_,_,_,_,_,_,_,_,_,_,_}: stage
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,stage,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: stage
 def run_arcana(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_,_,_,_,_}: arcana
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_}}: arcana
 def run_meta(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,meta,_,_,_,_,_,_,_,_,_,_}: meta
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,meta,_,_,_,_,_,_}}: meta
 def run_revivals(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,revivals,_,_,_,_,_,_,_,_,_}: revivals
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,revivals,_,_,_,_,_}}: revivals
 def run_bosses(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,bosses,_,_,_,_,_,_,_,_}: bosses
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,bosses,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: bosses
 def run_mode(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,mode,_,_,_,_,_,_,_}: mode
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,mode,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: mode
 def run_rerolls(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,rerolls,_,_,_,_,_,_}: rerolls
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,rerolls,_,_,_,_}}: rerolls
 def run_banishes(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,banishes,_,_,_,_,_}: banishes
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,banishes,_,_,_}}: banishes
 def run_skips(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,skips,_,_,_,_}: skips
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,skips,_,_}}: skips
 def run_bannedWeapons(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,bannedWeapons,_,_,_}: bannedWeapons
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,bannedWeapons,_}}: bannedWeapons
 def run_bannedPassives(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,bannedPassives,_,_}: bannedPassives
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,bannedPassives}}: bannedPassives
 def run_enemyKinds(run: G.Run) -> List<&2,U32>:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,enemyKinds,_}: enemyKinds
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,enemyKinds,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: enemyKinds
 def run_relicCollected(run: G.Run) -> U32:
   match run:
-    case G.Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,relicCollected}: relicCollected
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,relicCollected},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: relicCollected
 def with_phase(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{_,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{value,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{_,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{value,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_tick(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,_,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,value,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,_,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,value,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_xp(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,_,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,value,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,_,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,value,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_xpNeed(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,_,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,xp,value,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,_,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,value,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_level(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,_,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,value,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,_,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,value,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_gold(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,_,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,value,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,_,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,value,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_seed(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,_,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,value,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,_,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,value,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_hp(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,_,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,value,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,value,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_invuln(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,_,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,value,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,_,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,value,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_revivals(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,_,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,value,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,value,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_px(run: G.Run,value: F32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,_,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,value,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{_,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{value,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_py(run: G.Run,value: F32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,_,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{phase,tick,px,value,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,_,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,value,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def with_relicCollected(run: G.Run,value: U32) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,_}: G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,value}
-def projection(+shared: G.Run,personal: G.Run) -> G.Run:
-  match personal:
-    case G.Run{_,_,+px,+py,+hp,+maxHp,_,_,_,_,_,+character,+weapons,+passives,+invuln,_,_,+arcana,+meta,+revivals,_,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,_,_}: G.Run{run_phase(shared),run_tick(shared),px,py,hp,maxHp,run_xp(shared),run_xpNeed(shared),run_level(shared),run_kills(shared),run_gold(shared),character,weapons,passives,invuln,run_seed(shared),run_stage(shared),arcana,meta,revivals,run_bosses(shared),run_mode(shared),rerolls,banishes,skips,bannedWeapons,bannedPassives,run_enemyKinds(shared),run_relicCollected(shared)}
-def player_replaced(result: C.Replacement<G.World(),G.PlayerRecord>) -> G.World():
+    case G.Run{RS.Session{+phase,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,value},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
+# Immutable phase input combines the two actual authorities without copying fields.
+def player_step_context(shared: RS.Session,personal: RS.PlayerState) -> G.Run: G.Run{shared,personal}
+def player_replaced(result: C.Replacement<Storage.World(),Components.PlayerRecord>) -> Storage.World():
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
-def save_player(world: G.World(),ref: PlayerRef,player: G.PlayerRecord) -> G.World():
+def save_player(world: Storage.World(),ref: PlayerRef,player: Components.PlayerRecord) -> Storage.World():
   match ref:
-    case PlayerRef{_,handle}: player_replaced(C.structural_replace(~G.Schema,~G.Store,~Unit,~Unit,~G.PlayerRest,~G.PlayerRecord,~G.PlayerRecord,~G.PlayerToken,~G.take_players,~G.put_players,~G.project_player,G.player_family(),world,handle,Some{player}))
-def save_players(refs: List<&2,PlayerRef>,players: List<&2,G.PlayerRecord>,world: G.World()) -> G.World():
+    case PlayerRef{_,handle}: player_replaced(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PlayerRest,~Components.PlayerRecord,~Components.PlayerRecord,~Storage.PlayerToken,~Storage.take_players,~Storage.put_players,~Storage.project_player,Storage.player_family(),world,handle,Some{player}))
+def save_players(refs: List<&2,PlayerRef>,players: List<&2,Components.PlayerRecord>,world: Storage.World()) -> Storage.World():
   match refs players:
     case ref <> refs player <> players: save_players(refs,players,save_player(world,ref,player))
     case _ _: world
-def load_player_result(next: List<&2,G.PlayerRecord> -> G.World() -> G.World() & List<&2,G.PlayerRecord>,loaded: List<&2,G.PlayerRecord>,result: G.World() & C.Access<G.PlayerRecord>) -> G.World() & List<&2,G.PlayerRecord>:
+def load_player_result(next: List<&2,Components.PlayerRecord> -> Storage.World() -> Storage.World() & List<&2,Components.PlayerRecord>,loaded: List<&2,Components.PlayerRecord>,result: Storage.World() & C.Access<Components.PlayerRecord>) -> Storage.World() & List<&2,Components.PlayerRecord>:
   match result:
     case (world,C.Found{player}): next(player <> loaded,world)
     case (world,_): next(loaded,world)
-def load_players(refs: List<&2,PlayerRef>,loaded: List<&2,G.PlayerRecord>,world: G.World()) -> G.World() & List<&2,G.PlayerRecord>:
+def load_players(refs: List<&2,PlayerRef>,loaded: List<&2,Components.PlayerRecord>,world: Storage.World()) -> Storage.World() & List<&2,Components.PlayerRecord>:
   match refs:
-    case []: (world,List.reverse(&2,G.PlayerRecord,loaded))
-    case PlayerRef{_,handle} <> rest: load_player_result(load_players(rest),loaded,C.get(~G.Schema,~G.Store,~Unit,~Unit,~G.PlayerRest,~G.PlayerRecord,~G.PlayerRecord,~G.PlayerToken,~G.take_players,~G.put_players,~G.project_player,G.player_family(),world,handle))
+    case []: (world,List.reverse(&2,Components.PlayerRecord,loaded))
+    case PlayerRef{_,handle} <> rest: load_player_result(load_players(rest),loaded,C.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PlayerRest,~Components.PlayerRecord,~Components.PlayerRecord,~Storage.PlayerToken,~Storage.take_players,~Storage.put_players,~Storage.project_player,Storage.player_family(),world,handle))
 
-def record_id(player: G.PlayerRecord) -> U32:
+def record_id(player: Components.PlayerRecord) -> U32:
   match player:
-    case G.PlayerRecord{id,_,_}: id
-def record_run(player: G.PlayerRecord) -> G.Run:
+    case Components.PlayerRecord{id,_,_}: id
+def record_player(player: Components.PlayerRecord) -> RS.PlayerState:
   match player:
-    case G.PlayerRecord{_,run,_}: run
-def record_connected(player: G.PlayerRecord) -> Bool:
+    case Components.PlayerRecord{_,personal,_}: personal
+def record_connected(player: Components.PlayerRecord) -> Bool:
   match player:
-    case G.PlayerRecord{_,_,connected}: connected
-def find_player(players: List<&2,G.PlayerRecord>,+id: U32,fallback: G.Run) -> G.Run:
+    case Components.PlayerRecord{_,_,connected}: connected
+def find_player(players: List<&2,Components.PlayerRecord>,+id: U32) -> Maybe<&2,RS.PlayerState>:
   match players:
-    case []: fallback
-    case G.PlayerRecord{+pid,+run,_} <> rest: Bool.pick(G.Run,U32.is_eq(pid,id),run,find_player(rest,id,fallback))
+    case []: None{}
+    case Components.PlayerRecord{+pid,personal,_} <> rest: Bool.pick(Maybe<&2,RS.PlayerState>,U32.is_eq(pid,id),Some{personal},find_player(rest,id))
 def offers_for(rows: List<&2,PlayerOffers>,+id: U32) -> List<&2,G.Offer>:
   match rows:
     case []: []
     case PlayerOffers{+pid,offers} <> rest: Bool.pick(List<&2,G.Offer>,U32.is_eq(pid,id),offers,offers_for(rest,id))
-def observed_players(rows:List<&2,G.PlayerRecord>) -> List<&2,ObservedPlayer>:
-  match rows:
-    case []: []
-    case G.PlayerRecord{id,+run,connected} <> tail: ObservedPlayer{id,run_px(run),run_py(run),run_hp(run),run_maxHp(run),run_character(run),connected,U32.is_gt(run_hp(run),0)} <> observed_players(tail)
-def player_connected(players: List<&2,G.PlayerRecord>,+id: U32) -> Bool:
+def player_connected(players: List<&2,Components.PlayerRecord>,+id: U32) -> Bool:
   match players:
     case []: False{}
-    case G.PlayerRecord{+pid,_,connected} <> rest: Bool.pick(Bool,U32.is_eq(pid,id),connected,player_connected(rest,id))
-def observe_packet(shared:G.Run,refs:List<&2,PlayerRef>,round:U32,required:List<&2,U32>,offers:List<&2,PlayerOffers>,pending:List<&2,Reward>,details:Details,result:G.Packet) -> CorePacket:
-  match result:
-    case G.Packet{G.State{world,_,bodies,_,snapshots,_},Some{frame}}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},Some{Display{frame,details}}}
-    case G.Packet{G.State{world,_,bodies,_,snapshots,_},None{}}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},None{}}
-    case G.Failed{message}: CoreFailed{message}
-def spectator_target(players: List<&2,G.PlayerRecord>,fallback: G.Run) -> G.Run:
+    case Components.PlayerRecord{+pid,_,connected} <> rest: Bool.pick(Bool,U32.is_eq(pid,id),connected,player_connected(rest,id))
+def spectator_target(players: List<&2,Components.PlayerRecord>,fallback: RS.PlayerState) -> RS.PlayerState:
   match players:
     case []: fallback
-    case G.PlayerRecord{_,+run,+connected} <> rest: Bool.pick(G.Run,Bool.and(connected,U32.is_lt(0,run_hp(run))),run,spectator_target(rest,fallback))
-def observer_run(+shared: G.Run,+players: List<&2,G.PlayerRecord>,+id: U32) -> G.Run:
-  +own = projection(shared,find_player(players,id,shared))
+    case Components.PlayerRecord{_,+personal,+connected} <> rest: Bool.pick(RS.PlayerState,Bool.and(connected,U32.is_lt(0,RS.player_hp(personal))),personal,spectator_target(rest,fallback))
+# Camera selection is presentation-only; it never writes another player's facts.
+def observer_context(shared: RS.Session,+players: List<&2,Components.PlayerRecord>,+own: RS.PlayerState) -> G.Run:
   +target = spectator_target(players,own)
-  Bool.pick(G.Run,U32.is_eq(run_hp(own),0),with_py(with_px(own,run_px(target)),run_py(target)),own)
+  G.Run{shared,Bool.pick(RS.PlayerState,U32.is_eq(RS.player_hp(own),0),RS.player_with_py(RS.player_with_px(own,RS.player_px(target)),RS.player_py(target)),own)}
 # The detached cohort receives every player's shared clock/configuration together
 # with personal movement/stats, exactly as the authoritative team step does.
-def forecast_players(+shared:G.Run,players:List<&2,G.PlayerRecord>) -> List<&2,G.PlayerRecord>:
+def forecast_players(+shared: RS.Session,players: List<&2,Components.PlayerRecord>) -> List<&2,G.PlayerSnapshot>:
   match players:
     case []: []
-    case G.PlayerRecord{id,run,connected} <> tail: G.PlayerRecord{id,projection(shared,run),connected} <> forecast_players(shared,tail)
-def observation_details(+shared:G.Run,+players:List<&2,G.PlayerRecord>,+snapshots:List<&2,G.Snapshot>,+id:U32,round:U32,+required:List<&2,U32>) -> Details:
-  Details{Prediction.allowed(run_phase(shared),run_hp(find_player(players,id,shared)),player_connected(players,id)),G.run_step_distance(find_player(players,id,shared)),True{},id,G.contains(required,id),round,required,observed_players(players),CombatPrediction.initialize(id,forecast_players(shared,players),snapshots)}
-def observe_loaded(+shared:G.Run,+refs:List<&2,PlayerRef>,+bodies:List<&2,G.Body>,+snapshots:List<&2,G.Snapshot>,+round:U32,+required:List<&2,U32>,+offers:List<&2,PlayerOffers>,+pending:List<&2,Reward>,+id:U32,result:G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
+    case Components.PlayerRecord{id,personal,connected} <> tail: G.PlayerSnapshot{id,player_step_context(shared,personal),connected} <> forecast_players(shared,tail)
+def observe_player(+shared: RS.Session,+refs: List<&2,PlayerRef>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,own: Maybe<&2,RS.PlayerState>) -> CorePacket:
+  match own:
+    case None{}: CoreRejected{CoreState{world,shared,refs,snapshots,round,required,offers,pending},"Unknown observing player"}
+    case Some{+personal}: CorePacket{CoreState{world,shared,refs,snapshots,round,required,offers,pending},ViewObservation{G.observation(observer_context(shared,players,personal),offers_for(offers,id),snapshots),Prediction.allowed(RS.session_phase(shared),RS.player_hp(personal),player_connected(players,id)),G.run_step_distance(player_step_context(shared,personal)),id,G.contains(required,id),round,required,players,CombatPrediction.initialize(id,RS.session_tick(shared),forecast_players(shared,players),snapshots)}}
+def observe_loaded(+shared: RS.Session,+refs: List<&2,PlayerRef>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
-    case (world,+players): observe_packet(shared,refs,round,required,offers,pending,observation_details(shared,players,snapshots,id,round,required),G.packet(G.State{world,observer_run(shared,players,id),bodies,offers_for(offers,id),snapshots,[]}))
+    case (world,+players): observe_player(shared,refs,snapshots,round,required,offers,pending,id,world,players,find_player(players,id))
 def core_observe(state: CoreState,+id: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,+refs,+bodies,+snapshots,+round,+required,+offers,+pending}: observe_loaded(shared,refs,bodies,snapshots,round,required,offers,pending,id,load_players(refs,[],world))
-def quiet(state: CoreState) -> CorePacket: CorePacket{state,None{}}
+    case CoreState{world,+shared,+refs,+snapshots,+round,+required,+offers,+pending}: observe_loaded(shared,refs,snapshots,round,required,offers,pending,id,load_players(refs,[],world))
+def completed(state: CoreState) -> CorePacket: CorePacket{state,NoObservation{}}
 type PlayerCreated is Type:
-  PlayerCreated{world: G.World(),ref: PlayerRef}
-  PlayerCreateFailed{world: G.World()}
-def player_activated(+id: U32,run: G.Run,+handle: W.Handle<G.Schema>,result: G.World() & W.Status) -> PlayerCreated:
+  PlayerCreated{world: Storage.World(),ref: PlayerRef}
+  PlayerCreateFailed{world: Storage.World()}
+def player_activated(+id: U32,run: RS.PlayerState,+handle: W.Handle<Storage.Schema>,result: Storage.World() & W.Status) -> PlayerCreated:
   match result:
-    case (world,W.Accepted{}): PlayerCreated{save_player(world,PlayerRef{id,handle},G.PlayerRecord{id,run,True{}}),PlayerRef{id,handle}}
+    case (world,W.Accepted{}): PlayerCreated{save_player(world,PlayerRef{id,handle},Components.PlayerRecord{id,run,True{}}),PlayerRef{id,handle}}
     case (world,_): PlayerCreateFailed{world}
-def player_reserved(+id: U32,run: G.Run,result: G.World() & W.Reservation<G.Schema>) -> PlayerCreated:
+def player_reserved(+id: U32,run: RS.PlayerState,result: Storage.World() & W.Reservation<Storage.Schema>) -> PlayerCreated:
   match result:
-    case (world,W.Reserved{+handle}): player_activated(id,run,handle,W.activate(~G.Schema,~G.Store,~Unit,~Unit,world,handle))
+    case (world,W.Reserved{+handle}): player_activated(id,run,handle,W.activate(~Storage.Schema,~Storage.Store,~Unit,~Unit,world,handle))
     case (world,_): PlayerCreateFailed{world}
-def create_player(world: G.World(),id: U32,run: G.Run) -> PlayerCreated:
-  player_reserved(id,run,W.reserve_id(~G.Schema,~G.Store,~Unit,~Unit,world))
-def core_started(shared: G.Run,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,result: PlayerCreated) -> CorePacket:
+def create_player(world: Storage.World(),id: U32,run: RS.PlayerState) -> PlayerCreated:
+  player_reserved(id,run,W.reserve_id(~Storage.Schema,~Storage.Store,~Unit,~Unit,world))
+def core_started(shared: RS.Session,snapshots: List<&2,G.Snapshot>,result: PlayerCreated) -> CorePacket:
   match result:
-    case PlayerCreated{world,ref}: quiet(CoreState{world,shared,[ref],bodies,snapshots,0,[],[],[]})
+    case PlayerCreated{world,ref}: completed(CoreState{world,shared,[ref],snapshots,0,[],[],[]})
     case PlayerCreateFailed{_}: CoreFailed{"Player entity allocation failed"}
 def core_started_packet(packet: G.Packet) -> CorePacket:
   match packet:
-    case G.Packet{G.State{world,+run,bodies,_,snapshots,_},_}: core_started(run,bodies,snapshots,create_player(world,0,run))
+    case G.Packet{G.State{world,G.Run{session,personal},_,snapshots,_}}: core_started(session,snapshots,create_player(world,0,personal))
     case G.Failed{message}: CoreFailed{message}
-def core_start(character: U32,meta: U32,seed: U32) -> CorePacket: core_started_packet(G.start_seed_quiet(character,meta,seed))
+def core_start(character: U32,meta: U32,seed: U32) -> CorePacket: core_started_packet(G.start_seed(character,meta,seed))
 
 def unlock_run(+mask: U32,run: G.Run) -> G.Run:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+kinds,+relic}: G.Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(mask,16777215))),bannedPassives,kinds,relic}
+    case G.Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+kinds,+relic},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,kinds,relic},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(mask,16777215))),bannedPassives}}
 type PlayerEdit is Data:
   EditConfigure{stage: U32,mode: U32,arcana: U32}
   EditUnlock{mask: U32}
-def apply_edit(edit: PlayerEdit,run: G.Run) -> G.Run:
+def apply_edit(+shared: RS.Session,edit: PlayerEdit,personal: RS.PlayerState) -> RS.PlayerState:
   match edit:
-    case EditConfigure{stage,mode,arcana}: G.mode_configured(G.configured(run,stage,arcana),mode)
-    case EditUnlock{mask}: unlock_run(mask,run)
-def edit_player(+id: U32,+edit: PlayerEdit,players: List<&2,G.PlayerRecord>) -> List<&2,G.PlayerRecord>:
+    case EditConfigure{stage,mode,arcana}: G.run_player(G.mode_configured(G.configured(G.Run{shared,personal},stage,arcana),mode))
+    case EditUnlock{mask}: G.run_player(unlock_run(mask,G.Run{shared,personal}))
+def edit_player(+shared: RS.Session,+id: U32,+edit: PlayerEdit,players: List<&2,Components.PlayerRecord>) -> List<&2,Components.PlayerRecord>:
   match players:
     case []: []
-    case G.PlayerRecord{+pid,+run,connected} <> rest: G.PlayerRecord{pid,Bool.pick(G.Run,U32.is_eq(pid,id),apply_edit(edit,run),run),connected} <> edit_player(id,edit,rest)
-def edit_loaded(+id: U32,edit: PlayerEdit,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
+    case Components.PlayerRecord{+pid,+personal,connected} <> rest: Components.PlayerRecord{pid,Bool.pick(RS.PlayerState,U32.is_eq(pid,id),apply_edit(shared,edit,personal),personal),connected} <> edit_player(shared,id,edit,rest)
+def edit_loaded(+id: U32,edit: PlayerEdit,+shared: RS.Session,+refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
-    case (world,players): quiet(CoreState{save_players(refs,edit_player(id,edit,players),world),shared,refs,bodies,snapshots,round,required,offers,pending})
+    case (world,players): completed(CoreState{save_players(refs,edit_player(shared,id,edit,players),world),shared,refs,snapshots,round,required,offers,pending})
 def edit_core(state: CoreState,+id: U32,edit: PlayerEdit) -> CorePacket:
   match state:
-    case CoreState{world,+shared,+refs,bodies,snapshots,round,required,offers,pending}: edit_loaded(id,edit,shared,refs,bodies,snapshots,round,required,offers,pending,load_players(refs,[],world))
+    case CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: edit_loaded(id,edit,shared,refs,snapshots,round,required,offers,pending,load_players(refs,[],world))
 def configure_allowed(allowed: Bool,state: CoreState,+stage: U32,+mode: U32,+arcana: U32) -> CorePacket:
   match allowed state:
-    case True{} CoreState{world,+shared,+refs,bodies,snapshots,round,required,offers,pending}: edit_loaded(0,EditConfigure{stage,mode,arcana},G.mode_configured(G.configured(shared,stage,arcana),mode),refs,bodies,snapshots,round,required,offers,pending,load_players(refs,[],world))
+    case True{} CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: edit_loaded(0,EditConfigure{stage,mode,arcana},RS.session_with_mode(RS.session_with_stage(shared,stage),mode),refs,snapshots,round,required,offers,pending,load_players(refs,[],world))
     case False{} state: CoreRejected{state,"Match setup is closed"}
 def core_configure(state: CoreState,+stage: U32,+mode: U32,+arcana: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: configure_allowed(U32.is_eq(run_tick(shared),0),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},U32.min(4,stage),U32.min(3,mode),U32.min(11,arcana))
+    case CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: configure_allowed(U32.is_eq(RS.session_tick(shared),0),CoreState{world,shared,refs,snapshots,round,required,offers,pending},U32.min(4,stage),U32.min(3,mode),U32.min(11,arcana))
 def unlock_allowed(allowed: Bool,state: CoreState,id: U32,mask: U32) -> CorePacket:
   match allowed:
     case True{}: edit_core(state,id,EditUnlock{mask})
     case False{}: CoreRejected{state,"Match setup is closed"}
 def core_configure_unlocks(state: CoreState,id: U32,mask: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: unlock_allowed(U32.is_eq(run_tick(shared),0),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},id,mask)
-def guest_run(+shared: G.Run,+character: U32,+meta: U32,+arcana: U32) -> G.Run:
-  G.mode_configured(G.configured(G.Run{0,0,(A.center() + 32.0 : F32),A.center(),G.initial_health(character,meta),G.initial_health(character,meta),0,20,1,0,0,character,G.bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],G.starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,run_seed(shared),run_stage(shared),arcana,meta,0,0,run_mode(shared),3,3,3,0,0,[],0},run_stage(shared),arcana),run_mode(shared))
-def joined(shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: PlayerCreated) -> CorePacket:
+    case CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: unlock_allowed(U32.is_eq(RS.session_tick(shared),0),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,mask)
+def guest_player(+shared: RS.Session,+character: U32,+meta: U32,+arcana: U32) -> RS.PlayerState:
+  G.run_player(G.mode_configured(G.configured(G.Run{shared,RS.PlayerState{(A.center() + 32.0 : F32),A.center(),G.initial_health(character,meta),G.initial_health(character,meta),character,G.bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],G.starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,arcana,meta,0,3,3,3,0,0}},RS.session_stage(shared),arcana),RS.session_mode(shared)))
+def joined(shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: PlayerCreated) -> CorePacket:
   match result:
-    case PlayerCreated{world,ref}: quiet(CoreState{world,shared,List.append(&2,PlayerRef,refs,[ref]),bodies,snapshots,round,required,offers,pending})
-    case PlayerCreateFailed{world}: CoreRejected{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},"Player allocation failed"}
+    case PlayerCreated{world,ref}: completed(CoreState{world,shared,List.append(&2,PlayerRef,refs,[ref]),snapshots,round,required,offers,pending})
+    case PlayerCreateFailed{world}: CoreRejected{CoreState{world,shared,refs,snapshots,round,required,offers,pending},"Player allocation failed"}
 def join_allowed(allowed: Bool,state: CoreState,character: U32,meta: U32,arcana: U32) -> CorePacket:
   match allowed state:
-    case True{} CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: joined(shared,refs,bodies,snapshots,round,required,offers,pending,create_player(world,1,guest_run(shared,character,meta,arcana)))
+    case True{} CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: joined(shared,refs,snapshots,round,required,offers,pending,create_player(world,1,guest_player(shared,character,meta,arcana)))
     case False{} state: CoreRejected{state,"Join is only allowed before the two-player match starts"}
 def core_join(state: CoreState,character: U32,meta: U32,arcana: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,+refs,bodies,snapshots,round,required,offers,pending}: join_allowed(Bool.and(U32.is_eq(run_tick(shared),0),Nat.is_eq(List.length(&2,PlayerRef,refs),1n)),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},U32.min(7,character),meta,U32.min(11,arcana))
+    case CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: join_allowed(Bool.and(U32.is_eq(RS.session_tick(shared),0),Nat.is_eq(List.length(&2,PlayerRef,refs),1n)),CoreState{world,shared,refs,snapshots,round,required,offers,pending},U32.min(7,character),meta,U32.min(11,arcana))
 
 # A returning guest occupies the existing player record. Setup belongs only to
 # the first attachment: reload must not replace equipment, health or reward state.
@@ -318,43 +317,62 @@ def attach_initial(state: CoreState,character: U32,meta: U32,arcana: U32,mask: U
   attach_configured(mask,core_join(state,character,meta,arcana))
 def core_attach(state: CoreState,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
   match state:
-    case CoreState{world,shared,+refs,bodies,snapshots,round,required,offers,pending}: Attach.dispatch(~CoreState,~CorePacket,~quiet,~attach_initial,List.length(&2,PlayerRef,refs),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},character,meta,arcana,mask)
+    case CoreState{world,shared,+refs,snapshots,round,required,offers,pending}: Attach.dispatch(~CoreState,~CorePacket,~completed,~attach_initial,List.length(&2,PlayerRef,refs),CoreState{world,shared,refs,snapshots,round,required,offers,pending},character,meta,arcana,mask)
 
 # Views are immutable per-tick projections, never another gameplay authority.
-def player_view(+shared: G.Run,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,player: G.PlayerRecord) -> G.PlayerView:
+# Connected eligibility is explicit; every owner retains its real health and loadout.
+def player_view(+shared: RS.Session,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,player: Components.PlayerRecord) -> G.PlayerView:
   match player:
-    case G.PlayerRecord{+id,+run,+connected}: G.PlayerView{id,with_tick(Bool.pick(G.Run,connected,projection(shared,run),with_hp(projection(shared,run),0)),(run_tick(shared) + 1 : U32)),Bool.pick(F32,U32.is_eq(id,0),dx0,dx1),Bool.pick(F32,U32.is_eq(id,0),dy0,dy1)}
+    case Components.PlayerRecord{+id,personal,connected}: G.PlayerView{id,player_step_context(RS.session_with_tick(shared,(RS.session_tick(shared) + 1 : U32)),personal),Bool.pick(F32,U32.is_eq(id,0),dx0,dx1),Bool.pick(F32,U32.is_eq(id,0),dy0,dy1),connected}
 def add_view(eligible: Bool,view: G.PlayerView,tail: List<&2,G.PlayerView>) -> List<&2,G.PlayerView>:
   match eligible:
     case True{}: view <> tail
     case False{}: tail
-def player_views(+shared: G.Run,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,players: List<&2,G.PlayerRecord>) -> List<&2,G.PlayerView>:
+def player_views(+shared: RS.Session,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,players: List<&2,Components.PlayerRecord>) -> List<&2,G.PlayerView>:
   match players:
     case []: []
     case +player <> rest: player_view(shared,dx0,dy0,dx1,dy1,player) <> player_views(shared,dx0,dy0,dx1,dy1,rest)
 # Contact damage is evaluated for each living player, independently of chase
 # target. Pickup payloads are assigned once, by nearest eligible G.collector.
-def contact_hit(+run: G.Run,body: G.Body) -> U32:
-  match body:
-    case G.Body{+x,+y,0,+variant,_,_,_,_,+radius}: (Bool.to_u32(G.close(x,y,run_px(run),run_py(run),(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32)
-    case G.Body{+x,+y,7,+variant,_,_,_,_,+radius}: (Bool.to_u32(G.close(x,y,run_px(run),run_py(run),(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32)
+def projectile_contact(+run: G.Run,projectile: Shot.State) -> U32:
+  match projectile:
+    case Shot.State{Space.Spatial{x,y,_,radius},_,Shot.HostileShot{},_,_}: Bool.to_u32(G.close(x,y,run_px(run),run_py(run),(radius + 10.0 : F32)))
     case _: 0
-def kill_owner(motion: G.Motion) -> U32:
-  match motion:
-    case G.Motion{_,_,_,_,_,_,_,owner,_}: owner
-def pickup_owner(+team: G.Team,+body: G.Body,events: U32) -> U32:
-  match body events:
-    case _ 0: 2
-    case G.Body{x,y,_,_,_,_,_,_,_} _: G.view_id(G.collector(team,x,y))
-def owned_row_credit(body: G.Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32,motion: G.Motion,+own: U32) -> G.EntityRow:
-  G.EntityRow{G.Row{body,hit,(xp * own : U32),(gold * own : U32),(heal * own : U32),(chest * own : U32),killed,(relic * own : U32)},motion}
+def enemy_kill_credit(id: U32,owner: Maybe<&2,U32>,kills: U32) -> U32:
+  match owner:
+    case Some{owner}: (kills * Bool.to_u32(U32.is_eq(id,owner)) : U32)
+    case None{}: (kills * Bool.to_u32(U32.is_eq(id,0)) : U32)
+def enemy_personal_credit(+run: G.Run,id: U32,outcome: Enemy.Outcome,credit: Enemy.Credit) -> Enemy.Credit:
+  match outcome credit:
+    case Enemy.Alive{Enemy.State{space,archetype,_,_,_},_} _: Enemy.Credit{Enemy.contact(space,archetype,run_px(run),run_py(run)),0}
+    case Enemy.Killed{_,Enemy.DeathReward{_,_,_,_,_,_,owner}} Enemy.Credit{_,kills}: Enemy.Credit{0,enemy_kill_credit(id,owner,kills)}
+    case Enemy.Born{_} _: Enemy.Credit{0,0}
+    case Enemy.Sleeping{_} _: Enemy.Credit{0,0}
+def pickup_reward_for(own: Bool,reward: Pickup.Reward) -> Pickup.Reward:
+  match own:
+    case True{}: reward
+    case False{}: Pickup.Reward{0,0,0,0,0}
+def pickup_credit_at(+team: G.Team,+id: U32,state: Pickup.State,reward: Pickup.Reward) -> G.EntityRow:
+  match state:
+    case Pickup.State{+space,payload,identity}:
+      match space:
+        case PickupSpace.Spatial{x,y,_,_}: G.PickupRow{Pickup.Outcome{Pickup.State{space,payload,identity},pickup_reward_for(U32.is_eq(id,G.view_id(G.collector(team,x,y))),reward)}}
+def pickup_credit(+team: G.Team,+id: U32,state: Pickup.State,reward: Pickup.Reward) -> G.EntityRow:
+  match state reward:
+    case state Pickup.Reward{0,0,0,0,0}: G.PickupRow{Pickup.Outcome{state,Pickup.Reward{0,0,0,0,0}}}
+    case state reward: pickup_credit_at(team,id,state,reward)
 def owned_row_values(+id: U32,+run: G.Run,row: G.EntityRow,collectorId: U32) -> G.EntityRow:
   match row:
-    case G.EntityRow{G.Row{+body,_,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
-      owned_row_credit(body,contact_hit(run,body),xp,gold,heal,chest,(killed * Bool.to_u32(U32.is_eq(kill_owner(motion),id)) : U32),relic,motion,Bool.to_u32(U32.is_eq(collectorId,id)))
+    case G.NoEntityRow{}: G.NoEntityRow{}
+    case G.ProjectileRow{Shot.Outcome{+projectile,_}}: G.ProjectileRow{Shot.Outcome{projectile,projectile_contact(run,projectile)}}
+    case G.EnemyRow{+outcome,credit}: G.EnemyRow{outcome,enemy_personal_credit(run,id,outcome,credit)}
+    case G.PickupRow{outcome}: G.PickupRow{outcome}
 def owned_row(+team: G.Team,id: U32,run: G.Run,+row: G.EntityRow) -> G.EntityRow:
   match row:
-    case G.EntityRow{G.Row{body,_,xp,gold,heal,chest,_,relic},_}: owned_row_values(id,run,row,pickup_owner(team,body,U32.or(U32.or(xp,gold),U32.or(U32.or(heal,chest),relic))))
+    case G.NoEntityRow{}: G.NoEntityRow{}
+    case G.EnemyRow{+outcome,credit}: G.EnemyRow{outcome,enemy_personal_credit(run,id,outcome,credit)}
+    case G.PickupRow{Pickup.Outcome{state,reward}}: pickup_credit(team,id,state,reward)
+    case G.ProjectileRow{_}: owned_row_values(id,run,row,0)
 type OwnedRowsContext is Data: OwnedRowsContext{team:G.Team,id:U32,run:G.Run}
 def owned_row_context(context:OwnedRowsContext,row:G.EntityRow) -> G.EntityRow:
   match context:
@@ -365,13 +383,13 @@ def owned_rows(+team: G.Team,+id: U32,rows: List<&2,G.EntityRow>) -> List<&2,G.E
   owned_rows_run(team,id,G.view_run(G.team_for_id(team,id)),rows)
 def totals_xp(totals: G.Totals) -> U32:
   match totals:
-    case G.Totals{_,xp,_,_,_,_,_,_,_}: xp
+    case G.Totals{_,xp,_,_,_,_,_,_}: xp
 def totals_gold(totals: G.Totals) -> U32:
   match totals:
-    case G.Totals{_,_,gold,_,_,_,_,_,_}: gold
+    case G.Totals{_,_,gold,_,_,_,_,_}: gold
 def totals_chests(totals: G.Totals) -> U32:
   match totals:
-    case G.Totals{_,_,_,_,chests,_,_,_,_}: chests
+    case G.Totals{_,_,_,_,chests,_,_,_}: chests
 def credit_xp(+run: G.Run,earned: U32) -> U32: G.earned_xp(earned,run_passives(run),run_meta(run),run_arcana(run))
 def credit_gold(+run: G.Run,earned: U32) -> U32: (earned * (100 + G.at(run_passives(run),15) * 15 + G.at(run_passives(run),14) * 10 + 50 * Bool.to_u32(U32.is_eq(run_mode(run),1)) + G.meta_rank(run_meta(run),8) * 10 + 25 * Bool.to_u32(U32.is_eq(run_arcana(run),6))) / 100 : U32)
 def chest_rewards(fuel: Nat,+id: U32,tail: List<&2,Reward>) -> List<&2,Reward>:
@@ -380,29 +398,26 @@ def chest_rewards(fuel: Nat,+id: U32,tail: List<&2,Reward>) -> List<&2,Reward>:
     case 1n+rest: Reward{2,id} <> chest_rewards(rest,id,tail)
 type PlayersFinalized is Type:
   FinalizeFailed{message: String}
-  PlayersFinalized{world: G.World(),players: List<&2,G.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>}
-def finalized_player(next: G.World() -> List<&2,G.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+id: U32,+old: G.Run,connected: Bool,players: List<&2,G.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>,packet: G.Packet) -> PlayersFinalized:
-  match packet:
-    case G.Packet{G.State{world,run,_,_,_,_},_}: next(world,G.PlayerRecord{id,with_revivals(run,run_revivals(old)),connected} <> players,xp,gold,chests)
-    case G.Failed{message}: FinalizeFailed{message}
-
-
-def finalize_living(next: G.World() -> List<&2,G.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: G.PlayerRecord,+view: G.PlayerView,+rows: List<&2,G.EntityRow>,+totals: G.Totals,world: G.World(),done: List<&2,G.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
-  finalized_player(next,record_id(player),record_run(player),record_connected(player),done,(xp + credit_xp(G.view_run(view),totals_xp(totals)) : U32),(gold + credit_gold(G.view_run(view),totals_gold(totals)) : U32),chest_rewards(U32.to_nat(totals_chests(totals)),record_id(player),chests),G.finish_stats_with(~G.quiet_packet,world,with_revivals(with_xpNeed(with_xp(G.moved_run(view),0),4294967295),1000),totals,G.boss_kills(rows),G.killed_kinds(rows,run_enemyKinds(record_run(player)))))
-def finalize_owned(next: G.World() -> List<&2,G.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,player: G.PlayerRecord,view: G.PlayerView,+owned: List<&2,G.EntityRow>,world: G.World(),done: List<&2,G.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
-  finalize_living(next,player,view,owned,G.accumulate(owned,0,0,0,0,0,0,[],[],0),world,done,xp,gold,chests)
-def finalize_eligible(eligible: Bool,next: G.World() -> List<&2,G.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: G.PlayerRecord,+team: G.Team,+rows: List<&2,G.EntityRow>,world: G.World(),done: List<&2,G.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
+  PlayersFinalized{world: Storage.World(),players: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>}
+# Shared XP/gold/reward reduction is separate from this personal transition.
+def finalized_personal(next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+id: U32,personal: RS.PlayerState,connected: Bool,world: Storage.World(),players: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
+  next(world,Components.PlayerRecord{id,personal,connected} <> players,xp,gold,chests)
+def finalize_living(next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: Components.PlayerRecord,+view: G.PlayerView,+rows: List<&2,G.EntityRow>,+totals: G.Totals,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
+  finalized_personal(next,record_id(player),G.finish_personal_tick(G.moved_run(view),totals),record_connected(player),world,done,(xp + credit_xp(G.view_run(view),totals_xp(totals)) : U32),(gold + credit_gold(G.view_run(view),totals_gold(totals)) : U32),chest_rewards(U32.to_nat(totals_chests(totals)),record_id(player),chests))
+def finalize_owned(next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,player: Components.PlayerRecord,view: G.PlayerView,+owned: List<&2,G.EntityRow>,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
+  finalize_living(next,player,view,owned,G.accumulate(owned,0,0,0,0,0,0,[],0),world,done,xp,gold,chests)
+def finalize_eligible(eligible: Bool,next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: Components.PlayerRecord,+team: G.Team,+rows: List<&2,G.EntityRow>,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
   match eligible:
     case False{}: next(world,player <> done,xp,gold,chests)
     case True{}: finalize_owned(next,player,G.team_for_id(team,record_id(player)),owned_rows(team,record_id(player),rows),world,done,xp,gold,chests)
-def finalize_players(players: List<&2,G.PlayerRecord>,+team: G.Team,+rows: List<&2,G.EntityRow>,world: G.World(),done: List<&2,G.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
+def finalize_players(players: List<&2,Components.PlayerRecord>,+team: G.Team,+rows: List<&2,G.EntityRow>,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
   match players:
-    case []: PlayersFinalized{world,List.reverse(&2,G.PlayerRecord,done),xp,gold,List.reverse(&2,Reward,chests)}
-    case +player <> rest: finalize_eligible(Bool.and(record_connected(player),U32.is_lt(0,run_hp(record_run(player)))),finalize_players(rest,team,rows),player,team,rows,world,done,xp,gold,chests)
-def living_ids(players: List<&2,G.PlayerRecord>) -> List<&2,U32>:
+    case []: PlayersFinalized{world,List.reverse(&2,Components.PlayerRecord,done),xp,gold,List.reverse(&2,Reward,chests)}
+    case +player <> rest: finalize_eligible(Bool.and(record_connected(player),U32.is_lt(0,RS.player_hp(record_player(player)))),finalize_players(rest,team,rows),player,team,rows,world,done,xp,gold,chests)
+def living_ids(players: List<&2,Components.PlayerRecord>) -> List<&2,U32>:
   match players:
     case []: []
-    case G.PlayerRecord{+id,+run,+connected} <> rest: G.free_slot(Bool.and(connected,U32.is_lt(0,run_hp(run))),id,living_ids(rest))
+    case Components.PlayerRecord{+id,personal,+connected} <> rest: G.free_slot(Bool.and(connected,U32.is_lt(0,RS.player_hp(personal))),id,living_ids(rest))
 def insert_level(chests: List<&2,Reward>) -> List<&2,Reward>:
   match chests:
     case []: [Reward{1,0}]
@@ -411,50 +426,58 @@ def level_rewards(levelup: Bool,chests: List<&2,Reward>) -> List<&2,Reward>:
   match levelup:
     case False{}: chests
     case True{}: insert_level(chests)
-def eligible_reward(kind: U32,+collector: U32,players: List<&2,G.PlayerRecord>) -> List<&2,U32>:
+def eligible_reward(kind: U32,+collector: U32,players: List<&2,Components.PlayerRecord>) -> List<&2,U32>:
   match kind:
     case 1: living_ids(players)
     case _: Bool.pick(List<&2,U32>,G.contains(living_ids(players),collector),[collector],[])
-def make_offers(ids: List<&2,U32>,+players: List<&2,G.PlayerRecord>,+shared: G.Run,+kind: U32,+round: U32) -> List<&2,PlayerOffers>:
+def offers_for_personal(+shared: RS.Session,+kind: U32,+round: U32,+id: U32,personal: Maybe<&2,RS.PlayerState>) -> List<&2,G.Offer>:
+  match personal:
+    case None{}: []
+    case Some{+player}: G.filter_offers(G.phase_offers(U32.is_eq(kind,2),(RS.session_seed(shared) + RS.session_level(shared) * 13 + id * 31 + round * 7 : U32),RS.player_weapons(player),RS.player_passives(player)),RS.player_bannedWeapons(player),U32.or(8192,RS.player_bannedPassives(player)))
+def make_offers(ids: List<&2,U32>,+players: List<&2,Components.PlayerRecord>,+shared: RS.Session,+kind: U32,+round: U32) -> List<&2,PlayerOffers>:
   match ids:
     case []: []
-    case +id <> rest: PlayerOffers{id,G.filter_offers(G.phase_offers(U32.is_eq(kind,2),(run_seed(shared) + run_level(shared) * 13 + id * 31 + round * 7 : U32),run_weapons(find_player(players,id,shared)),run_passives(find_player(players,id,shared))),run_bannedWeapons(find_player(players,id,shared)),U32.or(8192,run_bannedPassives(find_player(players,id,shared))))} <> make_offers(rest,players,shared,kind,round)
-def open_reward_eligible(next: G.World() -> @+shared:G.Run -> @+refs:List<&2,PlayerRef> -> List<&2,G.Body> -> List<&2,G.Snapshot> -> @+round:U32 -> @+players:List<&2,G.PlayerRecord> -> CorePacket,+required: List<&2,U32>,pending: List<&2,Reward>,world: G.World(),+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,+round: U32,+players: List<&2,G.PlayerRecord>,+kind: U32) -> CorePacket:
+    case +id <> rest: PlayerOffers{id,offers_for_personal(shared,kind,round,id,find_player(players,id))} <> make_offers(rest,players,shared,kind,round)
+def open_reward_eligible(next: Storage.World() -> @+shared: RS.Session -> @+refs:List<&2,PlayerRef> -> List<&2,G.Snapshot> -> @+round:U32 -> @+players:List<&2,Components.PlayerRecord> -> CorePacket,+required: List<&2,U32>,pending: List<&2,Reward>,world: Storage.World(),+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,+round: U32,+players: List<&2,Components.PlayerRecord>,+kind: U32) -> CorePacket:
   match required:
-    case []: next(world,shared,refs,bodies,snapshots,round,players)
-    case _: quiet(CoreState{world,with_phase(shared,kind),refs,bodies,snapshots,(round + 1 : U32),required,make_offers(required,players,shared,kind,(round + 1 : U32)),pending})
+    case []: next(world,shared,refs,snapshots,round,players)
+    case _: completed(CoreState{world,RS.session_with_phase(shared,kind),refs,snapshots,(round + 1 : U32),required,make_offers(required,players,shared,kind,(round + 1 : U32)),pending})
 
-def open_rewards_go(rewards: List<&2,Reward>,world: G.World(),+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,+round: U32,+players: List<&2,G.PlayerRecord>) -> CorePacket:
+def open_rewards_go(rewards: List<&2,Reward>,world: Storage.World(),+shared: RS.Session,+refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,+round: U32,+players: List<&2,Components.PlayerRecord>) -> CorePacket:
   match rewards:
-    case []: quiet(CoreState{world,with_phase(shared,0),refs,bodies,snapshots,round,[],[],[]})
-    case Reward{+kind,collector} <> +rest: open_reward_eligible(open_rewards_go(rest),eligible_reward(kind,collector,players),rest,world,shared,refs,bodies,snapshots,round,players,kind)
+    case []: completed(CoreState{world,RS.session_with_phase(shared,0),refs,snapshots,round,[],[],[]})
+    case Reward{+kind,collector} <> +rest: open_reward_eligible(open_rewards_go(rest),eligible_reward(kind,collector,players),rest,world,shared,refs,snapshots,round,players,kind)
 
-def finish_shared(run: G.Run,+earned: U32,coins: U32,killed: U32,bossesKilled: U32,kinds: List<&2,U32>,relic: U32,+dead: Bool) -> G.Run:
+def finish_shared(run: RS.Session,+earned: U32,coins: U32,killed: U32,bossesKilled: U32,kinds: List<&2,U32>,relic: U32,+dead: Bool) -> RS.Session:
   match run:
-    case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+xpNeed,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{Bool.pick(U32,dead,Bool.pick(U32,Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_le(G.run_length(mode),(tick + 1 : U32))),4,3),0),(tick + 1 : U32),px,py,hp,maxHp,G.remainder_xp((xp + earned : U32),xpNeed),Bool.pick(U32,U32.is_le(xpNeed,(xp + earned : U32)),G.next_xp_need(level),xpNeed),(level + Bool.to_u32(U32.is_le(xpNeed,(xp + earned : U32))) : U32),(kills + killed : U32),(gold + coins + 300 * Bool.to_u32(Bool.and(U32.is_eq(mode,3),U32.is_eq((tick + 1 : U32),18000))) + (50 + level * 5 + kills / 20) * Bool.to_u32(dead) : U32),character,weapons,passives,invuln,(seed + 1 : U32),stage,arcana,meta,revivals,(bosses + bossesKilled : U32),mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,kinds,U32.max(relicCollected,relic)}
-def finish_match(dead: Bool,world: G.World(),+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,+players: List<&2,G.PlayerRecord>,rewards: List<&2,Reward>) -> CorePacket:
+    case RS.Session{_,+tick,+xp,+xpNeed,+level,+kills,+gold,+seed,stage,+bosses,+mode,_,+relicCollected}: RS.Session{Bool.pick(U32,dead,Bool.pick(U32,Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_le(G.run_length(mode),(tick + 1 : U32))),4,3),0),(tick + 1 : U32),G.remainder_xp((xp + earned : U32),xpNeed),Bool.pick(U32,U32.is_le(xpNeed,(xp + earned : U32)),G.next_xp_need(level),xpNeed),(level + Bool.to_u32(U32.is_le(xpNeed,(xp + earned : U32))) : U32),(kills + killed : U32),(gold + coins + 300 * Bool.to_u32(Bool.and(U32.is_eq(mode,3),U32.is_eq((tick + 1 : U32),18000))) + (50 + level * 5 + kills / 20) * Bool.to_u32(dead) : U32),(seed + 1 : U32),stage,(bosses + bossesKilled : U32),mode,kinds,U32.max(relicCollected,relic)}
+def finish_match(dead: Bool,world: Storage.World(),+shared: RS.Session,+refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,+players: List<&2,Components.PlayerRecord>,rewards: List<&2,Reward>) -> CorePacket:
   match dead:
-    case True{}: quiet(CoreState{save_players(refs,players,world),shared,refs,bodies,snapshots,round,[],[],[]})
-    case False{}: open_rewards_go(rewards,save_players(refs,players,world),shared,refs,bodies,snapshots,round,players)
-def finalized_totals(+shared: G.Run,+refs: List<&2,PlayerRef>,+rows: List<&2,G.EntityRow>,round: U32,world: G.World(),+players: List<&2,G.PlayerRecord>,+earned: U32,+gold: U32,chests: List<&2,Reward>,totals: G.Totals) -> CorePacket:
+    case True{}: completed(CoreState{save_players(refs,players,world),shared,refs,snapshots,round,[],[],[]})
+    case False{}: open_rewards_go(rewards,save_players(refs,players,world),shared,refs,snapshots,round,players)
+def finalized_totals(+shared: RS.Session,+refs: List<&2,PlayerRef>,+rows: List<&2,G.EntityRow>,round: U32,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,+earned: U32,+gold: U32,chests: List<&2,Reward>,totals: G.Totals) -> CorePacket:
   match totals:
-    case G.Totals{_,_,_,_,_,killed,bodies,snapshots,relic}: finish_match(Nat.is_eq(List.length(&2,U32,living_ids(players)),0n),world,finish_shared(shared,earned,gold,killed,G.boss_kills(rows),G.killed_kinds(rows,run_enemyKinds(shared)),relic,Nat.is_eq(List.length(&2,U32,living_ids(players)),0n)),refs,bodies,snapshots,round,players,level_rewards(U32.is_le(run_xpNeed(shared),(run_xp(shared) + earned : U32)),chests))
-def finalized_all(shared: G.Run,refs: List<&2,PlayerRef>,+rows: List<&2,G.EntityRow>,round: U32,result: PlayersFinalized) -> CorePacket:
+    case G.Totals{_,_,_,_,_,killed,snapshots,relic}: finish_match(Nat.is_eq(List.length(&2,U32,living_ids(players)),0n),world,finish_shared(shared,earned,gold,killed,G.boss_kills(rows),G.killed_kinds(rows,RS.session_enemyKinds(shared)),relic,Nat.is_eq(List.length(&2,U32,living_ids(players)),0n)),refs,snapshots,round,players,level_rewards(U32.is_le(RS.session_xpNeed(shared),(RS.session_xp(shared) + earned : U32)),chests))
+def finalized_all(shared: RS.Session,refs: List<&2,PlayerRef>,+rows: List<&2,G.EntityRow>,round: U32,result: PlayersFinalized) -> CorePacket:
   match result:
-    case PlayersFinalized{world,players,xp,gold,chests}: finalized_totals(shared,refs,rows,round,world,players,xp,gold,chests,G.accumulate(rows,0,0,0,0,0,0,[],[],0))
+    case PlayersFinalized{world,players,xp,gold,chests}: finalized_totals(shared,refs,rows,round,world,players,xp,gold,chests,G.accumulate(rows,0,0,0,0,0,0,[],0))
     case FinalizeFailed{message}: CoreFailed{message}
 # Receipts use the exact prepared authoritative contact plans. Existing enemy
 # preimages retain pre-loot-clamp geometry; newborns bypass contact effects.
-def journal_event(value:ContactPolicy.Witness,source:G.Snapshot,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
-  match value source target:
-    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} G.Snapshot{G.Body{_,_,_,_,_,_,age,_,_},G.Motion{_,_,_,pierce,_,_,_,owner,+slot}} G.Snapshot{G.Body{_,_,_,_,_,_,targetAge,_,_},_}:
+def journal_event(value:ContactPolicy.Witness,sourcePlayer:U32,source:Shot.State,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
+  match value source:
+    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} Shot.State{Space.Spatial{_,_,age,_},_,_,_,Components.Trajectory{_,_,_,pierce,_,owner,+slot,_}}:
       +eventKind = Journal.contact_kind(kind,pierce,selected)
-      +shotId = Journal.shot_id((slot / 65536 : U32),(tick - 1 - age : U32),owner,slot)
-      +targetBorn = (tick - 1 - targetAge : U32)
+      +shotId = Journal.shot_id(sourcePlayer,(tick - 1 - age : U32),owner,slot)
+      +targetBorn = (tick - 1 - G.snapshot_age(target) : U32)
       Journal.HitEvent{Journal.event_id(tick,eventKind,shotId,targetSeed,targetBorn),tick,eventKind,shotId,shot,targetSeed,targetBorn,Bool.pick(F32,U32.is_eq(kind,1),1.0,time),Bool.pick(F32,U32.is_eq(kind,1),ex1,(x0 + (x1 - x0) * time : F32)),Bool.pick(F32,U32.is_eq(kind,1),ey1,(y0 + (y1 - y0) * time : F32)),(ex0 + (ex1 - ex0) * time : F32),(ey0 + (ey1 - ey0) * time : F32),radius,0}
+def journal_source(value:ContactPolicy.Witness,sourcePlayer:Maybe<&2,U32>,source:Shot.State,target:G.Snapshot,selected:Nat,tail:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
+  match sourcePlayer:
+    case None{}: tail
+    case Some{player}: journal_event(value,player,source,target,selected) <> tail
 def journal_lookup(value:ContactPolicy.Witness,source:Maybe<&2,G.Snapshot>,target:Maybe<&2,G.Snapshot>,selected:Nat,tail:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
   match source target:
-    case Some{shot} Some{enemy}: journal_event(value,shot,enemy,selected) <> tail
+    case Some{G.ProjectileSnapshot{+shot}} Some{enemy}: journal_source(value,Shot.source_player(shot),shot,enemy,selected,tail)
     case _ _: tail
 def journal_events_go(rows:List<&2,ContactPolicy.Witness>,+index:BI.Index<G.Snapshot>,+counts:BI.Index<Nat>,acc:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
   match rows:
@@ -471,79 +494,85 @@ def journal_team_paths(+team:G.Team,+hits:List<&2,G.HitPlan>,+tick:U32,+index:BI
   journal_events(List.append(&2,ContactPolicy.Witness,CombatPrediction.witnesses(hits,tick,team,index,CombatPrediction.target_index(paths),BI.Empty{}),CombatPrediction.area_plans(hits,tick,paths)),index,journal_counts(hits,BI.Empty{}))
 def journal_team(+team:G.Team) -> List<&2,Journal.HitEvent>:
   match team:
-    case G.Team{+players,G.Args{+run,+bodies,+dx,+dy,+snapshots,+hits},+plan,+origins}:
-      journal_team_paths(G.Team{players,G.Args{run,bodies,dx,dy,snapshots,hits},plan,origins},hits,G.run_tick(run),CombatPrediction.snapshot_index(snapshots),G.contact_targets(snapshots,G.Team{players,G.Args{run,bodies,dx,dy,snapshots,hits},plan,origins}))
+    case G.Team{+players,G.Args{+run,+targets,+dx,+dy,+snapshots,+hits},+plan,+origins}:
+      journal_team_paths(G.Team{players,G.Args{run,targets,dx,dy,snapshots,hits},plan,origins},hits,G.run_tick(run),CombatPrediction.snapshot_index(snapshots),G.contact_targets(snapshots,G.Team{players,G.Args{run,targets,dx,dy,snapshots,hits},plan,origins}))
 def journal_capped_clock(emission:Journal.Emission,packet:CorePacket) -> CorePacket:
   match emission packet:
-    case Journal.Emission{events,omitted} CorePacket{CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending},_}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},Some{Clock{run_tick(shared),run_phase(shared),True{},events,omitted}}}
+    case Journal.Emission{events,omitted} CorePacket{CoreState{world,+shared,refs,snapshots,round,required,offers,pending},_}: CorePacket{CoreState{world,shared,refs,snapshots,round,required,offers,pending},StepObservation{RS.session_tick(shared),RS.session_phase(shared),True{},events,omitted}}
     case _ packet: packet
 def journal_clock(events:List<&2,Journal.HitEvent>,packet:CorePacket) -> CorePacket:
   journal_capped_clock(Journal.emit_capped(events),packet)
-def core_executed(+shared: G.Run,+refs: List<&2,PlayerRef>,+team: G.Team,round: U32,players: List<&2,G.PlayerRecord>,result: Q.Executed<G.World(),Q.Error<G.Error>,G.EntityRow>) -> CorePacket:
+def core_executed(+shared: RS.Session,+refs: List<&2,PlayerRef>,+team: G.Team,round: U32,players: List<&2,Components.PlayerRecord>,result: Q.Executed<Storage.World(),Q.Error<G.Error>,G.EntityRow>) -> CorePacket:
   match result:
     case Q.Executed{world,T.Success{},+rows}: journal_clock(journal_team(team),finalized_all(shared,refs,rows,round,finalize_players(players,team,rows,world,[],0,0,[])))
     case Q.Executed{_,T.Failure{_},_}: CoreFailed{"Shared ECS query failed"}
-def core_team_prepared(shared: G.Run,refs: List<&2,PlayerRef>,round: U32,world: G.World(),players: List<&2,G.PlayerRecord>,+team: G.Team) -> CorePacket: core_executed(shared,refs,team,round,players,G.team_execute_contacts(world,team))
-def core_team_ready(shared:G.Run,refs:List<&2,PlayerRef>,round:U32,world:G.World(),players:List<&2,G.PlayerRecord>,team:G.Team) -> CorePacket:
+def core_team_prepared(shared: RS.Session,refs: List<&2,PlayerRef>,round: U32,world: Storage.World(),players: List<&2,Components.PlayerRecord>,+team: G.Team) -> CorePacket: core_executed(shared,refs,team,round,players,G.team_execute_contacts(world,team))
+def core_team_ready(shared: RS.Session,refs:List<&2,PlayerRef>,round:U32,world:Storage.World(),players:List<&2,Components.PlayerRecord>,team:G.Team) -> CorePacket:
   core_team_prepared(shared,refs,round,world,players,G.contact_team(team))
-def core_team(+shared: G.Run,+refs: List<&2,PlayerRef>,+bodies: List<&2,G.Body>,+snapshots: List<&2,G.Snapshot>,round: U32,world: G.World(),+players: List<&2,G.PlayerRecord>,+views: List<&2,G.PlayerView>) -> CorePacket:
-  core_team_ready(shared,refs,round,world,players,G.Team{views,G.combat_args(G.view_run(G.first_view(views,with_tick(shared,(run_tick(shared) + 1 : U32)))),bodies,0.0,0.0,snapshots),G.team_plan(views,snapshots),G.effect_origin_index(snapshots)})
-def step_loaded(+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,dx0: F32,dy0: F32,dx1: F32,dy1: F32,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
+def core_team(+shared: RS.Session,+refs: List<&2,PlayerRef>,+snapshots: List<&2,G.Snapshot>,round: U32,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,views: List<&2,G.PlayerView>) -> CorePacket:
+  match views:
+    case []: CoreFailed{"No connected player in active match"}
+    case +first <> +rest: core_team_ready(shared,refs,round,world,players,G.Team{first <> rest,G.combat_args(G.view_run(G.first_view(first <> rest,G.view_run(first))),0.0,0.0,snapshots),G.team_plan(first <> rest,snapshots),G.effect_origin_index(snapshots)})
+def step_loaded(+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,dx0: F32,dy0: F32,dx1: F32,dy1: F32,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
-    case (world,+players): core_team(shared,refs,bodies,snapshots,round,world,players,player_views(shared,dx0,dy0,dx1,dy1,players))
+    case (world,+players): core_team(shared,refs,snapshots,round,world,players,player_views(shared,dx0,dy0,dx1,dy1,players))
 def core_clock(state: CoreState) -> CorePacket:
   match state:
-    case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},Some{Clock{run_tick(shared),run_phase(shared),False{},[],0}}}
+    case CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: CorePacket{CoreState{world,shared,refs,snapshots,round,required,offers,pending},StepObservation{RS.session_tick(shared),RS.session_phase(shared),False{},[],0}}
 def step_allowed(allowed: Bool,state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: F32) -> CorePacket:
   match allowed state:
     case False{} state: core_clock(state)
-    case True{} CoreState{world,+shared,+refs,bodies,snapshots,round,_,_,_}: step_loaded(shared,refs,bodies,snapshots,round,dx0,dy0,dx1,dy1,load_players(refs,[],world))
+    case True{} CoreState{world,+shared,+refs,snapshots,round,_,_,_}: step_loaded(shared,refs,snapshots,round,dx0,dy0,dx1,dy1,load_players(refs,[],world))
 def core_step(state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: F32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: step_allowed(U32.is_eq(run_phase(shared),0),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},dx0,dy0,dx1,dy1)
+    case CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: step_allowed(U32.is_eq(RS.session_phase(shared),0),CoreState{world,shared,refs,snapshots,round,required,offers,pending},dx0,dy0,dx1,dy1)
 
 def remove_offers(offers: List<&2,PlayerOffers>,+id: U32) -> List<&2,PlayerOffers>:
   match offers:
     case []: []
     case PlayerOffers{+pid,choices} <> +rest: Bool.pick(List<&2,PlayerOffers>,U32.is_ne(pid,id),PlayerOffers{pid,choices} <> remove_offers(rest,id),remove_offers(rest,id))
-def replace_run(players: List<&2,G.PlayerRecord>,+id: U32,+replacement: G.Run) -> List<&2,G.PlayerRecord>:
+def replace_personal(players: List<&2,Components.PlayerRecord>,+id: U32,+replacement: RS.PlayerState) -> List<&2,Components.PlayerRecord>:
   match players:
     case []: []
-    case G.PlayerRecord{+pid,run,connected} <> rest: G.PlayerRecord{pid,Bool.pick(G.Run,U32.is_eq(id,pid),replacement,run),connected} <> replace_run(rest,id,replacement)
-def resume_control(remaining: List<&2,U32>,world: G.World(),+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,+players: List<&2,G.PlayerRecord>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>) -> CorePacket:
+    case Components.PlayerRecord{+pid,personal,connected} <> rest: Components.PlayerRecord{pid,Bool.pick(RS.PlayerState,U32.is_eq(id,pid),replacement,personal),connected} <> replace_personal(rest,id,replacement)
+def resume_control(remaining: List<&2,U32>,world: Storage.World(),+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,+players: List<&2,Components.PlayerRecord>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>) -> CorePacket:
   match remaining:
-    case []: open_rewards_go(pending,world,shared,refs,bodies,snapshots,round,players)
-    case remaining: quiet(CoreState{world,shared,refs,bodies,snapshots,round,remaining,offers,pending})
-def choice_upgraded(+id: U32,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: G.World(),+players: List<&2,G.PlayerRecord>,+upgraded: G.Run) -> CorePacket:
-  resume_control(required,save_players(refs,replace_run(players,id,upgraded),world),with_gold(shared,run_gold(upgraded)),refs,bodies,snapshots,round,replace_run(players,id,upgraded),remove_offers(offers,id),pending)
-def choice_loaded(+id: U32,choice: U32,+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,+offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
+    case []: open_rewards_go(pending,world,shared,refs,snapshots,round,players)
+    case remaining: completed(CoreState{world,shared,refs,snapshots,round,remaining,offers,pending})
+def choice_upgraded(+id: U32,+shared: RS.Session,+refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,+upgraded: G.Run) -> CorePacket:
+  resume_control(required,save_players(refs,replace_personal(players,id,G.run_player(upgraded)),world),RS.session_with_gold(shared,run_gold(upgraded)),refs,snapshots,round,replace_personal(players,id,G.run_player(upgraded)),remove_offers(offers,id),pending)
+def choice_player(+id: U32,choice: U32,+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,+offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: Storage.World(),players: List<&2,Components.PlayerRecord>,personal: Maybe<&2,RS.PlayerState>) -> CorePacket:
+  match personal:
+    case None{}: CoreRejected{CoreState{world,shared,refs,snapshots,round,required,offers,pending},"Unknown choosing player"}
+    case Some{player}: choice_upgraded(id,shared,refs,snapshots,round,required,offers,pending,world,players,G.upgrade(G.offer_at(offers_for(offers,id),choice),player_step_context(shared,player)))
+def choice_loaded(+id: U32,choice: U32,+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,+offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
-    case (world,+players): choice_upgraded(id,shared,refs,bodies,snapshots,round,required,offers,pending,world,players,G.upgrade(G.offer_at(offers_for(offers,id),choice),projection(shared,find_player(players,id,shared))))
+    case (world,+players): choice_player(id,choice,shared,refs,snapshots,round,required,offers,pending,world,players,find_player(players,id))
 def choice_decided(decision: RP.Decision,state: CoreState,id: U32,choice: U32) -> CorePacket:
   match decision state:
     case RP.Decision{False{},_} state: CoreRejected{state,"Stale, duplicate, ineligible or invalid reward choice"}
-    case RP.Decision{True{},remaining} CoreState{world,shared,+refs,bodies,snapshots,round,_,offers,pending}:
-      choice_loaded(id,choice,shared,refs,bodies,snapshots,round,remaining,offers,pending,load_players(refs,[],world))
+    case RP.Decision{True{},remaining} CoreState{world,shared,+refs,snapshots,round,_,offers,pending}:
+      choice_loaded(id,choice,shared,refs,snapshots,round,remaining,offers,pending,load_players(refs,[],world))
 def core_choose(state: CoreState,+id: U32,+requestedRound: U32,+choice: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,refs,bodies,snapshots,+round,+required,+offers,pending}: choice_decided(RP.decide(round,requestedRound,id,choice,U32.from_nat(List.length(&2,G.Offer,offers_for(offers,id))),required),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},id,choice)
-def disconnect_players(players: List<&2,G.PlayerRecord>,+id: U32) -> List<&2,G.PlayerRecord>:
+    case CoreState{world,+shared,refs,snapshots,+round,+required,+offers,pending}: choice_decided(RP.decide(round,requestedRound,id,choice,U32.from_nat(List.length(&2,G.Offer,offers_for(offers,id))),required),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,choice)
+def disconnect_players(players: List<&2,Components.PlayerRecord>,+id: U32) -> List<&2,Components.PlayerRecord>:
   match players:
     case []: []
-    case G.PlayerRecord{+pid,run,+connected} <> rest: G.PlayerRecord{pid,run,Bool.and(connected,U32.is_ne(id,pid))} <> disconnect_players(rest,id)
+    case Components.PlayerRecord{+pid,run,+connected} <> rest: Components.PlayerRecord{pid,run,Bool.and(connected,U32.is_ne(id,pid))} <> disconnect_players(rest,id)
 # Completed run receipts survive later transport teardown. An unfinished match
 # stopped by connection loss is an abort, never a bankable defeat/victory.
-def disconnect_phase(+shared: G.Run) -> U32:
-  Bool.pick(U32,Bool.or(U32.is_eq(run_phase(shared),3),U32.is_eq(run_phase(shared),4)),run_phase(shared),5)
-def disconnect_terminal(terminal: Bool,+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: G.World(),players: List<&2,G.PlayerRecord>,+id: U32) -> CorePacket:
+def disconnect_phase(+shared: RS.Session) -> U32:
+  Bool.pick(U32,Bool.or(U32.is_eq(RS.session_phase(shared),3),U32.is_eq(RS.session_phase(shared),4)),RS.session_phase(shared),5)
+def disconnect_terminal(terminal: Bool,+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: Storage.World(),players: List<&2,Components.PlayerRecord>,+id: U32) -> CorePacket:
   match terminal:
-    case True{}: quiet(CoreState{world,with_phase(shared,disconnect_phase(shared)),refs,bodies,snapshots,round,[],[],[]})
-    case False{}: resume_control(RP.remove(required,id),world,shared,refs,bodies,snapshots,round,players,remove_offers(offers,id),pending)
-def disconnected(+id: U32,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: G.World(),+players: List<&2,G.PlayerRecord>) -> CorePacket:
-  disconnect_terminal(Bool.or(U32.is_le(3,run_phase(shared)),Bool.or(U32.is_eq(id,0),Nat.is_eq(List.length(&2,U32,living_ids(players)),0n))),shared,refs,bodies,snapshots,round,required,offers,pending,save_players(refs,players,world),players,id)
-def disconnect_loaded(+id: U32,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
+    case True{}: completed(CoreState{world,RS.session_with_phase(shared,disconnect_phase(shared)),refs,snapshots,round,[],[],[]})
+    case False{}: resume_control(RP.remove(required,id),world,shared,refs,snapshots,round,players,remove_offers(offers,id),pending)
+def disconnected(+id: U32,+shared: RS.Session,+refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: Storage.World(),+players: List<&2,Components.PlayerRecord>) -> CorePacket:
+  disconnect_terminal(Bool.or(U32.is_le(3,RS.session_phase(shared)),Bool.or(U32.is_eq(id,0),Nat.is_eq(List.length(&2,U32,living_ids(players)),0n))),shared,refs,snapshots,round,required,offers,pending,save_players(refs,players,world),players,id)
+def disconnect_loaded(+id: U32,+shared: RS.Session,+refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
-    case (world,players): disconnected(id,shared,refs,bodies,snapshots,round,required,offers,pending,world,disconnect_players(players,id))
+    case (world,players): disconnected(id,shared,refs,snapshots,round,required,offers,pending,world,disconnect_players(players,id))
 def core_disconnect(state: CoreState,id: U32) -> CorePacket:
   match state:
-    case CoreState{world,shared,+refs,bodies,snapshots,round,required,offers,pending}: disconnect_loaded(id,shared,refs,bodies,snapshots,round,required,offers,pending,load_players(refs,[],world))
+    case CoreState{world,shared,+refs,snapshots,round,required,offers,pending}: disconnect_loaded(id,shared,refs,snapshots,round,required,offers,pending,load_players(refs,[],world))

@@ -7,7 +7,8 @@ export interface SnapshotEnvelope {
   connectionVersion: number
   token: number
   initial: boolean
-  frame: CoopFrame
+  runId: string
+  frame: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }>
   admission: BendABI.CoopSession.State
   receipt: BendABI.CoopSession.Receipt
   observationSeq: number

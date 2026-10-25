@@ -1,4 +1,5 @@
 import Base
+import game-components.bend as Components
 import game.bend as G
 import offline-policy.bend as Policy
 import native-replay-format.bend as F
@@ -28,7 +29,7 @@ def recorded_direction(direction: F32 & F32,memory: Policy.Memory,state: G.State
 def recorded_move(result: Policy.Memory & (F32 & F32),state: G.State,run: G.Run) -> Recorded:
   (memory,direction)=result
   recorded_direction(direction,memory,state,run)
-def next(phase: U32,state: G.State,+run: G.Run,+rows: List<&2,G.Body>,+offers: List<&2,G.Offer>,memory: Policy.Memory) -> Recorded:
+def next(phase: U32,state: G.State,+run: G.Run,+offers: List<&2,G.Offer>,memory: Policy.Memory,snapshots: List<&2,G.Snapshot>) -> Recorded:
   match phase:
     case 1:
       +action : F.Action = F.ReplayUpgrade{C.tick(run),1,Policy.upgrade(run,offers)}
@@ -36,14 +37,14 @@ def next(phase: U32,state: G.State,+run: G.Run,+rows: List<&2,G.Body>,+offers: L
     case 2:
       +action : F.Action = F.ReplayUpgrade{C.tick(run),2,Policy.upgrade(run,offers)}
       Recorded{memory,C.apply(action,state),action}
-    case _: recorded_move(Policy.movement(memory,run,rows),state,run)
+    case _: recorded_move(Policy.movement(memory,run,snapshots),state,run)
 def progressed(result: Recorded,actions: List<&2,F.Action>,step: U32,begun: Bool) -> Progress:
   match result:
     case Recorded{memory,packet,action}: Progress{memory,packet,action <> actions,(step + 1 : U32),begun}
 def gate(+endTick: U32,progress: Progress) -> RecordReady:
   match progress:
-    case Progress{memory,G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},actions,step,begun}:
-      RecordReady{Bool.or(U32.is_le(endTick,C.tick(run)),C.is_terminal(run)),Progress{memory,G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},actions,step,begun}}
+    case Progress{memory,G.Packet{G.State{world,+run,offers,snapshots,pending}},actions,step,begun}:
+      RecordReady{Bool.or(U32.is_le(endTick,C.tick(run)),C.is_terminal(run)),Progress{memory,G.Packet{G.State{world,run,offers,snapshots,pending}},actions,step,begun}}
     case progress: RecordReady{True{},progress}
 def final_saved(valid: Bool,+fixture: String,+path: String,+profile: U32,+seed: U32,+warmup: U32,+endTick: U32,+actualEnd: U32,+finalPhase: U32,+actions: List<&2,F.Action>,+step: U32,+begun: Bool,state: G.State) -> IO(Unit):
   match valid:
@@ -58,13 +59,13 @@ def final_saved(valid: Bool,+fixture: String,+path: String,+profile: U32,+seed: 
 def loop(+fuel: Nat,+fixture: String,+path: String,+profile: U32,+seed: U32,+warmup: U32,+endTick: U32,+every: U32,ready: RecordReady) -> IO(Unit):
   match fuel ready:
     case _ RecordReady{_,Progress{_,G.Failed{error},_,_,_}}: IO.die(Unit,1,"Native action recording failed: " ++ error)
-    case _ RecordReady{True{},Progress{_,G.Packet{G.State{world,+run,rows,offers,snapshots,pending},_},actions,step,+begun}}:
-      final_saved(U32.is_le(warmup,C.tick(run)),fixture,path,profile,seed,warmup,endTick,C.tick(run),G.run_phase(run),actions,step,begun,G.State{world,run,rows,offers,snapshots,pending})
+    case _ RecordReady{True{},Progress{_,G.Packet{G.State{world,+run,offers,snapshots,pending}},actions,step,+begun}}:
+      final_saved(U32.is_le(warmup,C.tick(run)),fixture,path,profile,seed,warmup,endTick,C.tick(run),G.run_phase(run),actions,step,begun,G.State{world,run,offers,snapshots,pending})
     case 0n _: IO.die(Unit,1,"Native recorder exhausted safety fuel")
-    case 1n+rest RecordReady{False{},Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending},_},+actions,+step,+begun}}:
+    case 1n+rest RecordReady{False{},Progress{memory,G.Packet{G.State{world,+run,+offers,+snapshots,pending}},+actions,+step,+begun}}:
       +active=U32.is_le(warmup,C.tick(run))
       +observe=Bool.and(active,Bool.or(Bool.not(begun),Bool.and(U32.is_lt(0,every),U32.is_eq((step % U32.max(1,every) : U32),0))))
-      checkpoint(observe,G.State{world,run,rows,offers,snapshots,pending},fixture,step,(state => loop(rest,fixture,path,profile,seed,warmup,endTick,every,gate(endTick,progressed(next(G.run_phase(run),state,run,rows,offers,memory),actions,step,Bool.or(begun,active))))))
+      checkpoint(observe,G.State{world,run,offers,snapshots,pending},fixture,step,(state => loop(rest,fixture,path,profile,seed,warmup,endTick,every,gate(endTick,progressed(next(G.run_phase(run),state,run,offers,memory,snapshots),actions,step,Bool.or(begun,active))))))
 def begin(valid: Bool,+path: String,+profile: U32,+seed: U32,+warmup: U32,+endTick: U32,+every: U32) -> IO(Unit):
   match valid:
     case False{}: IO.die(Unit,1,"Invalid native recording profile/warmup/endTick")

@@ -2,7 +2,14 @@ import Base
 import body-index.bend as BI
 
 # Logical emission metadata is independent of the physical projectile identity.
-type Request is Data: Request{owner:U32,slot:U32,level:U32}
+type Emission is Data: Emission{sourcePlayer:U32,logicalSlot:U32}
+def emission_player(value: Emission) -> U32:
+  match value:
+    case Emission{player,_}: player
+def emission_slot(value: Emission) -> U32:
+  match value:
+    case Emission{_,slot}: slot
+type Request is Data: Request{weaponOwner:U32,slot:Emission,level:U32}
 type Plan is Data: Plan{assignments:BI.Index<Request>,count:U32}
 type Pending is Data:
   Pending{free:List<&2,U32>,counts:List<&2,U32>,caps:List<&2,U32>,assignments:BI.Index<Request>,count:U32}

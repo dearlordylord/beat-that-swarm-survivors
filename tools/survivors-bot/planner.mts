@@ -72,13 +72,29 @@ const directions: [number, number][] = [
 // Pure, bounded spatial planning. The classifier is deliberately outside this module.
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y)
 const position = (f: Frame) => ({ x: f.px, y: f.py })
-const identity = (g: Goal, tick: number) => {
+const identity = (g: Goal, frame: Frame) => {
   if (g.kind.startsWith("move_")) return g.kind
-  if (g.kind === "approach_experience" && Number.isFinite(g.resource?.generation))
-    return `${g.kind}:${g.id.split(":")[2]}:${defined(g.resource).generation}`
-  const p = g.id.split(":")
-  if (p.length < 6) return g.id
-  return [g.kind, ...p.slice(2, 5), Number(p[3]) === 9 ? 0 : tick - Number(p[5])].join(":")
+  const [, , slot, itemKind] = g.id.split(":")
+  const pickup = frame.pickups.find((p) => p.active && p.slot === Number(slot) && p.item.kind === itemKind)
+  if (!pickup) throw new Error("Goal has no current pickup")
+  if (pickup.item.kind === "relic") return `${g.kind}:${slot}:relic:stage:${pickup.item.stage}`
+  return `${g.kind}:${slot}:${itemKind}:${pickup.generation}`
+}
+type Threat = { x: number; y: number; radius: number } & ({ hostile: false; health: number } | { hostile: true })
+export function actorThreats(frame: Frame): Threat[] {
+  const enemies = new Map(frame.enemies.map((enemy) => [enemy.identity, enemy]))
+  const projectiles = new Map(frame.projectiles.map((projectile) => [projectile.identity, projectile]))
+  return frame.actorOrder.flatMap((ref): Threat[] => {
+    if ("enemy" in ref) {
+      const enemy = defined(enemies.get(ref.enemy))
+      return [{ x: enemy.x, y: enemy.y, radius: enemy.radius, health: enemy.health, hostile: false }]
+    }
+    if ("projectile" in ref) {
+      const projectile = defined(projectiles.get(ref.projectile))
+      return projectile.hostile ? [{ x: projectile.x, y: projectile.y, radius: projectile.radius, hostile: true }] : []
+    }
+    return []
+  })
 }
 export function createPlanner(options: Partial<PlannerOptions> = {}): Memory {
   return {
@@ -139,25 +155,25 @@ function riskGrid(frame: Frame, options: Pick<PlannerOptions, "cell" | "worldSiz
   }
   const risk = new Float64Array(n * n),
     blocked = new Uint8Array(n * n)
-  for (const b of frame.bodies) {
-    if (!((b[2] === 0 && b[4] > 0) || b[2] === 7)) continue
-    const radius = (b[8] ?? 12) + (b[2] === 7 ? 12 : 18),
+  for (const b of actorThreats(frame)) {
+    if (!b.hostile && b.health <= 0) continue
+    const radius = b.radius + (b.hostile ? 12 : 18),
       reach = radius + 120
     for (
-      let y = Math.max(0, Math.floor((b[1] - origin.y - reach) / cell));
-      y <= Math.min(n - 1, Math.floor((b[1] - origin.y + reach) / cell));
+      let y = Math.max(0, Math.floor((b.y - origin.y - reach) / cell));
+      y <= Math.min(n - 1, Math.floor((b.y - origin.y + reach) / cell));
       y++
     )
       for (
-        let x = Math.max(0, Math.floor((b[0] - origin.x - reach) / cell));
-        x <= Math.min(n - 1, Math.floor((b[0] - origin.x + reach) / cell));
+        let x = Math.max(0, Math.floor((b.x - origin.x - reach) / cell));
+        x <= Math.min(n - 1, Math.floor((b.x - origin.x + reach) / cell));
         x++
       ) {
-        const d = Math.hypot(origin.x + (x + 0.5) * cell - b[0], origin.y + (y + 0.5) * cell - b[1]),
+        const d = Math.hypot(origin.x + (x + 0.5) * cell - b.x, origin.y + (y + 0.5) * cell - b.y),
           i = y * n + x
         // A cell intersecting contact space cannot serve as a safe corridor.
         if (d < radius + cell * 0.35) blocked[i] = 1
-        risk[i] = at(risk, i) + Math.max(0, 1 - d / reach) * (b[2] === 7 ? 8 : 4)
+        risk[i] = at(risk, i) + Math.max(0, 1 - d / reach) * (b.hostile ? 8 : 4)
       }
   }
   return { n, risk, blocked, cell, origin, span }
@@ -244,19 +260,19 @@ export function routePath(
 }
 function observe(memory: Memory, frame: Frame, catalog: Goal[], mechanics: Partial<Mechanics>) {
   const objects: Record<string, ResourceMemory> = {},
-    xpBodies = new Map(frame.bodies.filter((b) => b[2] === 2).map((b) => [b[7], b]))
+    xpPickups = new Map(frame.pickups.filter((p) => p.active && p.item.kind === "xp").map((p) => [p.slot, p]))
   for (const goal of catalog.filter((g) => g.kind === "approach_experience")) {
-    const key = identity(goal, frame.tick),
+    const key = identity(goal, frame),
       prior = memory.objects[key]
-    const body = xpBodies.get(Number(goal.id.split(":")[2]))
+    const pickup = xpPickups.get(Number(goal.id.split(":")[2]))
     const value = Number.isFinite(goal.resource?.baseXp)
       ? defined(goal.resource).baseXp
       : Number.isFinite(goal.reward?.xp)
         ? defined(defined(goal.reward).xp)
         : Number.isFinite(goal.experience)
           ? defined(goal.experience)
-          : (body?.[4] ?? 0) > 0
-            ? defined(body)[4]
+          : pickup?.item.kind === "xp" && pickup.item.amount > 0
+            ? pickup.item.amount
             : (mechanics.resourceRules?.xpDefaultValue ?? 1)
     objects[key] = { key, goal, value, firstSeen: prior?.firstSeen ?? frame.tick, lastSeen: frame.tick }
   }
@@ -297,7 +313,7 @@ export function planMovement(memory: Memory, frame: Frame, catalog: Goal[], mech
   observe(memory, frame, catalog, mechanics)
   const here = position(frame),
     current = memory.current
-  const currentGoal = current && catalog.find((g) => identity(g, frame.tick) === current.identity)
+  const currentGoal = current && catalog.find((g) => identity(g, frame) === current.identity)
   const damaged = memory.lastHp !== null && frame.hp < memory.lastHp
   if (memory.lastPosition && distance(here, memory.lastPosition) > 12) {
     memory.lastPosition = here
@@ -399,7 +415,7 @@ export function planMovement(memory: Memory, frame: Frame, catalog: Goal[], mech
         goal,
         ...route,
         etaTicks,
-        identity: identity(goal, frame.tick),
+        identity: identity(goal, frame),
         score: p.reward / (1 + etaTicks / 60) / (1 + route.risk * (frame.hp < frame.maxHp * 0.35 ? 4 : 1))
       })
     }
@@ -430,7 +446,7 @@ export function planMovement(memory: Memory, frame: Frame, catalog: Goal[], mech
   }
   // Refresh snapshot-scoped IDs without replacing stable objectives or route memory.
   memory.candidates = memory.candidates.flatMap((c) => {
-    const g = catalog.find((g) => identity(g, frame.tick) === c.identity)
+    const g = catalog.find((g) => identity(g, frame) === c.identity)
     return g ? [{ ...c, goal: g }] : []
   })
   if (memory.current) {

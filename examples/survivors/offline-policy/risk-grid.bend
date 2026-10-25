@@ -1,5 +1,5 @@
 import Base
-import ../game.bend as G
+import ../offline-threats.bend as Threats
 
 # Per-plan spatial risk accumulation: a 60px/3600px local window matching
 # the JS planner, with single-owner arrays and localized hostile influence rectangles.
@@ -34,14 +34,14 @@ def cell_distance(+x: U32,+y: U32,bx: F32,by: F32) -> F32:
   +dx=(U32.to_f32(x) * 60.0 + 30.0 - bx : F32)
   +dy=(U32.to_f32(y) * 60.0 + 30.0 - by : F32)
   F32.sqrt((dx * dx + dy * dy : F32))
-def weight(kind: U32) -> F32:
-  match kind:
-    case 7: 8.0
-    case _: 4.0
-def margin(kind: U32) -> F32:
-  match kind:
-    case 7: 12.0
-    case _: 18.0
+def weight(hostile: Bool) -> F32:
+  match hostile:
+    case True{}: 8.0
+    case False{}: 4.0
+def margin(hostile: Bool) -> F32:
+  match hostile:
+    case True{}: 12.0
+    case False{}: 18.0
 
 def select(test: Bool,a: U32,b: U32) -> U32:
   match test:
@@ -57,26 +57,26 @@ def rectangle(fuel: Nat,grid: Grid,+x: U32,+y: U32,+xmin: U32,+xmax: U32,+bx: F3
       +endRow=U32.is_eq(x,xmax)
       rectangle(rest,next,select(endRow,xmin,(x + 1 : U32)),select(endRow,(y + 1 : U32),y),xmin,xmax,bx,by,radius,reach,factor)
 
-def add_active(active: Bool,grid: Grid,+x: F32,+y: F32,+kind: U32,radius: F32) -> Grid:
+def add_active(active: Bool,grid: Grid,+x: F32,+y: F32,+hostile: Bool,radius: F32) -> Grid:
   match active:
     case False{}: grid
     case True{}:
-      +radius=(radius + margin(kind) : F32)
+      +radius=(radius + margin(hostile) : F32)
       +reach=(radius + 120.0 : F32)
       +xmin=lower((x - reach : F32))
       +xmax=upper((x + reach : F32))
       +ymin=lower((y - reach : F32))
       +ymax=upper((y + reach : F32))
       +cells=((xmax - xmin + 1) * (ymax - ymin + 1) : U32)
-      rectangle(U32.to_nat(cells),grid,xmin,ymin,xmin,xmax,x,y,radius,reach,weight(kind))
-def add(grid: Grid,body: G.Body) -> Grid:
-  match body:
-    case G.Body{x,y,+kind,_,hp,_,_,_,radius}: add_active(Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),U32.is_eq(kind,7)),grid,x,y,kind,radius)
-def build_rows(rows: List<&2,G.Body>,grid: Grid) -> Grid:
+      rectangle(U32.to_nat(cells),grid,xmin,ymin,xmin,xmax,x,y,radius,reach,weight(hostile))
+def add(grid: Grid,threat: Threats.Threat) -> Grid:
+  match threat:
+    case Threats.Threat{x,y,radius,hostile}: add_active(True{},grid,x,y,hostile,radius)
+def build_rows(rows: List<&2,Threats.Threat>,grid: Grid) -> Grid:
   match rows:
     case []: grid
-    case body <> rest: build_rows(rest,add(grid,body))
-def build(rows: List<&2,G.Body>) -> Grid: build_rows(rows,empty())
+    case threat <> rest: build_rows(rest,add(grid,threat))
+def build(rows: List<&2,Threats.Threat>) -> Grid: build_rows(rows,empty())
 
 # A read-only planner snapshot owns no affine array. Conversion consumes both
 # arrays once and preserves their complete balanced shape for 12-step lookup.
@@ -103,7 +103,7 @@ def lookup_go(fuel: Nat,tree: Frozen,+index: U32,+half: U32) -> Cell:
     case 0n _: Cell{False{},0.0}
     case 1n+rest Branch{left,right}: lookup_go(rest,choose_tree(U32.is_lt(index,half),left,right),(index % half : U32),(half / 2 : U32))
 def lookup(tree: Frozen,index: U32) -> Cell: lookup_go(12n,tree,(index % 4096 : U32),2048)
-def snapshot(rows: List<&2,G.Body>) -> Frozen: freeze(build(rows))
+def snapshot(rows: List<&2,Threats.Threat>) -> Frozen: freeze(build(rows))
 def is_blocked(cell: Cell) -> Bool:
   match cell:
     case Cell{blocked,_}: blocked
@@ -115,12 +115,12 @@ def risk(cell: Cell) -> F32:
 type RiskWindow is Data: RiskWindow{x:F32,y:F32,cells:Frozen}
 def window_origin(position:F32,+worldSize:F32,+margin:F32) -> F32:
   F32.clamp((U32.to_f32(F32.to_u32((F32.max(0.0,(position - 1800.0 : F32)) / 60.0 : F32))) * 60.0 : F32),margin,(worldSize - margin - 3600.0 : F32))
-def window_rows(rows:List<&2,G.Body>,grid:Grid,+ox:F32,+oy:F32) -> Grid:
+def window_rows(rows:List<&2,Threats.Threat>,grid:Grid,+ox:F32,+oy:F32) -> Grid:
   match rows:
     case []: grid
-    case G.Body{+x,+y,+kind,_,hp,_,_,_,radius} <> rest:
-      window_rows(rest,add_active(Bool.or(Bool.and(U32.is_eq(kind,0),U32.is_lt(0,hp)),U32.is_eq(kind,7)),grid,(x - ox : F32),(y - oy : F32),kind,radius),ox,oy)
-def window_at(rows:List<&2,G.Body>,+ox:F32,+oy:F32) -> RiskWindow:
+    case Threats.Threat{+x,+y,radius,hostile} <> rest:
+      window_rows(rest,add_active(True{},grid,(x - ox : F32),(y - oy : F32),hostile,radius),ox,oy)
+def window_at(rows:List<&2,Threats.Threat>,+ox:F32,+oy:F32) -> RiskWindow:
   RiskWindow{ox,oy,freeze(window_rows(rows,empty(),ox,oy))}
-def window(rows:List<&2,G.Body>,px:F32,py:F32,+worldSize:F32,+margin:F32) -> RiskWindow:
+def window(rows:List<&2,Threats.Threat>,px:F32,py:F32,+worldSize:F32,+margin:F32) -> RiskWindow:
   window_at(rows,window_origin(px,worldSize,margin),window_origin(py,worldSize,margin))

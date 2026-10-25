@@ -15,7 +15,7 @@ law rejected_request_preserves_state:
 # Why it matters: allocation order is deterministic and never chooses a live ID.
 law accepted_request_consumes_free_head:
   for +owner:U32
-  for +slot:U32
+  for +slot:P.Emission
   for +level:U32
   for +seed:U32
   for +rest:List<&2,U32>
@@ -111,7 +111,7 @@ law exact_admission:
 # Why it matters: a legal shot must reach the pool rather than silently vanish.
 law public_admission:
   for +owner:U32
-  for +slot:U32
+  for +slot:P.Emission
   for +level:U32
   for +seed:U32
   for +rest:List<&2,U32>
@@ -127,7 +127,7 @@ law public_admission:
 # Why it matters: corrupt metadata cannot consume a physical projectile identity.
 law invalid_owner_is_refused:
   for +owner:U32
-  for +slot:U32
+  for +slot:P.Emission
   for +level:U32
   for +free:List<&2,U32>
   for +counts:List<&2,U32>

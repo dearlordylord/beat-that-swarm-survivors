@@ -93,6 +93,9 @@ def encoded_receipt(value:Maybe<&2,F.Receipt>) -> String:
 def encode(packet:Packet) -> String:
   match packet:
     case Packet{_,_,batch,receipt}: "BSC1\n" ++ encoded_receipt(receipt) ++ "\n" ++ encoded_batch(batch)
+# Immediate Setup and host-local actions use the same composite wire contract,
+# without inventing a journal reservation or completion identity.
+def encode_command(command:S.Command) -> String: "BSC1\n-\n" ++ I.encode_commands([command])
 def parsed_receipt(value:Maybe<&2,F.Receipt>) -> Maybe<&2,Maybe<&2,F.Receipt>>:
   match value:
     case None{}: None{}
@@ -122,10 +125,6 @@ def assembled(receipt:Maybe<&2,Maybe<&2,F.Receipt>>,commands:Maybe<&2,List<&2,S.
   match receipt commands:
     case Some{receipt} Some{commands}: Some{Payload{receipt,commands}}
     case _ _: None{}
-def fallback_receipt(receipt:Maybe<&2,F.Receipt>,text:String) -> Maybe<&2,Payload>:
-  match receipt:
-    case Some{receipt}: Some{Payload{Some{receipt},[]}}
-    case None{}: assembled(Some{None{}},I.decode(text))
 def composite(rows:List<&2,String>) -> Bool:
   match rows:
     case head <> _ <> _: String.eq(head,"BSC1")
@@ -134,15 +133,15 @@ def packet_lines(rows:List<&2,String>) -> Maybe<&2,Payload>:
   match rows:
     case _ <> receipt <> commands: assembled(receipt_field(receipt),command_field(commands))
     case _: None{}
-def decode_kind(combined:Bool,rows:List<&2,String>,+text:String) -> Maybe<&2,Payload>:
+def decode_kind(combined:Bool,rows:List<&2,String>) -> Maybe<&2,Payload>:
   match combined:
     case True{}: packet_lines(rows)
-    case False{}: fallback_receipt(F.decode_receipt(text),text)
-def decode_lines(+rows:List<&2,String>,text:String) -> Maybe<&2,Payload>:
-  decode_kind(composite(rows),rows,text)
+    case False{}: None{}
+def decode_lines(+rows:List<&2,String>) -> Maybe<&2,Payload>:
+  decode_kind(composite(rows),rows)
 def decode_selected(allowed:Bool,+text:String) -> Maybe<&2,Payload>:
   match allowed:
     case False{}: None{}
-    case True{}: decode_lines(I.lines(text,""),text)
+    case True{}: decode_lines(I.lines(text,""))
 def decode(+text:String) -> Maybe<&2,Payload>:
   decode_selected(Nat.is_le(String.length(text),U32.to_nat(max_frame_bytes())),text)

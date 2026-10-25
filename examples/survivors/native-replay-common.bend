@@ -1,3 +1,4 @@
+import run-state.bend as RS
 import Base
 import game.bend as G
 import bot-actions.bend as B
@@ -23,7 +24,7 @@ def start(profile: U32,seed: U32) -> G.Packet:
     case _: B.fresh_start_seed(seed)
 def tick(run: G.Run) -> U32:
   match run:
-    case G.Run{_,tick,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: tick
+    case G.Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: tick
 def is_terminal(run: G.Run) -> Bool: U32.is_le(3,G.run_phase(run))
 def action_tick(action: F.Action) -> U32:
   match action:
@@ -40,12 +41,12 @@ def choose_valid(valid: Bool,state: G.State,choice: U32) -> G.Packet:
 def apply_checked(valid: Bool,action: F.Action,state: G.State,offers: List<&2,G.Offer>) -> G.Packet:
   match valid action:
     case False{} _: G.Failed{"Replay action tick/phase differs from actual game state"}
-    case True{} F.ReplayMove{_,_,dx,dy}: G.advance_quiet(state,F.from_bits(dx),F.from_bits(dy))
+    case True{} F.ReplayMove{_,_,dx,dy}: G.advance(state,F.from_bits(dx),F.from_bits(dy))
     case True{} F.ReplayUpgrade{_,_,+choice}: choose_valid(Nat.is_lt(U32.to_nat(choice),List.length(&2,G.Offer,offers)),state,choice)
 def apply(+action: F.Action,state: G.State) -> G.Packet:
   match state:
-    case G.State{world,+run,rows,+offers,snapshots,pending}:
-      apply_checked(Bool.and(U32.is_eq(action_tick(action),tick(run)),U32.is_eq(action_phase(action),G.run_phase(run))),action,G.State{world,run,rows,offers,snapshots,pending},offers)
+    case G.State{world,+run,+offers,snapshots,pending}:
+      apply_checked(Bool.and(U32.is_eq(action_tick(action),tick(run)),U32.is_eq(action_phase(action),G.run_phase(run))),action,G.State{world,run,offers,snapshots,pending},offers)
 
 def loaded_length(valid: Bool,text: String) -> IO(String):
   match valid:

@@ -65,20 +65,6 @@ function check(type: Spec, value: unknown, state: { nodes: number }, depth = 0) 
     if (value !== null) check(type.nullable, value, state, depth + 1)
   } else if (!type.unchecked) throw TypeError("Unsupported snapshot schema.")
 }
-function fields(ref: { ref: string }): Fields {
-  return defined(Object.values(defined(schema[ref.ref]))[0])
-}
-function presentation(type: Spec): Spec {
-  if (typeof type === "string") return type
-  if (type.ref === "GameBody") return { tuple: fields({ ref: defined(type.ref) }).map(([, field]) => field) }
-  if (type.ref === "GameOffer" || type.ref === "CoopCoreObservedPlayer")
-    return { record: fields({ ref: defined(type.ref) }) }
-  return type
-}
-const frameFields: (readonly [string, Spec])[] = [...fields(roots.game), ...fields(roots.details)].map(
-  ([key, type]) => [key, typeof type !== "string" && type.list ? { array: presentation(type.list) } : type]
-)
-frameFields.push(["runId", "string"])
 const timing: Spec = {
   record: [
     ["worldTick", "u32"],
@@ -91,10 +77,11 @@ const timing: Spec = {
 const envelope: Spec = {
   record: [
     ["type", { literal: "frame" }],
-    ["connectionVersion", "u32"],
+    ["connectionVersion", { literal: 1 }],
     ["token", "u32"],
     ["initial", "bool"],
-    ["frame", { record: frameFields }],
+    ["runId", "string"],
+    ["frame", roots.core],
     ["admission", roots.admission],
     ["receipt", roots.receipt],
     ["observationSeq", "u32"],
@@ -105,6 +92,7 @@ const envelope: Spec = {
 
 function isSnapshot(value: unknown): value is SnapshotEnvelope {
   check(envelope, value, { nodes: 1024 * 1024 })
+  if (object(object(value).frame).$ !== "ViewObservation") throw TypeError("Expected view observation")
   return true
 }
 export function admitSnapshot(value: unknown): SnapshotEnvelope {
