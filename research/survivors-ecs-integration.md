@@ -107,3 +107,34 @@ and bounded performance qualification remain unchanged.
 Current worker ownership: `typed_results` owns issue 5 enemy migration;
 `baseline` owns issue 6 projectile migration; `player_authority` owns issue 7
 pickup migration. No group code has been integrated at the time of this entry.
+
+## Entity-group candidate assembly
+
+The isolated candidate branch `refactor/survivors-ecs-candidate` was created
+from canonical integration `3e9b781`. It contains the frozen advanced worker
+ledger ending at `3ade6da6db198903fbb1c30eff7685fcc24fa27a`, followed by the
+reviewed pickup/offline caller correction `0471ae6`. The 87 original-to-candidate
+commit mappings are in `survivors-entity-candidate-commits.json`. The assembled
+code tip before this record was `b2d7f4c5c53a993f255f1646932f4f4c1776ea31`.
+
+Patch-aware selection preserved the already integrated transport prefix.
+Only two cherry-pick conflicts occurred: both were co-op check module lists,
+resolved by retaining the union of transport, enemy and pickup checks. Browser
+command framing and the control-frame route remained canonical; typed guest
+presentation and explicit audio subjects are also present. The audio change is
+already included through worker commit `35475d7`, equivalent to reviewed
+supporting commit `dfc80d3`; it was not applied twice.
+
+Candidate quick checks passed: all 18 actual Bend entry points typechecked,
+including both formerly stale offline co-op consumers; changed JavaScript,
+Python, JSON and shell syntax checks; the dependency audit (228 Bend modules);
+whitespace; actor-consumer fixtures; ten strict replay tests; five co-op world
+qualification tests; and ten enemy/projectile/pickup qualification tests.
+Entrypoint evidence is `/tmp/survivors-candidate-entrypoint-audit/receipt.json`.
+The authored-source manifest at `/tmp/survivors-candidate-source-manifest.json`
+covers 376 example, bot-tool and pinned proof-library sources; its canonical
+JSON digest is `3876f7e445f046d221c2bedf2c4f4103cce3c6483331f287dc0473a725812ca6`.
+
+This assembly has not yet received final combined review or fresh combined
+runtime qualification. Canonical integration remains unchanged at `3e9b781`;
+no worker cleanup or issue completion follows from quick checks alone.
