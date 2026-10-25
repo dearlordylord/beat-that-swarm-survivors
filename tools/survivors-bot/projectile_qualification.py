@@ -73,6 +73,7 @@ def validate_and_project(components, metadata, layout):
             if shot[1] is not None:
                 raise R.ReplayError('Non-projectile has a projectile payload')
             continue
+        M.stamp_valid(columns['bodies'][index][2], False, now)
         if columns['bodies'][index][1] is not None:
             raise R.ReplayError('Projectile retains a second Body authority')
         identity = columns['identities'][index]
