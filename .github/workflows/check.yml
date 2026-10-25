@@ -104,4 +104,4 @@ jobs:
       - name: Check native compilation cache
         run: python3 scripts/native-check-cache.test.py
       - name: Check native profile, UI and loot
-        run: bash examples/survivors/check-native.sh
+        run: bash examples/survivors/check-launcher-profile-ui.sh

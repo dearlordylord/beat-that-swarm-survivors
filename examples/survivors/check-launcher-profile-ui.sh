@@ -54,4 +54,4 @@ for frame in menu gameplay upgrade map; do
 done
 cp "$check_dir/native-loot-test-data/experience-piles.ppm" "$capture_dir/experience-piles.ppm"
 echo "Native captures: $capture_dir"
-echo 'NATIVE CHECKS PASS (standalone game build is separate)'
+echo 'LAUNCHER, PROFILE AND UI CHECKS PASS (standalone game build is separate)'

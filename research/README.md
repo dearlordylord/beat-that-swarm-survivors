@@ -14,7 +14,7 @@ Check the published dependency and run the example's checks from this repository
 ```sh
 python3 scripts/check-dependencies.py --registry
 bash examples/survivors/check.sh
-bash examples/survivors/check-native.sh
+bash examples/survivors/check-launcher-profile-ui.sh
 ```
 
 Check requirements and the scope of recorded results are described in [validation](../examples/survivors/VALIDATION.md). Ordinary gameplay and practical bot runs use CPU; Metal remains a research experiment.
