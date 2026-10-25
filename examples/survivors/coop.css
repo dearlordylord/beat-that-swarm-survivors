@@ -32,6 +32,7 @@ html[data-entry=guest] [data-host-ui],html[data-entry=host] [data-guest-ui]{disp
 .coop-member-mark{display:grid;place-items:center;width:42px;height:53px;color:#e1cda3;font:29px Georgia,serif;background:#382837;border:1px solid #877050;flex-shrink:0}
 .coop-member-mark.empty{background:transparent;border-style:dashed;color:#a28caa}
 .coop-text-button{display:block;margin:14px auto 0;padding:5px;font:11px system-ui,sans-serif;background:none;border:0;box-shadow:none;color:#baa5bc;text-decoration:underline;text-underline-offset:4px}
+#coop-host-own{width:fit-content;min-height:44px;display:flex;align-items:center;font-size:12px}
 .coop-survivor-preview{display:flex;align-items:center;gap:26px;min-height:222px;padding:25px 30px;border:1px solid #8c795c;background:radial-gradient(ellipse at 30% 60%,#72648535,transparent 75%),#292230;box-shadow:inset 0 0 0 3px #131019}
 .coop-survivor-preview .pixel-portrait{height:145px;width:110px}
 .coop-survivor-preview h2{font:36px Georgia,serif;color:#eadbc1;margin:5px 0}
