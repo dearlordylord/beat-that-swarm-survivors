@@ -237,15 +237,24 @@ export class AudioEngine {
     let rows = {$:'Nil'};
     const bodies = new Map(frame.bodies.map(body => [body[7], body]));
     const enemies = new Map(frame.enemies.map(enemy => [enemy.identity, enemy]));
+    const enemyFades = new Map((frame.enemyFades || []).map(enemy => [enemy.lifetime, enemy]));
+    const projectiles = new Map(frame.projectiles.map(projectile => [projectile.identity, projectile]));
+    const localProjectiles = new Map((frame.localProjectiles || []).map(projectile => [projectile.lifetime, projectile]));
     for (let i = frame.actorOrder.length - 1; i >= 0; i--) {
       const reference = frame.actorOrder[i];
       let observation;
-      if (Object.hasOwn(reference, 'enemy')) {
-        const enemy = enemies.get(reference.enemy);
+      if (Object.hasOwn(reference, 'enemy') || Object.hasOwn(reference, 'enemyFade')) {
+        const enemy = Object.hasOwn(reference, 'enemy') ? enemies.get(reference.enemy) : enemyFades.get(reference.enemyFade);
         observation = {$:'Body',seed:enemy.identity >>> 0,kind:0,
           variant:enemy.archetype >>> 0,age:enemy.age >>> 0,hp:enemy.health >>> 0,
           x:Math.fround(enemy.x),radius:Math.fround(enemy.radius),
           generation:typeof enemy.lifetime === 'string' ? enemy.lifetime : ''};
+      } else if (Object.hasOwn(reference,'projectile') || Object.hasOwn(reference,'localProjectile')) {
+        const projectile = Object.hasOwn(reference,'projectile')
+          ? projectiles.get(reference.projectile) : localProjectiles.get(reference.localProjectile);
+        observation = {$:'Body',seed:projectile.identity >>> 0,kind:projectile.hostile ? 7 : 1,
+          variant:projectile.weapon >>> 0,age:projectile.age >>> 0,hp:0,
+          x:Math.fround(projectile.x),radius:Math.fround(projectile.radius),generation:projectile.lifetime};
       } else {
         const body = bodies.get(reference.body);
         observation = {$:'Body',seed:body[7] >>> 0,kind:body[2] >>> 0,
@@ -271,20 +280,21 @@ export class AudioEngine {
   _refreshDanger(now, force = false) {
     if (!this.frame || (!force && now - this.lastDanger < 0.1)) return;
     const frame = this.frame;
-    let bodies = { $: "Nil" };
-    for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
-      const b = frame.bodies[i];
-      if (b[2] !== 7) continue;
-      bodies = { $: "Con", head: { $: "Body", x: b[0], y: b[1], kind: b[2], variant: b[3],
-        hp: b[4], maxHp: b[5], age: b[6], seed: b[7], radius: b[8] }, tail: bodies };
+    let hostiles = {$:'Nil'};
+    for (let i = frame.projectiles.length - 1; i >= 0; i--) {
+      const projectile = frame.projectiles[i];
+      if (!projectile.hostile) continue;
+      hostiles = {$:'Con',head:{$:'ProjectileThreat',x:Math.fround(projectile.x),
+        y:Math.fround(projectile.y)},tail:hostiles};
     }
     let enemies = {$:'Nil'};
-    for (let i = frame.enemies.length - 1; i >= 0; i--) {
-      const enemy = frame.enemies[i];
+    const visibleEnemies = frame.enemies.concat(frame.enemyFades || []);
+    for (let i = visibleEnemies.length - 1; i >= 0; i--) {
+      const enemy = visibleEnemies[i];
       enemies = {$:'Con',head:{$:'Threat',x:Math.fround(enemy.x),y:Math.fround(enemy.y),
         archetype:enemy.archetype >>> 0},tail:enemies};
     }
-    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, bodies, enemies);
+    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, hostiles, enemies);
     this.danger = Game["music:smooth"](this.danger, raw);
     this.targetBand = Game["music:target_band"](this.targetBand, this.danger);
     this.lastDanger = now;
