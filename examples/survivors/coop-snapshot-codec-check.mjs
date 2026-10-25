@@ -83,7 +83,7 @@ const scene = {
 };
 const sceneText = JSON.stringify(scene);
 const sceneBytes = textEncoder.encode(sceneText);
-const sceneEncoded = await encodeSnapshot(sceneText);
+const sceneEncoded = await encodeSnapshot(textEncoder.encode(sceneText));
 check(sceneBytes.byteLength >= 100_000 && sceneBytes.byteLength <= MAX_SNAPSHOT_RAW_BYTES,
   'repeated snapshot fixture is a bounded ~100 KB scene');
 equalBytes(sceneEncoded.subarray(0, MAGIC.byteLength), MAGIC, 'encoded frames use BSZ1');
@@ -105,7 +105,7 @@ for (let seed = 1; seed <= 40; seed++) {
   }
   const text = parts.join('');
   const raw = textEncoder.encode(text);
-  const frame = await encodeSnapshot(text);
+  const frame = await encodeSnapshot(textEncoder.encode(text));
   equalBytes(await decodeSnapshot(frame), raw, `UTF-8 byte round-trip seed ${seed}`);
   check(textDecoder.decode(await decodeSnapshot(frame)) === text, `UTF-8 text round-trip seed ${seed}`);
 }
@@ -141,7 +141,7 @@ wrongISize[wrongISize.byteLength - 4] ^= 0x01;
 await assert.rejects(decodeSnapshot(wrongISize), /invalid|isize/i);
 checks++;
 
-await assert.rejects(encodeSnapshot('x'.repeat(MAX_SNAPSHOT_RAW_BYTES + 1)), RangeError);
+await assert.rejects(encodeSnapshot(textEncoder.encode('x'.repeat(MAX_SNAPSHOT_RAW_BYTES + 1))), RangeError);
 checks++;
 const oversizedFrame = new Uint8Array(MAX_SNAPSHOT_COMPRESSED_BYTES + 1);
 oversizedFrame.set(MAGIC);
@@ -163,7 +163,7 @@ lyingFrame[lyingFrame.byteLength - 4] = 1;
 await assert.rejects(decodeSnapshot(lyingFrame), /invalid|isize|crc|exceeds/i);
 checks++;
 
-const queuedFrames = await Promise.all([1, 2, 3].map(value => encodeSnapshot(`queue-${value}`)));
+const queuedFrames = await Promise.all([1, 2, 3].map(value => encodeSnapshot(textEncoder.encode(`queue-${value}`))));
 const orderedStarts = [];
 const orderedGates = [];
 const ordered = new SnapshotDecoder({

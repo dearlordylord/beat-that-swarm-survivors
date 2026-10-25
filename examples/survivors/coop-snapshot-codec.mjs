@@ -8,7 +8,6 @@ const HEADER = Uint8Array.of(0x42, 0x53, 0x5a, 0x31); // BSZ1
 const HEADER_BYTES = HEADER.byteLength;
 const GZIP_SIGNATURE = [0x1f, 0x8b];
 const INPUT_CHUNK_BYTES = 1024;
-const encoder = new TextEncoder();
 
 const CRC32_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -121,9 +120,8 @@ function assertCompressedLimit(size) {
     throw new RangeError(`Snapshot exceeds ${MAX_SNAPSHOT_COMPRESSED_BYTES} compressed bytes.`);
 }
 
-export async function encodeSnapshot(text) {
-  if (typeof text !== 'string') throw new TypeError('Snapshot text must be a string.');
-  const raw = encoder.encode(text);
+export async function encodeSnapshot(raw) {
+  if (!isBytes(raw)) throw new TypeError('Snapshot input must be a Uint8Array.');
   assertRawLimit(raw.byteLength);
 
   const Compression = globalThis.CompressionStream;

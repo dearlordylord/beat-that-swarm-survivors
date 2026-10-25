@@ -1,3 +1,4 @@
+import { coreFrame } from './observations.mjs';
 // Browser scheduling and message IO only. Bend owns admission and the shared world.
 import Game from './dist/coop-core.mjs';
 import Session from './dist/coop-session.mjs';
@@ -10,7 +11,8 @@ let gate = Connection.fresh({$:'Host'});
 let lastSnapshot = 0, observationSeq = 0, lastPhase;
 let guestReceipt = Session.receipt_fresh(), guestQueue = InputQueue.fresh(0,0);
 let currentRound = 0, currentPhase = 0, currentWorldTick = 0, guestEligible = false;
-let lastInputRejection = null, connectionEpoch = 0;
+let lastInputRejection = null, connectionEpoch = 0, runId = '';
+const encoder = new TextEncoder();
 let contactJournal = HitJournal.fresh(0);
 const STEP = 1000 / 60;
 function applyConnection(output) {
@@ -36,7 +38,7 @@ function packet(result) {
   if (result.state) core = result.state;
   if (result.$ === 'CoreFailed') throw Error(result.message);
   if (result.$ === 'CoreRejected') { postMessage({type:'rejected',message:result.message,connectionEpoch}); return null; }
-  const frame = result.frame ? JSON.parse(result.frame) : null;
+  const frame = coreFrame(result.frame);
   if (Number.isInteger(frame?.tick)) currentWorldTick = frame.tick;
   return frame;
 }
@@ -54,9 +56,11 @@ function publish(remote = true, initial = false) {
     if (!guestEligible) guestQueue = InputQueue.fresh(currentRound,currentWorldTick);
     const publication = initial ? handshake({$:'Prepared',observation}) : null;
     if (initial && publication.$ !== 'PublishInitial') return;
-    postMessage({type:'remote-frame',frame:guest,admission:session,receipt:guestReceipt,
-      observationSeq:observation,connectionEpoch,token:Connection.epoch(gate),initial,contactJournal,
-      inputTiming:{worldTick:currentWorldTick,lastRejected:lastInputRejection}});
+    const token = Connection.epoch(gate);
+    const bytes = encoder.encode(JSON.stringify({type:'frame',connectionVersion:Connection.protocol_version(),token,initial,
+      frame:{...guest,runId},admission:session,receipt:guestReceipt,observationSeq:observation,contactJournal,
+      inputTiming:{worldTick:currentWorldTick,lastRejected:lastInputRejection}}));
+    postMessage({type:'remote-frame',bytes,observationSeq:observation,connectionEpoch,token},[bytes.buffer]);
   }
 }
 function prepareWorld(action) {
@@ -138,6 +142,7 @@ onmessage = event => {
     const message = event.data;
     switch (message.type) {
       case 'init': {
+        runId = message.runId;
         clearInterval(timer); gate = Connection.fresh({$:'Host'}); accumulator = 0;
         observationSeq = 0; lastPhase = undefined; guestReceipt = Session.receipt_fresh();
         currentRound = 0; currentPhase = 0; currentWorldTick = 0; guestEligible = false; guestQueue = InputQueue.fresh(0,0); lastInputRejection = null;

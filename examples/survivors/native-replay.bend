@@ -80,7 +80,7 @@ def checkpoint_result(result: G.State & String,+fixture: String,+step: U32,+acti
     case (state,payload):
       do IO<Unit>:
         IO.print("{\"type\":\"checkpoint\",\"fixture\":\"" ++ C.escape(fixture) ++ "\",\"step\":" ++ U32.show(step) ++ ",\"payload\":" ++ payload ++ "}")
-        use(Cursor{G.Packet{state,""},actions,step})
+        use(Cursor{G.Packet{state,None{}},actions,step})
 def checkpoint(cursor: Cursor,+fixture: String,use: Cursor -> IO(Unit)) -> IO(Unit):
   match cursor:
     case Cursor{G.Packet{state,_},+actions,+step}: checkpoint_result(O.snapshot(state),fixture,step,actions,use)

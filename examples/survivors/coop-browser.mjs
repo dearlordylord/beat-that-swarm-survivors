@@ -1,3 +1,5 @@
+import { projectileFrame } from './observations.mjs';
+import { admitSnapshot } from './snapshot-envelope.mjs';
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from './dist/coop-protocol.mjs';
 import Connection from './dist/coop-connection.mjs';
@@ -186,7 +188,7 @@ function displayFrame(frame) {
     playedContacts = confirmed.state;
     localShots = LocalProjectiles.play_effects(localShots,confirmed.events,frame.remotePresentation.tick);
   }
-  const visual = JSON.parse(LocalProjectiles.render(localShots,1,frame.remotePresentation.tick,localTargets));
+  const visual = projectileFrame(LocalProjectiles.render_frame(localShots,1,frame.remotePresentation.tick,localTargets));
   const visibility = LocalProjectiles.prepare_visibility(localShots);
   const bodies = (frame.bodies || []).filter(body => LocalProjectiles.should_show_prepared(
     visibility,1,body[2],body[10],body[9])).concat(visual.shots.map(shot =>
@@ -386,7 +388,7 @@ function flushSnapshot() {
   // Native completion clears only the writer; application receipts clear the
   // bounded observation window. QUIC delivery is weaker
   // than successful parsing, admission and presentation by the guest.
-  encodeSnapshot(JSON.stringify(message)).then(bytes => {
+  encodeSnapshot(message.bytes).then(bytes => {
     if (generation !== epoch || connection !== connectionEpoch || !connected) return;
     return channel.send(bytes);
   }).then(() => {
@@ -460,6 +462,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
             }
           } else {
             const envelope = JSON.parse(text);
+            admitSnapshot(envelope);
             if (envelope.type !== 'frame') return;
             const number = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0;
             signalConnection({$:'Frame',version:number(envelope.connectionVersion),
@@ -496,7 +499,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         else if (message.type === 'remote-frame') {
           if (!connected || message.connectionEpoch !== connectionEpoch) return;
           if (!SnapshotFlow.offer_allowed(snapshotFlow,message.observationSeq)) return;
-          latestSnapshot = {type:'frame',connectionVersion:Connection.protocol_version(),token:message.token,initial:message.initial,frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq,contactJournal:message.contactJournal};
+          latestSnapshot = message;
           snapshotFlow = SnapshotFlow.offer(snapshotFlow,message.observationSeq); flushSnapshot();
         } else if (message.type === 'handshake-action') {
           if (message.connectionEpoch === connectionEpoch && Connection.reason(connectionState).$ === 'None') {
@@ -521,7 +524,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         worker?.terminate(); worker = null;
         signalConnection({$:'Reject',reason:{$:'RuntimeFailed'}});
       };
-      worker.postMessage({type:'init',session:sessionId,seed:random(),setup});
+      worker.postMessage({type:'init',session:sessionId,seed:random(),setup,runId});
     } else await transport.join(ticket);
   } catch (error) {
     if (generation === epoch) transportFailure(error);

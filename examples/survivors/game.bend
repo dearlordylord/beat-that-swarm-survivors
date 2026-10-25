@@ -227,7 +227,8 @@ def player_family() -> C.Family<Schema,Store,PlayerRest,PlayerRecord,PlayerRecor
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
 type Snapshot is Data: Snapshot{body: Body,motion: Motion}
 type State is Type: State{world: World(),run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
-type Packet is Type: Packet{state: State,frame: String}
+type Observation is Data: Observation{worldSize:F32,worldMargin:F32,relicCollected:U32,relicX:F32,relicY:F32,runLength:U32,enemiesKilled:List<&2,U32>,mode:U32,rerolls:U32,banishes:U32,skips:U32,stage:U32,arcana:U32,revivalsUsed:U32,bossesKilled:U32,phase:U32,tick:U32,px:F32,py:F32,hp:U32,maxHp:U32,xp:U32,xpNeed:U32,level:U32,kills:U32,gold:U32,character:U32,weapons:List<&2,U32>,passives:List<&2,U32>,offers:List<&2,Offer>,bodies:List<&2,Body>}
+type Packet is Type: Packet{state: State,frame: Maybe<&2,Observation>}
   Failed{error: String}
 def at(values: List<&2,U32>,index: U32) -> U32:
   ListIndex.at(values,index)
@@ -351,11 +352,10 @@ def run_length(mode: U32) -> U32:
     case 3: 18000
     case _: 36000
 def wave_tick(+mode: U32,tick: U32) -> U32: (tick * (1 + Bool.to_u32(U32.is_eq(mode,3))) : U32)
-def packet_extra(state: State,extra: String) -> Packet:
+def packet(state: State) -> Packet:
   match state:
     case State{world,Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,+pending}:
-      Packet{State{world,Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending},"{\"worldSize\":" ++ F32.show(A.size()) ++ ",\"worldMargin\":" ++ F32.show(A.player_min()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "]" ++ extra ++ "}"}
-def packet(state: State) -> Packet: packet_extra(state,"")
+      Packet{State{world,Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending},Some{Observation{A.size(),A.player_min(),relicCollected,relic_x(stage),relic_y(stage),run_length(mode),enemyKinds,mode,rerolls,banishes,skips,stage,arcana,revivals,bosses,phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,offers,visible_bodies(bodies)}}}
 def meta_max(id: U32) -> U32:
   match id:
     case 3: 3
@@ -1826,7 +1826,7 @@ def terminal_queue(terminal: Bool,pending: List<&2,U32>) -> List<&2,U32>:
     case True{}: []
     case False{}: pending
 # Native consumers keep typed state; presentation serializes only the final packet.
-def quiet_packet(state: State) -> Packet: Packet{state,""}
+def quiet_packet(state: State) -> Packet: Packet{state,None{}}
 def attach_pending_with(~emit: State -> Packet,result: Packet,pending: List<&2,U32>) -> Packet:
   match result:
     case Packet{State{world,+run,bodies,offers,snapshots,newPending},_}: emit(State{world,run,bodies,offers,snapshots,terminal_queue(U32.is_le(3,run_phase(run)),pending_join(pending,newPending))})

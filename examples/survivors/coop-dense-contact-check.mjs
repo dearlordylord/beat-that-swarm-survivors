@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { coreFrame } from './observations.mjs';
 // Dense cosmetic journal regression. Core builds the real prepared geometry;
 // the small-stack branch exercises only the bounded journal policy.
 import assert from 'node:assert/strict';
@@ -223,12 +224,12 @@ if (process.argv.includes('--journal-only')) {
   const encodeMs = performance.now() - encodeStart;
   assert.deepEqual(encodedPacket.state, corePacket.state, 'journal serialization does not change Core state');
   const parseStart = performance.now();
-  const frame = JSON.parse(encodedPacket.frame);
+  const frame = coreFrame(encodedPacket.frame);
   const parseMs = performance.now() - parseStart;
   assert.equal(frame.tick, contactTick);
   assert.equal(frame.contactsOmitted, 7488);
   assert.deepEqual(array(frame.contacts), expectedSuffix, 'Core serializes the exact retained suffix');
-  assert.ok(Buffer.byteLength(encodedPacket.frame) < 200000, 'Core frame stays bounded before JSON.parse');
+  assert.ok(Buffer.byteLength(JSON.stringify(frame)) < 200000, 'Encoded contact receipt stays bounded');
 
   const journalTimes = [];
   for (let index = 0; index < 7; index += 1) {
@@ -360,7 +361,7 @@ if (process.argv.includes('--journal-only')) {
     contactsBeforeCap: fullRows.length,
     contactsInFrame: array(frame.contacts).length,
     contactsOmitted: frame.contactsOmitted,
-    frameBytes: Buffer.byteLength(encodedPacket.frame),
+    frameBytes: Buffer.byteLength(JSON.stringify(frame)),
     journalTeamMs: +journalMs.toFixed(3),
     journalClockMs: +encodeMs.toFixed(3),
     frameParseMs: +parseMs.toFixed(3),

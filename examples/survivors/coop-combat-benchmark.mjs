@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { coreFrame } from './observations.mjs';
 // Diagnostic fixtures only. Physics always comes from compiled Bend modules.
 import { performance } from 'node:perf_hooks';
 import { resolve } from 'node:path';
@@ -35,7 +36,7 @@ const array = values => {
 // /tmp/bendvy-combat-perf.mjs diagnostic. The mixed variant changes pierce only.
 let state = Core.core_join(Core.core_start(0, 0, 1).state, 0, 0, 0).state;
 state = Core.core_step(state, 0, 0, 0, 0).state;
-const initial = JSON.parse(Core.core_observe(state, 1).frame).combatForecast;
+const initial = coreFrame(Core.core_observe(state, 1).frame).combatForecast;
 const source = array(initial.snapshots).find(snapshot => snapshot.body.kind === 1);
 if (!source) throw new Error('Fixture bootstrap has no projectile snapshot');
 const enemies = Array.from({ length: 400 }, (_, i) => ({

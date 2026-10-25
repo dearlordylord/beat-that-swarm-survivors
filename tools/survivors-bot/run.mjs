@@ -1,3 +1,4 @@
+import { gameFrame } from '../../examples/survivors/observations.mjs';
 import { parseArgs } from 'node:util';
 import { mkdirSync, appendFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +23,8 @@ try {
     if (!['fresh', 'advanced'].includes(values.profile)) throw new Error('Invalid profile');
     const start = values.profile === 'fresh' ? Game.fresh_start_seed(seed) : Game.advanced_start_seed(seed);
     const observed = Game.observe(Game.advance(start.state, 0, 0).state);
-    const frame = JSON.parse(observed.frame);
+    const frame = gameFrame(observed.frame);
+    if (!frame) throw Error('Missing Bend observation');
     console.log(JSON.stringify({ profile: values.profile, seed, tick: frame.tick, upgradeOffers: frame.offers, goals: JSON.parse(observed.actions), mechanics: JSON.parse(observed.mechanics) }, null, 2));
     process.exit(0);
   }

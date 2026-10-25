@@ -61,18 +61,6 @@ export function rows(value) {
   return out;
 }
 
-// Mechanical reshaping only. Bend supplied all selection and policy decisions.
-export function presentation(o) {
-  const r=o.run, out={};
-  for (const key of 'worldSize worldMargin relicX relicY runLength predictionAllowed stepDistance ownPlayerId choicePending roundId combatForecast'.split(' ')) out[key]=o[key];
-  for (const key of 'relicCollected mode rerolls banishes skips stage arcana phase tick px py hp maxHp xp xpNeed level kills gold character'.split(' ')) out[key]=r[key];
-  Object.assign(out,{revivalsUsed:r.revivals,bossesKilled:r.bosses,enemiesKilled:rows(r.enemyKinds),weapons:rows(r.weapons),passives:rows(r.passives),
-    offers:rows(o.offers).map(({kind,id,level})=>({kind,id,level})),
-    bodies:rows(o.bodies).map(b=>[b.x,b.y,b.kind,b.variant,b.hp,b.maxHp,b.age,b.seed,b.radius]),
-    coop:true,requiredPlayers:rows(o.requiredPlayers),players:rows(o.players).map(({$,...p})=>p)});
-  return out;
-}
-
 function write(schema, value, state) {
   const {view}=state;
   function put(size, method, val) {

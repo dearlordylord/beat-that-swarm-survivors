@@ -1,3 +1,4 @@
+import { gameFrame } from './observations.mjs';
 import { MENU_TABS, renderMenuContent } from './menu-content.mjs';
 import {
   WEAPONS,
@@ -182,7 +183,8 @@ function accept(packet) {
   if (packet.$ !== "Packet") throw Error("Invalid simulation response");
   state = packet.state;
   let old = frame;
-  frame = JSON.parse(packet.frame);
+  frame = gameFrame(packet.frame);
+  if (!frame) { frame = old; return; }
   if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true;
   runHistory = observeRun(runHistory, { weapons: frame.weapons });
   frame.stage ??= stage;

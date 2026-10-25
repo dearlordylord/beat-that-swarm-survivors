@@ -160,7 +160,7 @@ async function instrument(page,role,errors){
   const response=await route.fetch();let source=await response.text();
   const send='const message = latestSnapshot; latestSnapshot = null;',ack='snapshotFlow = SnapshotFlow.ack(snapshotFlow,payload.receipt.value.token,payload.receipt.value.observation);';
   assert.ok(source.includes(send)&&source.includes(ack),'host snapshot preparation and application ACK hooks');
-  source=source.replace(send,send+"{let depth=0;for(let row=snapshotFlow.flights;row.$==='Con';row=row.tail)depth++;const rows=globalThis.__reliable.snapshotSends;rows.push({at:performance.now(),wall:Date.now(),token:message?.token,observation:message?.observationSeq,tick:message?.frame?.tick,phase:message?.frame?.phase,round:message?.frame?.roundId,depth});if(rows.length>5000)rows.shift();}");
+  source=source.replace(send,send+"{let depth=0;for(let row=snapshotFlow.flights;row.$==='Con';row=row.tail)depth++;const sentFrame=message?.bytes?JSON.parse(new TextDecoder().decode(message.bytes)).frame:message?.frame;const rows=globalThis.__reliable.snapshotSends;rows.push({at:performance.now(),wall:Date.now(),token:message?.token,observation:message?.observationSeq,tick:sentFrame?.tick,phase:sentFrame?.phase,round:sentFrame?.roundId,depth});if(rows.length>5000)rows.shift();}");
   source=source.replace(ack,ack+"{const rows=globalThis.__reliable.snapshotAcks;rows.push({at:performance.now(),wall:Date.now(),token:payload.receipt.value.token,observation:payload.receipt.value.observation});if(rows.length>5000)rows.shift();}");
   await route.fulfill({response,body:source});
  });

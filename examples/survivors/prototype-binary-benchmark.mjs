@@ -1,13 +1,15 @@
+import { admitSnapshot } from './snapshot-envelope.mjs';
+import { coreFrame } from './observations.mjs';
 // Throwaway, real emitted Bend + controlled population fixtures. No network claims.
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,writeFile} from 'node:fs/promises';
+import {mkdtemp,mkdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {MessageChannel} from 'node:worker_threads';
 import {cpus} from 'node:os';
-import {encode,decode,presentation,rows,MAX_BYTES} from './prototype-binary-codec.mjs';
+import {encode,decode,rows,MAX_BYTES} from './prototype-binary-codec.mjs';
 
 const scratch=await mkdtemp(join(tmpdir(),'bendvy-binary-benchmark-'));
 const samples=Number(process.env.SAMPLES||60);
@@ -54,6 +56,18 @@ try {
   ],{encoding:'utf8',timeout:30000});
   if(compile.status!==0)throw Error(compile.stdout+compile.stderr);
   const {default:B}=await import(pathToFileURL(output));
+  // Compile the fixed master baseline separately; no legacy JSON API in production.
+  const legacyRoot=join(scratch,'legacy');await mkdir(legacyRoot);
+  const archived=spawnSync('git',['archive','01b4164612cd6e37d39aa75b16fab2dd253ebb0d','examples'],
+    {cwd:fileURLToPath(new URL('../../',import.meta.url)),maxBuffer:64*1024*1024});
+  if(archived.status!==0)throw Error(String(archived.stderr));
+  const extracted=spawnSync('tar',['-x','-C',legacyRoot],{input:archived.stdout});
+  if(extracted.status!==0)throw Error(String(extracted.stderr));
+  const legacyOutput=join(scratch,'legacy.mjs');
+  const legacyCompile=spawnSync(process.env.BEND||'bend',[join(legacyRoot,'examples/survivors/coop-core.bend'),'-o',legacyOutput],{encoding:'utf8',timeout:30000});
+  if(legacyCompile.status!==0)throw Error(legacyCompile.stdout+legacyCompile.stderr);
+  const {default:Legacy}=await import(pathToFileURL(legacyOutput));
+
   function liveState() {
     // Emitted Bend mutates affine array storage. Each fixture owns a fresh world.
     let state=B.join(B.start().state).state;
@@ -81,13 +95,22 @@ try {
     }
   }
   // Check after every fixture is prepared: later transitions must not alter earlier worlds.
-  for(const [name,state]of fixtures)assertFixture(name,JSON.parse(B.baseline(state,1).frame));
+  for(const [name,state]of fixtures)assertFixture(name,JSON.parse(Legacy.core_observe(state,1).frame));
   const results=[];
   for(const [name,state,events]of fixtures){
     const rejection=name==='choice'?{reason:2,seq:10,targetWorldTick:42,worldTick:43}:null;
-    const old=()=>envelope(JSON.parse(B.baseline(state,1).frame),events,rejection);
-    const fresh=()=>envelope(presentation(B.observe(state,1).observation),events,rejection);
+    const old=()=>envelope(JSON.parse(Legacy.core_observe(state,1).frame),events,rejection);
+    const fresh=()=>envelope(coreFrame(B.observe(state,1).frame),events,rejection);
     const expected=old(),candidate=fresh();
+    admitSnapshot(expected);admitSnapshot(candidate);
+    for(const corrupt of [
+      value=>{value.frame.hp=-1;},
+      value=>{value.frame.bodies=[[0,0,0]];},
+      value=>{delete value.frame.combatForecast.snapshots;},
+      value=>{value.frame.combatForecast.$='Unknown';},
+      value=>{value.receipt.applied=1;},
+      value=>{value.contactJournal.events={$:'Con',head:{},tail:{$:'Nil'}};},
+    ]){const bad=structuredClone(expected);corrupt(bad);assert.throws(()=>admitSnapshot(bad));}
     assertFixture(name,expected.frame);assertFixture(name,candidate.frame);
     assert.deepEqual(normalize(candidate),normalize(expected),`${name}: typed observation parity`);
     const binary=encode(candidate),json=utf8.encode(JSON.stringify(expected));
@@ -97,10 +120,10 @@ try {
     assert.deepEqual(await gunzip(compressedBinary),binary);
     assert.deepEqual(JSON.parse(text.decode(await gunzip(compressedJson))),expected);
     const oldTimes=[],newTimes=[],typedJsonTimes=[];
-    const stageTimes=Object.fromEntries(['bendJsonAndParse','bendTypedAndPresentation','cloneObjects','transferBytes','jsonEncodeDecode','binaryEncodeDecode'].map(key=>[key,[]]));
+    const stageTimes=Object.fromEntries(['bendJsonAndParse','bendTypedAndPresentation','cloneObjects','transferBytes','jsonEncodeDecode','binaryEncodeDecode','networkAdmission'].map(key=>[key,[]]));
     const measureOld=()=>{const t=performance.now();const object=structuredClone(old());const bytes=utf8.encode(JSON.stringify(object));const received=JSON.parse(text.decode(bytes));assert.equal(received.observationSeq,19);return performance.now()-t;};
-    const measureNew=()=>{const t=performance.now();const bytes=encode(fresh());const moved=structuredClone(bytes,{transfer:[bytes.buffer]});const received=decode(moved);assert.equal(received.observationSeq,19);return performance.now()-t;};
-    const measureTypedJson=()=>{const t=performance.now();const bytes=utf8.encode(JSON.stringify(fresh()));const moved=structuredClone(bytes,{transfer:[bytes.buffer]});const received=JSON.parse(text.decode(moved));assert.equal(received.observationSeq,19);return performance.now()-t;};
+    const measureNew=()=>{const t=performance.now();const bytes=encode(fresh());const moved=structuredClone(bytes,{transfer:[bytes.buffer]});const received=admitSnapshot(decode(moved));assert.equal(received.observationSeq,19);return performance.now()-t;};
+    const measureTypedJson=()=>{const t=performance.now();const bytes=utf8.encode(JSON.stringify(fresh()));const moved=structuredClone(bytes,{transfer:[bytes.buffer]});const received=admitSnapshot(JSON.parse(text.decode(moved)));assert.equal(received.observationSeq,19);return performance.now()-t;};
     for(let i=0;i<8;i++){measureOld();measureNew();measureTypedJson();}
     for(let i=0;i<samples;i++){
       if(i%2){newTimes.push(measureNew());oldTimes.push(measureOld());}
@@ -114,6 +137,7 @@ try {
         ['transferBytes',null],
         ['jsonEncodeDecode',()=>JSON.parse(text.decode(utf8.encode(JSON.stringify(expected))))],
         ['binaryEncodeDecode',()=>decode(encode(candidate))],
+        ['networkAdmission',()=>admitSnapshot(candidate)],
       ]){
         // Preallocate the bytes outside this stage: measure ownership transfer alone.
         const bytes=name==='transferBytes'?binary.slice():null;

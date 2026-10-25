@@ -7,7 +7,7 @@ import projectile.bend as Shots
 # Observation consumes the affine state once and returns it unchanged. Candidates
 # are snapshot-scoped goals, not promises of safety, reachability or rewards.
 type Observed is Type:
-  Observed{state: G.State,frame: String,actions: String,mechanics: String}
+  Observed{state: G.State,frame: Maybe<&2,G.Observation>,actions: String,mechanics: String}
   ObserveFailed{error: String}
 
 def goal_data(+tick: U32,+px: F32,+py: F32,+kind: String,+x: F32,+y: F32,identity: String,resource: String) -> String:
@@ -95,7 +95,7 @@ def preview_rows(offers: List<&2,G.Offer>,+index: U32,+run: G.Run) -> String:
 def mechanics(+run: G.Run,offers: List<&2,G.Offer>) -> String:
   "{\"source\":\"Bend game functions\",\"notes\":\"Immediate pure upgrade preview; baseHitDamage is not DPS; cooldown is ticks, not a combat rollout.\",\"current\":" ++ engine_stats(run) ++ ",\"offers\":[" ++ preview_rows(offers,0,run) ++ "]}"
 
-def observed_state(state: G.State,frame: String) -> Observed:
+def observed_state(state: G.State,frame: Maybe<&2,G.Observation>) -> Observed:
   match state:
     case G.State{world,+run,+bodies,+offers,snapshots,pending}:
       Observed{G.State{world,run,bodies,offers,snapshots,pending},frame,catalog(run,bodies),mechanics(run,offers)}

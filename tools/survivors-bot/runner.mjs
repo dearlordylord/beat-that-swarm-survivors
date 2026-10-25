@@ -1,3 +1,4 @@
+import { gameFrame } from '../../examples/survivors/observations.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from './context.mjs';
 import { createPlanner, planMovement, advisePlanner } from './planner.mjs';
@@ -57,7 +58,8 @@ export async function runBot(Game, {
       ? Game.observed_packet(packet) : Game.observe(packet.state);
     if (observed.$ !== 'Observed') throw new Error('Bend observation failed');
     if (typeof observed.mechanics !== 'string') throw new Error('Rebuild bot facade: engine mechanics are required');
-    const frame = JSON.parse(observed.frame);
+    const frame = gameFrame(observed.frame);
+    if (!frame) throw Error('Missing Bend observation');
     if (!Number.isFinite(frame.px) || !Number.isFinite(frame.py) || frame.hp > frame.maxHp) throw new Error('Invalid Bend observation');
     return { state: observed.state, frame, catalog:JSON.parse(observed.actions), engineMechanics:JSON.parse(observed.mechanics) };
   };

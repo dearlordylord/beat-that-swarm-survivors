@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { coreFrame } from './observations.mjs';
 // Runtime oracle fixtures for host-confirmed cosmetic contacts. Core receipts
 // are checked against literal identities and hand-computed simple geometry;
 // Game's prepared hit plans are also sent through its actual enemy resolver.
@@ -74,7 +75,7 @@ function coreContacts(tick, snapshots) {
   };
   const packet = Core.core_step(input, 0, 0, 0, 0);
   assert.equal(packet.$, 'CorePacket', `Core.core_step failed: ${JSON.stringify(packet)}`);
-  const frame = JSON.parse(packet.frame);
+  const frame = coreFrame(packet.frame);
   assert.equal(frame.advanced, true, 'fixture must exercise the advancing Core path');
   assert.ok(Object.hasOwn(frame, 'contacts'), 'Core frame must expose its journaled contact receipts');
   return array(frame.contacts);
@@ -120,7 +121,7 @@ function close(actual, expected, label, epsilon = 0.0001) {
   let state=coreSeedState();
   for(const id of [0,1]) {
     const observed=Core.core_observe(state,id); state=observed.state;
-    const frame=JSON.parse(observed.frame);
+    const frame=coreFrame(observed.frame);
     assert.equal(frame.combatForecast.own,id,'typed projection exists for each observer');
     assert.equal(frame.combatForecast.$,'Scene');
   }
