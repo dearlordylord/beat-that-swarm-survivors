@@ -37,7 +37,7 @@ def player(value):
         else:R.u32(state[key],'personal state')
     return dict(id=value['id'],connected=value['connected'],personal={k:state[k] for k in PLAYER_FIELDS})
 def validate_row(row):
-    world=row['physical']['world'];now=time(world['clock']['now'])
+    world=row['physical']['world'];R.u32(world['namespace'],'world namespace');now=time(world['clock']['now'])
     if array(world['clock']['scopes']):raise R.ReplayError('Unclosed co-op clock scope')
     store=world['store']['players']
     C.exact_keys(store,{'$','state'},'player column');owned=store['state'];C.exact_keys(owned,{'$','state'},'player owner')
@@ -47,14 +47,19 @@ def validate_row(row):
     meta=state['metadata'];C.exact_keys(meta,{'$','added','changed','capacity','depth','exceptional'},'player lifecycle metadata')
     if meta['$']!='Metadata' or array(meta['exceptional']):raise R.ReplayError('Unexpected exceptional player metadata')
     capacity=R.u32(meta['capacity'],'player capacity');R.u32(meta['depth'],'player depth')
+    if capacity != 1 << meta['depth']:raise R.ReplayError('Player column capacity/depth mismatch')
+    allocator=world['allocator']
+    if len(allocator['slots'])!=allocator['capacity'] or allocator['capacity'] != 1 << allocator['depth']:raise R.ReplayError('Allocator capacity/depth mismatch')
     if len(state['values'])!=capacity or len(meta['added'])!=capacity or len(meta['changed'])!=capacity:raise R.ReplayError('Incomplete actual player column')
     expected={};facts=[]
     for ref in row['refs']:
         C.exact_keys(ref,{'$','id','handle'},'player ref');h=ref['handle'];C.exact_keys(h,{'$','namespace','key'},'player handle');k=h['key'];C.exact_keys(k,{'$','index','generation'},'player entity key')
         if ref['$']!='PlayerRef' or h['$']!='Handle' or k['$']!='EntityKey' or h['namespace']!=world['namespace']:raise R.ReplayError('Invalid player identity/ref')
+        R.u32(ref['id'],'referenced player id')
         index=R.u32(k['index'],'player allocator index');R.u32(k['generation'],'player generation')
         if not 1<=index<=world['allocator']['high'] or index in expected:raise R.ReplayError('Duplicate/outside player handle')
         slot=world['allocator']['slots'][index]
+        R.u32(slot['generation'],'actual player slot generation')
         if slot!={'$':'Slot','generation':k['generation'],'phase':{'$':'Live'}} or k not in array(world['allocator']['order']):raise R.ReplayError('Player ref is stale/unissued')
         expected[index]=ref['id']
     loaded={v['id']:v for v in row['players']}
