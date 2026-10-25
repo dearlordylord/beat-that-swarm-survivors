@@ -480,16 +480,20 @@ def finalized_all(shared: RS.Session,refs: List<&2,PlayerRef>,+rows: List<&2,G.E
     case FinalizeFailed{message}: CoreFailed{message}
 # Receipts use the exact prepared authoritative contact plans. Existing enemy
 # preimages retain pre-loot-clamp geometry; newborns bypass contact effects.
-def journal_event(value:ContactPolicy.Witness,source:Shot.State,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
+def journal_event(value:ContactPolicy.Witness,sourcePlayer:U32,source:Shot.State,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
   match value source:
-    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} Shot.State{Space.Spatial{_,_,age,_},_,_,_,Components.Trajectory{_,_,_,pierce,_,owner,+slot}}:
+    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} Shot.State{Space.Spatial{_,_,age,_},_,_,_,Components.Trajectory{_,_,_,pierce,_,owner,+slot,_}}:
       +eventKind = Journal.contact_kind(kind,pierce,selected)
-      +shotId = Journal.shot_id((slot / 65536 : U32),(tick - 1 - age : U32),owner,slot)
+      +shotId = Journal.shot_id(sourcePlayer,(tick - 1 - age : U32),owner,slot)
       +targetBorn = (tick - 1 - G.snapshot_age(target) : U32)
       Journal.HitEvent{Journal.event_id(tick,eventKind,shotId,targetSeed,targetBorn),tick,eventKind,shotId,shot,targetSeed,targetBorn,Bool.pick(F32,U32.is_eq(kind,1),1.0,time),Bool.pick(F32,U32.is_eq(kind,1),ex1,(x0 + (x1 - x0) * time : F32)),Bool.pick(F32,U32.is_eq(kind,1),ey1,(y0 + (y1 - y0) * time : F32)),(ex0 + (ex1 - ex0) * time : F32),(ey0 + (ey1 - ey0) * time : F32),radius,0}
+def journal_source(value:ContactPolicy.Witness,sourcePlayer:Maybe<&2,U32>,source:Shot.State,target:G.Snapshot,selected:Nat,tail:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
+  match sourcePlayer:
+    case None{}: tail
+    case Some{player}: journal_event(value,player,source,target,selected) <> tail
 def journal_lookup(value:ContactPolicy.Witness,source:Maybe<&2,G.Snapshot>,target:Maybe<&2,G.Snapshot>,selected:Nat,tail:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
   match source target:
-    case Some{G.ProjectileSnapshot{shot}} Some{enemy}: journal_event(value,shot,enemy,selected) <> tail
+    case Some{G.ProjectileSnapshot{+shot}} Some{enemy}: journal_source(value,Shot.source_player(shot),shot,enemy,selected,tail)
     case _ _: tail
 def journal_events_go(rows:List<&2,ContactPolicy.Witness>,+index:BI.Index<G.Snapshot>,+counts:BI.Index<Nat>,acc:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
   match rows:

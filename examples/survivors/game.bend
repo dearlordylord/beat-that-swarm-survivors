@@ -51,17 +51,11 @@ type Motion is Data: Motion{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<
 # Enemy/relic position, age and collision radius have one authoritative column.
 # Movement advances age once; birth and loot lifecycle may reset it explicitly.
 def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0,0,0}
-def empty_trajectory() -> Components.Trajectory: Components.Trajectory{0.0,0.0,0,0,[],0,0}
+def empty_trajectory() -> Components.Trajectory: Components.Trajectory{0.0,0.0,0,0,[],0,0,None{}}
 def empty_status() -> Components.Status: Components.Status{0,0}
-def trajectory_of(motion: Motion) -> Components.Trajectory:
-  match motion:
-    case Motion{vx,vy,life,pierce,visited,_,_,owner,slot}: Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}
 def status_of(motion: Motion) -> Components.Status:
   match motion:
     case Motion{_,_,_,_,_,slow,burn,_,_}: Components.Status{slow,burn}
-def logical_motion(trajectory: Components.Trajectory,status: Components.Status) -> Motion:
-  match trajectory status:
-    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot} Components.Status{slow,burn}: Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}
 # Geometry/frame transport is reconstructed from Components.Pickup before XP behavior.
 # Stored Components.Body copies never decide the amount, generation, marker or occupancy.
 
@@ -477,10 +471,10 @@ def aim_direction_x(+dx: F32,+dy: F32,+px: F32,+py: F32,+tx: F32,+ty: F32) -> F3
   E.choose_float(F32.is_lt((dx * dx + dy * dy : F32),0.01),P.aim_x(px,py,tx,ty),direction_x(dx,dy))
 def aim_direction_y(+dx: F32,+dy: F32,+px: F32,+py: F32,+tx: F32,+ty: F32) -> F32:
   E.choose_float(F32.is_lt((dx * dx + dy * dy : F32),0.01),P.aim_y(px,py,tx,ty),direction_y(dx,dy))
-def shot_spawn_aim(+owner: U32,fire: Bool,+seed: U32,+id: U32,+slot: U32,+level: U32,input: Shot.SpawnInput) -> EntityRow:
+def shot_spawn_aim(+owner: U32,sourcePlayer: U32,fire: Bool,+seed: U32,+id: U32,+slot: U32,+level: U32,input: Shot.SpawnInput) -> EntityRow:
   match fire:
     case False{}: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
-    case True{}: ProjectileRow{Shot.Outcome{Shot.spawn(seed,id,level,owner,slot,slot,input),0}}
+    case True{}: ProjectileRow{Shot.Outcome{Shot.spawn(seed,id,level,owner,slot,sourcePlayer,slot,input),0}}
 def shot_spawn_at(tick: U32,px: F32,py: F32,dx: F32,dy: F32,damage: U32,speed: F32,area: F32,duration: F32,aim: Aim) -> Shot.SpawnInput:
   match aim:
     case Aim{tx,ty,_,_}: Shot.SpawnInput{tick,px,py,dx,dy,tx,ty,damage,speed,area,duration}
@@ -519,7 +513,7 @@ def inventory_add(alive: Bool,+seed: U32,+owner: U32,+slot: U32,inventory: ShotI
 def shot_inventory(rows: List<&2,Snapshot>,inventory: ShotInventory) -> ShotInventory:
   match rows:
     case []: inventory
-    case ProjectileSnapshot{Shot.State{_,+seed,Shot.PlayerShot{},Components.ShotPayload{_,_,active},Components.Trajectory{_,_,life,pierce,_,owner,slot}}} <> rest: shot_inventory(rest,inventory_add(Bool.and(active,Bool.and(PL.is_player_shot(seed),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)))),seed,owner,slot,inventory))
+    case ProjectileSnapshot{Shot.State{_,+seed,Shot.PlayerShot{},Components.ShotPayload{_,_,active},Components.Trajectory{_,_,life,pierce,_,owner,slot,+sourcePlayer}}} <> rest: shot_inventory(rest,inventory_add(Bool.and(active,Bool.and(PL.is_player_shot(seed),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)))),seed,owner,slot,inventory))
     case _ <> rest: shot_inventory(rest,inventory)
 def free_slot(available: Bool,seed: U32,rest: List<&2,U32>) -> List<&2,U32>:
   match available:
@@ -529,26 +523,27 @@ def free_shot_slots(fuel: Nat,+seed: U32,+occupied: BI.Index<Bool>) -> List<&2,U
   match fuel:
     case 0n: []
     case 1n+rest: free_slot(Bool.not(BI.get(~Bool,occupied,seed,False{})),seed,free_shot_slots(rest,(seed + 1 : U32),occupied))
-def request_if(fire: Bool,owner: U32,slot: U32,level: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
+def request_if(fire: Bool,sourcePlayer: U32,owner: U32,slot: U32,level: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   match fire:
     case False{}: tail
-    case True{}: SP.Request{owner,slot,level} <> tail
-def requested_slot(+owner: U32,+slot: U32,+level: U32,+passives: List<&2,U32>,+tick: U32,+meta: U32,+arcana: U32,+character: U32,+invuln: U32,+locks: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
-  request_if(Bool.and(Bool.or(rotates_pool(owner),U32.is_eq(U32.and(locks,U32.shln(1,U32.to_nat(slot))),0)),Bool.or(scheduled_shot(owner,slot,level,passives,tick,meta,arcana,character),Bool.and(U32.is_eq(arcana,4),Bool.and(U32.is_eq(owner,19),Bool.and(U32.is_eq(slot,0),Bool.and(U32.is_lt(30,invuln),U32.is_eq((tick % 12 : U32),0))))))),owner,slot,level,tail)
-def shot_schedule(run: Run) -> Shot.Schedule:
+    case True{}: SP.Request{owner,SP.Emission{sourcePlayer,slot},level} <> tail
+def requested_slot(sourcePlayer: U32,+owner: U32,+slot: U32,+level: U32,+passives: List<&2,U32>,+tick: U32,+meta: U32,+arcana: U32,+character: U32,+invuln: U32,+locks: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
+  request_if(Bool.and(Bool.or(rotates_pool(owner),U32.is_eq(U32.and(locks,U32.shln(1,U32.to_nat(slot))),0)),Bool.or(scheduled_shot(owner,slot,level,passives,tick,meta,arcana,character),Bool.and(U32.is_eq(arcana,4),Bool.and(U32.is_eq(owner,19),Bool.and(U32.is_eq(slot,0),Bool.and(U32.is_lt(30,invuln),U32.is_eq((tick % 12 : U32),0))))))),sourcePlayer,owner,slot,level,tail)
+def shot_schedule_for(sourcePlayer: U32,run: Run) -> Shot.Schedule:
   match run:
-    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,weapons,passives,invuln,arcana,meta,_,_,_,_,_,_}}: Shot.Schedule{tick,character,weapons,passives,invuln,arcana,meta}
+    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,weapons,passives,invuln,arcana,meta,_,_,_,_,_,_}}: Shot.Schedule{tick,character,weapons,passives,invuln,arcana,meta,sourcePlayer}
+def shot_schedule(run: Run) -> Shot.Schedule: shot_schedule_for(0,run)
 def request_slots(fuel: Nat,+owner: U32,+slot: U32,+schedule: Shot.Schedule,+locks: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   match fuel schedule:
     case 0n _: tail
-    case 1n+rest Shot.Schedule{+tick,+character,+weapons,+passives,+invuln,+arcana,+meta}: requested_slot(owner,slot,at(weapons,owner),passives,tick,meta,arcana,character,invuln,locks,request_slots(rest,owner,(slot + 1 : U32),Shot.Schedule{tick,character,weapons,passives,invuln,arcana,meta},locks,tail))
+    case 1n+rest Shot.Schedule{+tick,+character,+weapons,+passives,+invuln,+arcana,+meta,+sourcePlayer}: requested_slot(sourcePlayer,owner,slot,at(weapons,owner),passives,tick,meta,arcana,character,invuln,locks,request_slots(rest,owner,(slot + 1 : U32),Shot.Schedule{tick,character,weapons,passives,invuln,arcana,meta,sourcePlayer},locks,tail))
 def owner_requests_needed(needed: Bool,+owner: U32,schedule: Shot.Schedule,locks: List<&2,U32>,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   match needed:
     case False{}: tail
     case True{}: request_slots(8n,owner,0,schedule,at(locks,owner),tail)
 def owner_requests(+owner: U32,+schedule: Shot.Schedule,locks: List<&2,U32>,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   match schedule:
-    case Shot.Schedule{_,_,weapons,_,_,arcana,_}: owner_requests_needed(Bool.or(U32.is_lt(0,at(weapons,owner)),Bool.and(U32.is_eq(arcana,4),U32.is_eq(owner,19))),owner,schedule,locks,tail)
+    case Shot.Schedule{_,_,weapons,_,_,arcana,_,_}: owner_requests_needed(Bool.or(U32.is_lt(0,at(weapons,owner)),Bool.and(U32.is_eq(arcana,4),U32.is_eq(owner,19))),owner,schedule,locks,tail)
 def shot_requests(fuel: Nat,+owner: U32,+schedule: Shot.Schedule,+locks: List<&2,U32>) -> List<&2,SP.Request>:
   match fuel:
     case 0n: []
@@ -559,17 +554,12 @@ def shot_plan_inventory(+run: Run,inventory: ShotInventory) -> SP.Plan:
 def prepare_shot_plan(args: Args) -> SP.Plan:
   match args:
     case Args{run,_,_,_,snapshots,_}: shot_plan_inventory(run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
-def with_shot_owner(row: EntityRow,+owner: U32,+slot: U32) -> EntityRow:
-  match row:
-    case ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,_,_}},contact}}: ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},contact}}
-    case row: row
-
 # Resolve the complete firing predicate before preparing a projectile. Most
 # unowned/unscheduled slots stay dormant and need neither aim nor materialization.
-def shot_spawn_ready(fire: Bool,+seed: U32,+base: U32,+slot: U32,+level: U32,args: Args) -> EntityRow:
+def shot_spawn_ready(fire: Bool,sourcePlayer: U32,+seed: U32,+base: U32,+slot: U32,+level: U32,args: Args) -> EntityRow:
   match fire args:
     case False{} _: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
-    case True{} Args{+run,bodies,dx,dy,_,_}: shot_spawn_aim(base,True{},seed,effective_weapon(base,level,slot),slot,level,shot_spawn_input(effective_weapon(base,level,slot),level,run,dx,dy,bodies))
+    case True{} Args{+run,bodies,dx,dy,_,_}: shot_spawn_aim(base,sourcePlayer,True{},seed,effective_weapon(base,level,slot),slot,level,shot_spawn_input(effective_weapon(base,level,slot),level,run,dx,dy,bodies))
 def shot_step_input(run: Run,aim: Aim) -> Shot.StepInput:
   match run aim:
     case Run{_,RS.PlayerState{px,py,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_}} Aim{tx,ty,_,_}: Shot.StepInput{px,py,tx,ty,U32.is_eq(arcana,8)}
@@ -1087,14 +1077,14 @@ def effect_find_stats(players: List<&2,effect_Player>,+id: U32) -> effect_Effect
 def effect_source(snapshots: List<&2,Snapshot>,+shot: U32) -> U32:
   match snapshots:
     case []: 0
-    case ProjectileSnapshot{Shot.State{_,+seed,_,_,Components.Trajectory{_,_,_,_,_,_,slot}}} <> rest: Bool.pick(U32,U32.is_eq(seed,shot),(slot / 65536 : U32),effect_source(rest,shot))
+    case ProjectileSnapshot{Shot.State{_,+seed,_,_,Components.Trajectory{_,_,_,_,_,_,_,Some{sourcePlayer}}}} <> rest: Bool.pick(U32,U32.is_eq(seed,shot),sourcePlayer,effect_source(rest,shot))
 # Build once per world tick; shared-world callers use effect_apply_indexed to avoid
 # scanning every snapshot for every enemy/projectile pair.
     case _ <> rest: effect_source(rest,shot)
 def effect_origin_index(snapshots: List<&2,Snapshot>) -> BI.Index<U32>:
   match snapshots:
     case []: BI.Empty{}
-    case ProjectileSnapshot{Shot.State{_,seed,_,_,Components.Trajectory{_,_,_,_,_,_,slot}}} <> rest: BI.insert(~U32,effect_origin_index(rest),seed,(slot / 65536 : U32))
+    case ProjectileSnapshot{Shot.State{_,seed,_,_,Components.Trajectory{_,_,_,_,_,_,_,Some{sourcePlayer}}}} <> rest: BI.insert(~U32,effect_origin_index(rest),seed,sourcePlayer)
     case _ <> rest: effect_origin_index(rest)
 def effect_indexed_source(origins: BI.Index<U32>,shot: U32) -> U32: BI.get(~U32,origins,shot,0)
 def effect_burn_duration(+burn: U32) -> U32: (burn % 65536 : U32)
@@ -1354,7 +1344,7 @@ def collector(+team: Team,+x: F32,+y: F32) -> PlayerView:
     case Team{players,_,_,_}: collector_ready(team,x,y,pickup_candidates(players,x,y))
 def own_snapshot(row: Snapshot,+id: U32,+tail: List<&2,Snapshot>) -> List<&2,Snapshot>:
   match row:
-    case ProjectileSnapshot{Shot.State{+space,+identity,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}}: Bool.pick(List<&2,Snapshot>,U32.is_eq((slot / 65536 : U32),id),ProjectileSnapshot{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,(slot % 65536 : U32)}}} <> tail,tail)
+    case ProjectileSnapshot{Shot.State{+space,+identity,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot,Some{+sourcePlayer}}}}: Bool.pick(List<&2,Snapshot>,U32.is_eq(sourcePlayer,id),ProjectileSnapshot{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,Some{sourcePlayer}}}} <> tail,tail)
     case _: tail
 def own_snapshots(rows: List<&2,Snapshot>,+id: U32) -> List<&2,Snapshot>:
   match rows:
@@ -1366,11 +1356,11 @@ def parity_slots(rows: List<&2,U32>,+id: U32) -> List<&2,U32>:
     case +seed <> rest: free_slot(U32.is_eq((seed % 2 : U32),id),seed,parity_slots(rest,id))
 def assigned_plan(+id: U32,+run: Run,inventory: ShotInventory) -> SP.Plan:
   match inventory:
-    case ShotInventory{occupied,counts,locks}: SP.allocate(parity_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule(run)) % PL.owner_count() : U32),shot_schedule(run),locks))
+    case ShotInventory{occupied,counts,locks}: SP.allocate(parity_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule_for(id,run)) % PL.owner_count() : U32),shot_schedule_for(id,run),locks))
 def merge_assignments(index: BI.Index<SP.Request>,+id: U32,into: BI.Index<SP.Request>) -> BI.Index<SP.Request>:
   match index:
     case BI.Empty{}: into
-    case BI.Item{seed,SP.Request{owner,slot,level}}: BI.insert(~SP.Request,into,seed,SP.Request{owner,(slot + id * 65536 : U32),level})
+    case BI.Item{seed,SP.Request{owner,emission,level}}: BI.insert(~SP.Request,into,seed,SP.Request{owner,emission,level})
     case BI.Fork{_,_,zero,one}: merge_assignments(one,id,merge_assignments(zero,id,into))
 def merge_player_plan(+id: U32,plan: SP.Plan,tail: SP.Plan) -> SP.Plan:
   match plan tail:
@@ -1383,16 +1373,16 @@ def team_plan_all(views: List<&2,PlayerView>,+snapshots: List<&2,Snapshot>) -> S
     case []: empty_shot_plan()
     case +view <> rest: merge_player_plan(view_id(view),player_plan(view,snapshots),team_plan_all(rest,snapshots))
 
-# Logical spread slot uses its high 16 bits for stable player identity. Physical
-# projectile IDs and weapon IDs remain independent and retain solo encodings.
+# Player identity, weapon ownership and local spread slots are independent.
 def team_shot_spawn(+team: Team,+seed: U32,request: Maybe<&2,SP.Request>) -> EntityRow:
   match request:
     case None{}: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
-    case Some{SP.Request{+owner,+slot,level}}: with_shot_owner(shot_spawn_ready(True{},seed,owner,(slot % 65536 : U32),level,team_args(team,team_for_id(team,(slot / 65536 : U32)))),owner,slot)
+    case Some{SP.Request{+owner,SP.Emission{+sourcePlayer,+slot},level}}: shot_spawn_ready(True{},sourcePlayer,seed,owner,slot,level,team_args(team,team_for_id(team,sourcePlayer)))
 def team_shot_alive(alive: Bool,+team: Team,+projectile: Shot.State,plan: SP.Plan) -> EntityRow:
   match alive projectile:
     case False{} +projectile: team_shot_spawn(team,Shot.identity(projectile),SP.lookup(plan,Shot.identity(projectile)))
-    case True{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+identity,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}: shot_step_aim(Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y))
+    case True{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+identity,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot,Some{+sourcePlayer}}}: shot_step_aim(Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,Some{sourcePlayer}}},team_args(team,team_for_id(team,sourcePlayer)),nearest_from_args(team_base(team),x,y))
+    case True{} _: missing_row()
 def team_shot(team: Team,+projectile: Shot.State) -> EntityRow:
   match team:
     case Team{players,base,+plan,origins}: team_shot_alive(Shot.active(projectile),Team{players,base,plan,origins},projectile,plan)
@@ -1716,8 +1706,10 @@ def contact_shot_input(args: Args,aim: Aim) -> Shot.StepInput:
 def contact_shot_plan(active: Bool,+projectile: Shot.State,+team: Team,targets: List<&2,Contact.Target>,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
   match active projectile:
     case False{} _: tail
-    case True{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+seed,+side,Components.ShotPayload{+weapon,+damage,+enabled},Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}:
-      HitPlan{seed,weapon,damage,x,y,radius,U32.is_le(9999,pierce),contact_shot_targets(U32.is_le(9999,pierce),targets,x,y,radius,pierce,visited,Shot.next(Shot.State{Space.Spatial{x,y,age,radius},seed,side,Components.ShotPayload{weapon,damage,enabled},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},contact_shot_input(team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y))))} <> tail
+    case True{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+seed,+side,Components.ShotPayload{+weapon,+damage,+enabled},Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot,Some{+sourcePlayer}}}:
+      HitPlan{seed,weapon,damage,x,y,radius,U32.is_le(9999,pierce),contact_shot_targets(U32.is_le(9999,pierce),targets,x,y,radius,pierce,visited,Shot.next(Shot.State{Space.Spatial{x,y,age,radius},seed,side,Components.ShotPayload{weapon,damage,enabled},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,Some{sourcePlayer}}},contact_shot_input(team_args(team,team_for_id(team,sourcePlayer)),nearest_from_args(team_base(team),x,y))))} <> tail
+    case True{} _: tail
+
 def contact_plans(rows: List<&2,Snapshot>,+team: Team,+targets: List<&2,Contact.Target>) -> List<&2,HitPlan>:
   match rows:
     case []: []
@@ -1738,7 +1730,7 @@ def team_execute(world: Storage.World(),team: Team) -> Q.Executed<Storage.World(
 
 def full_player_inventory(+id: U32,+run: Run,all: ShotInventory,own: ShotInventory) -> SP.Plan:
   match all own:
-    case ShotInventory{occupied,_,_} ShotInventory{_,counts,locks}: merge_player_plan(id,SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule(run)) % PL.owner_count() : U32),shot_schedule(run),locks)),empty_shot_plan())
+    case ShotInventory{occupied,_,_} ShotInventory{_,counts,locks}: merge_player_plan(id,SP.allocate(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule_for(id,run)) % PL.owner_count() : U32),shot_schedule_for(id,run),locks)),empty_shot_plan())
 def full_player_plan(view: PlayerView,+snapshots: List<&2,Snapshot>) -> SP.Plan:
   match view:
     case PlayerView{+id,run,_,_,_}: full_player_inventory(id,run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}),shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))

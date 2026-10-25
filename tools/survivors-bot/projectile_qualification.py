@@ -25,7 +25,7 @@ def payload(value):
         raise R.ReplayError('Projectile active flag must be Boolean')
 
 def trajectory(value):
-    if not isinstance(value, list) or len(value) != 7:
+    if not isinstance(value, list) or len(value) != 8:
         raise R.ReplayError('Incomplete actual projectile trajectory')
     for i, word in enumerate(value):
         if i == 4:
@@ -33,6 +33,8 @@ def trajectory(value):
                 raise R.ReplayError('Missing projectile visited-target history')
             for identity in word:
                 R.u32(identity, 'visited target')
+        elif i == 7:
+            if word is not None: R.u32(word, 'projectile source player')
         else:
             R.u32(word, 'projectile trajectory word')
 
@@ -44,6 +46,10 @@ def state(value):
     if value['side'] not in ('player', 'hostile'):
         raise R.ReplayError('Unknown projectile side')
     payload(value['payload']); trajectory(value['trajectory'])
+    if value['side']=='hostile' and value['trajectory'][7] is not None:
+        raise R.ReplayError('Hostile projectile has a player source')
+    if value['side']=='player' and value['payload'][2] and value['trajectory'][7] is None:
+        raise R.ReplayError('Active player projectile lacks actual source')
     return value
 
 def fact(value, role):
@@ -53,7 +59,7 @@ def fact(value, role):
     return dict(xBits=x, yBits=y, kind=(7 if value['side'] == 'hostile' else 1) if active else 8,
                 variant=weapon, age=age, seed=value['identity'], radiusBits=radius,
                 role=role, damage=damage,
-                trajectory=dict(zip(('vxBits', 'vyBits', 'life', 'pierce', 'visited', 'owner', 'logicalSlot'), value['trajectory'])))
+                trajectory=dict(zip(('vxBits', 'vyBits', 'life', 'pierce', 'visited', 'weaponOwner', 'logicalSlot', 'sourcePlayer'), value['trajectory'])))
 
 def validate_and_project(components, metadata, layout):
     total = layout['totalCount']

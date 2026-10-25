@@ -4,16 +4,16 @@
     "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
     "label": "projection-enemy-drops-birth",
     "law": "enemy_generation_exact",
-    "old": "case 0: \"enemy:\" ++ U32.show(seed) ++ \":\" ++ U32.show(born)",
-    "new": "case 0: \"enemy:\" ++ U32.show(seed) ++ \":0\""
+    "old": "case 0 _: \"enemy:\" ++ U32.show(seed) ++ \":\" ++ U32.show(born)",
+    "new": "case 0 _: \"enemy:\" ++ U32.show(seed) ++ \":0\""
   },
   {
     "source": "examples/survivors/coop-playback-wire-policy.bend",
     "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
     "label": "projection-drops-projectile-owner",
     "law": "visual_owner_exact",
-    "old": "Bool.pick(U32,U32.is_eq(kind,1),(slot / 65536 : U32),4294967295)",
-    "new": "4294967295"
+    "old": "case Some{player}: player",
+    "new": "case Some{player}: 4294967295"
   },
   {
     "source": "examples/survivors/coop-playback-wire-policy.bend",

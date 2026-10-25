@@ -23,7 +23,7 @@ type Target is Data: Target{seed:U32,generation:U32,x:F32,y:F32,radius:F32,alive
 type Point is Data: Point{x:F32,y:F32}
 type Geometry is Data: Geometry{targets:List<&2,Target>,aims:Targets.Targets,contacts:List<&2,Contact.Target>,index:Broadphase.Index,policyTargets:List<&2,Policy.Target>}
 type Visual is Data:
-  Visual{id:String,owner:U32,slot:U32,weapon:U32,poolSeed:U32,age:U32,originX:F32,originY:F32,shot:Projectile.Shot,pending:Bool,predictedSeed:U32,predictedGeneration:U32,predictedX:F32,predictedY:F32,pendingAge:U32,confirmed:Bool,late:Bool,event:Maybe<&2,Journal.HitEvent>,guideTick:U32,guideX:F32,guideY:F32,fade:U32}
+  Visual{id:String,owner:U32,slot:SP.Emission,weapon:U32,poolSeed:U32,age:U32,originX:F32,originY:F32,shot:Projectile.Shot,pending:Bool,predictedSeed:U32,predictedGeneration:U32,predictedX:F32,predictedY:F32,pendingAge:U32,confirmed:Bool,late:Bool,event:Maybe<&2,Journal.HitEvent>,guideTick:U32,guideX:F32,guideY:F32,fade:U32}
 type RenderShot is Data: RenderShot{id:String,player:U32,kind:U32,weapon:U32,seed:U32,age:U32,x:F32,y:F32,radius:F32,life:U32,fade:U32,opacity:F32}
 type ContactFx is Data: ContactFx{id:String,tick:U32,kind:U32,targetSeed:U32,targetGeneration:U32,x:F32,y:F32,radius:F32,age:U32,opacity:F32}
 type TargetFade is Data: TargetFade{id:String,seed:U32,generation:U32,x:F32,y:F32,radius:F32,lastSeen:U32}
@@ -75,11 +75,11 @@ def known_dropped(state:State) -> U32:
   match state:
     case State{_,_,_,_,_,_,_,_,_,count}: count
 
-def identity(player:U32,bornTick:U32,owner:U32,slot:U32) -> String:
-  Replay.generation(player,bornTick,0,owner,slot)
+def identity(player:U32,bornTick:U32,owner:U32,slot:SP.Emission) -> String:
+  Replay.generation(player,bornTick,0,owner,SP.emission_slot(slot))
 def request_identity(bornTick:U32,request:SP.Request) -> String:
   match request:
-    case SP.Request{owner,+slot,_}: identity((slot / 65536 : U32),bornTick,owner,slot)
+    case SP.Request{owner,+slot,_}: identity(SP.emission_player(slot),bornTick,owner,slot)
 def origin_x(value:Visual) -> F32:
   match value:
     case Visual{_,_,_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: x
@@ -239,7 +239,7 @@ def shot_alive(value:Projectile.Shot) -> Bool:
 def visual_weapon(value:Visual) -> U32:
   match value:
     case Visual{_,_,_,weapon,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: weapon
-def visual_slot(value:Visual) -> U32:
+def visual_slot(value:Visual) -> SP.Emission:
   match value:
     case Visual{_,_,slot,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: slot
 def with_position(value:Projectile.Shot,point:Point) -> Projectile.Shot:
@@ -254,7 +254,7 @@ def shot_life(value:Projectile.Shot) -> U32:
 def policy_visual(value:Visual) -> Policy.VisibleShot:
   match value:
     case Visual{id,_,slot,_,_,_,_,_,shot,pending,_,_,_,_,_,confirmed,late,_,_,_,_,fade}:
-      Policy.VisibleShot{id,(slot / 65536 : U32),shot_life(shot),pending,confirmed,late,fade}
+      Policy.VisibleShot{id,SP.emission_player(slot),shot_life(shot),pending,confirmed,late,fade}
 def policy_visuals(rows:List<&2,Visual>) -> List<&2,Policy.VisibleShot>:
   match rows:
     case []: []
@@ -332,7 +332,7 @@ def owner_run(attached:Bool,+value:Visual,run:G.Run) -> G.Run:
     case False{} _: released_run(value,run)
 def shot_state(value:Visual) -> Shot.State:
   match value:
-    case Visual{_,owner,slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}: Shot.State{Space.Spatial{x,y,age,radius},poolSeed,Shot.PlayerShot{},Components.ShotPayload{weapon,0,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,slot}}
+    case Visual{_,owner,+slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}: Shot.State{Space.Spatial{x,y,age,radius},poolSeed,Shot.PlayerShot{},Components.ShotPayload{weapon,0,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,SP.emission_slot(slot),Some{SP.emission_player(slot)}}}
 def shot_pierce(value:Projectile.Shot) -> U32:
   match value:
     case Projectile.Shot{_,_,_,_,_,_,pierce}: pierce
@@ -490,7 +490,7 @@ def advance_visuals(rows:List<&2,Visual>,+run:G.Run,+tick:U32,+geometry:Geometry
 
 def shot_from_row(row:G.EntityRow) -> Projectile.Shot:
   match row:
-    case G.ProjectileRow{Shot.Outcome{Shot.State{Space.Spatial{x,y,_,radius},_,_,_,Components.Trajectory{vx,vy,life,pierce,_,_,_}},_}}: Projectile.Shot{x,y,vx,vy,radius,life,pierce}
+    case G.ProjectileRow{Shot.Outcome{Shot.State{Space.Spatial{x,y,_,radius},_,_,_,Components.Trajectory{vx,vy,life,pierce,_,_,_,_}},_}}: Projectile.Shot{x,y,vx,vy,radius,life,pierce}
     case _: Projectile.Shot{0.0,0.0,0.0,0.0,0.0,0,0}
 
 def row_weapon(row:G.EntityRow) -> U32:
@@ -500,7 +500,7 @@ def row_weapon(row:G.EntityRow) -> U32:
 
 def canonical_visual_match(+player:U32,sourceTick:U32,+visual:Visual,snapshot:G.Snapshot) -> Bool:
   match snapshot:
-    case G.ProjectileSnapshot{Shot.State{Space.Spatial{_,_,age,_},_,Shot.PlayerShot{},_,Components.Trajectory{_,_,_,_,_,owner,+slot}}}: Bool.and(U32.is_eq(player,(slot / 65536 : U32)),String.eq(shot_id(visual),identity(player,(sourceTick - age : U32),owner,slot)))
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{_,_,age,_},_,Shot.PlayerShot{},_,Components.Trajectory{_,_,_,_,_,owner,+slot,Some{+sourcePlayer}}}}: Bool.and(U32.is_eq(player,sourcePlayer),String.eq(shot_id(visual),identity(player,(sourceTick - age : U32),owner,SP.Emission{sourcePlayer,slot})))
     case _: False{}
 
 def canonical_visual_present(rows:List<&2,G.Snapshot>,+player:U32,+sourceTick:U32,+visual:Visual) -> Bool:
@@ -517,7 +517,7 @@ def plan_visuals(rows:List<&2,Visual>,+player:U32,+sourceTick:U32,+canonical:Lis
   match rows:
     case []: []
     case +head <> tail:
-      +allowed = Bool.and(U32.is_eq(player,(visual_slot(head) / 65536 : U32)),Bool.and(shot_alive(visual_shot(head)),U32.is_gt(shot_pierce(visual_shot(head)),0)))
+      +allowed = Bool.and(U32.is_eq(player,SP.emission_player(visual_slot(head))),Bool.and(shot_alive(visual_shot(head)),U32.is_gt(shot_pierce(visual_shot(head)),0)))
       +collision = canonical_visual_present(canonical,player,sourceTick,head)
       planned_visual(Bool.and(allowed,Bool.not(collision)),head,plan_visuals(tail,player,sourceTick,canonical))
 def planning_snapshots(player:U32,sourceTick:U32,+canonical:List<&2,G.Snapshot>,visuals:List<&2,Visual>) -> List<&2,G.Snapshot>:
@@ -849,10 +849,10 @@ def bootstrap(+player:U32,+run:G.Run,+sourceTick:U32,+targets:List<&2,Target>,+s
       bootstrap_finish(enabled,stepped,anchor,Prediction.after(anchor,count))
 def shown_point_from(pending:Bool,+shot:Projectile.Shot,x:F32,y:F32) -> Point:
   Bool.pick(Point,pending,Point{x,y},Point{shot_x(shot),shot_y(shot)})
-def guided_state(id:String,owner:U32,slot:U32,weapon:U32,born:U32,age:U32,x:F32,y:F32,shot:Projectile.Shot,pending:Bool,seed:U32,generation:U32,px:F32,py:F32,pendingAge:U32,event:Journal.HitEvent,presentationTick:U32,start:Point,fade:U32) -> Visual:
+def guided_state(id:String,owner:U32,slot:SP.Emission,weapon:U32,born:U32,age:U32,x:F32,y:F32,shot:Projectile.Shot,pending:Bool,seed:U32,generation:U32,px:F32,py:F32,pendingAge:U32,event:Journal.HitEvent,presentationTick:U32,start:Point,fade:U32) -> Visual:
   match start:
     case Point{sx,sy}: Visual{id,owner,slot,weapon,born,age,x,y,shot,False{},seed,generation,px,py,pendingAge,True{},False{},Some{event},presentationTick,sx,sy,fade}
-def reconcile_visual_selected(ahead:Bool,id:String,owner:U32,slot:U32,weapon:U32,born:U32,age:U32,x:F32,y:F32,+shot:Projectile.Shot,+pending:Bool,seed:U32,generation:U32,+px:F32,+py:F32,pendingAge:U32,+event:Journal.HitEvent,fade:U32,presentationTick:U32,+targets:List<&2,Target>) -> Visual:
+def reconcile_visual_selected(ahead:Bool,id:String,owner:U32,slot:SP.Emission,weapon:U32,born:U32,age:U32,x:F32,y:F32,+shot:Projectile.Shot,+pending:Bool,seed:U32,generation:U32,+px:F32,+py:F32,pendingAge:U32,+event:Journal.HitEvent,fade:U32,presentationTick:U32,+targets:List<&2,Target>) -> Visual:
   match ahead:
     case True{}:
       +start = shown_point_from(pending,shot,px,py)
@@ -1003,13 +1003,13 @@ def render_shots(rows:List<&2,Visual>,+player:U32,+presentationTick:U32,+targets
   match rows:
     case []: []
     case +head <> tail:
-      +show = Bool.and(should_draw(head),U32.is_eq(player,(visual_slot(head) / 65536 : U32)))
+      +show = Bool.and(should_draw(head),U32.is_eq(player,SP.emission_player(visual_slot(head))))
       List.append(&2,RenderShot,render_shot(show,head,player,presentationTick,targets),render_shots(tail,player,presentationTick,targets))
 def render_shots_prepared(rows:List<&2,Visual>,+player:U32,+presentationTick:U32,+targets:List<&2,Policy.Target>) -> List<&2,RenderShot>:
   match rows:
     case []: []
     case +head <> tail:
-      +show = Bool.and(should_draw(head),U32.is_eq(player,(visual_slot(head) / 65536 : U32)))
+      +show = Bool.and(should_draw(head),U32.is_eq(player,SP.emission_player(visual_slot(head))))
       List.append(&2,RenderShot,render_shot_prepared(show,head,player,presentationTick,targets),render_shots_prepared(tail,player,presentationTick,targets))
 def effect_opacity(+age:U32) -> F32:
   fade_opacity((fade_ticks() - U32.min(age,fade_ticks()) : U32))

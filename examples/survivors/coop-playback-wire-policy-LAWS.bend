@@ -11,7 +11,7 @@ law enemy_generation_exact:
   for +born:U32
   for +weapon:U32
   for +slot:U32
-  {W.generation(0,seed,born,weapon,slot) == "enemy:" ++ U32.show(seed) ++ ":" ++ U32.show(born) : String}
+  {W.generation(0,seed,born,weapon,slot,None{}) == "enemy:" ++ U32.show(seed) ++ ":" ++ U32.show(born) : String}
 
 # Guarantees: Canonical lifetime identity includes the authoritative birth and the correct actor namespace.
 # Why it matters: A recycled seed or another player projectile cannot reuse an old interpolation path.
@@ -20,7 +20,8 @@ law projectile_generation_exact:
   for +born:U32
   for +weapon:U32
   for +slot:U32
-  {W.generation(1,seed,born,weapon,slot) == U32.show((slot / 65536 : U32)) ++ ":" ++ U32.show((born - 0 : U32)) ++ ":" ++ U32.show(weapon) ++ ":" ++ U32.show((slot % 65536 : U32)) : String}
+  for +sourcePlayer:U32
+  {W.generation(1,seed,born,weapon,slot,Some{sourcePlayer}) == U32.show(sourcePlayer) ++ ":" ++ U32.show((born - 0 : U32)) ++ ":" ++ U32.show(weapon) ++ ":" ++ U32.show(slot) : String}
 
 # Guarantees: Canonical lifetime identity includes the authoritative birth and the correct actor namespace.
 # Why it matters: A recycled seed or another player projectile cannot reuse an old interpolation path.
@@ -29,14 +30,17 @@ law hostile_generation_exact:
   for +born:U32
   for +weapon:U32
   for +slot:U32
-  {W.generation(7,seed,born,weapon,slot) == "hostile:" ++ U32.show(seed) ++ ":" ++ U32.show(born) : String}
+  {W.generation(7,seed,born,weapon,slot,None{}) == "hostile:" ++ U32.show(seed) ++ ":" ++ U32.show(born) : String}
 
-# Guarantees: Only friendly projectiles use the player encoded in the logical slot; other kinds have no player owner.
+# Guarantees: The explicit source-player option is preserved as the timeline owner; None has no player owner.
 # Why it matters: Projectile contact matching must not mix owner namespaces.
+def specified_owner(source:Maybe<&2,U32>) -> U32:
+  match source:
+    case Some{player}: player
+    case None{}: 4294967295
 law visual_owner_exact:
-  for +kind:U32
-  for +slot:U32
-  {W.visual_owner(kind,slot) == Bool.pick(U32,U32.is_eq(kind,1),(slot / 65536 : U32),4294967295) : U32}
+  for +sourcePlayer:Maybe<&2,U32>
+  {W.visual_owner(sourcePlayer) == specified_owner(sourcePlayer) : U32}
 
 # Guarantees: Players retain their ID, character lifetime and connected liveness with F32-normalized coordinates.
 # Why it matters: Disconnected characters cannot be treated as active projectile kinds.
@@ -66,13 +70,14 @@ law body_projection_exact:
   for +born:U32
   for +weapon:U32
   for +slot:U32
+  for +sourcePlayer:Maybe<&2,U32>
   for +x:F32
   for +y:F32
   for +age:U32
   for +hp:U32
   for +life:U32
   for +pierce:U32
-  {W.body_actor(seed,kind,born,weapon,slot,x,y,age,hp,life,pierce) == P.Actor{seed,kind,W.generation(kind,seed,born,weapon,slot),Numbers.from_bits(F32.bits(x)),Numbers.from_bits(F32.bits(y)),age,W.body_liveness(kind,hp,life,pierce),W.visual_owner(kind,slot)} : P.Actor}
+  {W.body_actor(seed,kind,born,weapon,slot,sourcePlayer,x,y,age,hp,life,pierce) == P.Actor{seed,kind,W.generation(kind,seed,born,weapon,slot,sourcePlayer),Numbers.from_bits(F32.bits(x)),Numbers.from_bits(F32.bits(y)),age,W.body_liveness(kind,hp,life,pierce),W.visual_owner(sourcePlayer)} : P.Actor}
 
 # Guarantees: The canonical birth index is queried at the seed with tick-minus-age as fallback.
 # Why it matters: An explicit birth identity must not be replaced by an age-derived guess.

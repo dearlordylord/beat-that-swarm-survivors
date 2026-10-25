@@ -10,7 +10,7 @@ def payload(tick=0):
     for handle,identity in enumerate(identities,1):
         role=C.assigned(identity,LAYOUT)
         values=dict(bodies=None,vitals=[0,0] if role=='EnemySlot' else None,statuses=[0,0] if role=='EnemySlot' else None,
-                    trajectories=[0,0,0,0,[],0,0] if role in C.PROJECTILES else None,
+                    trajectories=[0,0,0,0,[],0,0,None] if role in C.PROJECTILES else None,
                     shots=[0,0,0] if role in C.PROJECTILES else None,
                     pickups=[[0,0,0],0,0] if role in C.ENEMIES|{'XpSlot'} else None,
                     enemyPhases=[0,identity] if role in C.ENEMIES else None,

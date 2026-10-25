@@ -85,10 +85,14 @@ def projectile_side(value: Shot.Side) -> String:
   match value:
     case Shot.PlayerShot{}: "\"player\""
     case Shot.HostileShot{}: "\"hostile\""
+def source_player(value: Maybe<&2,U32>) -> String:
+  match value:
+    case None{}: "null"
+    case Some{player}: U32.show(player)
 def projectile_state(value: Shot.State) -> String:
   match value:
-    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}:
-      "{\"spatial\":" ++ array([fbits(x),fbits(y),U32.show(age),fbits(radius)]) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"side\":" ++ projectile_side(side) ++ ",\"payload\":" ++ array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))]) ++ ",\"trajectory\":" ++ array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)]) ++ "}"
+    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}:
+      "{\"spatial\":" ++ array([fbits(x),fbits(y),U32.show(age),fbits(radius)]) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"side\":" ++ projectile_side(side) ++ ",\"payload\":" ++ array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))]) ++ ",\"trajectory\":" ++ array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)]) ++ "}"
 def pickup_item(value: Pickup.Item) -> String:
   match value:
     case Pickup.Xp{amount,accumulator}: array(["0",U32.show(amount),U32.show(Bool.to_u32(accumulator))])
@@ -167,7 +171,7 @@ def shot_payload(value: Components.ShotPayload) -> String:
     case Components.ShotPayload{weapon,damage,active}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))])
 def trajectory(value: Components.Trajectory) -> String:
   match value:
-    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)])
+    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)])
 def status(value: Components.Status) -> String:
   match value:
     case Components.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
@@ -362,10 +366,14 @@ def fold_status(value: Components.Status,acc: U32) -> U32:
 def fold_pickup(value: Pickup.Payload,acc: U32) -> U32:
   match value:
     case Pickup.Payload{item,generation,active}: fold_words([generation,Bool.to_u32(active)],fold_words(codes(pickup_item(item)),acc))
+def fold_source(value: Maybe<&2,U32>) -> U32:
+  match value:
+    case None{}: 4294967295
+    case Some{player}: player
 def fold_snapshot(value: G.Snapshot,acc: U32) -> U32:
   match value:
     case G.Snapshot{b,m}: fold_motion(m,fold_body(b,acc))
-    case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}}: fold_words(visited,fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius),identity,fold_projectile_side(side),weapon,damage,Bool.to_u32(active),F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}}: fold_words(visited,fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius),identity,fold_projectile_side(side),weapon,damage,Bool.to_u32(active),F32.bits(vx),F32.bits(vy),life,pierce,owner,slot,fold_source(sourcePlayer)],acc))
     case G.EnemySnapshot{Enemy.State{space,archetype,slot,hp,status}}: fold_status(status,fold_vitals(hp,fold_words([archetype,slot],fold_spatial(space,acc))))
     case G.PickupSnapshot{Pickup.State{space,payload,identity}}: fold_pickup(payload,mix(fold_spatial(space,acc),identity))
 def fold_bodies(rows: List<&2,Components.Body>,acc: U32) -> U32:
@@ -412,7 +420,7 @@ def fold_movement_roster(value: Storage.MovementRoster,acc: U32) -> U32:
     case Storage.MovementPrepared{handles}: fold_roster_handles(handles,mix(acc,1))
 def fold_trajectory(value: Components.Trajectory,acc: U32) -> U32:
   match value:
-    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
+    case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,owner,slot,fold_source(sourcePlayer)],acc))
 def fold_role(value: GRole.Role,acc: U32) -> U32: fold_words(codes(role(value)),acc)
 def fold_candidate_roster(value: Storage.CandidateRoster,acc: U32) -> U32:
   match value:
