@@ -1,0 +1,38 @@
+[
+  {
+    "source": "examples/survivors/loot-placement.bend",
+    "proof": "examples/survivors/loot-placement/PROOF.bend",
+    "law": "bounded",
+    "label": "loot-outside-low-unchanged",
+    "old": "case LT{} LT{}: lower()",
+    "new": "case LT{} LT{}: value",
+    "fails_in": "bound_selected"
+  },
+  {
+    "source": "examples/survivors/loot-placement.bend",
+    "proof": "examples/survivors/loot-placement/PROOF.bend",
+    "law": "bounded",
+    "label": "loot-outside-high-and-negative-unchanged",
+    "old": "case GT{} GT{}: upper()",
+    "new": "case GT{} GT{}: value",
+    "fails_in": "bound_selected"
+  },
+  {
+    "source": "examples/survivors/loot-placement.bend",
+    "proof": "examples/survivors/loot-placement/PROOF.bend",
+    "law": "bounded",
+    "label": "loot-interior-sent-outside",
+    "old": "case GT{} LT{}: value",
+    "new": "case GT{} LT{}: 0",
+    "fails_in": "bound_selected"
+  },
+  {
+    "source": "examples/survivors/loot-placement.bend",
+    "proof": "examples/survivors/loot-placement/PROOF.bend",
+    "law": "bounded",
+    "label": "loot-always-outside",
+    "old": "select(value,U32.cmp(value,lower()),U32.cmp(value,upper()))",
+    "new": "0",
+    "fails_in": "bounded_word"
+  }
+]

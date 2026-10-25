@@ -5,7 +5,9 @@ def size() -> F32: 14400.0
 def center() -> F32: 7200.0
 # Keep the player within melee reach at corners while full enemy sprites fit.
 def player_min() -> F32: 128.0
-def player_max() -> F32: (size() - player_min() : F32)
+# A literal makes encoded bounds reducible; the native geometry check also
+# verifies this endpoint against the arena extent and the lower player bound.
+def player_max() -> F32: 14272.0
 # Covers the full sprite, shadow and health bar, not only its collision circle.
 def envelope(radius: F32) -> F32: (3.0 * radius + 24.0 : F32)
 def constrain(value: F32,+radius: F32) -> F32:

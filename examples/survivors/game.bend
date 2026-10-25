@@ -15,6 +15,8 @@ import movement-membership.bend as MM
 import entity-role.bend as Role
 import projectile-pool.bend as SP
 import loot-visual.bend as LV
+import loot-placement.bend as LootPlacement
+import projectile-contact.bend as Contact
 import pickup-policy.bend as PickupPolicy
 import bendvy-ecs-core@0.1.0.1/world.bend as W
 import bendvy-ecs-core@0.1.0.1/column.bend as Col
@@ -442,7 +444,7 @@ def loot_update(body: Body,run: Run) -> Row:
       loot_collected(pickup_admission(x,y,px,py,pickup_radius(passives,meta,arcana,character),age,kind),Body{x,y,kind,variant,hp,maxHp,(age + 1 : U32),seed,radius},kind,Bool.pick(U32,U32.is_eq(kind,2),hp,(2 + U32.min(4,(variant / 4 : U32)) : U32)))
 def enemy_result_at(+hp: U32,+x: F32,+y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
   match hp:
-    case 0: Row{Body{x,y,loot_kind(seed,variant),variant,0,maxHp,0,seed,6.0},0,0,0,0,0,1,0}
+    case 0: Row{Body{LootPlacement.place(x),LootPlacement.place(y),loot_kind(seed,variant),variant,0,maxHp,0,seed,6.0},0,0,0,0,0,1,0}
     case +hp: Row{Body{x,y,0,variant,hp,maxHp,age,seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0}
 def enemy_result(+hp: U32,x: F32,y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
   enemy_result_at(hp,A.constrain(x,radius),A.constrain(y,radius),variant,maxHp,age,seed,radius,px,py)
@@ -513,28 +515,6 @@ def contains(rows: List<&2,U32>,+id: U32) -> Bool:
   match rows:
     case []: False{}
     case head <> rest: Bool.or(U32.is_eq(head,id),contains(rest,id))
-def add_contact(hit: Bool,seed: U32,rest: List<&2,U32>) -> List<&2,U32>:
-  match hit:
-    case True{}: seed <> rest
-    case False{}: rest
-def contacts(rows: List<&2,Body>,+x: F32,+y: F32,+radius: F32,+visited: List<&2,U32>) -> List<&2,U32>:
-  match rows:
-    case []: []
-    case Body{+tx,+ty,0,_,_,_,_,+seed,+r} <> rest: add_contact(Bool.and(Bool.not(contains(visited,seed)),close(x,y,tx,ty,(radius + r : F32))),seed,contacts(rest,x,y,radius,visited))
-    case _ <> rest: contacts(rest,x,y,radius,visited)
-def planned_targets(unlimited: Bool,+pierce: U32,+bodies: List<&2,Body>,+x: F32,+y: F32,+radius: F32,+visited: List<&2,U32>) -> List<&2,U32>:
-  match unlimited:
-    case True{}: []
-    case False{}: List.take(&2,U32,contacts(bodies,x,y,radius,visited),U32.to_nat(pierce))
-def append_hit_plan(active: Bool,+seed: U32,+id: U32,+damage: U32,+x: F32,+y: F32,+radius: F32,+pierce: U32,+visited: List<&2,U32>,+bodies: List<&2,Body>,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
-  match active:
-    case False{}: tail
-    case True{}: HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),planned_targets(U32.is_le(9999,pierce),pierce,bodies,x,y,radius,visited)} <> tail
-def plan_hits(rows: List<&2,Snapshot>,+bodies: List<&2,Body>) -> List<&2,HitPlan>:
-  match rows:
-    case []: []
-    case Snapshot{Body{+x,+y,1,+id,+damage,_,+age,+seed,+radius},Motion{_,_,+life,+pierce,+visited,_,_,_,_}} <> rest: append_hit_plan(Bool.and(P.active_hit(id,age),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce))),seed,id,damage,x,y,radius,pierce,visited,bodies,plan_hits(rest,bodies))
-    case _ <> rest: plan_hits(rest,bodies)
 # Frozen targeting inputs contain enemies only. XP, shots and dormant
 # bodies remain in the full frame/snapshots, without multiplying aim/contact work.
 def enemy_geometry(rows: List<&2,Body>) -> List<&2,Body>:
@@ -543,7 +523,7 @@ def enemy_geometry(rows: List<&2,Body>) -> List<&2,Body>:
     case Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest: Body{x,y,0,variant,hp,maxHp,age,seed,radius} <> enemy_geometry(rest)
     case _ <> rest: enemy_geometry(rest)
 def combat_args_enemies(run: Run,+enemies: List<&2,Body>,dx: F32,dy: F32,+snapshots: List<&2,Snapshot>) -> Args:
-  Args{run,enemies,dx,dy,snapshots,plan_hits(snapshots,enemies)}
+  Args{run,enemies,dx,dy,snapshots,[]}
 def combat_args(run: Run,bodies: List<&2,Body>,dx: F32,dy: F32,snapshots: List<&2,Snapshot>) -> Args:
   combat_args_enemies(run,enemy_geometry(bodies),dx,dy,snapshots)
 def select_hit_targets(selected: Bool,targets: List<&2,U32>) -> List<&2,U32>:
@@ -678,8 +658,6 @@ def shot_contacted(+id: U32,+age: U32,+seed: U32,+damage: U32,+visited: List<&2,
   match shot:
     case P.Shot{+x,+y,+vx,+vy,+radius,+life,+pierce}:
       shot_surviving(Bool.and(U32.is_lt(0,life),U32.is_lt((U32.from_nat(List.length(&2,U32,newHits)) * Bool.to_u32(Bool.and(P.active_hit(id,age),U32.is_lt(pierce,9999))) : U32),pierce)),x,y,id,damage,(age + 1 : U32),seed,radius,vx,vy,life,Combat.lose(pierce,(U32.from_nat(List.length(&2,U32,newHits)) * Bool.to_u32(Bool.and(P.active_hit(id,age),U32.is_lt(pierce,9999))) : U32)),List.append(&2,U32,visited,newHits))
-def shot_advanced(+id: U32,+age: U32,+seed: U32,+damage: U32,+oldX: F32,+oldY: F32,+oldRadius: F32,+bodies: List<&2,Body>,+visited: List<&2,U32>,+hits: List<&2,HitPlan>,shot: P.Shot) -> EntityRow:
-  shot_contacted(id,age,seed,damage,visited,hit_targets(hits,seed),shot)
 def ballistic(id: U32) -> Bool:
   match id:
     case 3: False{}
@@ -700,7 +678,7 @@ def reflected(enabled: Bool,shot: P.Shot) -> P.Shot:
 def shot_step_aim(body: Body,motion: Motion,args: Args,aim: Aim) -> EntityRow:
   match body motion args aim:
     case Body{+x,+y,_,+id,+damage,_,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,_,_,_,_} Args{Run{_,+tick,+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,+arcana,_,_,_,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,_,_,+snapshots,+hits} Aim{+tx,+ty,_,_}:
-      shot_advanced(id,age,seed,damage,x,y,radius,bodies,visited,hits,reflected(Bool.and(U32.is_eq(arcana,8),ballistic(id)),P.step(id,(age + 1 : U32),P.Shot{x,y,vx,vy,radius,life,pierce},px,py,tx,ty)))
+      shot_contacted(id,age,seed,damage,visited,hit_targets(hits,seed),reflected(Bool.and(U32.is_eq(arcana,8),ballistic(id)),P.step(id,(age + 1 : U32),P.Shot{x,y,vx,vy,radius,life,pierce},px,py,tx,ty)))
 def nearest_from_args(args: Args,+x: F32,+y: F32) -> Aim:
   match args:
     case Args{_,bodies,_,_,+snapshots,+hits}: nearest(bodies,x,y,Aim{(x + 180.0 : F32),y,0,10000000.0})
@@ -1009,7 +987,7 @@ def xp_batch_drop(+amount: U32,+x: F32,+y: F32,+tick: U32,batch: XpBatch) -> XpB
   match batch:
     case XpBatch{[],accumulator,index,overflow}: XpBatch{[],accumulator,index,X.merge(overflow,amount)}
     case XpBatch{+seed <> free,accumulator,index,overflow}:
-      +fresh : Body = Body{x,y,2,0,amount,tick,0,seed,6.0}
+      +fresh : Body = Body{LootPlacement.place(x),LootPlacement.place(y),2,0,amount,tick,0,seed,6.0}
       XpBatch{free,xp_accumulator_or_new(accumulator,fresh),BI.insert(~Body,index,seed,fresh),overflow}
 def xp_batch_events(events: List<&2,EntityRow>,+tick: U32,batch: XpBatch) -> XpBatch:
   match events:
@@ -1018,7 +996,7 @@ def xp_batch_events(events: List<&2,EntityRow>,+tick: U32,batch: XpBatch) -> XpB
     case _ <> rest: xp_batch_events(rest,tick,batch)
 def xp_overflow_body(selected: Bool,body: Body,amount: U32) -> Body:
   match selected body:
-    case True{} Body{px,py,2,_,old,generation,age,seed,radius}: Body{px,py,2,1,X.merge(old,amount),generation,age,seed,radius}
+    case True{} Body{px,py,2,_,old,generation,age,seed,radius}: Body{LootPlacement.place(px),LootPlacement.place(py),2,1,X.merge(old,amount),generation,age,seed,radius}
     case _ body: body
 def xp_batch_body(+body: Body,+index: BI.Index<Body>,+selected: U32,+overflow: U32) -> Body:
   match body:
@@ -1685,8 +1663,53 @@ def team_projectiles_done(+team: Team,result: Q.Executed<World(),Q.Error<Error>,
   match result:
     case Q.Executed{world,T.Success{},rows}: team_moved(team,rows,team_movement_opened(team,W.with_store(~Schema,~Store,~Unit,~Unit,~MovementRoster,movement_roster_read,world)))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
-def team_execute(world: World(),+team: Team) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
+# Freeze relative paths from the same movement functions the ECS will execute.
+# Effects from this contact pass are applied after movement, and do not feed back
+# into this tick's collision path.
+def contact_target(body: Body,moved: Body) -> Contact.Target:
+  match body moved:
+    case Body{x0,y0,_,_,_,_,_,seed,radius} Body{x1,y1,_,_,_,_,_,_,_}: Contact.Target{seed,x0,y0,x1,y1,radius}
+def contact_target_enemy(body: Body,motion: Motion,+team: Team,tail: List<&2,Contact.Target>) -> List<&2,Contact.Target>:
+  match body:
+    case Body{+x,+y,0,+variant,+hp,+maximum,+age,+seed,+radius}:
+      contact_target(Body{x,y,0,variant,hp,maximum,age,seed,radius},move_body(Body{x,y,0,variant,hp,maximum,age,seed,radius},motion,team_args(team,team_nearest(team,x,y)))) <> tail
+    case _: tail
+
+def contact_targets(rows: List<&2,Snapshot>,+team: Team) -> List<&2,Contact.Target>:
+  match rows:
+    case []: []
+    case Snapshot{+body, motion} <> rest: contact_target_enemy(body,motion,team,contact_targets(rest,team))
+
+def contact_shot_targets(unlimited: Bool,+targets: List<&2,Contact.Target>,+x: F32,+y: F32,+radius: F32,+pierce: U32,+visited: List<&2,U32>,next: P.Shot) -> List<&2,U32>:
+  match unlimited next:
+    case True{} _: []
+    case False{} P.Shot{x1,y1,_,_,_,_,_}: Contact.first_ids(pierce,Contact.contacts(targets,x,y,x1,y1,radius,visited))
+def contact_shot_next(body: Body,motion: Motion,args: Args,aim: Aim) -> P.Shot:
+  match body motion args aim:
+    case Body{x,y,_,+id,_,_,age,_,radius} Motion{vx,vy,life,pierce,_,_,_,_,_} Args{Run{_,_,px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_,_,_,_,_},_,_,_,_,_} Aim{tx,ty,_,_}:
+      reflected(Bool.and(U32.is_eq(arcana,8),ballistic(id)),P.step(id,(age + 1 : U32),P.Shot{x,y,vx,vy,radius,life,pierce},px,py,tx,ty))
+def contact_shot_plan(active: Bool,+body: Body,+motion: Motion,+team: Team,targets: List<&2,Contact.Target>,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
+  match active body motion:
+    case False{} _ _: tail
+    case True{} Body{+x,+y,+kind,+id,+damage,+maximum,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}:
+      HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),contact_shot_targets(U32.is_le(9999,pierce),targets,x,y,radius,pierce,visited,contact_shot_next(Body{x,y,kind,id,damage,maximum,age,seed,radius},Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y)))} <> tail
+def contact_plans(rows: List<&2,Snapshot>,+team: Team,+targets: List<&2,Contact.Target>) -> List<&2,HitPlan>:
+  match rows:
+    case []: []
+    case Snapshot{Body{+x,+y,1,+id,+damage,+maximum,+age,+seed,+radius},Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}} <> rest:
+      contact_shot_plan(Bool.and(P.active_hit(id,age),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce))),Body{x,y,1,id,damage,maximum,age,seed,radius},Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},team,targets,contact_plans(rest,team,targets))
+    case _ <> rest: contact_plans(rest,team,targets)
+def contact_team_ready(team: Team,hits: List<&2,HitPlan>) -> Team:
+  match team:
+    case Team{players,Args{run,bodies,dx,dy,snapshots,_},plan,origins}: Team{players,Args{run,bodies,dx,dy,snapshots,hits},plan,origins}
+def contact_team(+team: Team) -> Team:
+  match team:
+    case Team{+players,Args{+run,+bodies,+dx,+dy,+snapshots,_},+plan,+origins}:
+      contact_team_ready(Team{players,Args{run,bodies,dx,dy,snapshots,[]},plan,origins},contact_plans(snapshots,Team{players,Args{run,bodies,dx,dy,snapshots,[]},plan,origins},contact_targets(snapshots,Team{players,Args{run,bodies,dx,dy,snapshots,[]},plan,origins})))
+def team_execute_contacts(world: World(),+team: Team) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
   team_projectiles_done(team,candidate_query(~ProjectileOpsType,~Team,~EntityRow,~projectile_plan(),~team_projectile_system,True{},team,world))
+def team_execute(world: World(),team: Team) -> Q.Executed<World(),Q.Error<Error>,EntityRow>:
+  team_execute_contacts(world,contact_team(team))
 
 def living_views(views: List<&2,PlayerView>) -> List<&2,PlayerView>:
   match views:

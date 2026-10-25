@@ -1,0 +1,74 @@
+[
+  {
+    "label": "swept-drop-initial-overlap",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "case True{}: Hit{0.0}",
+    "new": "case True{}: Miss{}",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "initial_contact_is_not_lost"
+  },
+  {
+    "label": "swept-drop-admitted-hit",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "case Hit{time}: insert(Contact{seed,time},rows)",
+    "new": "case Hit{time}: rows",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "admitted_hit_is_inserted"
+  },
+  {
+    "label": "swept-ignore-exclusion",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "case True{}: rows\n    case False{}: add(seed,impact,rows)",
+    "new": "case True{}: []\n    case False{}: add(seed,impact,rows)",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "excluded_target_preserves_contacts"
+  },
+  {
+    "label": "swept-reverse-spatial-order",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "Cmp.is_le(compare(left,right))",
+    "new": "Cmp.is_gt(compare(left,right))",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "earlier_contact_precedes_head"
+  },
+  {
+    "label": "swept-ignore-hit-budget",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "ids(List.take(&2,Contact,rows,U32.to_nat(budget)))",
+    "new": "ids(rows)",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "exact_budget_consumption"
+  },
+  {
+    "label": "swept-reverse-tie-identity",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "case EQ{}: U32.cmp(left,right)",
+    "new": "case EQ{}: U32.cmp(right,left)",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "equal_time_uses_identity"
+  },
+  {
+    "label": "swept-ignore-visited",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "case True{}: rows\n    case False{}: add(seed,impact,rows)",
+    "new": "case True{}: add(seed,impact,rows)\n    case False{}: add(seed,impact,rows)",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "excluded_target_preserves_contacts"
+  },
+  {
+    "label": "swept-empty-public-collector",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "collect(contains(visited,seed),seed,sweep(x0,y0,x1,y1,ex0,ey0,ex1,ey1,(radius + r : F32)),contacts(tail,x0,y0,x1,y1,radius,visited))",
+    "new": "[]",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "public_single_hit_is_collected"
+  },
+  {
+    "label": "swept-freeze-enemy-endpoint",
+    "source": "examples/survivors/projectile-contact.bend",
+    "old": "((x1 - x0) - (ex1 - ex0) : F32),((y1 - y0) - (ey1 - ey0) : F32)",
+    "new": "(x1 - x0 : F32),(y1 - y0 : F32)",
+    "proof": "examples/survivors/projectile-contact/PROOF.bend",
+    "law": "relative_endpoints_are_used"
+  }
+]

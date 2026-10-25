@@ -28,8 +28,8 @@ def admission(x: F32,y: F32,px: F32,py: F32,radius: F32) -> Admission:
   gate(admissible(x,y,px,py,radius))
 
 # Never clamp the outward coordinate: fall back to the opposite fitting side.
-# Player centers are in [20,14380], and all enemy radii are at most 42, so each
-# axis has at least one available side (maximum candidate gap is 678 < 7040).
+# The native geometry integration check covers arena edges, catalog radii and
+# the prediction padding used by placement and admission.
 def positive_side(preferPositive: Bool,negativeFits: Bool,positiveFits: Bool) -> Bool:
   Bool.and(positiveFits,Bool.or(preferPositive,Bool.not(negativeFits)))
 def coordinate(positive: Bool,negative: F32,positiveValue: F32) -> F32:
