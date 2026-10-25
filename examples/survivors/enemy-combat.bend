@@ -1,4 +1,5 @@
 import Base
+import enemy-effects.bend as Effect
 import game-components.bend as Components
 import arena.bend as Arena
 import combat-policy.bend as Combat
@@ -21,7 +22,7 @@ type Outcome is Data:
   Killed{enemy: State,reward: DeathReward}
   Born{newborn: Life.Newborn}
   Sleeping{enemy: State}
-type Effects is Data: Effects{damage: U32,freshSlow: U32,dx: F32,dy: F32}
+type Effects is Data: Effects{damage: U32,freshSlow: Effect.Slow,dx: F32,dy: F32}
 def distance2(+x: F32,+y: F32,+px: F32,+py: F32) -> F32:
   ((x - px) * (x - px) + (y - py) * (y - py) : F32)
 def contact(spatial: Space.Spatial,archetype: U32,px: F32,py: F32) -> U32:
@@ -61,7 +62,7 @@ def resolved_health(health: U32,+spatial: Space.Spatial,+archetype: U32,+identit
 def resolve(enemy: State,+oldX: F32,+oldY: F32,effects: Effects,nextStatus: Components.Status,oldBurnDamage: U32,luck: U32,px: F32,py: F32,killer: Maybe<&2,U32>) -> Outcome:
   match enemy effects:
     case State{Space.Spatial{x,y,age,+radius},archetype,identity,Components.Vitals{health,maximum},Components.Status{+slow,_}} Effects{damage,+freshSlow,dx,dy}:
-      resolved_health(Combat.lose(health,(damage + oldBurnDamage : U32)),Space.Spatial{Arena.constrain((oldX + (x - oldX) * Space.slow_factor(U32.max(slow,freshSlow)) + dx : F32),radius),Arena.constrain((oldY + (y - oldY) * Space.slow_factor(U32.max(slow,freshSlow)) + dy : F32),radius),age,radius},archetype,identity,maximum,nextStatus,luck,px,py,killer)
+      resolved_health(Combat.lose(health,(damage + oldBurnDamage : U32)),Space.Spatial{Arena.constrain((oldX + (x - oldX) * Space.slow_factor(Effect.stronger_slow(slow,freshSlow)) + dx : F32),radius),Arena.constrain((oldY + (y - oldY) * Space.slow_factor(Effect.stronger_slow(slow,freshSlow)) + dy : F32),radius),age,radius},archetype,identity,maximum,nextStatus,luck,px,py,killer)
 def born(candidate: Life.Candidate) -> Outcome: Born{Life.birth(candidate)}
 
 type Credit is Data: Credit{contactDamage: U32,kills: U32}
@@ -99,21 +100,19 @@ def spatial(enemy: State) -> Space.Spatial:
     case State{spatial,_,_,_,_}: spatial
 def immune(enemy: State) -> State:
   match enemy:
-    case State{spatial,30,identity,vitals,Components.Status{_,burn}}: State{spatial,30,identity,vitals,Components.Status{0,burn}}
+    case State{spatial,30,identity,vitals,Components.Status{_,burn}}: State{spatial,30,identity,vitals,Components.Status{Effect.empty_slow(),burn}}
     case enemy: enemy
 def dec(+value: U32) -> U32: U32.sub(value,U32.min(value,1))
-def cool_slow(+slow: U32) -> U32:
-  (dec((slow % 65536 : U32)) + 65536 * Bool.to_u32(Bool.and(U32.is_le(65536,slow),U32.is_lt(1,(slow % 65536 : U32)))) : U32)
 def pull_x(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
   ((sumX / U32.to_f32(U32.max(1,count)) - x) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
 def pull_y(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
   ((sumY / U32.to_f32(U32.max(1,count)) - y) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
-type SingleHit is Data: SingleHit{damage: U32,slow: U32,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
+type SingleHit is Data: SingleHit{damage: U32,slow: Effect.Slow,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
 type SingleOffense is Data: SingleOffense{tick: U32,px: F32,py: F32,knockMultiplier: F32,pullMultiplier: F32,burnMultiplier: U32,burnDamage: U32,luck: U32}
 def resolve_single(+oldX: F32,+oldY: F32,enemy: State,hit: SingleHit,offense: SingleOffense) -> Outcome:
   match enemy hit offense:
     case State{Space.Spatial{x,y,age,+radius},archetype,identity,Components.Vitals{hp,maximum},Components.Status{+slow,+burn}} SingleHit{damage,+freshSlow,freshBurn,+pull,+knock,+pullX,+pullY} SingleOffense{+tick,+px,+py,+knockMultiplier,+pullMultiplier,+burnMultiplier,burnDamage,luck}:
-      resolved_health(Combat.lose(hp,(damage + burnDamage * Bool.to_u32(Bool.and(U32.is_lt(0,burn),U32.is_eq((tick % 30 : U32),0))) : U32)),Space.Spatial{Arena.constrain(((oldX + (x - oldX) * Space.slow_factor(U32.max(slow,freshSlow)) + (oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * knockMultiplier : F32) + pull_x(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * pullMultiplier : F32),radius),Arena.constrain(((oldY + (y - oldY) * Space.slow_factor(U32.max(slow,freshSlow)) + (oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * knockMultiplier : F32) + pull_y(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * pullMultiplier : F32),radius),age,radius},archetype,identity,maximum,Components.Status{U32.max(cool_slow(slow),freshSlow),U32.max(dec(burn),(freshBurn * burnMultiplier : U32))},luck,px,py,Some{0})
+      resolved_health(Combat.lose(hp,(damage + burnDamage * Bool.to_u32(Bool.and(Effect.burn_active(burn),U32.is_eq((tick % 30 : U32),0))) : U32)),Space.Spatial{Arena.constrain(((oldX + (x - oldX) * Space.slow_factor(Effect.stronger_slow(slow,freshSlow)) + (oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * knockMultiplier : F32) + pull_x(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * pullMultiplier : F32),radius),Arena.constrain(((oldY + (y - oldY) * Space.slow_factor(Effect.stronger_slow(slow,freshSlow)) + (oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * knockMultiplier : F32) + pull_y(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * pullMultiplier : F32),radius),age,radius},archetype,identity,maximum,Components.Status{Effect.stronger_slow(Effect.cool_slow(slow),freshSlow),Effect.stronger_burn(Effect.cool_burn(burn),Effect.burn((freshBurn * burnMultiplier : U32),0))},luck,px,py,Some{0})
 
 # The occupied-slot decision hands control to the pickup system without sharing
 # its payload or granting enemy combat permission to mutate rewards.

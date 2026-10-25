@@ -1,5 +1,7 @@
 import run-state.bend as RS
 import Base
+import enemy-effects.bend as Effect
+import enemy-status-encoder.bend as StatusEncoder
 import pickup-state.bend as Pickup
 import enemy-combat.bend as Enemy
 import game-components.bend as Components
@@ -71,7 +73,7 @@ def identity(value: Components.Identity) -> String:
     case Components.Identity{slot}: U32.show(slot)
 def enemy_status(value: Components.Status) -> String:
   match value:
-    case Components.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
+    case Components.Status{slow,burn}: StatusEncoder.encode(Components.Status{slow,burn})
 def enemy(value: Enemy.State) -> String:
   match value:
     case Enemy.State{space,archetype,slot,hp,status}: "{\"spatial\":" ++ spatial(space) ++ ",\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(slot) ++ ",\"vitals\":" ++ vitals(hp) ++ ",\"status\":" ++ enemy_status(status) ++ "}"
@@ -174,7 +176,7 @@ def trajectory(value: Components.Trajectory) -> String:
     case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)])
 def status(value: Components.Status) -> String:
   match value:
-    case Components.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
+    case Components.Status{slow,burn}: StatusEncoder.encode(Components.Status{slow,burn})
 def role(value: GRole.Role) -> String:
   match value:
     case GRole.EnemySlot{}: "\"EnemySlot\""
@@ -360,9 +362,13 @@ def fold_shot_payload(value: Components.ShotPayload,acc: U32) -> U32:
 def fold_spatial(value: Space.Spatial,acc: U32) -> U32:
   match value:
     case Space.Spatial{x,y,age,radius}: fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius)],acc)
+def fold_burn_source(value: Maybe<&2,U32>,acc: U32) -> U32:
+  match value:
+    case None{}: mix(acc,0)
+    case Some{player}: mix(mix(acc,1),player)
 def fold_status(value: Components.Status,acc: U32) -> U32:
   match value:
-    case Components.Status{slow,burn}: fold_words([slow,burn],acc)
+    case Components.Status{Effect.Slow{ticks,frozen},Effect.Burn{duration,source}}: fold_burn_source(source,fold_words([ticks,Bool.to_u32(frozen),duration],acc))
 def fold_pickup(value: Pickup.Payload,acc: U32) -> U32:
   match value:
     case Pickup.Payload{item,generation,active}: fold_words([generation,Bool.to_u32(active)],fold_words(codes(pickup_item(item)),acc))
