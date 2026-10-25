@@ -1,3 +1,4 @@
+import pickup-state.bend as Pickup
 import run-state.bend as RS
 # Native complete-run consumer: only public start/configure/choose/advance inputs.
 # No injected clock, inventory, entity, health or terminal state.
@@ -128,16 +129,16 @@ def evolution_ready(offer: G.Offer) -> Bool:
     case _: False{}
 def chest_ready(+run: G.Run) -> Bool:
   Bool.or(starter_evolved(run),evolution_ready(G.evolution_offer(weapons(run),0,passives(run))))
-def chest_goal_keep(ready: Bool,+body: Components.Body,+rest: List<&2,Components.Body>) -> List<&2,Components.Body>:
-  match body:
-    case Components.Body{_,_,5,_,_,_,_,_,_}: Bool.pick(List<&2,Components.Body>,ready,body <> rest,rest)
-    case _: body <> rest
-def movement_rows(+ready: Bool,rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
+def chest_goal_keep(ready: Bool,+snapshot: G.Snapshot,+rest: List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
+  match snapshot:
+    case G.PickupSnapshot{Pickup.State{_,Pickup.Payload{Pickup.Chest{},_,_},_}}: Bool.pick(List<&2,G.Snapshot>,ready,snapshot <> rest,rest)
+    case _: snapshot <> rest
+def movement_snapshots(+ready: Bool,rows: List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match rows:
     case []: []
-    case body <> rest: chest_goal_keep(ready,body,movement_rows(ready,rest))
+    case body <> rest: chest_goal_keep(ready,body,movement_snapshots(ready,rest))
 # Reuse the ordinary controller's retained spatial-planning memory. Movement
-# observes the real run and bodies and feeds only public gameplay input.
+# observes the real run and typed snapshots and feeds only public gameplay input.
 # Full game observations remain unchanged; only planner goals defer early chests.
 def move(state: G.State,result: Policy.Memory & (F32 & F32)) -> Controlled:
   (memory,direction) = result
@@ -147,7 +148,7 @@ def step(phase: U32,state: G.State,+run: G.Run,rows: List<&2,Components.Body>,of
   match phase:
     case 1: Controlled{memory,apply_reward(state,reward_action(offers,run))}
     case 2: Controlled{memory,apply_reward(state,reward_action(offers,run))}
-    case _: move(state,Policy.movement(memory,run,movement_rows(chest_ready(run),rows),snapshots))
+    case _: move(state,Policy.movement(memory,run,rows,movement_snapshots(chest_ready(run),snapshots)))
 def saw_boss(rows: List<&2,Enemy.State>) -> Bool: EnemyView.boss_seen(rows)
 def observe(stats: Stats,+run: G.Run,rows: List<&2,Enemy.State>) -> Stats:
   match stats:
