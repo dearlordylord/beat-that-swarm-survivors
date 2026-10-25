@@ -24,7 +24,10 @@ class CompareTest(unittest.TestCase):
         self.assertNotEqual(p['components']['actorColumns']['identities'][0][0]-1,p['components']['actorColumns']['identities'][0][1])
     def test_actual_authority_changes_compare_unequal(self):
         for family,index,word in [('spaces',1,0),('vitals',1,0),('statuses',1,1),('shots',0,1),('trajectories',0,5),('pickups',2,1)]:
-            a=F.replay();b=copy.deepcopy(a);b[2]['payload']['components']['actorColumns'][family][index][1][word]+=1;self.write(a,b)
+            a=F.replay();b=copy.deepcopy(a);value=b[2]['payload']['components']['actorColumns'][family][index][1]
+            if family=='statuses':value['burn']['ticks']+=1
+            else:value[word]+=1
+            self.write(a,b)
             with self.assertRaises(R.ReplayError):self.compare()
     def test_equal_malformed_world_is_rejected(self):
         mutations=[lambda p:p['components']['actorColumns']['identities'][1].__setitem__(1,2),
