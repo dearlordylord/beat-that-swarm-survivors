@@ -9,8 +9,8 @@ type Item is Data:
   Healing{health: U32}
   Chest{}
   Relic{stage: U32}
-type Payload is Data: Payload{item: Item,slot: U32,generation: U32,active: Bool}
-type State is Data: State{spatial: Space.Spatial,payload: Payload}
+type Payload is Data: Payload{item: Item,generation: U32,active: Bool}
+type State is Data: State{spatial: Space.Spatial,payload: Payload,identity: U32}
 type Reward is Data: Reward{xp: U32,coins: U32,healing: U32,chests: U32,relics: U32}
 type Outcome is Data: Outcome{state: State,reward: Reward}
 
@@ -35,29 +35,29 @@ def waiting(item: Item,space: Space.Spatial) -> Space.Spatial:
     case _ Space.Spatial{x,y,age,radius}: Space.Spatial{x,y,(age + 1 : U32),radius}
 def collected(found: Bool,space: Space.Spatial,+item: Item,+slot: U32,+generation: U32) -> Outcome:
   match found:
-    case True{}: Outcome{State{retired(space),Payload{consumed(item),slot,generation,False{}}},reward(item)}
-    case False{}: Outcome{State{waiting(item,space),Payload{item,slot,generation,True{}}},no_reward()}
+    case True{}: Outcome{State{retired(space),Payload{consumed(item),generation,False{}},slot},reward(item)}
+    case False{}: Outcome{State{waiting(item,space),Payload{item,generation,True{}},slot},no_reward()}
 def step(found: Bool,state: State) -> Outcome:
   match state:
-    case State{space,Payload{item,slot,generation,True{}}}: collected(found,space,item,slot,generation)
+    case State{space,Payload{item,generation,True{}},slot}: collected(found,space,item,slot,generation)
     case state: Outcome{state,no_reward()}
 def active(state: State) -> Bool:
   match state:
-    case State{_,Payload{_,_,_,active}}: active
+    case State{_,Payload{_,_,active},_}: active
 def slot(state: State) -> U32:
   match state:
-    case State{_,Payload{_,slot,_,_}}: slot
+    case State{_,_,slot}: slot
 def generation(state: State) -> U32:
   match state:
-    case State{_,Payload{_,_,generation,_}}: generation
+    case State{_,Payload{_,generation,_},_}: generation
 def amount(state: State) -> U32:
   match state:
-    case State{_,Payload{Xp{amount,_},_,_,True{}}}: amount
+    case State{_,Payload{Xp{amount,_},_,True{}},_}: amount
     case _: 0
 def accumulator(state: State) -> Bool:
   match state:
-    case State{_,Payload{Xp{_,marked},_,_,True{}}}: marked
+    case State{_,Payload{Xp{_,marked},_,True{}},_}: marked
     case _: False{}
 def with_space(state: State,space: Space.Spatial) -> State:
   match state:
-    case State{_,payload}: State{space,payload}
+    case State{_,payload,identity}: State{space,payload,identity}

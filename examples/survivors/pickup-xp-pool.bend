@@ -17,8 +17,8 @@ def selected(choose: Bool,state: Pickup.State,nextDistance: F32,marked: Bool,inv
     case True{} Inventory{free,_,_,_}: Inventory{free,Some{state},nextDistance,marked}
 def inspect(+state: Pickup.State,+px: F32,+py: F32,inventory: Inventory) -> Inventory:
   match state inventory:
-    case Pickup.State{_,Pickup.Payload{_,slot,_,False{}}} Inventory{free,accumulator,distance,marked}: Inventory{slot <> free,accumulator,distance,marked}
-    case Pickup.State{Space.Spatial{+x,+y,_,_},Pickup.Payload{Pickup.Xp{_,+isAccumulator},_,_,True{}}} Inventory{+free,+accumulator,+oldDistance,+marked}:
+    case Pickup.State{_,Pickup.Payload{_,_,False{}},slot} Inventory{free,accumulator,distance,marked}: Inventory{slot <> free,accumulator,distance,marked}
+    case Pickup.State{Space.Spatial{+x,+y,_,_},Pickup.Payload{Pickup.Xp{_,+isAccumulator},_,True{}},_} Inventory{+free,+accumulator,+oldDistance,+marked}:
       selected(Bool.and(Bool.not(marked),Bool.or(isAccumulator,F32.is_lt(oldDistance,distance(x,y,px,py)))),state,distance(x,y,px,py),isAccumulator,Inventory{free,accumulator,oldDistance,marked})
     case _ inventory: inventory
 def inventory(rows: List<&2,Pickup.State>,+px: F32,+py: F32,accumulator: Inventory) -> Inventory:
@@ -33,7 +33,7 @@ def append_drop(+drop: Drop,+generation: U32,batch: Batch) -> Batch:
   match drop batch:
     case Drop{amount,_,_} Batch{[],accumulator,updates,overflow}: Batch{[],accumulator,updates,Xp.merge(overflow,amount)}
     case Drop{amount,x,y} Batch{+slot <> free,accumulator,updates,overflow}:
-      +fresh: Pickup.State = Pickup.State{Space.Spatial{Placement.place(x),Placement.place(y),0,6.0},Pickup.Payload{Pickup.Xp{amount,False{}},slot,generation,True{}}}
+      +fresh: Pickup.State = Pickup.State{Space.Spatial{Placement.place(x),Placement.place(y),0,6.0},Pickup.Payload{Pickup.Xp{amount,False{}},generation,True{}},slot}
       Batch{free,existing_or_new(accumulator,fresh),Index.insert(~Pickup.State,updates,slot,fresh),overflow}
 def append_drops(drops: List<&2,Drop>,+generation: U32,batch: Batch) -> Batch:
   match drops:
@@ -41,7 +41,7 @@ def append_drops(drops: List<&2,Drop>,+generation: U32,batch: Batch) -> Batch:
     case head <> tail: append_drops(tail,generation,append_drop(head,generation,batch))
 def merge_overflow(merge: Bool,state: Pickup.State,incoming: U32) -> Pickup.State:
   match merge state:
-    case True{} Pickup.State{Space.Spatial{x,y,age,radius},Pickup.Payload{Pickup.Xp{amount,_},slot,generation,True{}}}: Pickup.State{Space.Spatial{Placement.place(x),Placement.place(y),age,radius},Pickup.Payload{Pickup.Xp{Xp.merge(amount,incoming),True{}},slot,generation,True{}}}
+    case True{} Pickup.State{Space.Spatial{x,y,age,radius},Pickup.Payload{Pickup.Xp{amount,_},generation,True{}},slot}: Pickup.State{Space.Spatial{Placement.place(x),Placement.place(y),age,radius},Pickup.Payload{Pickup.Xp{Xp.merge(amount,incoming),True{}},generation,True{}},slot}
     case _ state: state
 def updated(+state: Pickup.State,+updates: Index.Index<Pickup.State>,+chosen: U32,+overflow: U32) -> Pickup.State:
   merge_overflow(Bool.and(U32.is_eq(Pickup.slot(state),chosen),U32.is_lt(0,overflow)),Index.get(~Pickup.State,updates,Pickup.slot(state),state),overflow)
