@@ -2,10 +2,10 @@
   {
     "source": "examples/survivors/audio-events.bend",
     "proof": "examples/survivors/audio-events-PROOF.bend",
-    "label": "audio-drop-player-shot",
+    "label": "audio-drop-friendly-shot",
     "law": "attack_exact",
-    "old": "Bool.or(U32.is_eq(kind,1),Bool.or(U32.is_eq(kind,6),U32.is_eq(kind,7)))",
-    "new": "Bool.or(U32.is_eq(kind,6),U32.is_eq(kind,7))"
+    "old": "case _: True{}",
+    "new": "case _: False{}"
   },
   {
     "source": "examples/survivors/audio-events.bend",
@@ -19,32 +19,64 @@
     "source": "examples/survivors/audio-events.bend",
     "proof": "examples/survivors/audio-events-PROOF.bend",
     "label": "audio-repeat-same-tick-births",
-    "law": "same_tick_keeps_body_history",
-    "old": "case False{} _: observed(old,current,impactTick,Scanned{bodies,[]})",
-    "new": "case False{} _: observed(old,current,impactTick,scan(rows,bodies,0,0.0,False{},BI.Empty{},[]))"
+    "law": "same_tick_keeps_subject_history",
+    "old": "case False{} _: observed(old,current,impactTick,Scanned{subjects,[]})",
+    "new": "case False{} _: observed(old,current,impactTick,scan(rows,subjects,0.0,False{},BI.Empty{},[]))"
   },
   {
     "source": "examples/survivors/audio-events.bend",
     "proof": "examples/survivors/audio-events-PROOF.bend",
-    "label": "audio-ignore-pooled-slot-birth",
-    "law": "generation_exact",
-    "old": "String.eq(a,b),U32.is_eq(aBorn,bBorn))",
-    "new": "String.eq(a,b),True{})"
+    "label": "audio-ignore-explicit-lifetime",
+    "law": "identity_exact",
+    "old": "Bool.and(U32.is_eq(aSlot,bSlot),String.eq(aLife,bLife))",
+    "new": "U32.is_eq(aSlot,bSlot)"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-ignore-friendly-weapon",
+    "law": "same_identity_exact",
+    "old": "case FriendlyProjectile{ai,av,_,_} FriendlyProjectile{bi,bv,_,_}: Bool.and(same_identity(ai,bi),U32.is_eq(av,bv))",
+    "new": "case FriendlyProjectile{ai,av,_,_} FriendlyProjectile{bi,bv,_,_}: same_identity(ai,bi)"
   },
   {
     "source": "examples/survivors/audio-events.bend",
     "proof": "examples/survivors/audio-events-PROOF.bend",
     "label": "audio-suppress-solo-monster-impact",
-    "law": "body_changes_exact",
-    "old": "Bool.not(confirmed),Bool.and(U32.is_eq(kind,0),U32.is_lt(hp,oldHp))",
-    "new": "False{},Bool.and(U32.is_eq(kind,0),U32.is_lt(hp,oldHp))"
+    "law": "enemy_changes_exact",
+    "old": "Bool.and(Bool.not(confirmed),U32.is_lt(health,oldHealth))",
+    "new": "Bool.and(False{},U32.is_lt(health,oldHealth))"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-replay-confirmed-enemy-damage",
+    "law": "enemy_changes_exact",
+    "old": "Bool.and(Bool.not(confirmed),U32.is_lt(health,oldHealth))",
+    "new": "U32.is_lt(health,oldHealth)"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-explode-on-small-radius-growth",
+    "law": "friendly_changes_exact",
+    "old": "F32.is_ge(radius,(oldRadius * 2.0 : F32))",
+    "new": "F32.is_ge(radius,oldRadius)"
   },
   {
     "source": "examples/survivors/audio-events.bend",
     "proof": "examples/survivors/audio-events-PROOF.bend",
     "label": "audio-do-not-commit-played-impact",
     "law": "impact_commit_exact",
-    "old": "Out{State{ready,meta,bodies,tick},[Sound{1,pan(x,meta_x(meta))}]}",
-    "new": "Out{State{ready,meta,bodies,0},[Sound{1,pan(x,meta_x(meta))}]}"
+    "old": "Out{State{ready,meta,subjects,tick},[Sound{1,pan(x,meta_x(meta))}]}",
+    "new": "Out{State{ready,meta,subjects,0},[Sound{1,pan(x,meta_x(meta))}]}"
+  },
+  {
+    "source": "examples/survivors/audio-identity.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-wrap-early-enemy-birth",
+    "law": "birth_exact",
+    "old": "(tick - U32.min(tick,age) : U32)",
+    "new": "(tick - age : U32)"
   }
 ]
