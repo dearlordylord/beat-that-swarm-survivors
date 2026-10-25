@@ -38,8 +38,6 @@ devices. Native solo launch remains independent of Node and the Iroh toolchain.
 
 Run `bash examples/survivors/check.sh` from the repository root for the
 [proof and mutation gates](coop-session-README.md) and JavaScript host checks.
-The [browser smoke check](coop-browser-smoke.mjs) accepts the served co-op URL
-through `COOP_URL`; it requires Playwright and uses real public relays.
 
 The initial browser check uses two isolated contexts on one machine. It verifies
 shared-world input, map behavior and guest departure; it does not qualify different
@@ -58,15 +56,7 @@ A known reward pause or death disables prediction. Its history/horizon are bound
 it freezes when it cannot safely extend the forecast. Reload both peers after
 updating to a different host protocol version.
 
-`check-coop-prediction.sh` is included in the ordinary `check.sh`: kernel laws,
-negative mutations, movement comparisons and IO/controller checks.
-`node examples/survivors/coop-latency-browser.mjs` measures actual input-to-render
-response at RTT 100/250/500 ms, including release, reversal, reconciliation and a
-real Bend reward pause. See [the evidence](../../research/survivors-coop-input-latency.md).
-`node examples/survivors/coop-jitter-browser.mjs` additionally records every drawn
-position during sustained movement, reversal and release, with delayed and
-uneven packet delivery. It checks corrections and trajectory continuity; a fast
-first response and eventual convergence alone are insufficient.
+The proof and mutation gates are included in `check.sh`.
 
 Own weapons use detached Bend forecasts with the same spawning and trajectory
 helpers as the host. They replay the same pending input ticks as the player.
@@ -83,10 +73,7 @@ damage, pickups, XP or rewards. The small replay/guard/identity/continuity polic
 kernel has checked laws and negative mutations; the shared Game adapters are
 qualified by runtime tests, rather than a claim that the entire game is proved.
 
-`node examples/survivors/coop-projectiles-browser.mjs` checks actual Iroh delivery,
-birth distance from the displayed owner and continuing flight during a reversal.
-`COOP_PROJECTILE_DELAY_MS=800` adds a labeled observation-delay control. See
-[the projectile evidence](../../research/coop-projectile-visibility.md).
+Historical browser observations are recorded in [the research](../../research/coop-projectile-visibility.md).
 
 ## Co-op hall
 
@@ -107,5 +94,5 @@ The throwaway study and its local server have been removed.
 
 After the SEO/share-card work:
 
-- Completed: touch control now selects all eight keyboard directions with a neutral centre. `coop-touch-browser.mjs` checks actual mobile events and outgoing Iroh commands.
+- Completed: touch control now selects all eight keyboard directions with a neutral centre. The input mapping has a neutral centre and eight direction sectors.
 - Revisit the two-player limit. It is currently in the session and one-peer transport adapter, not merely the Co-op hall. Support more guests and make the actual capacity clear in the UI. Remind the user after the touch-control task.

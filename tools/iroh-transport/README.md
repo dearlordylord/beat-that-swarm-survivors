@@ -71,7 +71,6 @@ From the repository root:
 
 ```sh
 CARGO_TARGET_DIR=/tmp/bendvy-iroh-cargo-target cargo test --locked --features native-probe --manifest-path tools/iroh-transport/Cargo.toml --jobs 2
-node --test examples/survivors/coop-transport.test.mjs
 ```
 
 The optional `iroh-native-probe` binary is a byte echo diagnostic, not a game

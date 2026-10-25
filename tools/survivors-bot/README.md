@@ -197,14 +197,7 @@ bash tools/survivors-bot/check-monsters.sh
 
 ## Persistent XP verification
 
-[persistent-xp.test.mjs](../../examples/survivors/persistent-xp.test.mjs) checks the
-actual game integration. [The small-core proof](../../examples/survivors/persistent-xp/PROOF.bend)
-covers accounting helpers, not the entire ECS lifecycle or collision geometry.
-
-[planner.test.mjs](planner.test.mjs) and [runner.test.mjs](runner.test.mjs) check
-routing and advisory failure. Real-engine integration uses an explicitly fake
-classifier; it does not measure live classifier quality. A short batch smoke
-qualifies execution and receipts, not large-batch throughput or balance.
+[The small-core proof](../../examples/survivors/persistent-xp/PROOF.bend) covers accounting helpers, not the entire ECS lifecycle or collision geometry.
 
 Correctness-run budgets belong to the check runners, and current pool values
 belong to [pools.bend](../../examples/survivors/pools.bend). Neither supplies a

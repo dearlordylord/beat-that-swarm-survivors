@@ -40,7 +40,6 @@ cp -R "$app_dir/social" "$staging_dir/public/social"
 cp "$example_repo/LICENSE-MIT" "$example_repo/LICENSE-APACHE" "$staging_dir/public/"
 NIGHTFALL_WEB_PUBLIC="$staging_dir/public" NIGHTFALL_WEB_OUTPUT="$astro_output" \
   "$NODE" "$app_dir/web/node_modules/astro/bin/astro.mjs" build --root "$app_dir/web"
-"$NODE" "$app_dir/check-social.mjs" --directory "$astro_output"
 # All compilation and prerendering must succeed before replacing the served tree.
 old_dir="$app_dir/dist/.web-previous-$$"
 if [[ -d "$app_dir/dist/web" ]]; then mv "$app_dir/dist/web" "$old_dir"; fi

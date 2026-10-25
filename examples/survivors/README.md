@@ -70,17 +70,7 @@ python3 -m http.server 8713 --directory examples/survivors/dist/web
 
 Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend, Astro or Node.js. `index.html` is the source HTML shell; the deployable, prerendered page is `dist/web/index.html`. `content.mjs` is generated from `menu-catalog.bend` at build time; edit the Bend catalog, not the generated file.
 
-Browser verification after building:
-
-```sh
-node examples/survivors/web-smoke.mjs
-node examples/survivors/browser-smoke.mjs
-node examples/survivors/coop-latency-browser.mjs
-```
-
 ## Publication
-
-The publication guard tests run with `node --test scripts/survivors-site.test.mjs`.
 
 Use `master` locally and on GitHub. Publication stays on Sites; no GitHub Actions deployment is required.
 
@@ -93,13 +83,7 @@ node scripts/verify-survivors-site.mjs --site-checkout /absolute/path/to/nightfa
 
 Preparation fetches `origin/master`, checks the branch/revision, snapshots the current authored inputs (including unsaved-to-Git files), installs the pinned Astro dependencies in that isolated snapshot and runs the complete Bend + Astro build. It does not reuse the source checkout's `dist` output. `SOURCE.json` records the input and asset hashes; `version.json` identifies the revision, source fingerprint and whether local edits were included. The complete authored snapshot is saved with the Site source. A failed build leaves the previous Site files intact.
 
-Before packaging, run the co-op input-to-render gate against the freshly prepared assets (Playwright is required):
-
-```sh
-COOP_LATENCY_WEB_DIR=/absolute/path/to/nightfall-survivors/dist node examples/survivors/coop-latency-browser.mjs
-```
-
-It injects RTT 100/250/500 ms while using the real Bend worker and renderer. It must pass before publication; FPS alone is insufficient. The ordinary `check.sh` also runs prediction laws, mutation controls and controller-boundary checks.
+Qualification uses Bend laws, semantic mutations and native checks.
 
 Before editing the Site checkout, open it with the Sites source helper. Prepare with the command above, then include the verifier as a required command in the helper's packaging request. Pass `--repo /absolute/path/to/bendvy-ecs-examples` when running verification from the Site checkout. If the source changes after preparation, verification fails: prepare again. Publish only the archive and pushed source commit returned by that helper. The public `/version.json` allows the deployed source fingerprint to be checked after publication.
 
@@ -111,7 +95,7 @@ Astro renders the metadata for both `/` and `/coop.html` into the HTML head.
 The shared [SEO module](seo.mjs) owns titles, descriptions, canonical URLs,
 Open Graph, large Twitter cards and JSON-LD. Invitation parameters never enter
 these tags. Static [share images](social/README.md), robots.txt and sitemap.xml
-are included in every web build. The build checks their output before publishing.
+are included in every web build.
 
 ## Music
 
@@ -169,13 +153,11 @@ bash examples/survivors/build.sh
 bash examples/survivors/check.sh
 ```
 
-Pure Bend behavior is checked by universal laws, not JavaScript scenario tests.
+Pure Bend behavior is checked by universal laws.
 The [proof gate](../../scripts/check-bend-laws.py) discovers the proof modules;
 the [mutation gate](../../scripts/check-bend-mutants.py) checks that type-correct
 semantic faults are rejected. Their executable manifests live in
-[scripts/law-mutants](../../scripts/law-mutants). JavaScript checks exercise the
-browser hosts, transport, rendering and persistence adapters. Native programs
-retain actual file, image, audio and application integration checks.
+[scripts/law-mutants](../../scripts/law-mutants). Native programs retain actual file, image, audio and application integration checks.
 The [native geometry check](check-geometry.sh) also exercises physical pickup,
 swept combat and the real rendered spawn footprint. Its floating-point
 observations supplement the encoded-coordinate and structural laws; they do
@@ -186,10 +168,4 @@ functional observation. A scenario observation does not prove balance or every
 build. Historical validation is recorded in [VALIDATION.md](VALIDATION.md) and
 the [legacy cleanup receipt](../../research/ecs-legacy-cleanup-results.json).
 
-Browser checks reuse an already installed Playwright; they never install packages:
-
-```sh
-PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs bash examples/survivors/check-browser.sh
-```
-
-They verify desktop keyboard and mobile touch movement, modal focus, pause, collection navigation and profile reload. Generated ESM stays in ignored `dist/`.
+Generated ESM stays in ignored `dist/`.

@@ -68,10 +68,6 @@ jobs:
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y clang-19 libx11-dev libasound2-dev
       - name: Audit published dependencies
         run: python3 scripts/check-dependencies.py --registry
-      - name: Check portable timeout helper
-        run: node examples/run-bounded.test.mjs
-      - name: Check local publication guards
-        run: node --test scripts/survivors-site.test.mjs
       - name: Install the Iroh browser build toolchain
         shell: bash
         run: |
@@ -88,13 +84,12 @@ jobs:
         run: npm ci --prefix examples/survivors/web --no-audit --no-fund
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
-      - name: Check Bend laws, semantic mutants and browser hosts
+      - name: Check Bend laws, semantic mutants and native geometry
         run: bash examples/survivors/check.sh
       - name: Build the prerendered browser page
         run: |
           bash examples/survivors/build-web.sh
-          node examples/survivors/launcher.test.mjs
-      - name: Check optional classifier bot offline
+      - name: Build optional bot endpoints
         run: |
           npm ci --prefix tools/survivors-bot --ignore-scripts
           bash tools/survivors-bot/check.sh

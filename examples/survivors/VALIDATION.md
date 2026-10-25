@@ -1,5 +1,7 @@
 # Evidence scope
 
+JavaScript tests mentioned in dated observations below have been removed. They are not current validation gates.
+
 The dated sections below record observations of their own source snapshots.
 They are not a description of current configuration or a qualification of later
 changes. Current rules and limits belong to [game.bend](game.bend),

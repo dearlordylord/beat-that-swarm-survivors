@@ -23,7 +23,6 @@ state their precise guarantees. The shared [proof gate](../../scripts/check-bend
 checks them with BendTT; the [mutation gate](../../scripts/check-bend-mutants.py)
 requires type-correct semantic faults to be rejected.
 
-Run `bash examples/survivors/check.sh` from the repository root. JavaScript
-checks exercise the transport and worker hosts rather than reimplementing Bend
-admission. Universal wire encode/decode roundtrip and cross-platform floating
-point determinism are outside the current proofs.
+Run `bash examples/survivors/check.sh` from the repository root. Universal wire
+encode/decode roundtrip and cross-platform floating point determinism are outside
+the current proofs.

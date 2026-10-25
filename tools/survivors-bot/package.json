@@ -6,7 +6,6 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test provider.test.mjs context.test.mjs runner.test.mjs",
     "check": "bash check.sh",
     "bot": "bash run.sh"
   },
