@@ -1,3 +1,4 @@
+import enemy-spawn.bend as EnemySpawn
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
 # Execute the runner's actual counter on real Game.Body values, natively.
@@ -30,4 +31,4 @@ def report(ok:Bool) -> IO(Unit):
     case False{}: IO.die(Unit,1,"Native co-op population counter fixture failed")
     case True{}: IO.print("{\"status\":\"PASS\",\"counterCases\":18,\"firstTimedBossVariant\":21,\"scope\":\"actual native runner population counter, not whole-game balance\"}")
 def main() -> IO(Unit):
-  report(Bool.and(all_match(fixtures()),first_timed_boss_matches(G.boss_variant(False{},7200,0))))
+  report(Bool.and(all_match(fixtures()),first_timed_boss_matches(EnemySpawn.boss_variant(False{},7200,0))))

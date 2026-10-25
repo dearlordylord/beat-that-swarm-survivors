@@ -494,13 +494,11 @@ def suppress_cardinal(+choice: Maybe<&2,Choice>,+damaged: Bool,+fragile: Bool) -
 def nearest(+rows: List<&2,Enemy.State>,+here: Point,+best: Space.Spatial,+bestDistance: F32,+count: U32) -> Space.Spatial & U32:
   match rows:
     case []: (best,count)
-    case Enemy.State{+space,_,_,Components.Vitals{health,_},_} <> rest:
-      match space:
-        case Space.Spatial{x,y,_,_}:
+    case Enemy.State{Space.Spatial{+x,+y,+age,+radius},_,_,Components.Vitals{health,_},_} <> rest:
           branch(~(Space.Spatial & U32),U32.is_lt(0,health),(_ =>
               +d=distance(here,Point{x,y})
               branch(~(Space.Spatial & U32),F32.is_lt(d,bestDistance),(_ =>
-                  nearest(rest,here,space,d,(count + 1 : U32))
+                  nearest(rest,here,Space.Spatial{x,y,age,radius},d,(count + 1 : U32))
               ),(_ =>
                   nearest(rest,here,best,bestDistance,(count + 1 : U32))
               ))

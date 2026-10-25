@@ -87,7 +87,7 @@ def population_go(rows:List<&2,G.Snapshot>,+boss:U32,+ordinary:U32) -> U32 & U32
 def near_go(rows:List<&2,G.Snapshot>,+px:F32,+py:F32,+count:U32) -> U32:
   match rows:
     case []: count
-    case G.EnemySnapshot{Enemy.State{Space.Spatial{x,y,_,_},_,_,Components.Vitals{hp,_},_}} <> tail: near_go(tail,px,py,(count + Bool.to_u32(Bool.and(U32.is_lt(0,hp),F32.is_le(((x - px) * (x - px) + (y - py) * (y - py) : F32),14400.0))) : U32))
+    case G.EnemySnapshot{Enemy.State{Space.Spatial{+x,+y,_,_},_,_,Components.Vitals{hp,_},_}} <> tail: near_go(tail,px,py,(count + Bool.to_u32(Bool.and(U32.is_lt(0,hp),F32.is_le(((x - px) * (x - px) + (y - py) * (y - py) : F32),14400.0))) : U32))
     case _ <> tail: near_go(tail,px,py,count)
 def xp_go(rows:List<&2,G.Snapshot>,+piles:U32,+value:U32) -> U32 & U32:
   match rows:
@@ -111,8 +111,14 @@ def initial_setup_fields(initial:Bool,+shared:RS.Session,p0:G.Run,p1:G.Run) -> S
   match initial:
     case False{}: ""
     case True{}: ",\"initialSetup\":{\"stage\":" ++ U32.show(RS.session_stage(shared)) ++ ",\"mode\":" ++ U32.show(RS.session_mode(shared)) ++ ",\"players\":[" ++ player_setup(p0) ++ "," ++ player_setup(p1) ++ "]}"
+def shared_kills(shared: RS.Session) -> U32:
+  match shared:
+    case RS.Session{_,_,_,_,_,kills,_,_,_,_,_,_,_}: kills
+def shared_gold(shared: RS.Session) -> U32:
+  match shared:
+    case RS.Session{_,_,_,_,_,_,gold,_,_,_,_,_,_}: gold
 def fields(+seed:U32,+index:U32,+ticks:U32,+shared:RS.Session,+p0:G.Run,+p1:G.Run,+snapshots:List<&2,G.Snapshot>,choices0:U32,choices1:U32) -> String:
-  "\"seed\":" ++ U32.show(seed) ++ ",\"index\":" ++ U32.show(index) ++ ",\"tick\":" ++ U32.show(RS.session_tick(shared)) ++ ",\"phase\":" ++ U32.show(RS.session_phase(shared)) ++ ",\"requestedTicks\":" ++ U32.show(ticks) ++ "," ++ population_fields(population_go(snapshots,0,0)) ++ ",\"hp0\":" ++ U32.show(Core.run_hp(p0)) ++ ",\"hp1\":" ++ U32.show(Core.run_hp(p1)) ++ ",\"maxHp0\":" ++ U32.show(Core.run_maxHp(p0)) ++ ",\"maxHp1\":" ++ U32.show(Core.run_maxHp(p1)) ++ ",\"px0\":" ++ F32.show(Core.run_px(p0)) ++ ",\"py0\":" ++ F32.show(Core.run_py(p0)) ++ ",\"px1\":" ++ F32.show(Core.run_px(p1)) ++ ",\"py1\":" ++ F32.show(Core.run_py(p1)) ++ ",\"nearEnemies0\":" ++ U32.show(near_go(snapshots,Core.run_px(p0),Core.run_py(p0),0)) ++ ",\"nearEnemies1\":" ++ U32.show(near_go(snapshots,Core.run_px(p1),Core.run_py(p1),0)) ++ ",\"xp\":" ++ U32.show(RS.session_xp(shared)) ++ ",\"xpNeed\":" ++ U32.show(RS.session_need(shared)) ++ ",\"level\":" ++ U32.show(RS.session_level(shared)) ++ ",\"kills\":" ++ U32.show(RS.session_kills(shared)) ++ ",\"gold\":" ++ U32.show(RS.session_gold(shared)) ++ ",\"choices0\":" ++ U32.show(choices0) ++ ",\"choices1\":" ++ U32.show(choices1) ++ xp_fields(xp_go(snapshots,0,0)) ++ initial_setup_fields(U32.is_eq(RS.session_tick(shared),0),shared,p0,p1)
+  "\"seed\":" ++ U32.show(seed) ++ ",\"index\":" ++ U32.show(index) ++ ",\"tick\":" ++ U32.show(RS.session_tick(shared)) ++ ",\"phase\":" ++ U32.show(RS.session_phase(shared)) ++ ",\"requestedTicks\":" ++ U32.show(ticks) ++ "," ++ population_fields(population_go(snapshots,0,0)) ++ ",\"hp0\":" ++ U32.show(Core.run_hp(p0)) ++ ",\"hp1\":" ++ U32.show(Core.run_hp(p1)) ++ ",\"maxHp0\":" ++ U32.show(Core.run_maxHp(p0)) ++ ",\"maxHp1\":" ++ U32.show(Core.run_maxHp(p1)) ++ ",\"px0\":" ++ F32.show(Core.run_px(p0)) ++ ",\"py0\":" ++ F32.show(Core.run_py(p0)) ++ ",\"px1\":" ++ F32.show(Core.run_px(p1)) ++ ",\"py1\":" ++ F32.show(Core.run_py(p1)) ++ ",\"nearEnemies0\":" ++ U32.show(near_go(snapshots,Core.run_px(p0),Core.run_py(p0),0)) ++ ",\"nearEnemies1\":" ++ U32.show(near_go(snapshots,Core.run_px(p1),Core.run_py(p1),0)) ++ ",\"xp\":" ++ U32.show(RS.session_xp(shared)) ++ ",\"xpNeed\":" ++ U32.show(RS.session_xpNeed(shared)) ++ ",\"level\":" ++ U32.show(RS.session_level(shared)) ++ ",\"kills\":" ++ U32.show(shared_kills(shared)) ++ ",\"gold\":" ++ U32.show(shared_gold(shared)) ++ ",\"choices0\":" ++ U32.show(choices0) ++ ",\"choices1\":" ++ U32.show(choices1) ++ xp_fields(xp_go(snapshots,0,0)) ++ initial_setup_fields(U32.is_eq(RS.session_tick(shared),0),shared,p0,p1)
 
 def sampled(emit:Bool,text:String,nextSample:Nat,progress:Progress,next:Progress -> Nat -> IO(Unit)) -> IO(Unit):
   match emit:
