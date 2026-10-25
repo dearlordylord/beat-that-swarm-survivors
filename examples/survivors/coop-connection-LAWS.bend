@@ -14,16 +14,16 @@ def expected_start(state:C.State,event:C.Signal) -> Bool:
     case C.HostReady{epoch,observation} C.ReadyAck{token,received}: Bool.and(U32.is_eq(token,epoch),U32.is_eq(received,observation))
     case _ _: False{}
 
-# Guarantees: the current handshake version is five.
+# Guarantees: the current handshake version is one.
 # Why it matters: mixed published clients must not silently start different simulation contracts.
 law protocol_version_exact:
-  {C.protocol_version() == 5 : U32}
+  {C.protocol_version() == 1 : U32}
 
 # Guarantees: a host transport connection sends Hello and remains outside Running.
 # Why it matters: an Iroh connection alone must not start the game.
 law host_transport_only_negotiates:
   for +epoch:U32
-  {C.begin(C.Host{},epoch) == C.Out{C.HostHello{epoch},C.SendHello{5,epoch}} : C.Out}
+  {C.begin(C.Host{},epoch) == C.Out{C.HostHello{epoch},C.SendHello{1,epoch}} : C.Out}
 
 # Guarantees: a guest transport connection waits without sending gameplay setup.
 # Why it matters: an incompatible host must be rejected before creating a player.
@@ -31,21 +31,21 @@ law guest_transport_waits_for_hello:
   for +epoch:U32
   {C.begin(C.Guest{},epoch) == C.Out{C.GuestHello{epoch},C.Nothing{}} : C.Out}
 
-# Guarantees: a guest accepts only version five and then echoes the token before setup.
+# Guarantees: a guest accepts only version one and then echoes the token before setup.
 # Why it matters: a stale game build needs a clear version error rather than starting and dropping.
 law guest_hello_exact:
   for +epoch:U32
   for +version:U32
   for +token:U32
-  {C.transition(C.GuestHello{epoch},C.Hello{version,token}) == Bool.pick(C.Out,U32.is_eq(version,5),C.Out{C.GuestSnapshot{epoch,token},C.HelloAckAndSetup{5,token}},C.Out{C.Failed{C.Guest{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}
+  {C.transition(C.GuestHello{epoch},C.Hello{version,token}) == Bool.pick(C.Out,U32.is_eq(version,1),C.Out{C.GuestSnapshot{epoch,token},C.HelloAckAndSetup{1,token}},C.Out{C.Failed{C.Guest{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}
 
-# Guarantees: host setup opens only after version five and its own connection token are echoed.
+# Guarantees: host setup opens only after version one and its own connection token are echoed.
 # Why it matters: old peers and acknowledgements from another connection cannot prepare the world.
 law host_hello_exact:
   for +epoch:U32
   for +version:U32
   for +token:U32
-  {C.transition(C.HostHello{epoch},C.HelloAck{version,token}) == Bool.pick(C.Out,U32.is_eq(version,5),Bool.pick(C.Out,U32.is_eq(epoch,token),C.Out{C.HostSetup{epoch},C.Nothing{}},C.Out{C.Failed{C.Host{},epoch,C.ProtocolError{}},C.CloseConnection{C.ProtocolError{}}}),C.Out{C.Failed{C.Host{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}
+  {C.transition(C.HostHello{epoch},C.HelloAck{version,token}) == Bool.pick(C.Out,U32.is_eq(version,1),Bool.pick(C.Out,U32.is_eq(epoch,token),C.Out{C.HostSetup{epoch},C.Nothing{}},C.Out{C.Failed{C.Host{},epoch,C.ProtocolError{}},C.CloseConnection{C.ProtocolError{}}}),C.Out{C.Failed{C.Host{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}
 
 # Guarantees: Setup before HelloAck fails with VersionMismatch.
 # Why it matters: an old guest must not start the host and disconnect before receiving a frame.
@@ -168,7 +168,7 @@ law reconnect_newer_exact:
   for +newEpoch:U32
   {C.reconnect(state,newEpoch) == Bool.pick(C.Out,U32.is_gt(newEpoch,C.epoch(state)),C.begin(C.role(state),newEpoch),C.Out{state,C.Nothing{}}) : C.Out}
 
-# Guarantees: a negotiated guest presents a frame only for version five and its negotiated token.
+# Guarantees: a negotiated guest presents a frame only for version one and its negotiated token.
 # Why it matters: mixed builds and snapshots from another connection must fail before applying game state.
 law frame_version_and_token_exact:
   for +epoch:U32
@@ -176,7 +176,7 @@ law frame_version_and_token_exact:
   for +version:U32
   for +token:U32
   for +observation:U32
-  {C.transition(C.GuestSnapshot{epoch,expected},C.Frame{version,token,observation}) == Bool.pick(C.Out,U32.is_eq(version,5),Bool.pick(C.Out,U32.is_eq(expected,token),C.Out{C.GuestSnapshot{epoch,expected},C.PresentSnapshot{token,observation}},C.Out{C.Failed{C.Guest{},epoch,C.ProtocolError{}},C.CloseConnection{C.ProtocolError{}}}),C.Out{C.Failed{C.Guest{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}
+  {C.transition(C.GuestSnapshot{epoch,expected},C.Frame{version,token,observation}) == Bool.pick(C.Out,U32.is_eq(version,1),Bool.pick(C.Out,U32.is_eq(expected,token),C.Out{C.GuestSnapshot{epoch,expected},C.PresentSnapshot{token,observation}},C.Out{C.Failed{C.Guest{},epoch,C.ProtocolError{}},C.CloseConnection{C.ProtocolError{}}}),C.Out{C.Failed{C.Guest{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}
 
 # Guarantees: control text over 160 characters is refused before field parsing.
 # Why it matters: a malformed handshake cannot force unbounded decoder work.

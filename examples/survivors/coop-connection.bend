@@ -52,7 +52,7 @@ type Action is Data:
   CloseConnection{reason:Reason}
 type Out is Data: Out{state:State,action:Action}
 
-def protocol_version() -> U32: 5
+def protocol_version() -> U32: 1
 def fresh(role:Role) -> State: Idle{role,0}
 def role(state:State) -> Role:
   match state:
