@@ -49,6 +49,15 @@ reward values.
 - Native XP rendering passes six size/color checks, including marked overflow;
   its five-pile capture remains outside source under
   `/tmp/issue7-native-loot-capture/experience-piles.ppm`.
+- Native pause-map markers traverse active typed pickup snapshots. The actual
+  native UI fixture checks chest/relic coordinates, inactive chest exclusion and
+  XP exclusion; the full UI run passes with a fresh map capture under
+  `/tmp/issue7-native-map-data/map.ppm`.
+- The solo batch summary counts active typed XP snapshots and sums their explicit
+  amounts. The existing native metrics fixture preserves its 18 population cases
+  and checks two active piles totaling 13 XP, excluding inactive/non-XP data. It
+  executes the real summary writer and checks the full-run planner's chest
+  readiness filter, including relative order and other actor snapshots.
 - The corrected native co-op runner typechecks with separate session and player
   authority. Its existing metrics executable passes 18 classification cases;
   an actual native run reaches tick 60 with valid population/XP fields in
