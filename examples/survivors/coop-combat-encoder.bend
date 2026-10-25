@@ -1,3 +1,4 @@
+import pickup-encoder.bend as PickupEncoder
 import Base
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
@@ -24,6 +25,7 @@ def native_snapshot(value:G.Snapshot) -> String:
     case G.Snapshot{body,motion}: "{\"$\":\"Snapshot\",\"body\":" ++ W.native_body(body) ++ ",\"motion\":" ++ native_motion(motion) ++ "}"
     case G.ProjectileSnapshot{projectile}: "{\"$\":\"ProjectileSnapshot\",\"projectile\":" ++ ShotEncoder.native_state(projectile) ++ "}"
     case G.EnemySnapshot{enemy}: "{\"$\":\"EnemySnapshot\",\"enemy\":" ++ native_enemy(enemy) ++ "}"
+    case G.PickupSnapshot{pickup}: "{\"$\":\"PickupSnapshot\",\"pickup\":" ++ PickupEncoder.native_state(pickup) ++ "}"
 def native_snapshots(rows:List<&2,G.Snapshot>) -> String:
   match rows:
     case []: "{\"$\":\"Nil\"}"

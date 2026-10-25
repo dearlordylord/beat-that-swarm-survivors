@@ -114,6 +114,7 @@ export class Renderer {
     for (const key of this.shotPositions?.keys() || [])
       if (!shotKeys.has(key)) this.shotPositions.delete(key);
     for (const b of bodies) if (b[2] === 6) this.effect(b, true);
+    const pickups = new Map(frame.pickups.map(pickup => [pickup.slot, pickup]));
     const enemies = frame.enemies;
     const bodyByIdentity = new Map(bodies.map(body => [body[7], body]));
     const enemyByIdentity = new Map(enemies.map(enemy => [enemy.identity, enemy]));
@@ -124,6 +125,10 @@ export class Renderer {
     // Resolve explicit phase-order references before the stable depth sort.
     // This preserves ties and overlap across separate typed observations.
     const ordered = frame.actorOrder.map(reference => {
+      if (Object.hasOwn(reference, "pickup")) {
+        const pickup = pickups.get(reference.pickup);
+        return {kind: "pickup", value: pickup, y: pickup.y};
+      }
       if (Object.hasOwn(reference, "enemy")) {
         const enemy = enemyByIdentity.get(reference.enemy);
         return {kind: "enemy", value: enemy, y: enemy.y};
@@ -151,7 +156,7 @@ export class Renderer {
         this.observedPlayer(players[playerIndex++], players.length > 1);
       if (actor.kind === "enemy") this.drawEnemy(actor.value);
       else if (actor.kind === "projectile") this.drawProjectile(actor.value);
-      else this.drawBody(actor.value);
+      else if (actor.kind === "pickup") this.drawPickup(actor.value);
     }
     while (playerIndex < players.length)
       this.observedPlayer(players[playerIndex++], players.length > 1);
@@ -215,9 +220,9 @@ export class Renderer {
     c.strokeStyle = "#b8c9ca";
     c.strokeRect(viewX, viewY, (right - left) * scale, (bottom - top) * scale);
     let chests = 0;
-    for (const body of frame.bodies || []) {
-      if (body[2] !== 5) continue;
-      const [x, y] = point(body[0], body[1]);
+    for (const pickup of frame.pickups) {
+      if (pickup.item.kind !== "chest") continue;
+      const [x, y] = point(pickup.x, pickup.y);
       c.fillStyle = "#f5d17b"; c.fillRect(x - 3, y - 3, 6, 6); chests++;
     }
     const hasRelic = !frame.relicCollected && Number.isFinite(frame.relicX) && Number.isFinite(frame.relicY);
@@ -508,10 +513,10 @@ export class Renderer {
     this.ctx.restore(); this.bodyOpacity = 1;
   }
   setAlpha(opacity) { this.ctx.globalAlpha = opacity * (this.bodyOpacity ?? 1); }
-  drawBody(body) {
-    this.bodyOpacity = Number.isFinite(body[12]) ? Math.max(0,Math.min(1,body[12])) : 1;
+  drawPickup(pickup) {
+    this.bodyOpacity = Number.isFinite(pickup.opacity) ? Math.max(0,Math.min(1,pickup.opacity)) : 1;
     this.ctx.save(); this.setAlpha(1);
-    this.body(body);
+    this.pickup(pickup);
     this.ctx.restore(); this.bodyOpacity = 1;
   }
   contactEffects(contacts) {
@@ -524,9 +529,9 @@ export class Renderer {
       c.fillRect(Math.round(x)-1,Math.round(y)-1,3,3); c.restore();
     }
   }
-  body(b) {
-    const [x, y] = this.xy(b[0], b[1]);
-    const margin = Math.max(100, Number(b[8]) || 0);
+  pickup(pickup) {
+    const [x, y] = this.xy(pickup.x, pickup.y);
+    const margin = Math.max(100, pickup.radius);
     if (
       x < -margin ||
       x > this.width + margin ||
@@ -534,16 +539,16 @@ export class Renderer {
       y > this.height + margin
     )
       return;
-    const k = b[2],
-      v = b[3] || 0,
+    const k = pickup.item.kind,
+      v = pickup.item.stage || 0,
       t = this.time,
       c = this.ctx;
     const bob = this.options.reducedMotion
       ? 0
-      : Math.sin(t * 3 + (b[7] || 0)) * 2;
-    if (k === 2) {
-      const r = Game.xp_visual_radius(b[4] >>> 0);
-      const color = "#" + Game.xp_pile_color(b[4] >>> 0, v >>> 0).toString(16).padStart(6, "0");
+      : Math.sin(t * 3 + pickup.slot) * 2;
+    if (k === "xp") {
+      const r = Game.xp_visual_radius(pickup.item.amount >>> 0);
+      const color = "#" + Game.xp_pile_color(pickup.item.amount >>> 0, Number(pickup.item.accumulator)).toString(16).padStart(6, "0");
       c.fillStyle = color + "35";
       c.beginPath();
       c.arc(x, y, r + 6, 0, TAU);
@@ -557,24 +562,24 @@ export class Renderer {
       c.fill();
       rect(c, x - 1, y - r + 1 + bob, 1, 2, "#e4ffff");
     }
-    if (k === 3) {
+    if (k === "gold") {
       this.shadow(x, y, 5, 2);
       rect(c, x - 4, y - 6 + bob, 8, 7, "#a46b28");
       rect(c, x - 3, y - 7 + bob, 6, 6, "#edc363");
       rect(c, x - 1, y - 6 + bob, 1, 4, "#fff1b0");
     }
-    if (k === 4) {
+    if (k === "healing") {
       this.shadow(x, y, 7, 3);
       rect(c, x - 6, y - 7 + bob, 12, 7, "#a53348");
       rect(c, x - 4, y - 10 + bob, 8, 9, "#e76c75");
       rect(c, x - 2, y - 8 + bob, 4, 6, "#ffe4b5");
       rect(c, x - 3, y - 5 + bob, 6, 2, "#ffe4b5");
     }
-    if (k === 9) {
+    if (k === "relic") {
       this.relic(x, y, v);
       return;
     }
-    if (k === 5) {
+    if (k === "chest") {
       this.shadow(x, y, 13, 4);
       c.fillStyle = "#f6cc5c18";
       c.beginPath();

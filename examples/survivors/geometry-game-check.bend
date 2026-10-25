@@ -1,3 +1,9 @@
+import pickup-state.bend as Pickup
+import pickup-xp-pool.bend as Pool
+import pickup-from-death.bend as DeathPickup
+import enemy-combat.bend as Enemy
+import enemy-spatial.bend as Space
+import projectile-state.bend as Shot
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
@@ -12,24 +18,25 @@ def expect(ok: Bool,label: String) -> IO(Unit):
   match ok:
     case True{}: IO.print("PASS " ++ label)
     case False{}: IO.die(Unit,1,"FAIL " ++ label)
-def reachable(body:Components.Body) -> Bool:
-  match body:
-    case Components.Body{+x,+y,+kind,_,_,_,_,_,_}:
-      G.pickup_admission(x,y,F32.clamp(x,A.player_min(),A.player_max()),F32.clamp(y,A.player_min(),A.player_max()),G.pickup_radius([],0,0,0),0,kind)
-def death_reachable(row:G.Row) -> Bool:
-  match row:
-    case G.Row{body,_,_,_,_,_,killed,_}: Bool.and(U32.is_eq(killed,1),reachable(body))
-def batch_reachable(batch:G.XpBatch) -> Bool:
-  match batch:
-    case G.XpBatch{_,+body,index,_}: reachable(G.xp_batch_body(body,index,PL.xp_start(),0))
+def reachable(state: Pickup.State) -> Bool:
+  match state:
+    case Pickup.State{Space.Spatial{+x,+y,_,_},_,_}: F32.is_le(G.distance2(x,y,F32.clamp(x,A.player_min(),A.player_max()),F32.clamp(y,A.player_min(),A.player_max())),(G.pickup_radius([],0,0,0) * G.pickup_radius([],0,0,0) : F32))
+def death_pickup(state: Maybe<&2,Pickup.State>) -> Bool:
+  match state:
+    case Some{state}: reachable(state)
+    case None{}: False{}
+def batch_reachable(states: List<&2,Pickup.State>) -> Bool:
+  match states:
+    case head <> _: reachable(head)
+    case []: False{}
 def run() -> G.Run:
   G.Run{RS.Session{0,1,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{1000.0,1000.0,100,100,0,[],[],0,0,0,0,3,3,3,0,0}}
 def enemy(x:F32,seed:U32) -> G.Snapshot:
-  G.Snapshot{Components.Body{x,1000.0,0,17,100,100,0,seed,6.0},G.empty_motion()}
+  G.EnemySnapshot{Enemy.State{Space.Spatial{x,1000.0,0,6.0},17,seed,Components.Vitals{100,100},Components.Status{0,0}}}
 def shot() -> G.Snapshot:
-  G.Snapshot{Components.Body{1000.0,1000.0,1,1,10,10,0,PL.player_start(),1.0},G.Motion{100.0,0.0,10,1,[],0,0,0,0}}
+  G.ProjectileSnapshot{Shot.State{Space.Spatial{1000.0,1000.0,0,1.0},PL.player_start(),Shot.PlayerShot{},Components.ShotPayload{1,10,True{}},Components.Trajectory{100.0,0.0,10,1,[],0,0}}}
 def team(rows:List<&2,G.Snapshot>) -> G.Team:
-  G.Team{[G.PlayerView{0,run(),0.0,0.0,True{}}],G.Args{run(),G.enemy_targets([Components.Body{1080.0,1000.0,0,17,100,100,0,2,6.0},Components.Body{1040.0,1000.0,0,17,100,100,0,1,6.0}]),0.0,0.0,rows,[]},G.empty_shot_plan(),BI.Empty{}}
+  G.Team{[G.PlayerView{0,run(),0.0,0.0,True{}}],G.Args{run(),G.enemy_targets([enemy(1080.0,2),enemy(1040.0,1)]),0.0,0.0,rows,[]},G.empty_shot_plan(),BI.Empty{}}
 def selected(team:G.Team) -> List<&2,U32>:
   match team:
     case G.Team{_,G.Args{_,_,_,_,_,hits},_,_}: G.hit_targets(hits,PL.player_start())
@@ -39,9 +46,9 @@ def first_target(rows:List<&2,U32>) -> Bool:
     case _: False{}
 def main() -> IO(Unit):
   do IO<Unit>:
-    expect(death_reachable(G.enemy_result(0,42.0,42.0,17,1,0,1,6.0,A.player_min(),A.player_min())),"edge death loot has a legal physical pickup position")
-    expect(batch_reachable(G.xp_batch_drop(7,42.0,42.0,1,G.XpBatch{[PL.xp_start()],G.initial_body(PL.xp_start()),BI.Empty{},0})),"new XP allocation stays physically reachable")
-    expect(reachable(G.xp_overflow_body(True{},Components.Body{42.0,42.0,2,0,7,1,0,PL.xp_start(),6.0},1)),"existing overflow accumulator stays physically reachable")
+    expect(death_pickup(DeathPickup.create(Enemy.DeathReward{Enemy.GoldDrop{},1,42.0,42.0,17,1,None{}},1)),"edge death loot has a legal physical pickup position")
+    expect(batch_reachable(Pool.route([Pool.Drop{7,42.0,42.0}],[Pickup.State{Space.Spatial{0.0,0.0,0,0.0},Pickup.Payload{Pickup.Xp{0,False{}},0,False{}},PL.xp_start()}],1,A.player_min(),A.player_min())),"new XP allocation stays physically reachable")
+    expect(reachable(Pool.merge_overflow(True{},Pickup.State{Space.Spatial{42.0,42.0,0,6.0},Pickup.Payload{Pickup.Xp{7,False{}},1,True{}},PL.xp_start()},1)),"existing overflow accumulator stays physically reachable")
     expect(first_target(selected(G.contact_team(team([shot(),enemy(1080.0,2),enemy(1040.0,1)])))),"fast projectile contacts the first crossed enemy")
     expect(first_target(selected(G.contact_team(team([enemy(1040.0,1),shot(),enemy(1080.0,2)])))),"contact priority survives ECS row permutation")
     IO.print("NATIVE GAME GEOMETRY PASS")

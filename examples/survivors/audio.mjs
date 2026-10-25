@@ -242,6 +242,8 @@ export class AudioEngine {
     const localProjectiles = new Map((frame.localProjectiles || []).map(projectile => [projectile.lifetime, projectile]));
     for (let i = frame.actorOrder.length - 1; i >= 0; i--) {
       const reference = frame.actorOrder[i];
+      // Pickup sounds are derived from authoritative reward totals in Meta.
+      if (Object.hasOwn(reference, 'pickup')) continue;
       let observation;
       if (Object.hasOwn(reference, 'enemy') || Object.hasOwn(reference, 'enemyFade')) {
         const enemy = Object.hasOwn(reference, 'enemy') ? enemies.get(reference.enemy) : enemyFades.get(reference.enemyFade);
