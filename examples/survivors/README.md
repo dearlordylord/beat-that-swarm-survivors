@@ -36,7 +36,7 @@ Standard and Inverse reach dawn after ten simulated minutes, then spawn a lethal
 
 ## Browser menu
 
-The ready-to-play menu keeps Start at the top and in a lower bar. Each setup row shows its current icon and name. Opening a category shows all choices; locked survivors/stages display their price and requirements, and only an explicit Buy action spends gold. Progress-only modes keep their existing unlock rules.
+The Lunar Stone menu uses Moon Seal controls, with Start at the top and in a reserved lower row. Choices scroll in a separate area, so the lower action cannot cover them. Styles load directly from the page; no prototype theme switcher or sample profile is included. Each setup row shows its current icon and name. Opening a category shows all choices; locked survivors/stages display their price and requirements, and only an explicit Buy action spends gold. Progress-only modes keep their existing unlock rules.
 
 ## Browser launch
 

@@ -1,0 +1,225 @@
+/* Lunar Stone / Moon Seal — production menu. */
+#app{min-height:0}
+#menu{display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
+#menuScroll{min-height:0;overflow:auto;overscroll-behavior:contain}
+#menu .menu-wrap{padding-bottom:24px}
+#menuDock{min-width:0;padding:0 12px max(12px,env(safe-area-inset-bottom))}
+#menu #menuDock .a-bottom{position:relative;width:min(986px,100%);margin:0 auto;padding:12px 18px;box-sizing:border-box}
+#menu .start-button .cta-icon,#menu .tab-icon{display:inline-flex;align-items:center;justify-content:center}
+#menu .start-button .cta-label{position:relative;z-index:2;white-space:nowrap}
+#menu .tab-icon svg{width:16px;height:16px;flex-shrink:0}
+#menu .unlock-inspector{scroll-margin-bottom:16px}
+@media(max-width:600px){#menu .a-heading{flex-direction:column;align-items:flex-start;gap:16px}#menu #menuDock .a-bottom{flex-wrap:wrap;gap:10px}#menu #menuDock .a-bottom>.muted{flex:1;min-width:0;font-size:10px}#menu #menuDock .start-button{width:195px;min-width:195px;flex-shrink:0}}
+/* C — Moon Seal. All ornament stays within the individual controls. */
+#menu .start-button {
+  appearance: none;
+  min-width: 200px;
+  min-height: 58px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f3dfb0;
+  box-shadow: none;
+  cursor: pointer;
+  overflow: visible;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: none;
+}
+#menu .start-button .cta-surface {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  min-height: 58px;
+  padding: 7px 33px 7px 13px;
+  border: 1px solid #c2a672;
+  background: linear-gradient(100deg, #361c2d, #251621 80%);
+  box-shadow: inset 0 0 0 3px #1a111b, inset 0 0 0 4px #8e7451, 0 3px 0 #100b12;
+}
+#menu .start-button .cta-icon {
+  display: grid;
+  flex: 0 0 42px;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #d5bb83;
+  border-radius: 50%;
+  background: #201523;
+  box-shadow: inset 0 0 0 3px #201523, inset 0 0 0 4px #796344;
+  color: #f3dfb0;
+  transition: box-shadow 150ms ease;
+}
+#menu .start-button .cta-icon svg { width: 25px; height: 25px; }
+#menu .start-button .cta-label { white-space: nowrap; }
+#menu .start-button .cta-cap {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  right: 14px;
+  top: calc(50% - 4px);
+  border: 1px solid #c7ad78;
+  transform: rotate(45deg);
+  background: #624234;
+}
+#menu .start-button:hover .cta-icon {
+  box-shadow: inset 0 0 0 3px #201523, inset 0 0 0 4px #e6cc94, 0 0 0 2px #756044;
+}
+#menu .start-button:active .cta-surface {
+  background: #1b101c;
+  box-shadow: inset 0 0 0 3px #150d16, inset 0 0 0 4px #927952, inset 0 5px 12px #080509;
+}
+#menu .start-button:focus-visible,
+#menu #tabs button:focus-visible {
+  outline: 2px solid #fff0bd;
+  outline-offset: 3px;
+}
+#menu #tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 5px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+#menu #tabs button {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 73px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #c7bba7;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .015em;
+  cursor: pointer;
+}
+#menu #tabs .tab-surface {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 73px;
+  padding: 11px 5px 15px;
+  background: #271c28;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), 50% 100%, 0 calc(100% - 9px));
+  box-shadow: inset 1px 0 #705b49, inset -1px 0 #705b49, inset 0 1px #a18a63;
+}
+#menu #tabs .tab-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: #b7a077;
+}
+#menu #tabs .tab-icon svg { width: 18px; height: 18px; }
+#menu #tabs .tab-label { white-space: nowrap; }
+#menu #tabs button.active .tab-surface,
+#menu #tabs button[aria-pressed="true"] .tab-surface {
+  background: #49303b;
+  color: #ffedbc;
+  box-shadow: inset 1px 0 #c3a46b, inset -1px 0 #c3a46b, inset 0 2px #e3c78d;
+}
+#menu #tabs button.active .tab-icon,
+#menu #tabs button[aria-pressed="true"] .tab-icon {
+  border: 1px solid #d5b879;
+  border-radius: 50%;
+  background: #8a6745;
+  color: #fff0c3;
+}
+#menu #tabs button.active::before,
+#menu #tabs button[aria-pressed="true"]::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  left: 50%;
+  width: 1px;
+  height: 16px;
+  background: #d6b77f;
+}
+#menu #tabs .tab-active-mark { display: none; }
+#menu #tabs button:hover .tab-surface { background: #3a2835; color: #fff0c3; }
+#menu #tabs button:active .tab-surface { background: #1b131f; }
+#menu .a-bottom {
+  border: 1px solid #a1875d;
+  border-radius: 0;
+  background: #251722;
+  box-shadow: inset 0 0 0 3px #251722, inset 0 0 0 4px #65513c;
+}
+#menu .a-bottom::before,
+#menu .a-bottom::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - 3px);
+  width: 5px;
+  height: 5px;
+  border: 1px solid #b79c6e;
+  background: #251722;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+#menu .a-bottom::before { left: 10px; }
+#menu .a-bottom::after { right: 10px; }
+@media (max-width: 520px) {
+  #menu #tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px 10px; }
+  #menu #tabs button { grid-column: span 2; min-height: 68px; font-size: 12px; }
+  #menu #tabs button:nth-child(4) { grid-column: 2 / span 2; }
+  #menu #tabs button:nth-child(5) { grid-column: 4 / span 2; }
+  #menu #tabs .tab-surface { min-height: 68px; gap: 5px; padding-top: 8px; }
+  #menu .start-button { min-width: 200px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #menu .start-button *,
+  #menu #tabs * { transition: none !important; animation: none !important; }
+}
+
+@media(max-width:600px){#menu .expedition .a-heading .start-button{width:max-content;align-self:flex-start}#menu .expedition .a-bottom .cta-surface{width:100%;min-width:0;gap:9px;padding:7px 25px 7px 10px}#menu .expedition .a-bottom .cta-icon{flex-basis:34px;width:34px;height:34px}#menu .expedition .a-bottom .cta-icon svg{width:23px;height:23px}#menu .expedition .a-bottom .cta-label{font-size:17px;letter-spacing:.04em}}
+
+/* A — Lunar Stone: engraved amethyst surfaces, quiet ivory and worn gold. */
+#app #menu{--accent:#d6c397;--gold:#d6c397;--line:#524650;--muted:#b0a6b3;color:#ebe5dc;background:radial-gradient(ellipse at 40% 0,#45364a66,transparent 62%),#17131c}
+#app #menu .menu-header{border-color:#63515b}#app #menu .brand-mark{color:#d5bd83}#app #menu .menu-brand strong{font-family:Georgia,serif;color:#e7ddca}#app #menu .menu-brand small,#app #menu .source-links a{color:#a99db1}#app #menu #wallet{font-family:Georgia,serif;color:#ceba92}
+#app #menu .section-title,#app #menu .a-loadout-heading h2{font-family:Georgia,serif;font-weight:400;color:#ded2bc;font-size:19px}#app #menu h1{color:#eee4d1}#app #menu .eyebrow{color:#bca781}
+#app #menu .a-run-card{border:1px solid #8c795c;border-radius:3px;background:#28202d;box-shadow:inset 0 0 0 3px #131019,0 12px 30px #05030844}#app #menu .a-survivor{background:radial-gradient(ellipse at 30% 70%,#72648535,transparent 70%),#292230}#app #menu .a-run-strip{background:#211923;border-color:#67545c;color:#d6cbb6}#app #menu .stage-art{filter:saturate(.55) hue-rotate(27deg)}
+#app #menu .selection-rows{border-color:#75634f;border-radius:2px;background:#251e2a;box-shadow:inset 0 0 0 3px #17121d}#app #menu .selection-item{border-color:#4a3d4a}#app #menu .selection-row{background:linear-gradient(90deg,#34293833,transparent);border-radius:0;color:#dfd8cd}#app #menu .selection-row:hover{background:#3c2e3f}#app #menu .selected-choice .choice-glyph,#app #menu .change-label{color:#d9bf82}#app #menu .selected-choice{font-family:Georgia,serif;font-size:15px}
+#app #menu .card,#app #menu .choice{border:1px solid #66515f;border-radius:2px;background:linear-gradient(135deg,#302636,#211b27);box-shadow:inset 0 0 0 3px #1b1521;color:#e2dbd1}#app #menu .card h3,#app #menu .choice strong{font-family:Georgia,serif;color:#e8dec8;font-size:17px}#app #menu .card p,#app #menu .choice small{color:#bcb0c2}#app #menu .card small{color:#c4ac7a}#app #menu .card:hover,#app #menu .choice:hover{border-color:#cbb480;background:#3a2b3e}#app #menu .card.selected,#app #menu .choice.is-selected{border-color:#cbb480;box-shadow:inset 0 0 0 3px #211623,inset 0 0 0 4px #9c865c;background:#3b2b3e}#app #menu .choice.is-selected .choice-check{color:#f0d795}#app #menu .choice.is-locked,#app #menu .card.locked{opacity:1;background:#1d1822;color:#c1b8c4;border-color:#4d414e}#app #menu .choice.is-locked small{color:#a99eaf}
+#app #menu .collection-tabs button,#app #menu .shop .card button,#app #menu .unlock-inspector .primary{min-height:44px;border:1px solid #8e7653;border-radius:2px;background:linear-gradient(#49383d,#2a202a);color:#e8d9b8;box-shadow:inset 0 1px #aa895b,inset 0 -3px #181019;font:600 12px Georgia,serif}#app #menu .collection-tabs button.active{background:#66503e;border-color:#d4b774;color:#fff0c6}#app #menu .shop .card button:disabled,#app #menu .unlock-inspector .primary:disabled{opacity:.55;background:#241e2a;box-shadow:none}#app #menu .recipe{color:#cab5d3!important;border-color:#554553}#app #menu .achieved{border-color:#b19663;background:linear-gradient(135deg,#3c3040,#29222e)}#app #menu .progress{letter-spacing:5px;color:#c9a86b}
+#app #menu .unlock-inspector{background:#302330;border:1px solid #a28757;border-radius:2px;box-shadow:inset 0 0 0 3px #1a141f}#app #menu .unlock-inspector h3{color:#ecd6ac;font-family:Georgia,serif}#app #menu .purchase-line{border-color:#665043}#app #menu .requirement{color:#bdacba}
+#app #menu .settings{max-width:680px;padding:20px 28px;background:#251e2a;border:1px solid #76604e;box-shadow:inset 0 0 0 3px #17121d;border-radius:2px}#app #menu .setting{border-color:#51414c;color:#e1d7c9}#app #menu .setting span{color:#ac9fb2}#app #menu input{accent-color:#c8a66c}#app #menu input[type=range]{appearance:none;height:7px;border:1px solid #9d8252;background:#100d17;border-radius:1px;box-shadow:inset 0 2px #07050b}#app #menu input[type=range]::-webkit-slider-thumb{appearance:none;width:19px;height:19px;border:3px double #d7bc83;border-radius:50%;background:#695245}#app #menu input[type=checkbox]{width:20px;height:20px;accent-color:#b99358}#app #menu button:focus-visible,#app #menu input:focus-visible{outline:2px solid #f4d898;outline-offset:4px}#app #menu footer{color:#8e8196}
+#app #overlay .dialog{background:#261b2c;border:1px solid #b49a68;border-radius:3px;box-shadow:inset 0 0 0 3px #100d15,0 30px 80px #0007;color:#e5dbc7}#app #overlay .dialog h2{font-family:Georgia,serif;color:#ead6af}#app #overlay .dialog button{border-radius:2px;border-color:#92734d;background:#372735;color:#e5d3ad}
+@media(max-width:600px){#app #menu .settings{padding:13px 17px}#app #menu .selected-choice{font-size:12px}#app #menu .card h3{font-size:16px}}
+
+/* Focus follows the engraved controls instead of outlining their HTML boxes. */
+#app #menu #tabs button:focus-visible,
+#app #menu .start-button:focus-visible {
+  outline: none;
+}
+#app #menu #tabs button:focus-visible .tab-surface {
+  color: #fff0c6;
+  background: #49303b;
+  box-shadow: inset 0 0 0 2px #e3c78d;
+}
+#app #menu .start-button:focus-visible .cta-surface {
+  border-color: #f4d898;
+  box-shadow: inset 0 0 0 3px #1a111b, inset 0 0 0 5px #d5bb83;
+}
+#app #menu .unlock-inspector:focus {
+  outline: none;
+  border-color: #e3c78d;
+}
