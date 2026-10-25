@@ -1,3 +1,4 @@
+import audio-identity.bend as AudioIdentity
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
@@ -26,15 +27,15 @@ def rows_json(rows: List<&2,Components.Body>) -> String:
     case []: ""
     case body <> []: body_json(body)
     case body <> rest: body_json(body) ++ "," ++ rows_json(rest)
-def enemy_json(enemy: Enemy.State) -> String:
+def enemy_json(enemy: Enemy.State,+tick: U32) -> String:
   match enemy:
-    case Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,Components.Vitals{health,maximum},_}:
-      "{\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"age\":" ++ U32.show(age) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"health\":" ++ U32.show(health) ++ ",\"maximum\":" ++ U32.show(maximum) ++ "}"
-def enemies_json(rows: List<&2,Enemy.State>) -> String:
+    case Enemy.State{Space.Spatial{x,y,+age,radius},archetype,+identity,Components.Vitals{health,maximum},_}:
+      "{\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"age\":" ++ U32.show(age) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"health\":" ++ U32.show(health) ++ ",\"maximum\":" ++ U32.show(maximum) ++ ",\"lifetime\":\"" ++ AudioIdentity.enemy(identity,tick,age) ++ "\"}"
+def enemies_json(rows: List<&2,Enemy.State>,+tick: U32) -> String:
   match rows:
     case []: ""
-    case enemy <> []: enemy_json(enemy)
-    case enemy <> rest: enemy_json(enemy) ++ "," ++ enemies_json(rest)
+    case enemy <> []: enemy_json(enemy,tick)
+    case enemy <> rest: enemy_json(enemy,tick) ++ "," ++ enemies_json(rest,tick)
 def actor_ref_json(reference: G.ActorRef) -> String:
   match reference:
     case G.EnemyRef{identity}: "{\"enemy\":" ++ U32.show(identity) ++ "}"
@@ -72,7 +73,7 @@ def visible_bodies(rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
 def encode_extra(observation: G.Observation,players: List<&2,Players.Player>,extra: String) -> String:
   match observation:
     case G.Observation{G.Run{RS.Session{phase,+tick,xp,need,level,kills,gold,seed,+stage,bosses,+mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,enemies,order,projectiles,pickups}:
-      "{\"worldSize\":" ++ F32.show(G.world_size()) ++ ",\"worldMargin\":" ++ F32.show(G.world_margin()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(G.relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(G.relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(G.run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "],\"enemies\":[" ++ enemies_json(enemies) ++ "],\"actorOrder\":[" ++ actor_order_json(order) ++ "],\"projectiles\":[" ++ projectiles_json(projectiles,tick) ++ "],\"players\":[" ++ players_json(players) ++ "]" ++ extra ++ "}"
+      "{\"worldSize\":" ++ F32.show(G.world_size()) ++ ",\"worldMargin\":" ++ F32.show(G.world_margin()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(G.relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(G.relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(G.run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "],\"enemies\":[" ++ enemies_json(enemies,tick) ++ "],\"actorOrder\":[" ++ actor_order_json(order) ++ "],\"projectiles\":[" ++ projectiles_json(projectiles,tick) ++ "],\"players\":[" ++ players_json(players) ++ "]" ++ extra ++ "}"
 def encode(+observation: G.Observation) -> String:
   match observation:
     case G.Observation{run,_,_,_,_,_,_}: encode_extra(observation,Players.solo(G.run_player(run)),"")

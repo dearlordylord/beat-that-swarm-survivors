@@ -235,7 +235,10 @@ export class AudioEngine {
   }
   observe(frame) {
     let rows = {$:'Nil'};
-    const bodies = new Map(frame.bodies.map(body => [body[7], body]));
+    const identity = subject => {
+      if (typeof subject.lifetime !== 'string' || !subject.lifetime.length) throw new Error('Sound subject requires an explicit lifetime');
+      return {$:'Identity',slot:subject.identity >>> 0,lifetime:subject.lifetime};
+    };
     const enemies = new Map(frame.enemies.map(enemy => [enemy.identity, enemy]));
     const enemyFades = new Map((frame.enemyFades || []).map(enemy => [enemy.lifetime, enemy]));
     const projectiles = new Map(frame.projectiles.map(projectile => [projectile.identity, projectile]));
@@ -247,22 +250,14 @@ export class AudioEngine {
       let observation;
       if (Object.hasOwn(reference, 'enemy') || Object.hasOwn(reference, 'enemyFade')) {
         const enemy = Object.hasOwn(reference, 'enemy') ? enemies.get(reference.enemy) : enemyFades.get(reference.enemyFade);
-        observation = {$:'Body',seed:enemy.identity >>> 0,kind:0,
-          variant:enemy.archetype >>> 0,age:enemy.age >>> 0,hp:enemy.health >>> 0,
-          x:Math.fround(enemy.x),radius:Math.fround(enemy.radius),
-          generation:typeof enemy.lifetime === 'string' ? enemy.lifetime : ''};
+        observation = {$:'Enemy',identity:identity(enemy),archetype:enemy.archetype >>> 0,health:enemy.health >>> 0,x:Math.fround(enemy.x)};
       } else if (Object.hasOwn(reference,'projectile') || Object.hasOwn(reference,'localProjectile')) {
         const projectile = Object.hasOwn(reference,'projectile')
           ? projectiles.get(reference.projectile) : localProjectiles.get(reference.localProjectile);
-        observation = {$:'Body',seed:projectile.identity >>> 0,kind:projectile.hostile ? 7 : 1,
-          variant:projectile.weapon >>> 0,age:projectile.age >>> 0,hp:0,
-          x:Math.fround(projectile.x),radius:Math.fround(projectile.radius),generation:projectile.lifetime};
-      } else {
-        const body = bodies.get(reference.body);
-        observation = {$:'Body',seed:body[7] >>> 0,kind:body[2] >>> 0,
-          variant:body[3] >>> 0,age:body[6] >>> 0,hp:body[4] >>> 0,x:Math.fround(body[0]),
-          radius:Math.fround(body[8]),generation:typeof body[9] === 'string' ? body[9] : ''};
-      }
+        observation = projectile.hostile
+          ? {$:'HostileProjectile',identity:identity(projectile),weapon:projectile.weapon >>> 0,x:Math.fround(projectile.x)}
+          : {$:'FriendlyProjectile',identity:identity(projectile),weapon:projectile.weapon >>> 0,radius:Math.fround(projectile.radius),x:Math.fround(projectile.x)};
+      } else throw new Error('Unknown sound actor reference');
       rows = {$:'Con',head:observation,tail:rows};
     }
     this._playSounds(Sounds.observe(this.soundState,{$:'Meta',run:frame.runId || '',

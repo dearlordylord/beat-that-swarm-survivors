@@ -1,0 +1,35 @@
+{
+  "scope": "GH9 audio observation consumer migration only",
+  "base": "1cf02ac05f8a4ccaed69090da4c1ae0dd5ac0ba8",
+  "sourceSha256": {
+    "examples/survivors/audio-events.bend": "c6451fa3ca631b54ca2171eab1a445ea7dbcb47dec0a0c2a0970eaf110d95f2f",
+    "examples/survivors/audio-identity.bend": "e02352604b3332a9fd8b713d6bae8c80c61fd6299dfeb2c32da4f97ce9d7094b",
+    "examples/survivors/audio-events-LAWS.bend": "e35f8938ef66666cb22ce52132efe765b6079719b79792a2a75976be59796cb0",
+    "examples/survivors/audio-events-PROOF.bend": "caa0121095c769f71ef69294f6536ad158016a76d4cb072806709f1f0f42ad4e",
+    "examples/survivors/audio.mjs": "895ca6f7f4a1b8395113d2745b0492607620afc7fbe67cbb43ac40b7e64647d0",
+    "examples/survivors/game-encoder.bend": "5bad9ad3dc3021f9d6a59f9f71268e2c8e63fd6c935ce85f53de03d742e25793",
+    "examples/survivors/audio-subjects-check.mjs": "8c34d3e28de3331a9d96bd778dfef7404ad0b42c5c45cd4c837cf19be424f7a7",
+    "scripts/law-mutants/audio-events.json": "4a214e66a99cb8ba8d2cdb3be8cbc2e5ff57eb1f7e3e261462e0aab3cb5a5d87"
+  },
+  "lawReview": "Parent-approved blind back-translation fb2d5c207, before proof implementation",
+  "checks": {
+    "bendProof": "bend examples/survivors/audio-events-PROOF.bend --verdict: PASS, 57 laws",
+    "semanticMutants": "python3 scripts/check-bend-mutants.py scripts/law-mutants/audio-events.json: 10/10 typed mutants rejected by named proof gates",
+    "runtime": "node examples/survivors/audio-subjects-check.mjs /tmp/survivors-audio-subjects: PASS with freshly emitted Game, GameEncoder and AudioEvents",
+    "oldNewComparison": "/tmp/survivors-audio-subjects/compare.mjs: 120 mixed frames, exact event codes/order/pans against base audio module",
+    "dependencies": "python3 scripts/check-dependencies.py: PASS 228 Bend modules, existing pinned submodule initialized",
+    "syntax": "node --check audio.mjs and audio-subjects-check.mjs; git diff --check: PASS"
+  },
+  "reproduction": [
+    "bend examples/survivors/audio-events.bend -o /tmp/survivors-audio-subjects/audio-events.mjs",
+    "bend examples/survivors/game-encoder.bend -o /tmp/survivors-audio-subjects/game-encoder.mjs",
+    "bend examples/survivors/game.bend -o /tmp/survivors-audio-subjects/game.mjs",
+    "node examples/survivors/audio-subjects-check.mjs /tmp/survivors-audio-subjects"
+  ],
+  "limits": [
+    "The laws cover the stated pure sound-policy boundaries; this is not a proof of the entire audio engine, model, browser synthesis or game.",
+    "Damage and radius exact laws use fixed sample identity/weapon fields; universal identity laws and runtime mixed-frame comparisons complement them.",
+    "No uniqueness, duplicate-slot exclusion or valid-producer proof is claimed.",
+    "No native audio, synthesis, music, ECS, gameplay, performance or whole-GH9 completion claim."
+  ]
+}
