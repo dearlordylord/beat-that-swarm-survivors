@@ -18,7 +18,7 @@ function icon(kind, item) {
 function unlocked(profile, kind, id) {
   return isUnlocked(profile, kind, id);
 }
-function inspector(profile, pending, kind) {
+function inspector(profile, pending, kind, equipped) {
   if (!pending || pending.kind !== kind) return '';
   const item = catalog[kind].find(x => x.id === pending.id);
   if (!item) return '';
@@ -26,15 +26,27 @@ function inspector(profile, pending, kind) {
   const owned = status.owned;
   const eligible = status.eligible;
   const buyable = kind === 'character' || kind === 'stage';
-  return `<section class="unlock-inspector banner-panel" data-unlock-details tabindex="-1" aria-label="${esc(item.name)} unlock details"><div class="banner-heading"><span class="eyebrow">${owned ? 'Available' : 'Unlock '+labels[kind].toLowerCase()}</span><h3>${esc(item.name)}</h3></div><p>${esc(item.description)}</p>${kind === 'character' ? `<p>Starting weapon: ${esc(WEAPONS[item.weapon].name)}</p>` : ''}${item.hint ? `<p class="requirement">${eligible ? '✓ Requirement met: ' : 'Requirement: '}${esc(item.hint)}</p>` : ''}${buyable ? `<div class="purchase-line"><span>Price <strong>${item.cost} gold</strong> · Your balance <strong>${profile.gold} gold</strong></span><button class="primary" data-buy-kind="${kind}" data-buy-id="${item.id}" ${status.canBuy ? '' : 'disabled'}>${owned ? 'Unlocked' : 'Buy '+item.name+' · '+item.cost+' gold'}</button></div>${!owned && !status.affordable ? `<p class="requirement">Earn ${status.missingGold} more gold to buy this ${labels[kind].toLowerCase()}.</p>` : ''}` : '<p>Unlock this mode by completing its requirement.</p>'}</section>`;
+  const character = kind === 'character';
+  const condition = item.condition;
+  const current = condition ? Math.min(condition.value, profile.stats?.[condition.stat] || 0) : 0;
+  return `<section id="unlock-details-${kind}-${item.id}" class="unlock-inspector ${character ? 'unlock-inspector--row' : 'banner-panel'}" data-unlock-details tabindex="-1" aria-label="${esc(item.name)} unlock details">${character ? `<button class="unlock-close" data-close-unlock aria-label="Close ${esc(item.name)} details">×</button>` : ''}<div class="${character ? 'unlock-heading' : 'banner-heading'}">${character ? portrait(item.id, 'small') : ''}<div><span class="eyebrow">${owned ? 'Available' : 'Locked '+labels[kind].toLowerCase()}</span><h3>${esc(item.name)}</h3>${character ? `<small>${esc(item.title)}</small>` : ''}</div></div><p>${esc(item.description)}</p>${character ? `<p>Starting weapon: <strong>${esc(WEAPONS[item.weapon].name)}</strong></p>` : ''}${item.hint ? `<div class="unlock-requirement"><p class="requirement">${eligible ? '✓ Requirement met: ' : 'Requirement: '}${esc(item.hint)}</p>${character && condition ? `<progress value="${current}" max="${condition.value}" aria-label="${esc(item.name)} unlock progress"></progress><small>${current.toLocaleString()} / ${condition.value.toLocaleString()}</small>` : ''}</div>` : ''}${buyable ? `<div class="purchase-line"><span>Price <strong>${item.cost} gold</strong> · Your balance <strong>${profile.gold} gold</strong></span><button class="primary" data-buy-kind="${kind}" data-buy-id="${item.id}" ${status.canBuy ? '' : 'disabled'}>${owned ? 'Unlocked' : 'Unlock '+item.name+' · '+item.cost+' gold'}</button></div>${!owned && !eligible ? '<p class="requirement">Complete the requirement to unlock.</p>' : ''}${!owned && !status.affordable ? `<p class="requirement">Earn ${status.missingGold} more gold to buy this ${labels[kind].toLowerCase()}.</p>` : ''}` : '<p>Unlock this mode by completing its requirement.</p>'}${character ? `<p class="unlock-equipped-note">Next run: <strong>${esc(CHARACTERS[equipped]?.name || CHARACTERS[0].name)}</strong> remains equipped.</p>` : ''}</section>`;
 }
 function picker(state, kind) {
-  return `<div class="choice-list" role="group" aria-label="Choose ${labels[kind].toLowerCase()}">${catalog[kind].map(item => {
+  const choices = catalog[kind].map(item => {
     const open = unlocked(state.profile, kind, item.id);
     const selected = open && state[kind] === item.id;
     const inspecting = state.pendingUnlock?.kind === kind && state.pendingUnlock.id === item.id;
-    return `<button class="choice ${selected ? 'is-selected' : ''} ${open ? '' : 'is-locked'} ${inspecting ? 'is-inspecting' : ''}" data-${kind}="${item.id}" aria-pressed="${selected}">${icon(kind, item)}<span class="choice-copy"><strong>${esc(item.name)}</strong><small>${esc(kind === 'character' ? WEAPONS[item.weapon].name : item.description)}</small>${!open ? `<span class="locked-badge">${kind === 'mode' ? 'Locked · View requirement' : 'Locked · '+item.cost+' gold'}${inspecting ? ' · Inspecting' : ''}</span>` : ''}</span><span class="choice-check" aria-hidden="true">${selected ? '✓' : open ? '+' : '◇'}</span></button>`;
-  }).join('')}</div>${inspector(state.profile, state.pendingUnlock, kind)}`;
+    return `<button class="choice ${selected ? 'is-selected' : ''} ${open ? '' : 'is-locked'} ${inspecting ? 'is-inspecting' : ''}" data-${kind}="${item.id}" aria-pressed="${selected}"${!open ? ` aria-expanded="${inspecting}"${inspecting ? ` aria-controls="unlock-details-${kind}-${item.id}"` : ''}` : ''}>${icon(kind, item)}<span class="choice-copy"><strong>${esc(item.name)}</strong><small>${esc(kind === 'character' ? WEAPONS[item.weapon].name : item.description)}</small>${selected && kind === 'character' ? '<span class="equipped-badge">✓ Equipped</span>' : ''}${!open ? `<span class="locked-badge">${kind === 'mode' ? 'Locked · View requirement' : 'Locked · '+item.cost+' gold'}</span>` : ''}${inspecting ? '<span class="viewing-badge">Viewing details</span>' : ''}</span><span class="choice-check" aria-hidden="true">${inspecting ? '−' : selected ? '✓' : open ? '+' : '◇'}</span></button>`;
+  });
+  const details = inspector(state.profile, state.pendingUnlock, kind, state.character);
+  if (kind !== 'character') return `<div class="choice-list" role="group" aria-label="Choose ${labels[kind].toLowerCase()}">${choices.join('')}</div>${details}`;
+  let rows = '';
+  for (let i = 0; i < choices.length; i += 2) {
+    const pair = catalog.character.slice(i, i + 2);
+    const inspected = pair.findIndex(item => state.pendingUnlock?.kind === kind && state.pendingUnlock.id === item.id);
+    rows += `<div class="choice-pair${inspected === 1 ? ' details-right' : ''}">${choices.slice(i, i + 2).join('')}${inspected >= 0 ? details : ''}</div>`;
+  }
+  return `<div class="choice-list choice-list--character" role="group" aria-label="Choose survivor">${rows}</div>`;
 }
 
 export function renderRunCard({ character = 0, stage = 0, arcana = 0, mode = 0 }) {

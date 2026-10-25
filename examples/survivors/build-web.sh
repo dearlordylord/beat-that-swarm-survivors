@@ -36,14 +36,17 @@ for module in coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coo
   example_emit "$app_dir/$module.bend" "$staging_dir/public/dist/$module.mjs"
 done
 bash "$example_repo/tools/iroh-transport/build.sh" "$staging_dir/public/iroh"
-for asset in style.css browser.mjs renderer.mjs survivor-art.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-controls.mjs menu-content.mjs menu-a.css menu-moon.css coop.css coop-ui.mjs coop-presentation.mjs coop-browser.mjs coop-worker.mjs coop-transport.mjs coop-snapshot-codec.mjs; do
+for asset in style.css browser.mjs renderer.mjs survivor-art.mjs survivor-shapes.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-controls.mjs menu-content.mjs menu-a.css menu-moon.css coop.css coop-ui.mjs coop-presentation.mjs coop-browser.mjs coop-worker.mjs coop-transport.mjs coop-snapshot-codec.mjs; do
   cp "$app_dir/$asset" "$staging_dir/public/$asset"
 done
 if [[ -f "$app_dir/favicon.svg" ]]; then cp "$app_dir/favicon.svg" "$staging_dir/public/"; fi
 cp -R "$app_dir/social" "$staging_dir/public/social"
 cp "$example_repo/LICENSE-MIT" "$example_repo/LICENSE-APACHE" "$staging_dir/public/"
-NIGHTFALL_WEB_PUBLIC="$staging_dir/public" NIGHTFALL_WEB_OUTPUT="$astro_output" \
-  "$NODE" "$app_dir/web/node_modules/astro/bin/astro.mjs" build --root "$app_dir/web"
+(
+  cd "$app_dir/web"
+  NIGHTFALL_WEB_PUBLIC="$staging_dir/public" NIGHTFALL_WEB_OUTPUT="$astro_output" \
+    "$NODE" "$app_dir/web/node_modules/astro/bin/astro.mjs" build --root "$app_dir/web"
+)
 # Local builds expose their provenance for browser diagnostics. Publication replaces
 # this with its immutable release manifest after building the isolated snapshot.
 "$NODE" --input-type=module - "$example_repo" "$astro_output" <<'NODE'

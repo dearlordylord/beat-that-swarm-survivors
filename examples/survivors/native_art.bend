@@ -1,5 +1,6 @@
 import Base
 import native_draw.bend as D
+import native_survivors.bend as Heroes
 
 # Opaque, sparse pixel art. Shapes are presentation only; gameplay owns positions,
 # radii, life, actor phases and collision. Display-list heads paint in front.
@@ -162,26 +163,6 @@ def reaper(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> Lis
   r14 = box(x,y,scale,(0.0 - 11.0 : F32),(0.0 - 15.0 : F32),3.0,4.0,16741501,r13)
   box(x,y,scale,(0.0 - 4.0 : F32),13.0,8.0,3.0,6827336,r14)
 
-def hero(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  r0 = box(x,y,scale,(0.0 - 8.0 : F32),(0.0 - 6.0 : F32),16.0,19.0,593433,tail)
-  r1 = box(x,y,scale,(0.0 - 11.0 : F32),6.0,22.0,7.0,593433,r0)
-  r2 = box(x,y,scale,(0.0 - 6.0 : F32),(0.0 - 4.0 : F32),12.0,14.0,color,r1)
-  r3 = box(x,y,scale,(0.0 - 9.0 : F32),8.0,18.0,3.0,color,r2)
-  r4 = box(x,y,scale,(0.0 - 6.0 : F32),(0.0 - 16.0 : F32),12.0,12.0,593433,r3)
-  r5 = box(x,y,scale,(0.0 - 4.0 : F32),(0.0 - 14.0 : F32),8.0,8.0,14993058,r4)
-  r6 = box(x,y,scale,(0.0 - 5.0 : F32),(0.0 - 16.0 : F32),10.0,4.0,3550273,r5)
-  r7 = box(x,y,scale,(0.0 - 5.0 : F32),(0.0 - 12.0 : F32),2.0,7.0,3550273,r6)
-  r8 = box(x,y,scale,3.0,(0.0 - 12.0 : F32),2.0,7.0,3550273,r7)
-  r9 = box(x,y,scale,(0.0 - 2.0 : F32),(0.0 - 10.0 : F32),1.0,2.0,593433,r8)
-  r10 = box(x,y,scale,2.0,(0.0 - 10.0 : F32),1.0,2.0,593433,r9)
-  r11 = box(x,y,scale,(0.0 - 6.0 : F32),4.0,12.0,2.0,15584891,r10)
-  r12 = box(x,y,scale,9.0,(0.0 - 13.0 : F32),2.0,28.0,9796433,r11)
-  r13 = box(x,y,scale,7.0,(0.0 - 16.0 : F32),6.0,6.0,7985384,r12)
-  r14 = box(x,y,scale,8.0,(0.0 - 15.0 : F32),4.0,2.0,16052433,r13)
-  r15 = box(x,y,scale,(0.0 - 7.0 : F32),11.0,4.0,4.0,593433,r14)
-  r16 = box(x,y,scale,3.0,11.0,4.0,4.0,593433,r15)
-  box(x,y,scale,(0.0 - 12.0 : F32),16.0,24.0,2.0,16052433,r16)
-
 def chest(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   r0 = box(x,y,scale,(0.0 - 10.0 : F32),(0.0 - 7.0 : F32),20.0,15.0,593433,tail)
   r1 = box(x,y,scale,(0.0 - 8.0 : F32),(0.0 - 5.0 : F32),16.0,11.0,8935486,r0)
@@ -273,19 +254,8 @@ def projectile(variant: U32,+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.
     case 22: area(x,y,r,color,tail)
     case _: spark(x,y,F32.min(r,9.0),color,tail)
 
-def hero_color(character: U32) -> U32:
-  match character:
-    case 0: 12343408
-    case 1: 7445442
-    case 2: 13280605
-    case 3: 9157265
-    case 4: 11305413
-    case 5: 14653549
-    case 6: 8565936
-    case _: 11840636
-
 def player(+x: F32,+y: F32,character: U32,invuln: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  hero(x,y,0.85,tint(U32.is_lt(0,invuln),16052433,hero_color(character)),tail)
+  Heroes.player(character,x,y,U32.is_lt(0,invuln),tail)
 
 def gem_scaled(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   a = box(x,y,scale,(0.0 - 1.0 : F32),(0.0 - 4.0 : F32),2.0,8.0,color,tail)
