@@ -52,83 +52,8 @@ def tick(value):
         u32(value[1], "tick low")
 
 def validate_payload(payload, checkpoint_tick):
-    if not isinstance(payload, dict) or set(payload) != PAYLOAD_KEYS:
-        raise ReplayError("Incomplete full-state payload")
-    run = payload["run"]
-    if not isinstance(run, list) or len(run) != 29:
-        raise ReplayError("Incomplete Run observation")
-    for index, value in enumerate(run):
-        if index in (12, 13, 27):
-            if not isinstance(value, list):
-                raise ReplayError("Invalid Run list")
-            for word in value:
-                u32(word, "Run list word")
-        else:
-            u32(value, "Run word/F32 bits")
-    if run[0] > 4 or run[1] != checkpoint_tick or len(run[12]) != 24 or len(run[13]) != 18:
-        raise ReplayError("Run phase/tick/loadout shape does not match checkpoint")
-    for body in payload["bodies"]:
-        words(body, 9, "Body")
-    for offer in payload["offers"]:
-        words(offer, 3, "Offer")
-    for snapshot in payload["snapshots"]:
-        if not isinstance(snapshot, list) or len(snapshot) != 2:
-            raise ReplayError("Invalid Snapshot")
-        words(snapshot[0], 9, "Snapshot Body")
-        validate_motion(snapshot[1])
-    for entry in payload["pending"]:
-        if u32(entry, "pending reward") not in (1, 2):
-            raise ReplayError("Unknown pending reward kind")
-    components = payload["components"]
-    if not isinstance(components, dict) or set(components) != {"bodies", "vitals", "motions"}:
-        raise ReplayError("Missing authoritative component family")
-    for family, records in components.items():
-        if not isinstance(records, list) or len(records) != 1456:
-            raise ReplayError(f"Expected all 1456 authoritative {family} slots")
-        for expected_id, record in enumerate(records, 1):
-            if not isinstance(record, list) or len(record) != 3 or record[0] != expected_id:
-                raise ReplayError(f"Noncanonical {family} slot order")
-            value, stamp = record[1:]
-            if family == "motions":
-                validate_motion(value)
-            else:
-                words(value, 9 if family == "bodies" else 2, family)
-            if family == "bodies" and value[7] != expected_id - 1:
-                raise ReplayError("Authoritative Body slot identity changed")
-            if not isinstance(stamp, list) or len(stamp) != 2:
-                raise ReplayError("Missing lifecycle stamp pair")
-            tick(stamp[0]); tick(stamp[1])
-    metadata = payload["metadata"]
-    if not isinstance(metadata, dict) or set(metadata) != {"namespace", "allocator", "clock", "events", "pendingCommands", "registrations", "nextSystemId"}:
-        raise ReplayError("Missing world metadata")
-    # Commands are affine closures, which this fixed-game observer cannot encode.
-    # Refuse them rather than pretending equal counts establish equal effects.
-    if metadata["pendingCommands"] != 0:
-        raise ReplayError("Opaque pending World commands are outside this replay oracle")
-    if metadata["events"] != 0 or metadata["registrations"] != []:
-        raise ReplayError("Unexpected fixed-game world events/registrations")
-    u32(metadata["namespace"], "namespace"); u32(metadata["nextSystemId"], "nextSystemId")
-    clock = metadata["clock"]
-    if not isinstance(clock, list) or len(clock) != 2 or not isinstance(clock[1], list):
-        raise ReplayError("Invalid world clock")
-    tick(clock[0])
-    for scoped in clock[1]:
-        tick(scoped)
-    alloc = metadata["allocator"]
-    if not isinstance(alloc, list) or len(alloc) != 7:
-        raise ReplayError("Missing allocator observation")
-    for value in alloc[:4]:
-        integer(value, "allocator scalar")
-    if not isinstance(alloc[6], list) or len(alloc[6]) != alloc[2]:
-        raise ReplayError("Allocator slot count differs from capacity")
-    for slot in alloc[6]:
-        words(slot, 2, "allocator slot")
-        if slot[1] > 4:
-            raise ReplayError("Invalid allocator phase")
-    for free in alloc[4]:
-        u32(free, "free slot")
-    for key in alloc[5]:
-        words(key, 2, "entity key")
+    import current_replay_schema as current
+    return current.validate_payload(payload, checkpoint_tick)
 
 def validate_motion(value):
     if not isinstance(value, list) or len(value) != 9 or not isinstance(value[4], list):
@@ -234,18 +159,10 @@ def trace_contract(path):
 def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes=1024**3, trace=None, layout=None):
     if minimum_checkpoints < 2:
         raise ReplayError("At least two full-state checkpoints required")
-    # Reuse sparse validation, never its cross-schema projection/exclusions.
-    # Import lazily because the migration validator itself uses this module's
-    # scalar and streaming primitives. Legacy callers keep their original path.
-    validator = None
-    reader = records
-    if layout is not None:
-        import ecs_migration_compare as validator
-        try:
-            validator.validate_layout(layout)
-        except ValueError as error:
-            raise ReplayError(str(error)) from error
-        reader = validator.strict_records
+    import current_replay_schema as validator
+    layout = validator.DEFAULT_LAYOUT if layout is None else layout
+    validator.validate_layout(layout)
+    reader = validator.strict_records
     def replay_records(path):
         try:
             yield from reader(path, max_bytes)
@@ -288,7 +205,7 @@ def compare(baseline: Path, candidate: Path, *, minimum_checkpoints=2, max_bytes
             else:
                 try:
                     for record in (left, right):
-                        validator.validate_payload(record.get("payload"), current_tick, layout, migrated=True)
+                        validator.validate_payload(record.get("payload"), current_tick, layout)
                 except ValueError as error:
                     raise ReplayError(str(error)) from error
             # encoded above still contains the complete unprojected payload,
