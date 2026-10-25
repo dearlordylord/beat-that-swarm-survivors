@@ -182,12 +182,15 @@ def run_player(value: Run) -> RS.PlayerState:
 # Frozen rule/prediction context; never stored back as authoritative player data.
 type PlayerSnapshot is Data: PlayerSnapshot{id: U32,run: Run,connected: Bool}
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
-type Snapshot is Data: Snapshot{body: Components.Body,motion: Motion}
+type Snapshot is Data:
+  Snapshot{body: Components.Body,motion: Motion}
+  EnemySnapshot{enemy: Enemy.State}
 # Common geometry contains no overloaded health, damage or reward payload.
 type SnapshotGeometry is Data: SnapshotGeometry{identity: U32,x: F32,y: F32,age: U32,radius: F32}
 def snapshot_geometry(snapshot: Snapshot) -> SnapshotGeometry:
   match snapshot:
     case Snapshot{Components.Body{x,y,_,_,_,_,age,identity,radius},_}: SnapshotGeometry{identity,x,y,age,radius}
+    case EnemySnapshot{Enemy.State{Space.Spatial{x,y,age,radius},_,identity,_,_}}: SnapshotGeometry{identity,x,y,age,radius}
 def geometry_identity(geometry: SnapshotGeometry) -> U32:
   match geometry:
     case SnapshotGeometry{identity,_,_,_,_}: identity
@@ -196,8 +199,13 @@ def geometry_age(geometry: SnapshotGeometry) -> U32:
   match geometry:
     case SnapshotGeometry{_,_,_,age,_}: age
 def snapshot_age(snapshot: Snapshot) -> U32: geometry_age(snapshot_geometry(snapshot))
+def enemy_observations(snapshots: List<&2,Snapshot>) -> List<&2,Enemy.State>:
+  match snapshots:
+    case []: []
+    case EnemySnapshot{enemy} <> rest: enemy <> enemy_observations(rest)
+    case _ <> rest: enemy_observations(rest)
 type State is Type: State{world: Storage.World(),run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
-type Observation is Data: Observation{run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>}
+type Observation is Data: Observation{run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,enemies: List<&2,Enemy.State>}
 type Packet is Type: Packet{state: State}
   Failed{error: String}
 def at(values: List<&2,U32>,index: U32) -> U32:
@@ -441,7 +449,9 @@ def update(body: Components.Body,run: Run) -> Row:
   match body run:
     case Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+rng,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+playerHp,+playerMax,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
       update_selected(Bool.and(U32.is_eq(seed,0),Bool.and(U32.is_lt(0,tick),Bool.or(Bool.and(Bool.or(U32.is_lt(wave_tick(mode,tick),36000),U32.is_eq(mode,2)),U32.is_eq((wave_tick(mode,tick) % 7200 : U32),0)),Bool.or(U32.is_eq(wave_tick(mode,tick),34200),U32.is_eq(wave_tick(mode,tick),36000))))),Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_eq(wave_tick(mode,tick),36000)),Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Run{RS.Session{phase,tick,xp,need,level,kills,gold,rng,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,playerHp,playerMax,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,stage)
-type EntityRow is Data: EntityRow{row: Row,motion: Motion}
+type EntityRow is Data:
+  EntityRow{row: Row,motion: Motion}
+  EnemyRow{outcome: Enemy.Outcome,credit: Enemy.Credit}
 # Spatial snapshots are only observations; Q capabilities own all three components.
 type Aim is Data: Aim{x: F32,y: F32,id: U32,distance: F32}
 def prefer_aim(closer: Bool,+x: F32,+y: F32,+id: U32,+distance: F32,rest: Aim) -> Aim:
