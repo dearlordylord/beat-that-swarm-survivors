@@ -26,6 +26,7 @@ example_node "$app/typed-results-check.mjs" "$scratch"
 example_node "$app/player-authority-check.mjs" "$scratch"
 example_node "$app/pickup-state-check.mjs" "$scratch"
 example_node "$app/pickup-wiring-check.mjs" "$scratch"
+example_node "$app/projectile-ownership-check.mjs" "$scratch/coop-core.mjs"
 for module in coop-playback coop-client-clock coop-snapshot-flow coop-snapshot-receipts coop-client-delivery coop-hit-effects; do
   example_node --stack_size=192 "$app/$module-check.mjs" "$scratch/$module.mjs"
 done
