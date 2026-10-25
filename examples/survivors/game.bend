@@ -50,21 +50,6 @@ type Motion is Data: Motion{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<
 # Derived routing metadata contains only issued identities, never gameplay data.
 # Enemy/relic position, age and collision radius have one authoritative column.
 # Movement advances age once; birth and loot lifecycle may reset it explicitly.
-def spatial_of_body(body: Components.Body) -> Space.Spatial:
-  match body:
-    case Components.Body{x,y,_,_,_,_,age,_,radius}: Space.Spatial{x,y,age,radius}
-# Temporary input boundary for unmigrated enemy combat; removed by its owning slice.
-# Stored enemy geometry words are erased, so they cannot become a second source.
-def body_at_spatial(body: Components.Body,space: Space.Spatial) -> Components.Body:
-  match body space:
-    case Components.Body{_,_,kind,variant,hp,maximum,_,seed,_} Space.Spatial{x,y,age,radius}: Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius}
-def stored_body_role(enemy: Bool,body: Components.Body) -> Components.Body:
-  match enemy body:
-    case True{} Components.Body{_,_,kind,variant,hp,maximum,_,seed,_}: Components.Body{0.0,0.0,kind,variant,hp,maximum,0,seed,0.0}
-    case False{} body: body
-def stored_body(+body: Components.Body) -> Components.Body:
-  match body:
-    case Components.Body{_,_,_,_,_,_,_,seed,_}: stored_body_role(Role.enemy(Role.assigned(seed)),body)
 def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0,0,0}
 def empty_trajectory() -> Components.Trajectory: Components.Trajectory{0.0,0.0,0,0,[],0,0}
 def empty_status() -> Components.Status: Components.Status{0,0}
@@ -86,19 +71,6 @@ def routing_world(result: Storage.World() & Unit) -> Storage.World():
     case (world,_): world
 # Setup writes components before prepare_movement_roster completes the world.
 # Gameplay queries consume prepared handles; lifecycle refreshes active rows.
-def populate_result(result: C.Replacement<Storage.World(),Components.Body>) -> Storage.World():
-  match result:
-    case C.Replaced{world,_}: world
-    case C.ReplaceRejected{world,_,_}: world
-def stored_actor_body_allowed(projectile: Bool,body: Components.Body) -> Maybe<&1,Components.Body>:
-  match projectile:
-    case True{}: None{}
-    case False{}: Some{stored_body(body)}
-def stored_actor_body(+body: Components.Body) -> Maybe<&1,Components.Body>:
-  match body:
-    case Components.Body{_,_,_,_,_,_,_,seed,_}: stored_actor_body_allowed(Role.projectile(Role.assigned(seed)),body)
-def populate_body(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
-  populate_result(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,Storage.family(),world,handle,stored_actor_body(body)))
 def vital_populated(result: C.Replacement<Storage.World(),Components.Vitals>) -> Storage.World():
   match result:
     case C.Replaced{world,_}: world
@@ -119,19 +91,16 @@ def spatial_populated(result: C.Replacement<Storage.World(),Space.Spatial>) -> S
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
-def populate_spatial(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
-  spatial_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,Storage.spatial_family(),world,handle,Some{spatial_of_body(body)}))
-def populate_enemy(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
-  match body:
-    case Components.Body{_,_,_,_,hp,maxHp,_,_,_}: status_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,Storage.status_family(),vital_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,Storage.vital_family(),populate_spatial(world,handle,body),handle,Some{Components.Vitals{hp,maxHp}})),handle,Some{empty_status()}))
+def populate_spatial(world: Storage.World(),handle: W.Handle<Storage.Schema>,space: Space.Spatial) -> Storage.World():
+  spatial_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,Storage.spatial_family(),world,handle,Some{space}))
+def populate_enemy(world: Storage.World(),+handle: W.Handle<Storage.Schema>) -> Storage.World():
+  status_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,Storage.status_family(),vital_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,Storage.vital_family(),world,handle,Some{Components.Vitals{0,0}})),handle,Some{empty_status()}))
 def shot_populated(result: C.Replacement<Storage.World(),Components.ShotPayload>) -> Storage.World():
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
-def populate_projectile(world: Storage.World(),+handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
-  match body:
-    case Components.Body{+x,+y,+kind,weapon,damage,_,+age,_,+radius}:
-      shot_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,Storage.shot_family(),trajectory_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,Storage.trajectory_family(),spatial_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,Storage.spatial_family(),world,handle,Some{Space.Spatial{x,y,age,radius}})),handle,Some{empty_trajectory()})),handle,Some{Components.ShotPayload{weapon,damage,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7))}}))
+def populate_projectile(world: Storage.World(),+handle: W.Handle<Storage.Schema>) -> Storage.World():
+  shot_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,Storage.shot_family(),trajectory_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,Storage.trajectory_family(),world,handle,Some{empty_trajectory()})),handle,Some{Components.ShotPayload{0,0,False{}}}))
 def pickup_populated(result: C.Replacement<Storage.World(),Pickup.Payload>) -> Storage.World():
   match result:
     case C.Replaced{world,_}: world
@@ -148,42 +117,25 @@ def phase_populated(result: C.Replacement<Storage.World(),Enemy.Phase>) -> Stora
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
-def initial_enemy_phase(kind: U32,archetype: U32) -> Enemy.Phase:
-  match kind:
-    case 0: Enemy.ActiveEnemy{archetype}
-    case 8: Enemy.Dormant{archetype}
-    case _: Enemy.OccupiedByLoot{archetype}
-def populate_enemy_slot(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
-  match body:
-    case Components.Body{_,_,kind,archetype,_,_,_,_,_}: phase_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,Storage.phase_family(),populate_enemy(world,handle,body),handle,Some{initial_enemy_phase(kind,archetype)}))
-def populate_components(role: Role.Role,world: Storage.World(),+handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
+def populate_phase(world: Storage.World(),handle: W.Handle<Storage.Schema>,phase: Enemy.Phase) -> Storage.World():
+  phase_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,Storage.phase_family(),world,handle,Some{phase}))
+def populate_components(role: Role.Role,world: Storage.World(),+handle: W.Handle<Storage.Schema>,slot: U32) -> Storage.World():
   match role:
-    case Role.EnemySlot{}: populate_pickup(populate_enemy_slot(world,handle,body),handle)
-    case Role.RelicSlot{}: populate_pickup(populate_enemy_slot(world,handle,body),handle)
-    case Role.PlayerProjectileSlot{}: populate_projectile(world,handle,body)
-    case Role.HostileProjectileSlot{}: populate_projectile(world,handle,body)
-    case Role.XpSlot{}: populate_pickup(populate_spatial(world,handle,body),handle)
+    case Role.EnemySlot{}: populate_pickup(populate_phase(populate_enemy(world,handle),handle,Enemy.Dormant{slot}),handle)
+    case Role.RelicSlot{}: populate_pickup(populate_phase(world,handle,Enemy.Dormant{0}),handle)
+    case Role.PlayerProjectileSlot{}: populate_projectile(world,handle)
+    case Role.HostileProjectileSlot{}: populate_projectile(world,handle)
+    case Role.XpSlot{}: populate_pickup(world,handle)
     case _: world
-def initial_role(body: Components.Body) -> Role.Role:
-  match body:
-    case Components.Body{_,_,_,_,_,_,_,seed,_}: Role.assigned(seed)
-def initial_identity(body: Components.Body) -> U32:
-  match body:
-    case Components.Body{_,_,_,_,_,_,_,slot,_}: slot
-def populate_actor_body(role: Role.Role,world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
-  match role:
-    case Role.XpSlot{}: world
-    case _: populate_body(world,handle,body)
-def populate_shared(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
-  populate_components(initial_role(body),role_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,Storage.role_family(),populate_identity(populate_actor_body(initial_role(body),world,handle,body),handle,initial_identity(body)),handle,Some{initial_role(body)})),handle,body)
-def populate_all(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World(): populate_shared(world,handle,body)
-def populate(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World(): populate_all(world,handle,body)
+def populate_slot(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+slot: U32) -> Storage.World():
+  populate_components(Role.assigned(slot),role_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,Storage.role_family(),populate_identity(populate_spatial(world,handle,Space.Spatial{0.0,0.0,slot,0.0}),handle,slot),handle,Some{Role.assigned(slot)})),handle,slot)
+def populate(world: Storage.World(),handle: W.Handle<Storage.Schema>,slot: U32) -> Storage.World(): populate_slot(world,handle,slot)
 def spawn_finish(result: T.Tx<Storage.World(),Unit> & W.Reservation<Storage.Schema>) -> Storage.World():
   match result:
     case (T.Tx{world,_,commands,_,_},W.Reserved{_}): Cmd.enqueue(~Storage.Schema,~Storage.Store,~Unit,~Unit,world,commands)
     case (T.Tx{world,_,_,_,_},W.ReservationRejected{_}): world
-def spawn(world: Storage.World(),body: Components.Body) -> Storage.World():
-  spawn_finish(Cmd.tx_spawn(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Components.Body,~populate,T.begin(~Storage.World(),~Unit,world),body))
+def spawn(world: Storage.World(),slot: U32) -> Storage.World():
+  spawn_finish(Cmd.tx_spawn(~Storage.Schema,~Storage.Store,~Unit,~Unit,~U32,~populate,T.begin(~Storage.World(),~Unit,world),slot))
 # Enemy slots recycle independently of the persistent XP pool.
 # Detached kind2 Components.Body transports baseXP/generation for frame and pure helpers;
 # the live Components.Pickup component supplies those values before behavior executes.
@@ -303,11 +255,10 @@ def next_xp_need(+level: U32) -> U32: (40 + level * 6 + level * level / 3 : U32)
 # Entity seeds remain stable pool identities; run entropy changes only spawn placement.
 # Ordinary waves use a 300 baseline; Curse may raise admission up to 500.
 def active_limit(+tick: U32) -> U32: U32.min(PL.normal_enemy_cap(),(96 + tick / 50 : U32))
-def initial_body(+slot: U32) -> Components.Body: Components.Body{0.0,0.0,8,slot,0,0,slot,slot,0.0}
 def boot_pool(remaining: Nat,+slot: U32,world: Storage.World()) -> Storage.World():
   match remaining:
     case 0n: world
-    case 1n+rest: boot_pool(rest,(slot + 1 : U32),spawn(world,initial_body(slot)))
+    case 1n+rest: boot_pool(rest,(slot + 1 : U32),spawn(world,slot))
 # Bootstrap/setup snapshots use real allocator-visible handles and checked Role.
 # Only allocation interprets numeric ranges; systems select immutable composition.
 # Lifecycle later refreshes active membership during its existing traversal.
@@ -1754,18 +1705,9 @@ def team_projectiles_done(+team: Team,result: Q.Executed<Storage.World(),Q.Error
 def contact_spatial(+seed: U32,previous: Space.Spatial,moved: Space.Spatial) -> Contact.Target:
   match previous moved:
     case Space.Spatial{x0,y0,_,radius} Space.Spatial{x1,y1,_,_}: Contact.Target{seed,x0,y0,x1,y1,radius}
-def contact_target(body: Components.Body,moved: Components.Body) -> Contact.Target:
-  match body:
-    case Components.Body{+x,+y,_,_,_,_,+age,seed,+radius}: contact_spatial(seed,Space.Spatial{x,y,age,radius},spatial_of_body(moved))
-def contact_target_enemy(body: Components.Body,motion: Motion,+team: Team,tail: List<&2,Contact.Target>) -> List<&2,Contact.Target>:
-  match body motion:
-    case Components.Body{+x,+y,0,variant,_,_,+age,seed,+radius} Motion{_,_,_,_,_,slow,_,_,_}: contact_spatial(seed,Space.Spatial{x,y,age,radius},team_move_space(team,Space.Spatial{x,y,age,radius},variant,slow)) <> tail
-    case _ _: tail
-
 def contact_targets(rows: List<&2,Snapshot>,+team: Team) -> List<&2,Contact.Target>:
   match rows:
     case []: []
-    case Snapshot{+body, motion} <> rest: contact_target_enemy(body,motion,team,contact_targets(rest,team))
     case EnemySnapshot{Enemy.State{+space,archetype,identity,_,Components.Status{slow,_}}} <> rest: contact_spatial(identity,space,team_move_space(team,space,archetype,slow)) <> contact_targets(rest,team)
 
     case _ <> rest: contact_targets(rest,team)
