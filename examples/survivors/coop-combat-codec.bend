@@ -7,10 +7,10 @@ import ./body-index.bend as BI
 
 # Shared detached combat data only: projectile birth identities and the native
 # Bend JSON ABI. There is no weapon-only simulation or trajectory retention.
-def birth_at(births:BI.Index<U32>,tick:U32,+snapshot:G.Snapshot) -> U32: BI.get(~U32,births,G.snapshot_identity(snapshot),(tick - G.snapshot_age(snapshot) : U32))
+def birth_at(births:BI.Index<U32>,tick:U32,+snapshot:G.Snapshot) -> U32:
+  BI.get(~U32,births,G.snapshot_identity(snapshot),(tick - G.snapshot_age(snapshot) : U32))
 def birth_entry(+snapshot:G.Snapshot,+tick:U32,+prior:BI.Index<U32>,fresh:BI.Index<U32>,index:BI.Index<U32>) -> BI.Index<U32>:
   BI.insert(~U32,index,G.snapshot_identity(snapshot),BI.get(~U32,fresh,G.snapshot_identity(snapshot),birth_at(prior,tick,snapshot)))
-
 def birth_map(rows:List<&2,G.Snapshot>,+tick:U32,+prior:BI.Index<U32>,+fresh:BI.Index<U32>,index:BI.Index<U32>) -> BI.Index<U32>:
   match rows:
     case []: index
