@@ -125,6 +125,7 @@ function card(item, attributes = "", extra = "", selected = false) {
   return `<button class="card banner-panel ${selected ? "selected" : ""}" ${attributes} ${pressed}><div class="banner-heading"><span class="icon" style="color:${item.color || "var(--gold)"}">${item.icon || "✦"}</span><h3>${esc(item.name)}</h3></div><p>${esc(item.description)}</p>${extra}</button>`;
 }
 function menu() {
+  const returningToMenu = $("#menu").hidden;
   const previousFocus = $("#menu").contains(document.activeElement)
     ? {
         id: document.activeElement.id,
@@ -163,7 +164,7 @@ function menu() {
             ),
     );
     match?.focus({ preventScroll: true });
-  } else {
+  } else if (returningToMenu) {
     $("#tabs .active")?.focus({ preventScroll: true });
   }
 }

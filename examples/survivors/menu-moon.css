@@ -213,7 +213,14 @@
 #app #menu #tabs :is(button,a.menu-route):focus-visible .tab-surface {
   color: #fff0c6;
   background: #49303b;
-  box-shadow: inset 0 0 0 2px #e3c78d;
+}
+#app #menu #tabs :is(button,a.menu-route):focus-visible .tab-label {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+#app #menu #tabs :is(button,a.menu-route):focus-visible .tab-icon {
+  color: #fff0c6;
 }
 #app #menu .start-button:focus-visible .cta-surface {
   border-color: #f4d898;
