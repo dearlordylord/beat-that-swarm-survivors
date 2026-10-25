@@ -1,0 +1,353 @@
+{
+  "status": "baseline-frozen",
+  "createdUtc": "2026-10-25T17:22:56.529100+00:00",
+  "gameplaySourceCommit": "01b4164612cd6e37d39aa75b16fab2dd253ebb0d",
+  "gameplaySourceClean": true,
+  "sourceSnapshotDirty": true,
+  "sourceSnapshotExplanation": "Clean master gameplay plus development-only observer arity repair and new qualification tools/docs; exact staged source archive and per-file manifest retained. Original user worktree edits excluded.",
+  "artifactRoot": "/tmp/bendvy-survivors-ecs-baseline-01b4164",
+  "sourceManifestSha256": "13edd03d3c088b0be0df014163d950b682a05200dce0a8cc8939d560b68deedc",
+  "toolchain": {
+    "bend": "Bend 2.0.38: check, run, build and publish Bend programs.",
+    "clang": "Debian clang version 14.0.6",
+    "python": "3.11.2",
+    "node": "v24.20.0",
+    "machine": "aarch64"
+  },
+  "dependencies": {
+    "schemaVersion": 1,
+    "bendVersion": "2.0.38",
+    "registry": "https://hub.bend-lang.com",
+    "packages": {
+      "bendvy-ecs-core@0.1.0.1": {
+        "contentHash": "0xf435da9e535b3846d643dad16580e35f",
+        "manifestSha256": "f435da9e535b3846d643dad16580e35fb9ae485317226d9d0325ad1dcaa1fdb0"
+      }
+    }
+  },
+  "checks": {
+    "rawSourceProjectionControls": [
+      {
+        "scenario": "normal",
+        "controls": [
+          "raw-source-damage",
+          "raw-source-xp",
+          "raw-source-generation",
+          "raw-source-status",
+          "representation-clock-positive"
+        ]
+      },
+      {
+        "scenario": "terminal",
+        "controls": [
+          "raw-source-damage",
+          "raw-source-xp",
+          "raw-source-generation",
+          "raw-source-status",
+          "representation-clock-positive"
+        ]
+      },
+      {
+        "scenario": "advanced",
+        "controls": [
+          "raw-source-damage",
+          "raw-source-xp",
+          "raw-source-generation",
+          "raw-source-status",
+          "representation-clock-positive"
+        ]
+      }
+    ],
+    "strictSoloReplay": [
+      {
+        "status": "passed",
+        "fixture": "seed100-profile0-warm0-end1200",
+        "checkpoints": 5,
+        "semanticSha256": "653c6aa980b8dee432e5d809716baa60c74a47a9d0e622b3dc4f4f2b2d9d36b6",
+        "baselineSha256": "8b924d8df2ef562caf0e1e76ca54481d06222459264234af3faf2b1b3420f96e",
+        "candidateSha256": "8b924d8df2ef562caf0e1e76ca54481d06222459264234af3faf2b1b3420f96e",
+        "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+        "comparison": "exact-sparse-ecs",
+        "layout": {
+          "enemyCount": 512,
+          "relicSeed": 511,
+          "playerStart": 512,
+          "hostileStart": 1024,
+          "xpStart": 1056,
+          "totalCount": 1456
+        }
+      },
+      {
+        "status": "passed",
+        "fixture": "seed100-profile0-warm0-end6000",
+        "checkpoints": 4,
+        "semanticSha256": "8f99726da6a940cda7778962be1242c2325ab4cd6acc0f27087d4455a635f979",
+        "baselineSha256": "3dae6f230ae8dc8b1012af536bc49d28e72ebbd6510cb579e250ce822d2352ac",
+        "candidateSha256": "3dae6f230ae8dc8b1012af536bc49d28e72ebbd6510cb579e250ce822d2352ac",
+        "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+        "comparison": "exact-sparse-ecs",
+        "layout": {
+          "enemyCount": 512,
+          "relicSeed": 511,
+          "playerStart": 512,
+          "hostileStart": 1024,
+          "xpStart": 1056,
+          "totalCount": 1456
+        }
+      },
+      {
+        "status": "passed",
+        "fixture": "seed100-profile1-warm0-end1200",
+        "checkpoints": 6,
+        "semanticSha256": "fe8a33d8a29e987ce21efb1f0c2a7a0e1df84e56bb9786fab747aae9473e284e",
+        "baselineSha256": "71166eba2e1aaf473b00cc7670d9f9e49244d87686abf8f4676f7070dbcea2cd",
+        "candidateSha256": "71166eba2e1aaf473b00cc7670d9f9e49244d87686abf8f4676f7070dbcea2cd",
+        "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+        "comparison": "exact-sparse-ecs",
+        "layout": {
+          "enemyCount": 512,
+          "relicSeed": 511,
+          "playerStart": 512,
+          "hostileStart": 1024,
+          "xpStart": 1056,
+          "totalCount": 1456
+        }
+      }
+    ],
+    "coop": {
+      "status": "passed",
+      "checkpoints": 6,
+      "tick": 1199,
+      "playerIds": [
+        0,
+        1
+      ],
+      "actualPlayerColumn": true
+    },
+    "analyticContactBirth": "PASS Core contact receipts against analytic sweep, AoE edge, lethal pre-loot geometry, and reused-seed newborn fixtures",
+    "existingComparatorTests": {
+      "replay": 13,
+      "migration": 11,
+      "status": "passed"
+    },
+    "dependencyAudit": "passed after initializing pinned proof-only bendlib submodule",
+    "diffCheck": "passed"
+  },
+  "baselineTimings": [
+    {
+      "scenario": "normal",
+      "summary": {
+        "type": "replay-summary",
+        "fixture": "seed100-profile0-warm0-end1200",
+        "windowMs": 12178,
+        "windowActions": 920,
+        "firstTick": 0,
+        "endTick": 920,
+        "phase": 3,
+        "stateDigest32": 2360485169
+      },
+      "wallSeconds": 12.346851445036009,
+      "loadAverage": [
+        16.89794921875,
+        10.5146484375,
+        6.63818359375
+      ]
+    },
+    {
+      "scenario": "terminal",
+      "summary": {
+        "type": "replay-summary",
+        "fixture": "seed100-profile0-warm0-end6000",
+        "windowMs": 6794,
+        "windowActions": 671,
+        "firstTick": 0,
+        "endTick": 671,
+        "phase": 3,
+        "stateDigest32": 641087813
+      },
+      "wallSeconds": 6.9605697768274695,
+      "loadAverage": [
+        16.02490234375,
+        10.439453125,
+        6.63427734375
+      ]
+    }
+  ],
+  "performanceConclusion": "Diagnostic reference samples only under recorded background load. No candidate measured and no performance acceptance claimed; final bounded paired series required.",
+  "commands": [
+    "bend examples/survivors/native-replay.bend -o ARTIFACT/native-replay",
+    "bend examples/survivors/{game,coop-core,native-replay-common}.bend -o ARTIFACT/MODULE.mjs (each separately)",
+    "node tools/survivors-bot/qualification-trace-capture.mjs COMMON GAME HISTORICAL_TRACE OUT TARGET [STATIONARY]",
+    "NIGHTFALL_REPLAY_TRACE=TRACE NIGHTFALL_REPLAY_CHECKPOINT_EVERY=300 ARTIFACT/native-replay +RTS --threads 1 -RTS",
+    "python3 tools/survivors-bot/qualification_projection.py RAW --output FACTS",
+    "node tools/survivors-bot/qualification-coop-capture.mjs CORE ARTIFACT/coop.json",
+    "COOP_CORE_MODULE=CORE COOP_GAME_MODULE=GAME node examples/survivors/coop-hit-source-check.mjs",
+    "python3 tools/survivors-bot/replay_compare_test.py",
+    "python3 tools/survivors-bot/ecs_migration_compare_test.py",
+    "python3 scripts/check-dependencies.py"
+  ],
+  "artifacts": {
+    "advanced-trace-capture.log": {
+      "sha256": "b3f3f11738042cec79052a20fe176e497be726756af6dd222f6555b321dcbdcb",
+      "bytes": 80
+    },
+    "advanced.trace": {
+      "sha256": "f2e03d5bde56a58cad6d4da706335d6c94d716dd689750c9b6ddfb699d4a558b",
+      "bytes": 36154
+    },
+    "baseline-timings.json": {
+      "sha256": "a2c1da3b3f7a836e00b247d097a83de1324c0906a9ca3eea0dbf0f0d484524ff",
+      "bytes": 842
+    },
+    "build-common.log": {
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679",
+      "bytes": 42
+    },
+    "build-coop.log": {
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679",
+      "bytes": 42
+    },
+    "build-game.log": {
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679",
+      "bytes": 42
+    },
+    "build-native.log": {
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679",
+      "bytes": 42
+    },
+    "controls.json": {
+      "sha256": "cc9d93c34b0f4a915edb4557b4e09f7ede968310ed75c8f8b4356d869d66a998",
+      "bytes": 744
+    },
+    "coop-capture.log": {
+      "sha256": "70fdcc282b5eb9674589f6cfe64bc5fc523acce3a4bbbd0d64bc527edeaabc6d",
+      "bytes": 92
+    },
+    "coop-core.mjs": {
+      "sha256": "97a9798c7e53c0e9c05cc93b3c10d5be2c9df3cb37e955e1a185b863e6e56f81",
+      "bytes": 1734545
+    },
+    "coop-hit-source.log": {
+      "sha256": "864fc1278990a5cbe04a4f95127ca920f5d3f35929b35e65aaeefa00f62cb937",
+      "bytes": 120
+    },
+    "coop.json": {
+      "sha256": "b42c33f7d879c02fcc5258acc0663e8947a6c4da70990eb49018795ec7912af8",
+      "bytes": 12517565
+    },
+    "game.mjs": {
+      "sha256": "c1bb4e568ec2ee3985d469933b2a040b00d7ded74bc7fe4976f25e4c9e1d03d5",
+      "bytes": 1296575
+    },
+    "layout.json": {
+      "sha256": "bc97652d52b5fbf2cd922e92e3f29e3819802f476a0c8037e498da07c9813c3c",
+      "bytes": 117
+    },
+    "native-replay": {
+      "sha256": "a579c781e366872c7c5ba1ae200521f0dfd8910423e37987908f70be919c5230",
+      "bytes": 2971520
+    },
+    "native-replay-common.mjs": {
+      "sha256": "c6b7b0c39a66afff70bd931a427908bcd8b3987c53d87e5b5bb06bafef90c2cb",
+      "bytes": 1399668
+    },
+    "normal-timed.jsonl": {
+      "sha256": "d11d31ff037bf099b545aa671c9eb57eff054f482850eda72b5b126838a734f5",
+      "bytes": 833632
+    },
+    "normal-timed.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "normal.trace": {
+      "sha256": "e50e70618caa2ec2fd135634b59d8d252c6550b1938e5e8c446c296f1d9d4acc",
+      "bytes": 27516
+    },
+    "observer.patch": {
+      "sha256": "3d74b7cd6c31a40267fb43f69547396bf4f9bffa09b4a19ec58e70df1f09eb5c",
+      "bytes": 4280
+    },
+    "solo-advanced.facts.json": {
+      "sha256": "eebb757048825c39bbb8f0479bd0cedaa77f545911ceb51b6fb77ed6f913dec6",
+      "bytes": 2935850
+    },
+    "solo-advanced.jsonl": {
+      "sha256": "71166eba2e1aaf473b00cc7670d9f9e49244d87686abf8f4676f7070dbcea2cd",
+      "bytes": 2737726
+    },
+    "solo-advanced.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "solo-dense.jsonl": {
+      "sha256": "09ed0dda87086ebfe1f426829ee0afff86f795631bd0dacc3c58345258be0be1",
+      "bytes": 133
+    },
+    "solo-dense.stderr": {
+      "sha256": "ce328f1951e9999ccf95508db310a507e7ec235fa59f45c881599a230221a024",
+      "bytes": 82
+    },
+    "solo-normal.facts.json": {
+      "sha256": "5d90f09e01950a0d171b7a08fc152f7db52bf5b578216afe49ef78800da77bba",
+      "bytes": 2400691
+    },
+    "solo-normal.jsonl": {
+      "sha256": "8b924d8df2ef562caf0e1e76ca54481d06222459264234af3faf2b1b3420f96e",
+      "bytes": 2257983
+    },
+    "solo-normal.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "solo-terminal.facts.json": {
+      "sha256": "cb41138b81d8792f2903c97948d9bb5c55f33e64770170c157de57373e4762ff",
+      "bytes": 1869665
+    },
+    "solo-terminal.jsonl": {
+      "sha256": "3dae6f230ae8dc8b1012af536bc49d28e72ebbd6510cb579e250ce822d2352ac",
+      "bytes": 1780754
+    },
+    "solo-terminal.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "source-manifest.json": {
+      "sha256": "13edd03d3c088b0be0df014163d950b682a05200dce0a8cc8939d560b68deedc",
+      "bytes": 62724
+    },
+    "source.tar.gz": {
+      "sha256": "0ac463d02e88be753f967e565cc3ac724641845bbc34ee7c311139463aa4975f",
+      "bytes": 6658267
+    },
+    "strict-replay-receipts.json": {
+      "sha256": "efb2550aa743cca14ff9274a91acf8340cacd389de72c5ca24a74584dfd601d6",
+      "bytes": 2337
+    },
+    "terminal-timed.jsonl": {
+      "sha256": "9a8472b89961f03acd7d5b847b85b0668c5a60d90fa30adfddb9eacb03e09a23",
+      "bytes": 832499
+    },
+    "terminal-timed.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "terminal-trace-capture.log": {
+      "sha256": "046685546af5fe91611153e3a6c2395df9b600530e1d873c051e4a3eeefae943",
+      "bytes": 78
+    },
+    "terminal.trace": {
+      "sha256": "fa88cb5791f9a91c823bd9bdc077da3b78b1b37af4376f6173ec587066afa498",
+      "bytes": 7978
+    },
+    "trace-capture.log": {
+      "sha256": "98f165d8ea209077b0dd3d4b9f1d3d5a164500ca40e6140d6cacc94107a39ba1",
+      "bytes": 78
+    }
+  },
+  "limitations": [
+    "Finite captured scenarios, not whole-game equivalence or full balance qualification.",
+    "Co-op complementary full-state capture validates actual players beyond pool; pooled sparse replay validator remains solo-only.",
+    "Existing historical trace schedules failed current-source phase matching; new public-input actions frozen from current state.",
+    "Full platform/functional qualification intentionally belongs to issue10."
+  ]
+}

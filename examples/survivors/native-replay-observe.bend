@@ -159,12 +159,12 @@ def logical_rows(fuel: Nat,+id: U32,state: LogicalColumns & List<&2,String>) -> 
   match fuel state:
     case 0n Tuple{columns,reversed}: (columns,join(List.reverse(&2,String,reversed)))
     case 1n+rest Tuple{columns,reversed}: logical_rows(rest,(id + 1 : U32),logical_row_accumulated(reversed,logical_row(id,columns)))
-def logical_store_done(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.Vitals>,p: Col.Column<G.Schema,G.Pickup>,r: Col.Column<G.Schema,GRole.Role>,movement: G.MovementRoster,candidates: G.CandidateRoster,result: LogicalColumns & String) -> G.Store & String:
+def logical_store_done(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.Vitals>,p: Col.Column<G.Schema,G.Pickup>,r: Col.Column<G.Schema,GRole.Role>,movement: G.MovementRoster,candidates: G.CandidateRoster,players: Col.Column<G.Schema,G.PlayerRecord>,result: LogicalColumns & String) -> G.Store & String:
   match result:
-    case (LogicalColumns{t,s},text): (G.Store{b,v,t,s,p,r,movement,candidates},text)
+    case (LogicalColumns{t,s},text): (G.Store{b,v,t,s,p,r,movement,candidates,players},text)
 def logical_store(store: G.Store) -> G.Store & String:
   match store:
-    case G.Store{b,v,t,s,p,r,movement,candidates}: logical_store_done(b,v,p,r,movement,candidates,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
+    case G.Store{b,v,t,s,p,r,movement,candidates,players}: logical_store_done(b,v,p,r,movement,candidates,players,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
 def observed_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,rest: Rest,result: Col.Column<G.Schema,C> & String) -> G.Store & String:
   match result:
     case (column,text): (put(rest,column),text)
@@ -175,7 +175,7 @@ def observed_column(~C: Type,~V: Data,~Rest: Type,~take: G.Store -> Rest & Col.C
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
 def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: G.Store & String) -> G.Store & String:
   match result:
-    case (G.Store{b,v,t,s,p,r,+movement,+candidates},ms): (G.Store{b,v,t,s,p,r,movement,candidates},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players},ms): (G.Store{b,v,t,s,p,r,movement,candidates,players},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
 def store_role(bs: String,vs: String,ts: String,ss: String,ps: String,result: G.Store & String) -> G.Store & String:
   match result:
     case (owner,rs): store_logical(bs,vs,ts,ss,ps,rs,logical_store(owner))
@@ -365,7 +365,7 @@ def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: G.Store -> Rest & Co
   force_column_split(~C,~V,~Rest,~put,~project,~fold,acc,take(store))
 def force_store_routing(result: G.Store & U32) -> G.Store & U32:
   match result:
-    case (G.Store{b,v,t,s,p,r,+movement,+candidates},acc): (G.Store{b,v,t,s,p,r,movement,candidates},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
+    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players},acc): (G.Store{b,v,t,s,p,r,movement,candidates,players},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
 def force_store_role(result: G.Store & U32) -> G.Store & U32:
   match result:
     case (owner,acc): force_store_routing((owner,acc))
