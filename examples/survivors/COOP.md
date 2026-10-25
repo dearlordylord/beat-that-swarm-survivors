@@ -102,3 +102,10 @@ releases the connection and restores setup editing.
 
 The accepted menu study was variant B (separate Co-op hall in the shared menu).
 The throwaway study and its local server have been removed.
+
+## Requested follow-ups
+
+After the SEO/share-card work:
+
+- Fix touch movement choosing diagonals almost everywhere; verify cardinal and diagonal directions on mobile.
+- Revisit the two-player limit. It is currently in the session and one-peer transport adapter, not merely the Co-op hall. Support more guests and make the actual capacity clear in the UI. Remind the user after the touch-control task.

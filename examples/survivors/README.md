@@ -105,6 +105,14 @@ Before editing the Site checkout, open it with the Sites source helper. Prepare 
 
 Do not publish by manually copying an old `dist/web`. This procedure guarantees the prepared artifact matches the checked local source snapshot; it does not make later source edits or a Git push deploy themselves.
 
+## Search and link previews
+
+Astro renders the metadata for both `/` and `/coop.html` into the HTML head.
+The shared [SEO module](seo.mjs) owns titles, descriptions, canonical URLs,
+Open Graph, large Twitter cards and JSON-LD. Invitation parameters never enter
+these tags. Static [share images](social/README.md), robots.txt and sitemap.xml
+are included in every web build. The build checks their output before publishing.
+
 ## Music
 
 Adaptive chip-metal shares its Bend score and danger assessment through
