@@ -221,7 +221,33 @@ def enemy_observations(snapshots: List<&2,Snapshot>) -> List<&2,Enemy.State>:
     case EnemySnapshot{enemy} <> rest: enemy <> enemy_observations(rest)
     case _ <> rest: enemy_observations(rest)
 type State is Type: State{world: Storage.World(),run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
-type Observation is Data: Observation{run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,enemies: List<&2,Enemy.State>}
+type ActorRef is Data: EnemyRef{identity: U32} BodyRef{identity: U32} ProjectileRef{identity: U32}
+def snapshot_render_ref(snapshot: Snapshot) -> Maybe<&2,ActorRef>:
+  match snapshot:
+    case EnemySnapshot{Enemy.State{_,_,identity,_,_}}: Some{EnemyRef{identity}}
+    case ProjectileSnapshot{Shot.State{_,identity,_,Components.ShotPayload{_,_,True{}},_}}: Some{ProjectileRef{identity}}
+    case ProjectileSnapshot{_}: None{}
+    case Snapshot{Components.Body{_,_,8,_,_,_,_,_,_},_}: None{}
+    case Snapshot{Components.Body{_,_,_,_,_,_,_,identity,_},_}: Some{BodyRef{identity}}
+def keep_render_ref(reference: Maybe<&2,ActorRef>,tail: List<&2,ActorRef>) -> List<&2,ActorRef>:
+  match reference:
+    case Some{reference}: reference <> tail
+    case None{}: tail
+def render_order(snapshots: List<&2,Snapshot>) -> List<&2,ActorRef>:
+  match snapshots:
+    case []: []
+    case snapshot <> rest: keep_render_ref(snapshot_render_ref(snapshot),render_order(rest))
+def keep_projectile_observation(present: Bool,projectile: Shot.State,tail: List<&2,Shot.State>) -> List<&2,Shot.State>:
+  match present:
+    case True{}: projectile <> tail
+    case False{}: tail
+def projectile_observations(snapshots: List<&2,Snapshot>) -> List<&2,Shot.State>:
+  match snapshots:
+    case []: []
+    case ProjectileSnapshot{+projectile} <> rest: keep_projectile_observation(Shot.present(projectile),projectile,projectile_observations(rest))
+    case _ <> rest: projectile_observations(rest)
+type Observation is Data: Observation{run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,enemies: List<&2,Enemy.State>,order: List<&2,ActorRef>,projectiles: List<&2,Shot.State>}
+
 type Packet is Type: Packet{state: State}
   Failed{error: String}
 def at(values: List<&2,U32>,index: U32) -> U32:

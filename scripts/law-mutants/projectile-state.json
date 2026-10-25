@@ -5,7 +5,7 @@
     "old": "State{Space.Spatial{x,y,0,radius},identity,side,Components.ShotPayload{weapon,damage,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}}",
     "new": "State{Space.Spatial{x,y,0,radius},identity,side,Components.ShotPayload{weapon,(damage + 1 : U32),True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}}",
     "proof": "examples/survivors/projectile-state/PROOF.bend",
-    "law": "created_damage"
+    "law": "created_exact"
   },
   {
     "label": "projectile birth clears old target history",
@@ -13,6 +13,6 @@
     "old": "Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot}",
     "new": "Components.Trajectory{vx,vy,life,pierce,[999],owner,logicalSlot}",
     "proof": "examples/survivors/projectile-state/PROOF.bend",
-    "law": "created_history"
+    "law": "created_exact"
   }
 ]
