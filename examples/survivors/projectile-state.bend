@@ -14,6 +14,10 @@ type SpawnInput is Data: SpawnInput{tick: U32,px: F32,py: F32,dx: F32,dy: F32,tx
 type StepInput is Data: StepInput{px: F32,py: F32,tx: F32,ty: F32,reflect: Bool}
 type Schedule is Data: Schedule{tick: U32,character: U32,weapons: List<&2,U32>,passives: List<&2,U32>,invulnerability: U32,arcana: U32,meta: U32}
 
+def schedule_tick(value: Schedule) -> U32:
+  match value:
+    case Schedule{tick,_,_,_,_,_,_}: tick
+
 def empty_trajectory() -> Components.Trajectory: Components.Trajectory{0.0,0.0,0,0,[],0,0}
 def dormant(x: F32,y: F32,identity: U32) -> State: State{Space.Spatial{x,y,0,0.0},identity,Components.ShotPayload{0,0,False{}},empty_trajectory()}
 def identity(state: State) -> U32:

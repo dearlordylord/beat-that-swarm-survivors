@@ -102,7 +102,7 @@ def any_request(rows:List<&2,SP.Request>) -> Bool:
     case _: True{}
 def may_fire(view:G.PlayerView) -> Bool:
   match view:
-    case G.PlayerView{_,+run,_,_,_}: any_request(G.shot_requests(24n,(G.run_tick(run) % Pool.owner_count() : U32),run,G.empty_owner_counts()))
+    case G.PlayerView{_,+run,_,_,_}: any_request(G.shot_requests(24n,(G.run_tick(run) % Pool.owner_count() : U32),G.shot_schedule(run),G.empty_owner_counts()))
 def may_fire_any(rows:List<&2,G.PlayerView>) -> Bool:
   match rows:
     case []: False{}
