@@ -152,7 +152,7 @@ def initial_enemy_phase(kind: U32,archetype: U32) -> Enemy.Phase:
   match kind:
     case 0: Enemy.ActiveEnemy{archetype}
     case 8: Enemy.Dormant{archetype}
-    case _: Enemy.OccupiedByLoot{}
+    case _: Enemy.OccupiedByLoot{archetype}
 def populate_enemy_slot(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
   match body:
     case Components.Body{_,_,kind,archetype,_,_,_,_,_}: phase_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,Storage.phase_family(),populate_enemy(world,handle,body),handle,Some{initial_enemy_phase(kind,archetype)}))
@@ -287,12 +287,7 @@ def music_danger(hp: U32,maxHp: U32,+px: F32,+py: F32,rows: List<&2,Components.B
 
 # Early growth is quick; quadratic later costs prevent serial upgrade interruptions.
 def next_xp_need(+level: U32) -> U32: (40 + level * 6 + level * level / 3 : U32)
-def enemy_at(point: S.Point,+seed: U32,+tick: U32,+variant: U32,+stage: U32,+curse: U32) -> Components.Body:
-  match point:
-    case S.Point{x,y}: Components.Body{x,y,0,variant,(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),(U32.max(E.health(variant,tick,stage),(10000000 * Bool.to_u32(U32.is_eq(variant,30)) : U32)) * (100 + curse) / 100 : U32),0,seed,E.radius(variant)}
 # Entity seeds remain stable pool identities; run entropy changes only spawn placement.
-def enemy_new_seed(+slot: U32,+entropy: U32,+tick: U32,px: F32,py: F32,+variant: U32,stage: U32,curse: U32) -> Components.Body:
-  enemy_at(S.choose((slot + (entropy - 12345) * 31 : U32),tick,px,py,E.radius(variant)),slot,tick,variant,stage,curse)
 # Ordinary waves use a 300 baseline; Curse may raise admission up to 500.
 def active_limit(+tick: U32) -> U32: U32.min(PL.normal_enemy_cap(),(96 + tick / 50 : U32))
 def initial_body(+slot: U32) -> Components.Body: Components.Body{0.0,0.0,8,slot,0,0,slot,slot,0.0}
@@ -413,17 +408,14 @@ type Args is Data: Args{run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapsh
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
 type Row is Data: Row{body: Components.Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
 type Error is Data: MissingBody{}
-type Ops<-H: Type> is Type: Ops{body: Cap.Read<H,Components.Body>,vitals: Cap.Write<H,Components.Vitals,Components.Vitals>,status: Cap.Write<H,Components.Status,Components.Status>,spatial: Cap.Read<H,Space.Spatial>}
+type Ops<-H: Type> is Type: Ops{vitals: Cap.Write<H,Components.Vitals,Components.Vitals>,status: Cap.Write<H,Components.Status,Components.Status>,spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,phase: Cap.Write<H,Enemy.Phase,Enemy.Phase>,identity: Cap.Read<H,Components.Identity>}
 def OpsType(H: Type) -> Type: Ops<H>
-def body_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Components.Body>:
-  match ops:
-    case Ops{body,_,_,_}: body
 def vital_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Vitals,Components.Vitals>:
   match ops:
-    case Ops{_,vitals,_,_}: vitals
+    case Ops{vitals,_,_,_,_}: vitals
 def status_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Status,Components.Status>:
   match ops:
-    case Ops{_,_,status,_}: status
+    case Ops{_,status,_,_,_}: status
 def loot_collected(found: Bool,+body: Components.Body,+kind: U32,+amount: U32) -> Row:
   match found body:
     case False{} body: Row{body,0,0,0,0,0,0,0}
@@ -437,70 +429,22 @@ def loot_update(body: Components.Body,run: Run) -> Row:
   match body run:
     case Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{RS.Session{_,_,_,_,_,_,_,_,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,+character,_,+passives,_,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
       loot_collected(pickup_admission(x,y,px,py,pickup_radius(passives,meta,arcana,character),age,kind),Components.Body{x,y,kind,variant,hp,maxHp,(age + 1 : U32),seed,radius},kind,Bool.pick(U32,U32.is_eq(kind,2),hp,(2 + U32.min(4,(variant / 4 : U32)) : U32)))
-def enemy_spatial_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Space.Spatial>:
+def enemy_spatial_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
   match ops:
-    case Ops{_,_,_,spatial}: spatial
-def enemy_result_at(+hp: U32,+x: F32,+y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
-  match hp:
-    case 0: Row{Components.Body{LootPlacement.place(x),LootPlacement.place(y),loot_kind(seed,variant),variant,0,maxHp,0,seed,6.0},0,0,0,0,0,1,0}
-    case +hp: Row{Components.Body{x,y,0,variant,hp,maxHp,age,seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0}
-def enemy_result(+hp: U32,x: F32,y: F32,+variant: U32,+maxHp: U32,+age: U32,+seed: U32,+radius: F32,+px: F32,+py: F32) -> Row:
-  enemy_result_at(hp,A.constrain(x,radius),A.constrain(y,radius),variant,maxHp,age,seed,radius,px,py)
-def enemy_update(body: Components.Body,run: Run) -> Row:
-  match body run:
-    case Components.Body{+x,+y,_,+variant,+hp,+maxHp,+age,+seed,+radius} Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: Row{Components.Body{x,y,0,variant,hp,maxHp,age,seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0}
-def admit_enemy(admission: S.Admission,candidate: Components.Body,previous: Components.Body) -> Row:
-  match admission:
-    case S.Admit{}: Row{candidate,0,0,0,0,0,0,0}
-    case S.Reject{}: Row{previous,0,0,0,0,0,0,0}
-def candidate_enemy(candidate: Components.Body,previous: Components.Body,px: F32,py: F32) -> Row:
-  match candidate:
-    case Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}:
-      admit_enemy(S.admission(x,y,px,py,radius),Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},previous)
-def dormant_spawn(active: Bool,+seed: U32,+entropy: U32,+tick: U32,+px: F32,+py: F32,+variant: U32,+stage: U32,+curse: U32,+body: Components.Body) -> Row:
-  match active:
-    case True{}: candidate_enemy(enemy_new_seed(seed,entropy,tick,px,py,variant,stage,curse),body,px,py)
-    case False{}: Row{body,0,0,0,0,0,0,0}
+    case Ops{_,_,spatial,_,_}: spatial
+def enemy_phase_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Enemy.Phase,Enemy.Phase>:
+  match ops:
+    case Ops{_,_,_,phase,_}: phase
+def enemy_identity_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Components.Identity>:
+  match ops:
+    case Ops{_,_,_,_,identity}: identity
 # Spawn cadence rejects five of six slots before evaluating wave limits or
 # passive ranks. Variant and curse are only materialized for admitted spawns.
-def dormant_admitted(active: Bool,+seed: U32,+body: Components.Body,run: Run) -> Row:
-  match active run:
-    case False{} _: Row{body,0,0,0,0,0,0,0}
-    case True{} Run{RS.Session{_,+tick,_,_,_,_,_,+rng,+stage,_,+mode,_,_},RS.PlayerState{+px,+py,_,_,+character,_,+passives,_,+arcana,_,_,_,_,_,_,_}}:
-      dormant_spawn(True{},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,E.variant(stage,wave_tick(mode,tick),seed),stage,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),body)
-def dormant_scheduled_for(players: U32,scheduled: Bool,+seed: U32,+body: Components.Body,+run: Run) -> Row:
-  match scheduled run:
-    case False{} _: Row{body,0,0,0,0,0,0,0}
-    case True{} Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,_,_},RS.PlayerState{_,_,_,_,_,_,+passives,_,+arcana,_,_,_,_,_,_,_}}:
-      dormant_admitted(U32.is_lt((seed % PL.player_start() : U32),PartyDifficulty.spawn_limit((active_limit(wave_tick(mode,tick)) * (100 + at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32),players)),seed,body,run)
-def dormant_scheduled(scheduled: Bool,seed: U32,body: Components.Body,run: Run) -> Row:
-  dormant_scheduled_for(1,scheduled,seed,body,run)
-def dormant_for(players: U32,body: Components.Body,+run: Run) -> Row:
-  match body run:
-    case Components.Body{+x,+y,_,+variant,_,+maxHp,+age,+seed,_} Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
-      dormant_scheduled_for(players,U32.is_eq(((tick + seed) % 6 : U32),0),seed,Components.Body{x,y,8,variant,0,maxHp,(age + 1 : U32),seed,0.0},run)
-def dormant(body: Components.Body,run: Run) -> Row: dormant_for(1,body,run)
-def update_body(body: Components.Body,run: Run) -> Row:
-  match body:
-    case Components.Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius}: enemy_update(Components.Body{x,y,0,variant,hp,maxHp,age,seed,radius},run)
-    case Components.Body{+x,+y,8,+variant,+hp,+maxHp,+age,+seed,+radius}: dormant(Components.Body{x,y,8,variant,hp,maxHp,age,seed,radius},run)
-    case body: loot_update(body,run)
-def boss_variant(finale: Bool,tick: U32,stage: U32) -> U32:
-  match finale:
-    case True{}: 30
-    case False{}: (20 + stage * 2 + ((tick / 7200) % 2) : U32)
-def update_selected(boss: Bool,finale: Bool,+body: Components.Body,+run: Run,+seed: U32,+entropy: U32,+tick: U32,+px: F32,+py: F32,+stage: U32) -> Row:
-  match boss:
-    case True{}: candidate_enemy(enemy_new_seed(seed,entropy,tick,px,py,boss_variant(finale,tick,stage),stage,0),body,px,py)
-    case False{}: update_body(body,run)
-def update(body: Components.Body,run: Run) -> Row:
-  match body run:
-    case Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+rng,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+playerHp,+playerMax,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
-      update_selected(Bool.and(U32.is_eq(seed,0),Bool.and(U32.is_lt(0,tick),Bool.or(Bool.and(Bool.or(U32.is_lt(wave_tick(mode,tick),36000),U32.is_eq(mode,2)),U32.is_eq((wave_tick(mode,tick) % 7200 : U32),0)),Bool.or(U32.is_eq(wave_tick(mode,tick),34200),U32.is_eq(wave_tick(mode,tick),36000))))),Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_eq(wave_tick(mode,tick),36000)),Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Run{RS.Session{phase,tick,xp,need,level,kills,gold,rng,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,playerHp,playerMax,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,stage)
 type EntityRow is Data:
   EntityRow{row: Row,motion: Motion}
   EnemyRow{outcome: Enemy.Outcome,credit: Enemy.Credit}
   ProjectileRow{outcome: Shot.Outcome}
+type EnemyQueryResult is Data: EnemyReady{row: EntityRow} LootRequest{advance: Bool}
 # Spatial snapshots are only observations; Q capabilities own all three components.
 type Aim is Data: Aim{x: F32,y: F32,id: U32,distance: F32}
 def prefer_aim(closer: Bool,+x: F32,+y: F32,+id: U32,+distance: F32,rest: Aim) -> Aim:
@@ -685,31 +629,15 @@ def collisions(rows: List<&2,HitPlan>,+x: F32,+y: F32,+radius: F32,+target: U32)
   match rows:
     case []: Collision{0,0,0,0,0,0.0,0.0}
     case HitPlan{_,+id,+damage,+tx,+ty,+r,+area,+targets} <> rest: collision_add(hit_recipient(area,targets,target,x,y,radius,tx,ty,r),id,damage,tx,ty,collisions(rest,x,y,radius,target))
-def lucky_row(row: Row,+luck: U32) -> Row:
-  match row:
-    case Row{Components.Body{+x,+y,+kind,+variant,0,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,1,+relic}: Row{Components.Body{x,y,choose_id(U32.is_lt(variant,20),lucky_kind(seed,luck),kind),variant,0,maxHp,age,seed,radius},hit,xp,gold,heal,chest,1,0}
-    case row: row
 def pull_x(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
   ((sumX / U32.to_f32(U32.max(1,count)) - x) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
 def pull_y(+x: F32,+y: F32,+sumX: F32,+sumY: F32,+count: U32) -> F32:
   ((sumY / U32.to_f32(U32.max(1,count)) - y) / F32.max(1.0,F32.sqrt(distance2(x,y,(sumX / U32.to_f32(U32.max(1,count)) : F32),(sumY / U32.to_f32(U32.max(1,count)) : F32)))) : F32)
-def enemy_applied_effects(+oldX: F32,+oldY: F32,row: Row,motion: Motion,collision: Collision,run: Run) -> EntityRow:
-  match row motion collision run:
-    case Row{Components.Body{+x,+y,0,+variant,+hp,+maxHp,+age,+seed,+radius},_,_,_,_,_,_,+relic} Motion{_,_,_,_,_,+slow,+burn,_,_} Collision{+damage,+s,+b,+pull,+knock,+pullX,+pullY} Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,_,_,+passives,_,+arcana,_,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
-      EntityRow{lucky_row(enemy_result(Combat.lose(hp,(damage + (2 + 2 * Bool.to_u32(U32.is_eq(arcana,7))) * Bool.to_u32(Bool.and(U32.is_lt(0,burn),U32.is_eq((tick % 30 : U32),0))) : U32)),(oldX + (x - oldX) * slow_factor(U32.max(slow,s)) + (oldX - px) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11)) : F32) + pull_x(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32),(oldY + (y - oldY) * slow_factor(U32.max(slow,s)) + (oldY - py) / F32.max(1.0,F32.sqrt(distance2(oldX,oldY,px,py))) * U32.to_f32(knock) * (6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11)) : F32) + pull_y(oldX,oldY,pullX,pullY,pull) * U32.to_f32(pull) * (3.0 + 4.0 * stat_bonus(arcana,11)) : F32),variant,maxHp,age,seed,radius,px,py),at(passives,10)),Motion{0.0,0.0,0,0,[],U32.max(cool_status(slow),s),U32.max(dec(burn),(b * (1 + Bool.to_u32(U32.is_eq(arcana,7))) : U32)),0,0}}
-    case row motion _ _: EntityRow{row,motion}
 # Dawn's pursuer takes damage but cannot be frozen, slowed or displaced.
-def immune_motion(immune: Bool,motion: Motion) -> Motion:
-  match immune motion:
-    case True{} Motion{vx,vy,life,pierce,visited,_,burn,_,_}: Motion{vx,vy,life,pierce,visited,0,burn,0,0}
-    case False{} motion: motion
 def immune_collision(immune: Bool,collision: Collision) -> Collision:
   match immune collision:
     case True{} Collision{damage,_,burn,_,_,_,_}: Collision{damage,0,burn,0,0,0.0,0.0}
     case False{} collision: collision
-def enemy_applied(+oldX: F32,+oldY: F32,row: Row,motion: Motion,collision: Collision,run: Run) -> EntityRow:
-  match row:
-    case Row{Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},hit,xp,gold,heal,chest,killed,relic}: enemy_applied_effects(oldX,oldY,Row{Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},immune_motion(U32.is_eq(variant,30),motion),immune_collision(U32.is_eq(variant,30),collision),run)
 def relic_result(collected: Bool,+stage: U32,+px: F32,+py: F32) -> EntityRow:
   match collected:
     case True{}: EntityRow{Row{Components.Body{px,py,8,0,0,0,0,PL.relic_seed(),0.0},0,50,75,0,0,0,1},empty_motion()}
@@ -723,9 +651,6 @@ def relic_entity(args: Args) -> EntityRow:
     case Args{run,_,_,_,_,_}: relic_run(run)
 # A reused slot starts a new incarnation: old slows, burns and hits belong
 # to the previous occupant and must never move or damage the admitted spawn.
-def newborn_entity(result: Row & Motion) -> EntityRow:
-  (row,motion) = result
-  EntityRow{row,motion}
 def xp_amount(body: Components.Body) -> U32:
   match body:
     case Components.Body{_,_,2,_,amount,_,_,_,_}: amount
@@ -769,13 +694,13 @@ def selected_role_observed(mode: U32,result: Frame() & C.Access<Role.Role>) -> F
   match result:
     case (frame,C.Found{role}): (frame,selected_role(mode,role))
     case (frame,_): (frame,False{})
-def selected_enemy_body(result: Frame() & C.Access<Components.Body>) -> Frame() & Bool:
+def selected_enemy_phase(result: Frame() & C.Access<Enemy.Phase>) -> Frame() & Bool:
   match result:
-    case (frame,C.Found{Components.Body{_,_,kind,_,_,_,_,_,_}}): (frame,U32.is_eq(kind,0))
+    case (frame,C.Found{phase}): (frame,Enemy.active(phase))
     case (frame,_): (frame,False{})
 def selected_enemy_admitted(result: Frame() & Bool) -> Frame() & Bool:
   match result:
-    case (frame,True{}): selected_enemy_body(Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,~Storage.family(),frame))
+    case (frame,True{}): selected_enemy_phase(Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family(),frame))
     case (frame,False{}): (frame,False{})
 def selected_projectile(frame: Frame()) -> Frame() & Bool: selected_role_observed(0,Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family(),frame))
 def selected_enemy(frame: Frame()) -> Frame() & Bool: selected_enemy_admitted(selected_role_observed(1,Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family(),frame)))
@@ -807,27 +732,22 @@ def projectile_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,Projectil
 
 # Movement writes only spatial state, including the once-per-step age increment.
 # Enemy kind/variant metadata and slow status are read-only.
-type MoveOps<-H: Type> is Type: MoveOps{spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,body: Cap.Read<H,Components.Body>,status: Cap.Read<H,Components.Status>}
+type MoveOps<-H: Type> is Type: MoveOps{spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,phase: Cap.Read<H,Enemy.Phase>,status: Cap.Read<H,Components.Status>}
 def MoveOpsType(H: Type) -> Type: MoveOps<H>
 def move_spatial_cap(~H: Type,ops: MoveOps<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
   match ops:
     case MoveOps{spatial,_,_}: spatial
-def move_body_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Components.Body>:
+def move_phase_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Enemy.Phase>:
   match ops:
-    case MoveOps{_,body,_}: body
+    case MoveOps{_,phase,_}: phase
 def move_status_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Components.Status>:
   match ops:
     case MoveOps{_,_,status}: status
-def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,~Storage.family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family())},selected_enemy}
+def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family())},selected_enemy}
 
 def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster:
   match store:
     case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},movement)
-def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
-  match row:
-    case EntityRow{Row{Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
-      (Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),Cap.set(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx,Components.Vitals{hp,maxHp}),status_of(motion)),(T.Success{},EntityRow{Row{Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}))
-    case _: (ctx,(T.Failure{MissingBody{}},missing_row()))
 type PickupOps<-H: Type> is Type: PickupOps{body: Cap.Read<H,Components.Body>,pickup: Cap.Read<H,Components.Pickup>}
 def PickupOpsType(H: Type) -> Type: PickupOps<H>
 def pickup_body_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Components.Body>:
@@ -847,7 +767,7 @@ def pool_enemy_caps(~H: Type,ops: PoolOps<H>) -> Ops<H>:
 def pool_pickup_caps(~H: Type,ops: PoolOps<H>) -> PickupOps<H>:
   match ops:
     case PoolOps{_,_,pickup}: pickup
-def plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,PoolOpsType>: Q.Plan{PoolOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),Ops{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,~Storage.family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~Storage.vital_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family())},PickupOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,~Storage.family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Components.Pickup,~Components.Pickup,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family())}},selected_pool}
+def plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,PoolOpsType>: Q.Plan{PoolOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),Ops{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~Storage.vital_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())},PickupOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,~Storage.family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Components.Pickup,~Components.Pickup,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family())}},selected_pool}
 
 # Lifecycle dispatch keeps enemy geometry and XP payload grants separate while
 # executing both bodies in the original enclosing transaction and row order.
@@ -964,6 +884,7 @@ def xp_pool_filter(+row: EntityRow,+pool: Bool,rest: List<&2,EntityRow>) -> List
   match row:
     case EntityRow{Row{Components.Body{_,_,_,_,_,_,_,seed,_},_,_,_,_,_,_,_},_}: xp_pool_keep(Bool.or(Bool.and(PL.is_xp(seed),pool),Bool.and(Bool.not(PL.is_xp(seed)),Bool.not(pool))),row,rest)
     case ProjectileRow{_}: xp_pool_keep(Bool.not(pool),row,rest)
+    case EnemyRow{_,_}: xp_pool_keep(Bool.not(pool),row,rest)
 def xp_pool_rows(rows: List<&2,EntityRow>,+pool: Bool) -> List<&2,EntityRow>:
   match rows:
     case []: []
@@ -1124,11 +1045,17 @@ def choose_raw(state: State,+choice: U32) -> Packet:
     case State{world,Run{RS.Session{4,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{4,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
     case state: choose_unchecked(state,choice)
 type Totals is Data: Totals{hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,kills: U32,bodies: List<&2,Components.Body>,snapshots: List<&2,Snapshot>,relic: U32}
+def enemy_snapshot(outcome: Enemy.Outcome,tail: List<&2,Snapshot>) -> List<&2,Snapshot>:
+  match outcome:
+    case Enemy.Alive{enemy,_}: EnemySnapshot{enemy} <> tail
+    case Enemy.Born{newborn}: EnemySnapshot{Enemy.newborn_state(newborn)} <> tail
+    case _: tail
 def accumulate(rows: List<&2,EntityRow>,+hit: U32,+xp: U32,+gold: U32,+heal: U32,+chest: U32,+kills: U32,+bodies: List<&2,Components.Body>,+snapshots: List<&2,Snapshot>,+relicTotal: U32) -> Totals:
   match rows:
     case []: Totals{hit,xp,gold,heal,chest,kills,bodies,snapshots,relicTotal}
     case EntityRow{Row{+body,+h,+x,+g,+he,+c,+k,+relic},+motion} <> rest: accumulate(rest,(hit + h : U32),(xp + x : U32),(gold + g : U32),(heal + he : U32),(chest + c : U32),(kills + k : U32),body <> bodies,Snapshot{body,motion} <> snapshots,(relicTotal + relic : U32))
     case ProjectileRow{Shot.Outcome{+projectile,h}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,kills,bodies,ProjectileSnapshot{projectile} <> snapshots,relicTotal)
+    case EnemyRow{outcome,Enemy.Credit{h,k}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,(kills + k : U32),bodies,enemy_snapshot(outcome,snapshots),relicTotal)
 def phase_for(dead: Bool,won: Bool,chest: Bool,levelup: Bool) -> U32:
   match dead won chest levelup:
     case True{} _ _ _: 3
@@ -1136,10 +1063,14 @@ def phase_for(dead: Bool,won: Bool,chest: Bool,levelup: Bool) -> U32:
     case _ _ True{} _: 2
     case _ _ _ True{}: 1
     case _ _ _ _: 0
+def enemy_archetype(enemy: Enemy.State) -> U32:
+  match enemy:
+    case Enemy.State{_,archetype,_,_,_}: archetype
 def boss_kills(rows: List<&2,EntityRow>) -> U32:
   match rows:
     case []: 0
     case EntityRow{Row{Components.Body{_,_,_,+variant,_,_,_,_,_},_,_,_,_,_,+killed,+relic},_} <> rest: (killed * Bool.to_u32(U32.is_le(20,variant)) + boss_kills(rest) : U32)
+    case EnemyRow{outcome,Enemy.Credit{_,k}} <> rest: (k * Bool.to_u32(U32.is_le(20,enemy_archetype(Enemy.state(outcome)))) + boss_kills(rest) : U32)
     case _ <> rest: boss_kills(rest)
 def earned_xp(+earned: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32) -> U32: (earned * (100 + at(passives,9) * 10 + at(passives,14) * 10 + meta_rank(meta,7) * 5 + 30 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32)
 def player_damage(+hit: U32,+invuln: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
@@ -1179,6 +1110,7 @@ def killed_kinds(rows: List<&2,EntityRow>,+kinds: List<&2,U32>) -> List<&2,U32>:
   match rows:
     case []: kinds
     case EntityRow{Row{Components.Body{_,_,_,+variant,_,_,_,_,_},_,_,_,_,_,1,+relic},_} <> rest: killed_kinds(rest,add_killed_kind(contains(kinds,variant),variant,kinds))
+    case EnemyRow{+outcome,Enemy.Credit{_,1}} <> rest: killed_kinds(rest,add_killed_kind(contains(kinds,enemy_archetype(Enemy.state(outcome))),enemy_archetype(Enemy.state(outcome)),kinds))
     case _ <> rest: killed_kinds(rest,kinds)
     case _ <> rest: killed_kinds(rest,kinds)
 def run_kinds(run: Run) -> List<&2,U32>:
@@ -1281,24 +1213,27 @@ def effect_target_x(stat: effect_EffectStats) -> F32:
 def effect_target_y(stat: effect_EffectStats) -> F32:
   match stat:
     case effect_EffectStats{_,_,y,_,_,_,_}: y
-def effect_apply_resolved(+oldX: F32,+oldY: F32,row: Row,motion: Motion,effects: effect_Effects,+oldBurnDamage: U32,+luck: U32,+target: effect_EffectStats) -> EntityRow:
-  match row motion effects:
-    case Row{Components.Body{+x,+y,0,+variant,+hp,+maximum,+age,+seed,+radius},_,_,_,_,_,_,_} Motion{_,_,_,_,_,+slow,+burn,_,_} effect_Effects{+damage,+freshSlow,+freshBurn,+dx,+dy}:
-      EntityRow{lucky_row(enemy_result(Combat.lose(hp,(damage + oldBurnDamage : U32)),(oldX + (x - oldX) * slow_factor(U32.max(slow,freshSlow)) + dx : F32),(oldY + (y - oldY) * slow_factor(U32.max(slow,freshSlow)) + dy : F32),variant,maximum,age,seed,radius,effect_target_x(target),effect_target_y(target)),luck),Motion{0.0,0.0,0,0,[],U32.max(cool_status(slow),freshSlow),effect_stronger_burn(effect_cool_burn(burn),freshBurn),0,0}}
-    case row motion _: EntityRow{row,motion}
-def effect_with_killer(id: U32,row: EntityRow) -> EntityRow:
-  match row:
-    case EntityRow{Row{+body,+hit,+xp,+gold,+heal,+chest,1,+relic},Motion{vx,vy,life,pierce,visited,slow,burn,_,slot}}: EntityRow{Row{body,hit,xp,gold,heal,chest,1,relic},Motion{vx,vy,life,pierce,visited,slow,burn,id,slot}}
-    case row: row
-def effect_apply_multiple(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,row: Row,motion: Motion,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> EntityRow:
-  match row motion:
-    case Row{Components.Body{+x,+y,0,+variant,+hp,+maximum,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic} Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}:
-      effect_with_killer(effect_indexed_killer(hits,origins,oldX,oldY,radius,seed,hp,effect_burn_source(burn)),effect_apply_resolved(oldX,oldY,Row{Components.Body{x,y,0,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},immune_motion(U32.is_eq(variant,30),Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}),effect_gather(players,hits,origins,oldX,oldY,radius,seed,U32.is_eq(variant,30)),effect_burn_damage(burn,effect_find_stats(players,effect_burn_source(burn))),effect_effect_luck(effect_find_stats(players,effect_indexed_killer(hits,origins,oldX,oldY,radius,seed,hp,effect_burn_source(burn)))),effect_nearest_target(players,oldX,oldY,effect_fallback_stats())))
-    case row motion: EntityRow{row,motion}
-def effect_apply_indexed(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+row: Row,+motion: Motion,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> EntityRow:
-  match players row:
-    case effect_Player{0,run,_} <> [] Row{Components.Body{+x,+y,+kind,+variant,+hp,+maximum,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic}: enemy_applied(oldX,oldY,Row{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion,collisions(hits,oldX,oldY,radius,seed),run)
-    case players row: effect_apply_multiple(players,oldX,oldY,row,motion,hits,origins)
+
+def enemy_single_hit(collision: Collision) -> Enemy.SingleHit:
+  match collision:
+    case Collision{damage,slow,burn,pull,knock,x,y}: Enemy.SingleHit{damage,slow,burn,pull,knock,x,y}
+def enemy_single_offense(run: Run) -> Enemy.SingleOffense:
+  match run:
+    case Run{RS.Session{_,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{px,py,_,_,_,_,+passives,_,+arcana,_,_,_,_,_,_,_}}: Enemy.SingleOffense{tick,px,py,(6.0 * (1.0 + U32.to_f32(at(passives,16)) * 0.15 + 0.75 * stat_bonus(arcana,11)) : F32),(3.0 + 4.0 * stat_bonus(arcana,11) : F32),(1 + Bool.to_u32(U32.is_eq(arcana,7)) : U32),(2 + 2 * Bool.to_u32(U32.is_eq(arcana,7)) : U32),at(passives,10)}
+def enemy_effects_single(oldX: F32,oldY: F32,+enemy: Enemy.State,collision: Collision,run: Run) -> Enemy.Outcome:
+  match enemy:
+    case Enemy.State{_,archetype,_,_,_}: Enemy.resolve_single(oldX,oldY,Enemy.immune(enemy),enemy_single_hit(immune_collision(U32.is_eq(archetype,30),collision)),enemy_single_offense(run))
+def enemy_effects_resolved(oldX: F32,oldY: F32,+enemy: Enemy.State,effects: effect_Effects,oldBurnDamage: U32,luck: U32,+target: effect_EffectStats,killer: U32) -> Enemy.Outcome:
+  match enemy effects:
+    case Enemy.State{_,_,_,_,Components.Status{+slow,+burn}} effect_Effects{damage,+freshSlow,freshBurn,dx,dy}: Enemy.resolve(enemy,oldX,oldY,Enemy.Effects{damage,freshSlow,dx,dy},Components.Status{U32.max(cool_status(slow),freshSlow),effect_stronger_burn(effect_cool_burn(burn),freshBurn)},oldBurnDamage,luck,effect_target_x(target),effect_target_y(target),Some{killer})
+def enemy_effects_multiple(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+enemy: Enemy.State,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> Enemy.Outcome:
+  match enemy:
+    case Enemy.State{Space.Spatial{_,_,_,+radius},+archetype,+identity,Components.Vitals{+health,_},Components.Status{_,+burn}}:
+      enemy_effects_resolved(oldX,oldY,Enemy.immune(enemy),effect_gather(players,hits,origins,oldX,oldY,radius,identity,U32.is_eq(archetype,30)),effect_burn_damage(burn,effect_find_stats(players,effect_burn_source(burn))),effect_effect_luck(effect_find_stats(players,effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,effect_burn_source(burn)))),effect_nearest_target(players,oldX,oldY,effect_fallback_stats()),effect_indexed_killer(hits,origins,oldX,oldY,radius,identity,health,effect_burn_source(burn)))
+def enemy_effects_indexed(+players: List<&2,effect_Player>,+oldX: F32,+oldY: F32,+enemy: Enemy.State,+hits: List<&2,HitPlan>,+origins: BI.Index<U32>) -> Enemy.Outcome:
+  match players enemy:
+    case effect_Player{0,run,_} <> [] Enemy.State{Space.Spatial{_,_,_,radius},_,identity,_,_}: enemy_effects_single(oldX,oldY,enemy,collisions(hits,oldX,oldY,radius,identity),run)
+    case players _: enemy_effects_multiple(players,oldX,oldY,enemy,hits,origins)
 
 type PlayerView is Data: PlayerView{id: U32,run: Run,dx: F32,dy: F32,eligible: Bool}
 type Team is Data: Team{players: List<&2,PlayerView>,base: Args,plan: SP.Plan,origins: BI.Index<U32>}
@@ -1563,13 +1498,13 @@ def team_move_status(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,v
   match result:
     case (ctx,C.Found{Components.Status{slow,_}}): (Cap.set(~H,~Space.Spatial,~Space.Spatial,~move_spatial_cap(~H,ops),ctx,team_move_space(team,space,variant,slow)),(T.Success{},Unit{}))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
-def team_move_metadata(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,result: H & C.Access<Components.Body>) -> H & (T.Outcome<Error> & Unit):
+def team_move_metadata(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{Components.Body{_,_,_,variant,_,_,_,_,_}}): team_move_status(~H,~ops,team,space,variant,Cap.read(~H,~Components.Status,~move_status_cap(~H,ops),ctx))
+    case (ctx,C.Found{Enemy.ActiveEnemy{archetype}}): team_move_status(~H,~ops,team,space,archetype,Cap.read(~H,~Components.Status,~move_status_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
 def team_move_spatial(~H: Type,~ops: MoveOps<H>,team: Team,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{space}): team_move_metadata(~H,~ops,team,space,Cap.read(~H,~Components.Body,~move_body_cap(~H,ops),ctx))
+    case (ctx,C.Found{space}): team_move_metadata(~H,~ops,team,space,Cap.read(~H,~Enemy.Phase,~move_phase_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
 def team_move_system(~H: Type,~ops: MoveOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & Unit): team_move_spatial(~H,~ops,team,Cap.get(~H,~Space.Spatial,~Space.Spatial,~move_spatial_cap(~H,ops),ctx))
 
@@ -1599,10 +1534,6 @@ def outside_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius: F32) -> 
   match views:
     case []: True{}
     case +view <> rest: Bool.and(Bool.or(Bool.not(view_alive(view)),S.admissible(x,y,run_px(moved_run(view)),run_py(moved_run(view)),radius)),outside_players(rest,x,y,radius))
-def spawn_gate(allowed: Bool,previous: Components.Body,row: EntityRow) -> EntityRow:
-  match allowed:
-    case True{}: row
-    case False{}: EntityRow{Row{previous,0,0,0,0,0,0,0},empty_motion()}
 def multiple_views(views: List<&2,PlayerView>) -> Bool:
   match views:
     case []: False{}
@@ -1618,87 +1549,150 @@ def outside_predicted_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius
   match views:
     case []: True{}
     case +view <> rest: Bool.and(Bool.or(Bool.not(view_alive(view)),PredictionSpawn.admissible(x,y,spawn_camera(view),radius)),outside_predicted_players(rest,x,y,radius))
-def positioned_birth(row: EntityRow,point: S.Point) -> EntityRow:
-  match row point:
-    case EntityRow{Row{Components.Body{_,_,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion} S.Point{x,y}: EntityRow{Row{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}
-    case row _: row
-def prediction_birth_at(view: PlayerView,distance: F32,+row: EntityRow) -> EntityRow:
-  match view row:
-    case PlayerView{_,+run,_,_,_} EntityRow{Row{Components.Body{_,_,_,_,_,_,_,+seed,radius},_,_,_,_,_,_,_},_}: positioned_birth(row,PredictionSpawn.choose((seed + ((run_seed(run) - run_tick(run) + 1 : U32) - 12345) * 31 : U32),wave_tick(run_mode(run),run_tick(run)),PredictionSpawn.Camera{run_px(run),run_py(run),distance},radius))
-    case _ row: row
 def maximum_prediction_distance(views: List<&2,PlayerView>,+distance: F32) -> F32:
   match views:
     case []: distance
     case PlayerView{_,+run,_,_,eligible} <> rest: maximum_prediction_distance(rest,F32.max(distance,Bool.pick(F32,Bool.and(eligible,U32.is_lt(0,run_hp(run))),run_step_distance(run),0.0)))
-def prediction_birth(+team: Team,+previous: Components.Body,row: EntityRow) -> EntityRow:
-  match team:
-    case Team{+views,+base,+plan,+origins}: prediction_birth_at(team_body_view(Team{views,base,plan,origins},previous),maximum_prediction_distance(views,0.0),row)
-def predicted_birth_gate(views: List<&2,PlayerView>,previous: Components.Body,+row: EntityRow) -> EntityRow:
-  match row:
-    case EntityRow{Row{Components.Body{+x,+y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_predicted_players(views,x,y,radius),previous,row)
-    case row: row
-def team_spawn_mode(padded: Bool,+team: Team,+previous: Components.Body,+result: EntityRow) -> EntityRow:
-  match padded team result:
-    case False{} Team{views,_,_,_} EntityRow{Row{Components.Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_players(views,x,y,radius),previous,result)
-    case True{} Team{+views,base,plan,origins} _: predicted_birth_gate(views,previous,prediction_birth(Team{views,base,plan,origins},previous,result))
-    case _ _ result: result
-def team_spawn_fresh(fresh: Bool,+team: Team,+previous: Components.Body,+result: EntityRow) -> EntityRow:
-  match fresh team:
-    case False{} _: result
-    case True{} Team{+views,+base,+plan,+origins}: team_spawn_mode(multiple_views(views),Team{views,base,plan,origins},previous,result)
-def team_spawn_gate(+team: Team,+previous: Components.Body,+result: EntityRow) -> EntityRow:
-  match previous result:
-    case Components.Body{_,_,previousKind,_,_,_,previousAge,_,_} EntityRow{Row{Components.Body{_,_,kind,_,_,_,age,_,_},_,_,_,_,_,_,_},_}: team_spawn_fresh(SL.fresh_transition(SL.is_newborn(previousKind,previousAge),SL.is_newborn(kind,age)),team,previous,result)
-    case _ result: result
 def effect_players(views: List<&2,PlayerView>) -> List<&2,effect_Player>:
   match views:
     case []: []
     case PlayerView{id,run,_,_,eligible} <> rest: effect_Player{id,run,eligible} <> effect_players(rest)
-def team_enemy_applied(+team: Team,oldX: F32,oldY: F32,motion: Motion,routed: SL.Routed<Row>) -> EntityRow:
-  match team routed:
-    case _ SL.Fresh{row}: newborn_entity(SL.newborn(~Row,~Motion,row,empty_motion()))
-    case Team{players,Args{_,_,_,_,_,hits},_,origins} SL.Existing{row}: effect_apply_indexed(effect_players(players),oldX,oldY,row,motion,hits,origins)
-def team_enemy_updated(+team: Team,+body: Components.Body,status: Components.Status,+row: Row) -> EntityRow:
-  match body row:
-    case Components.Body{oldX,oldY,previousKind,_,_,_,previousAge,_,_} Row{Components.Body{_,_,kind,_,_,_,age,_,_},_,_,_,_,_,_,_}: team_enemy_applied(team,oldX,oldY,logical_motion(empty_trajectory(),status),SL.route(~Row,previousKind,previousAge,kind,age,row))
 def living_views(views: List<&2,PlayerView>) -> List<&2,PlayerView>:
   match views:
     case []: []
     case +view <> rest: add_view(view_alive(view),view,living_views(rest))
-# Eligibility excludes disconnected players without changing their health; solo
-# supplies one view. Keep seed zero's existing boss schedule independent of size.
 def party_spawn_players(team: Team) -> U32:
   match team:
     case Team{views,_,_,_}: U32.from_nat(List.length(&2,PlayerView,living_views(views)))
-def party_update(team: Team,+body: Components.Body,run: Run) -> Row:
-  match body:
-    case Components.Body{_,_,8,_,_,_,_,0,_}: update(body,run)
-    case Components.Body{_,_,8,_,_,_,_,_,_}: dormant_for(party_spawn_players(team),body,run)
-    case _: update(body,run)
-def team_enemy_role(role: Role.Role,+team: Team,+body: Components.Body,status: Components.Status) -> EntityRow:
-  match role:
-    case Role.RelicSlot{}: relic_entity(team_args(team,team_body_view(team,body)))
-    case _: team_spawn_gate(team,body,team_enemy_updated(team,body,status,party_update(team,body,view_run(team_body_view(team,body)))))
-def team_enemy_status(~H: Type,~ops: Ops<H>,role: Role.Role,+team: Team,body: Components.Body,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & EntityRow):
+def team_views(team: Team) -> List<&2,PlayerView>:
+  match team:
+    case Team{views,_,_,_}: views
+def team_hits(team: Team) -> List<&2,HitPlan>:
+  match team:
+    case Team{_,Args{_,_,_,_,_,hits},_,_}: hits
+def team_origins(team: Team) -> BI.Index<U32>:
+  match team:
+    case Team{_,_,_,origins}: origins
+# Enemy-specific pure rules consume named facts, never Body or Motion.
+def team_enemy_view(phase: Enemy.Phase,+team: Team,space: Space.Spatial,identity: U32) -> PlayerView:
+  match phase space:
+    case Enemy.Dormant{_} _: team_spawn_view(team,(identity % 2 : U32))
+    case Enemy.ActiveEnemy{_} Space.Spatial{x,y,_,_}: team_nearest(team,x,y)
+    case Enemy.OccupiedByLoot{_} Space.Spatial{x,y,_,_}: collector(team,x,y)
+def enemy_spawn_context(team: Team,run: Run) -> EnemySpawn.Context:
+  match run:
+    case Run{RS.Session{_,+tick,_,_,_,_,_,rng,stage,_,+mode,_,_},RS.PlayerState{px,py,_,_,character,_,+passives,_,+arcana,_,_,_,_,_,_,_}}:
+      EnemySpawn.Context{tick,mode,stage,(rng - tick + 1 : U32),px,py,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) : U32),(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),party_spawn_players(team)}
+def candidate_state(candidate: EnemyLife.Candidate,status: Components.Status) -> Enemy.State:
+  match candidate:
+    case EnemyLife.Candidate{x,y,archetype,identity,vitals,radius}: Enemy.State{Space.Spatial{x,y,0,radius},archetype,identity,vitals,status}
+def sleeping_enemy(enemy: Enemy.State) -> Enemy.Outcome:
+  match enemy:
+    case Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,vitals,status}: Enemy.Sleeping{Enemy.State{Space.Spatial{x,y,(age + 1 : U32),radius},archetype,identity,vitals,status}}
+def enemy_old_x(enemy: Enemy.State) -> F32:
+  match enemy:
+    case Enemy.State{Space.Spatial{x,_,_,_},_,_,_,_}: x
+def enemy_old_y(enemy: Enemy.State) -> F32:
+  match enemy:
+    case Enemy.State{Space.Spatial{_,y,_,_},_,_,_,_}: y
+def enemy_status(enemy: Enemy.State) -> Components.Status:
+  match enemy:
+    case Enemy.State{_,_,_,_,status}: status
+def team_enemy_continued(phase: Enemy.Phase,+team: Team,+enemy: Enemy.State) -> Enemy.Decision:
+  match phase:
+    case Enemy.ActiveEnemy{_}: Enemy.Resolved{enemy_effects_indexed(effect_players(team_views(team)),enemy_old_x(enemy),enemy_old_y(enemy),enemy,team_hits(team),team_origins(team))}
+    case Enemy.Dormant{_}: Enemy.Resolved{sleeping_enemy(enemy)}
+    case Enemy.OccupiedByLoot{_}: Enemy.LootTurn{True{},False{}}
+def enemy_clear_status(enemy: Enemy.State) -> Enemy.State:
+  match enemy:
+    case Enemy.State{space,archetype,identity,vitals,_}: Enemy.State{space,archetype,identity,vitals,Components.Status{0,0}}
+def team_enemy_rejected(phase: Enemy.Phase,previous: Enemy.State) -> Enemy.Decision:
+  match phase:
+    case Enemy.ActiveEnemy{_}: Enemy.Resolved{Enemy.Alive{enemy_clear_status(previous),0}}
+    case Enemy.Dormant{_}: Enemy.Resolved{Enemy.Sleeping{enemy_clear_status(previous)}}
+    case Enemy.OccupiedByLoot{_}: Enemy.LootTurn{False{},True{}}
+def enemy_candidate_point(candidate: EnemyLife.Candidate,point: S.Point) -> EnemyLife.Candidate:
+  match candidate point:
+    case EnemyLife.Candidate{_,_,archetype,identity,vitals,radius} S.Point{x,y}: EnemyLife.Candidate{x,y,archetype,identity,vitals,radius}
+def enemy_predicted_at(view: PlayerView,distance: F32,+candidate: EnemyLife.Candidate) -> EnemyLife.Candidate:
+  match view candidate:
+    case PlayerView{_,+run,_,_,_} EnemyLife.Candidate{_,_,_,+identity,_,radius}: enemy_candidate_point(candidate,PredictionSpawn.choose((identity + ((run_seed(run) - run_tick(run) + 1 : U32) - 12345) * 31 : U32),wave_tick(run_mode(run),run_tick(run)),PredictionSpawn.Camera{run_px(run),run_py(run),distance},radius))
+def enemy_candidate_padded(padded: Bool,+phase: Enemy.Phase,+team: Team,+previous: Enemy.State,candidate: EnemyLife.Candidate) -> EnemyLife.Candidate:
+  match padded team previous:
+    case False{} _ _: candidate
+    case True{} Team{+views,base,plan,origins} Enemy.State{space,_,identity,_,_}: enemy_predicted_at(team_enemy_view(phase,Team{views,base,plan,origins},space,identity),maximum_prediction_distance(views,0.0),candidate)
+def enemy_candidate_allowed(padded: Bool,views: List<&2,PlayerView>,candidate: EnemyLife.Candidate) -> Bool:
+  match padded candidate:
+    case False{} EnemyLife.Candidate{x,y,_,_,_,radius}: outside_players(views,x,y,radius)
+    case True{} EnemyLife.Candidate{x,y,_,_,_,radius}: outside_predicted_players(views,x,y,radius)
+def team_enemy_birth_allowed(allowed: Bool,phase: Enemy.Phase,previous: Enemy.State,candidate: EnemyLife.Candidate) -> Enemy.Decision:
+  match allowed:
+    case False{}: team_enemy_rejected(phase,previous)
+    case True{}: Enemy.Resolved{Enemy.Born{EnemyLife.birth(candidate)}}
+def team_enemy_birth_checked(+padded: Bool,phase: Enemy.Phase,+team: Team,previous: Enemy.State,+candidate: EnemyLife.Candidate) -> Enemy.Decision:
+  team_enemy_birth_allowed(enemy_candidate_allowed(padded,team_views(team),candidate),phase,previous,candidate)
+def team_enemy_birth(+phase: Enemy.Phase,+team: Team,+previous: Enemy.State,candidate: EnemyLife.Candidate) -> Enemy.Decision:
+  team_enemy_birth_checked(multiple_views(team_views(team)),phase,team,previous,enemy_candidate_padded(multiple_views(team_views(team)),phase,team,previous,candidate))
+def team_enemy_candidate(fresh: Bool,+team: Team,+phase: Enemy.Phase,+previous: Enemy.State,candidate: EnemyLife.Candidate) -> Enemy.Decision:
+  match fresh:
+    case True{}: team_enemy_birth(phase,team,previous,candidate)
+    case False{}: Enemy.Resolved{enemy_effects_indexed(effect_players(team_views(team)),enemy_old_x(previous),enemy_old_y(previous),candidate_state(candidate,enemy_status(previous)),team_hits(team),team_origins(team))}
+def team_enemy_updated(+team: Team,+previousPhase: Enemy.Phase,+previous: Enemy.State,candidate: Maybe<&2,EnemyLife.Candidate>) -> Enemy.Decision:
+  match candidate:
+    case None{}: team_enemy_continued(previousPhase,team,previous)
+    case Some{candidate}: team_enemy_candidate(Bool.not(Bool.and(Enemy.active(previousPhase),U32.is_eq(Space.age(Enemy.spatial(previous)),0))),team,previousPhase,previous,candidate)
+def enemy_row(+outcome: Enemy.Outcome) -> EntityRow: EnemyRow{outcome,Enemy.credit(outcome)}
+def enemy_outcome_phase(outcome: Enemy.Outcome) -> Enemy.Phase:
+  match outcome:
+    case Enemy.Alive{Enemy.State{_,archetype,_,_,_},_}: Enemy.ActiveEnemy{archetype}
+    case Enemy.Born{EnemyLife.Newborn{EnemyLife.Candidate{_,_,archetype,_,_,_},_,_,_,_}}: Enemy.ActiveEnemy{archetype}
+    case Enemy.Sleeping{Enemy.State{_,archetype,_,_,_}}: Enemy.Dormant{archetype}
+    case Enemy.Killed{_,Enemy.DeathReward{Enemy.XpDrop{},_,_,_,archetype,_,_}}: Enemy.Dormant{archetype}
+    case Enemy.Killed{Enemy.State{_,archetype,_,_,_},_}: Enemy.OccupiedByLoot{archetype}
+def enemy_outcome_space(outcome: Enemy.Outcome) -> Space.Spatial:
+  match outcome:
+    case Enemy.Killed{_,Enemy.DeathReward{Enemy.XpDrop{},_,x,y,_,_,_}}: Space.Spatial{x,y,0,0.0}
+    case Enemy.Killed{_,Enemy.DeathReward{_,_,x,y,_,_,_}}: Space.Spatial{x,y,0,6.0}
+    case outcome: Enemy.spatial(Enemy.state(outcome))
+def write_enemy_values(~H: Type,~ops: Ops<H>,ctx: H,phase: Enemy.Phase,space: Space.Spatial,vitals: Components.Vitals,status: Components.Status) -> H:
+  Cap.set(~H,~Enemy.Phase,~Enemy.Phase,~enemy_phase_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~enemy_spatial_cap(~H,ops),Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),Cap.set(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx,vitals),status),space),phase)
+def write_enemy_state(~H: Type,~ops: Ops<H>,ctx: H,+outcome: Enemy.Outcome,state: Enemy.State) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  match state:
+    case Enemy.State{_,_,_,vitals,status}: (write_enemy_values(~H,~ops,ctx,enemy_outcome_phase(outcome),enemy_outcome_space(outcome),vitals,status),(T.Success{},EnemyReady{enemy_row(outcome)}))
+def write_enemy_outcome(~H: Type,~ops: Ops<H>,ctx: H,+outcome: Enemy.Outcome) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  write_enemy_state(~H,~ops,ctx,outcome,Enemy.state(outcome))
+def enemy_loot_requested(~H: Type,~ops: Ops<H>,reset: Bool,advance: Bool,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  match reset:
+    case False{}: (ctx,(T.Success{},LootRequest{advance}))
+    case True{}: (Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx,Components.Status{0,0}),(T.Success{},LootRequest{advance}))
+def write_enemy_decision(~H: Type,~ops: Ops<H>,ctx: H,decision: Enemy.Decision) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  match decision:
+    case Enemy.Resolved{outcome}: write_enemy_outcome(~H,~ops,ctx,outcome)
+    case Enemy.LootTurn{advance,reset}: enemy_loot_requested(~H,~ops,reset,advance,ctx)
+def team_enemy_status(~H: Type,~ops: Ops<H>,+team: Team,+phase: Enemy.Phase,+space: Space.Spatial,+identity: U32,vitals: Components.Vitals,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{status}): write_row(~H,~ops,ctx,team_enemy_role(role,team,body,status))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def team_enemy_vitals(~H: Type,~ops: Ops<H>,role: Role.Role,team: Team,body: Components.Body,result: H & C.Access<Components.Vitals>) -> H & (T.Outcome<Error> & EntityRow):
-  match body result:
-    case Components.Body{+x,+y,+kind,+variant,_,_,+age,+seed,+radius} Tuple{ctx,C.Found{Components.Vitals{health,maximum}}}: team_enemy_status(~H,~ops,role,team,Components.Body{x,y,kind,variant,health,maximum,age,seed,radius},Cap.get(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx))
-    case _ Tuple{ctx,_}: (ctx,(T.Failure{MissingBody{}},missing_row()))
-def team_enemy_spatial(~H: Type,~ops: Ops<H>,role: Role.Role,team: Team,body: Components.Body,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
+    case (ctx,C.Found{status}): write_enemy_decision(~H,~ops,ctx,team_enemy_updated(team,phase,Enemy.State{space,Enemy.archetype(phase),identity,vitals,status},EnemySpawn.propose(identity,Enemy.dormant(phase),enemy_spawn_context(team,view_run(team_enemy_view(phase,team,space,identity))))))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+def team_enemy_vitals(~H: Type,~ops: Ops<H>,team: Team,phase: Enemy.Phase,space: Space.Spatial,identity: U32,result: H & C.Access<Components.Vitals>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{space}): team_enemy_vitals(~H,~ops,role,team,body_at_spatial(body,space),Cap.get(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def team_enemy_body(~H: Type,~ops: Ops<H>,role: Role.Role,team: Team,result: H & C.Access<Components.Body>) -> H & (T.Outcome<Error> & EntityRow):
+    case (ctx,C.Found{vitals}): team_enemy_status(~H,~ops,team,phase,space,identity,vitals,Cap.get(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+def team_enemy_spatial(~H: Type,~ops: Ops<H>,team: Team,phase: Enemy.Phase,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{body}): team_enemy_spatial(~H,~ops,role,team,body,Cap.read(~H,~Space.Spatial,~enemy_spatial_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,C.Found{space}): team_enemy_vitals(~H,~ops,team,phase,space,identity,Cap.get(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+def team_enemy_phase(~H: Type,~ops: Ops<H>,team: Team,identity: U32,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  match result:
+    case (ctx,C.Found{phase}): team_enemy_spatial(~H,~ops,team,phase,identity,Cap.get(~H,~Space.Spatial,~Space.Spatial,~enemy_spatial_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+def team_enemy_identity(~H: Type,~ops: Ops<H>,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  match result:
+    case (ctx,C.Found{Components.Identity{identity}}): team_enemy_phase(~H,~ops,team,identity,Cap.get(~H,~Enemy.Phase,~Enemy.Phase,~enemy_phase_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
 type TeamEnemy is Data: TeamEnemy{role: Role.Role,team: Team}
-def team_enemy_system(~H: Type,~ops: Ops<H>,call: TeamEnemy,ctx: H) -> H & (T.Outcome<Error> & EntityRow):
+def team_enemy_system(~H: Type,~ops: Ops<H>,call: TeamEnemy,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match call:
-    case TeamEnemy{role,team}: team_enemy_body(~H,~ops,role,team,Cap.read(~H,~Components.Body,~body_cap(~H,ops),ctx))
+    case TeamEnemy{_,team}: team_enemy_identity(~H,~ops,team,Cap.read(~H,~Components.Identity,~enemy_identity_cap(~H,ops),ctx))
 def team_pickup_payload(~H: Type,+team: Team,+body: Components.Body,result: H & C.Access<Components.Pickup>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{pickup}): (ctx,(T.Success{},xp_entity(pickup_body(body,pickup),team_args(team,team_body_view(team,body)))))
@@ -1750,6 +1744,7 @@ def contact_targets(rows: List<&2,Snapshot>,+team: Team) -> List<&2,Contact.Targ
   match rows:
     case []: []
     case Snapshot{+body, motion} <> rest: contact_target_enemy(body,motion,team,contact_targets(rest,team))
+    case EnemySnapshot{Enemy.State{+space,archetype,identity,_,Components.Status{slow,_}}} <> rest: contact_spatial(identity,space,team_move_space(team,space,archetype,slow)) <> contact_targets(rest,team)
 
     case _ <> rest: contact_targets(rest,team)
 def contact_shot_targets(unlimited: Bool,+targets: List<&2,Contact.Target>,+x: F32,+y: F32,+radius: F32,+pierce: U32,+visited: List<&2,U32>,next: P.Shot) -> List<&2,U32>:
