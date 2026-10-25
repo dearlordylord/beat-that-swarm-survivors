@@ -16,7 +16,7 @@ when a worker cannot respond. Worker crashes are handled without asking that
 failed worker to process its own error. Browser/transport adapters execute the
 returned actions; the formal laws do not prove their IO implementation.
 
-The public module contract is version five. Keep both tabs updated. A mismatch
+The public module contract is version one. Keep both tabs updated. A mismatch
 is shown beside the guest heading; the static lobby does not assert that an
 uncontacted host is available. Peer rejection retains the host endpoint and
 invitation so a compatible guest can try again.
