@@ -118,7 +118,14 @@
   min-height: 73px;
   padding: 11px 5px 15px;
   background: #271c28;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), 50% 100%, 0 calc(100% - 9px));
+  /* Square-cut banner hem. Fixed-size teeth stay square on narrow mobile tabs;
+     only the surface is masked, so the full control remains a click target. */
+  -webkit-mask:
+    linear-gradient(#000, #000) top / 100% calc(100% - 8px) no-repeat,
+    repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 16px) bottom / 100% 8px no-repeat;
+  mask:
+    linear-gradient(#000, #000) top / 100% calc(100% - 8px) no-repeat,
+    repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 16px) bottom / 100% 8px no-repeat;
   box-shadow: inset 1px 0 #705b49, inset -1px 0 #705b49, inset 0 1px #a18a63;
 }
 #menu #tabs .tab-icon {
