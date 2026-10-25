@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import enemy-combat.bend as Enemy
 import game-components.bend as Components
 import game-storage.bend as Storage
 import game.bend as G
@@ -166,12 +167,12 @@ def logical_rows(fuel: Nat,+id: U32,state: LogicalColumns & List<&2,String>) -> 
   match fuel state:
     case 0n Tuple{columns,reversed}: (columns,join(List.reverse(&2,String,reversed)))
     case 1n+rest Tuple{columns,reversed}: logical_rows(rest,(id + 1 : U32),logical_row_accumulated(reversed,logical_row(id,columns)))
-def logical_store_done(b: Col.Column<Storage.Schema,Components.Body>,v: Col.Column<Storage.Schema,Components.Vitals>,p: Col.Column<Storage.Schema,Components.Pickup>,r: Col.Column<Storage.Schema,GRole.Role>,movement: Storage.MovementRoster,candidates: Storage.CandidateRoster,players: Col.Column<Storage.Schema,Components.PlayerRecord>,spaces: Col.Column<Storage.Schema,Space.Spatial>,result: LogicalColumns & String) -> Storage.Store & String:
+def logical_store_done(b: Col.Column<Storage.Schema,Components.Body>,v: Col.Column<Storage.Schema,Components.Vitals>,p: Col.Column<Storage.Schema,Components.Pickup>,r: Col.Column<Storage.Schema,GRole.Role>,movement: Storage.MovementRoster,candidates: Storage.CandidateRoster,players: Col.Column<Storage.Schema,Components.PlayerRecord>,spaces: Col.Column<Storage.Schema,Space.Spatial>,enemyPhases: Col.Column<Storage.Schema,Enemy.Phase>,identities: Col.Column<Storage.Schema,Components.Identity>,result: LogicalColumns & String) -> Storage.Store & String:
   match result:
-    case (LogicalColumns{t,s},text): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces},text)
+    case (LogicalColumns{t,s},text): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities},text)
 def logical_store(store: Storage.Store) -> Storage.Store & String:
   match store:
-    case Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces}: logical_store_done(b,v,p,r,movement,candidates,players,spaces,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
+    case Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities}: logical_store_done(b,v,p,r,movement,candidates,players,spaces,enemyPhases,identities,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
 def observed_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<Storage.Schema,C> -> Storage.Store,rest: Rest,result: Col.Column<Storage.Schema,C> & String) -> Storage.Store & String:
   match result:
     case (column,text): (put(rest,column),text)
@@ -182,7 +183,7 @@ def observed_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Rest &
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
 def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities},ms): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
 def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,es): store_logical(bs,vs,ts,ss,ps,rs,es,logical_store(owner))
@@ -378,7 +379,7 @@ def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: Storage.Store -> Res
   force_column_split(~C,~V,~Rest,~put,~project,~fold,acc,take(store))
 def force_store_routing(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},acc): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
+    case (Storage.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces,enemyPhases,identities},acc): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
 def force_store_role(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (owner,acc): force_store_routing(force_store_column(~Space.Spatial,~Space.Spatial,~Storage.SpatialRest,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~fold_spatial,acc,owner))
