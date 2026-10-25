@@ -18,8 +18,8 @@ for(let i=9;i<words.length;) {
 const decode=word=>new Float32Array(new Uint32Array([word]).buffer)[0];
 const target=Number(targetText),actions=[];
 let packet=C.start(profile,seed),move=0;
-while(packet.$==='Packet' && packet.state.run.tick<target && actions.length<target*2) {
-  const {run}=packet.state;
+while(packet.$==='Packet' && packet.state.run.session.tick<target && actions.length<target*2) {
+  const {session:run}=packet.state.run;
   if(run.phase===0) {
     while(move+1<moves.length && moves[move+1][0]<=run.tick) move++;
     const [,x,y]=stationary==='true'?[0,0,0]:moves[move];
@@ -31,6 +31,6 @@ while(packet.$==='Packet' && packet.state.run.tick<target && actions.length<targ
   } else break;
 }
 assert.equal(packet.$,'Packet');
-const {run}=packet.state;
+const {session:run}=packet.state.run;
 writeFileSync(output,`1313231410 1 ${profile} ${seed} 0 ${target} ${run.tick} ${run.phase} ${actions.length}\n${actions.join('\n')}\n`);
 console.log(JSON.stringify({status:'passed',profile,seed,tick:run.tick,phase:run.phase,actions:actions.length}));

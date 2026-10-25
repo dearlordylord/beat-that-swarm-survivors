@@ -23,6 +23,7 @@ for module in party-difficulty contact-id-set coop-client-delivery coop-snapshot
   example_emit "$app/$module.bend" "$scratch/$module.mjs"
 done
 example_node "$app/typed-results-check.mjs" "$scratch"
+example_node "$app/player-authority-check.mjs" "$scratch"
 for module in coop-playback coop-client-clock coop-snapshot-flow coop-snapshot-receipts coop-client-delivery coop-hit-effects; do
   example_node --stack_size=192 "$app/$module-check.mjs" "$scratch/$module.mjs"
 done
