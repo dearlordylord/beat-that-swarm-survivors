@@ -58,6 +58,29 @@ function shot({
   });
 }
 
+// Targeting consumes a narrow immutable phase projection. Health and reward
+// words never enter aiming; hostile firing still reads actual archetype/age.
+{
+  const source = [
+    snapshot({x: 100, y: 100, kind: 0, variant: 9, age: 120, seed: 11}).body,
+    snapshot({x: 100, y: 100, kind: 0, variant: 0, age: 120, seed: 12}).body,
+    snapshot({x: 0, y: 0, kind: 2, variant: 0, age: 0, seed: 13}).body,
+  ];
+  const targets = Game.enemy_targets(list(source));
+  assert.deepEqual(array(targets.aims), [
+    {$: 'Target', x: 100, y: 100, identity: 11},
+    {$: 'Target', x: 100, y: 100, identity: 12},
+  ]);
+  assert.deepEqual(Game.enemy_targets(list(source.map(body =>
+    ({...body, hp: body.hp + 1000, maxHp: body.maxHp + 2000})))), targets);
+  const fallback = {$: 'Aim', x: 0, y: 0, id: 0, distance: 10000000};
+  assert.equal(Game.nearest(targets, 0, 0, fallback).id, 11, 'first equal-distance target wins');
+  assert.equal(Game.nearest_shooter(targets, 0, 0, fallback).id, 11, 'ranged source fires at its actual age');
+  source[0] = {...source[0], age: 119};
+  assert.equal(Game.nearest_shooter(Game.enemy_targets(list(source)), 0, 0, fallback).id, 0,
+    'a nonfiring age cannot borrow another source eligibility');
+}
+
 function coreSeedState() {
   const started = Core.core_start(0, 0, 1);
   assert.equal(started.$, 'CorePacket', 'Core.core_start must return a Core packet');
