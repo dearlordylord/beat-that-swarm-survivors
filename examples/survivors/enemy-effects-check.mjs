@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+const { default: E } = await import(pathToFileURL(resolve(process.argv[2])));
+const slow=(ticks,frozen=false)=>({$:'Slow',ticks,frozen});
+const burn=(ticks,player=null)=>({$:'Burn',ticks,sourcePlayer:player===null?{$:'None'}:{$:'Some',value:player}});
+assert.deepEqual(E.cool_slow(slow(1,true)),slow(0));
+assert.deepEqual(E.stronger_slow(slow(1,true),slow(90)),slow(1,true),'current movement retains freeze');
+assert.deepEqual(E.stronger_slow(E.cool_slow(slow(1,true)),slow(90)),slow(90),'cool before fresh merge permits slow next tick');
+assert.deepEqual(E.cool_slow(slow(90,true)),slow(89,true));
+assert.deepEqual(E.stronger_slow(slow(90),slow(30,true)),slow(30,true));
+assert.deepEqual(E.stronger_slow(slow(30),slow(90)),slow(90));
+assert.deepEqual(E.burn(0,17),burn(0));
+assert.deepEqual(E.burn(30,0),burn(30,0),'active player zero remains an explicit owner');
+assert.deepEqual(E.cool_burn(burn(1,17)),burn(0),'expired burn clears source');
+assert.deepEqual(E.cool_burn(burn(30,17)),burn(29,17));
+assert.deepEqual(E.stronger_burn(burn(50,1),burn(50,0)),burn(50,0));
+assert.deepEqual(E.stronger_burn(burn(50,0),burn(50,1)),burn(50,0));
+assert.deepEqual(E.stronger_burn(burn(51,1),burn(50,0)),burn(51,1));
+assert.deepEqual(E.stronger_burn(E.cool_burn(burn(51,1)),burn(50,0)),burn(50,0),'cooling precedes fresh owner tie-break');
+console.log('PASS explicit slow/freeze and burn duration/source policies');

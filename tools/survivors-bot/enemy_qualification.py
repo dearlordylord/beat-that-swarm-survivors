@@ -11,6 +11,24 @@ def phase(value):
         raise R.ReplayError('Unknown enemy lifetime phase')
 
 
+def status(value):
+    if not isinstance(value, dict) or set(value) != {'slow', 'burn'}:
+        raise R.ReplayError('Enemy status must contain named slow and burn effects')
+    slow, burn = value['slow'], value['burn']
+    if not isinstance(slow, dict) or set(slow) != {'ticks', 'frozen'} or type(slow['frozen']) is not bool:
+        raise R.ReplayError('Slow effect requires ticks and Boolean frozen flag')
+    if not isinstance(burn, dict) or set(burn) != {'ticks', 'sourcePlayer'}:
+        raise R.ReplayError('Burn effect requires ticks and optional source player')
+    R.u32(slow['ticks'], 'slow duration')
+    R.u32(burn['ticks'], 'burn duration')
+    if burn['ticks'] == 0:
+        if burn['sourcePlayer'] is not None:
+            raise R.ReplayError('Expired burn retains a previous source player')
+    else:
+        R.u32(burn['sourcePlayer'], 'active burn source player')
+    return value
+
+
 def state(value):
     if not isinstance(value, dict) or set(value) != {'spatial', 'archetype', 'identity', 'vitals', 'status'}:
         raise R.ReplayError('Incomplete typed enemy snapshot')
@@ -18,7 +36,7 @@ def state(value):
     R.u32(value['archetype'], 'enemy archetype')
     R.u32(value['identity'], 'enemy identity')
     R.words(value['vitals'], 2, 'enemy vitals')
-    R.words(value['status'], 2, 'enemy status')
+    status(value['status'])
     return value
 
 
@@ -29,7 +47,7 @@ def fact(value, role='EnemySlot', kind=0):
     return dict(xBits=x, yBits=y, kind=kind, variant=value['archetype'], age=age,
                 seed=value['identity'], radiusBits=radius, role=role,
                 health=hp, maximum=maximum,
-                status=dict(zip(('slow', 'burn'), value['status'])))
+                status=value['status'])
 
 
 def validate_and_project(components, metadata, layout):
