@@ -1,0 +1,26 @@
+# Execute the runner's actual counter on real Game.Body values, natively.
+import Base
+import game.bend as G
+import offline-coop-batch.bend as Batch
+
+type MetricCase is Data: MetricCase{kind:U32,variant:U32,hp:U32,ordinary:U32,boss:U32}
+def fixtures() -> List<&2,MetricCase>:
+  [MetricCase{0,0,1,1,0},MetricCase{0,19,1,1,0},MetricCase{0,20,1,0,1},MetricCase{0,21,1,0,1},MetricCase{0,29,1,0,1},MetricCase{0,30,1,0,1},MetricCase{0,31,1,1,0},MetricCase{0,4294967295,1,1,0},MetricCase{0,0,0,0,0},MetricCase{0,19,0,0,0},MetricCase{0,20,0,0,0},MetricCase{0,21,0,0,0},MetricCase{0,29,0,0,0},MetricCase{0,30,0,0,0},MetricCase{1,21,1,0,0},MetricCase{2,21,1,0,0},MetricCase{7,21,1,0,0},MetricCase{8,21,1,0,0}]
+def pair_matches(expectedOrdinary:U32,expectedBoss:U32,pair:U32 & U32) -> Bool:
+  (ordinary,boss) = pair
+  Bool.and(U32.is_eq(ordinary,expectedOrdinary),U32.is_eq(boss,expectedBoss))
+def case_matches(value:MetricCase) -> Bool:
+  match value:
+    case MetricCase{kind,variant,+hp,ordinary,boss}: pair_matches(ordinary,boss,Batch.population_go([G.Body{0.0,0.0,kind,variant,hp,hp,0,1,1.0}],0,0))
+def all_match(rows:List<&2,MetricCase>) -> Bool:
+  match rows:
+    case []: True{}
+    case row <> tail: Bool.and(case_matches(row),all_match(tail))
+def first_timed_boss_matches(+variant:U32) -> Bool:
+  Bool.and(U32.is_eq(variant,21),pair_matches(0,1,Batch.population_go([G.Body{0.0,0.0,0,variant,10,10,0,1,1.0}],0,0)))
+def report(ok:Bool) -> IO(Unit):
+  match ok:
+    case False{}: IO.die(Unit,1,"Native co-op population counter fixture failed")
+    case True{}: IO.print("{\"status\":\"PASS\",\"counterCases\":18,\"firstTimedBossVariant\":21,\"scope\":\"actual native runner population counter, not whole-game balance\"}")
+def main() -> IO(Unit):
+  report(Bool.and(all_match(fixtures()),first_timed_boss_matches(G.boss_variant(False{},7200,0))))

@@ -19,12 +19,13 @@ source_fingerprint() {
   done < "$source_list" | shasum -a 256 | awk '{print $1}'
 }
 source_fingerprint_before="$(source_fingerprint)"
-for module in contact-id-set coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-client-clock coop-input-flow coop-hit-journal coop-local-projectiles coop-contact-playback coop-playback-wire coop-core coop-prediction game; do
+for module in party-difficulty contact-id-set coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-client-clock coop-input-flow coop-hit-journal coop-local-projectiles coop-contact-playback coop-playback-wire coop-core coop-prediction game; do
   example_emit "$app/$module.bend" "$scratch/$module.mjs"
 done
 for module in coop-playback coop-client-clock coop-snapshot-flow coop-snapshot-receipts coop-client-delivery coop-hit-effects; do
   example_node --stack_size=192 "$app/$module-check.mjs" "$scratch/$module.mjs"
 done
+example_node --stack_size=192 "$app/party-difficulty-check.mjs" "$scratch/party-difficulty.mjs"
 CONTACT_ID_SET_MODULE="$scratch/contact-id-set.mjs" example_node --stack_size=192 "$app/contact-id-set-check.mjs"
 COOP_FLOW_MODULE="$scratch/coop-input-flow.mjs" example_node --stack_size=192 "$app/coop-input-flow-check.mjs"
 COOP_PREDICTION_MODULE="$scratch/coop-prediction.mjs" example_node --stack_size=192 "$app/coop-prediction-check.mjs"

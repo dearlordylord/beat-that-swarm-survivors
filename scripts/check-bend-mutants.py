@@ -33,6 +33,16 @@ def main():
     rows = [row for path in manifests for row in json.loads(path.read_text())]
     failed = []
     with tempfile.TemporaryDirectory(prefix='bend-law-mutants-') as directory:
+        control = Path(directory) / 'typecheck-control.bend'
+        control.write_text('import Base\ndef control() -> Nat: 0n\n')
+        valid = run([control, '--check-only'], ROOT)
+        control.write_text('import Base\ndef control() -> Nat: True{}\n')
+        invalid = run([control, '--check-only'], ROOT)
+        if valid.returncode != 0 or invalid.returncode != 1:
+            print('FAIL check-only typechecking controls', flush=True)
+            print(valid.stdout + invalid.stdout, flush=True)
+            return 1
+        print('PASS check-only accepts valid and rejects ill-typed bodies', flush=True)
         snapshot = Path(directory) / 'source'
         shutil.copytree(ROOT / 'examples', snapshot / 'examples',
                         ignore=shutil.ignore_patterns('dist','node_modules','__pycache__'))
@@ -47,9 +57,11 @@ def main():
                 if original.count(row['old']) != occurrences:
                     raise ValueError('mutation must identify its declared number of source occurrences')
                 source.write_text(original.replace(row['old'],row['new'],occurrences))
-                compiled = run([row.get('compile_target',row['source']), '-o', Path(directory)/'mutant.mjs'],snapshot)
+                # Check the complete declared caller/import graph without paying
+                # for unused JS emission. Proof checking keeps its fixed limits.
+                compiled = run([row.get('compile_target',row['source']), '--check-only'],snapshot)
                 if compiled.returncode:
-                    raise ValueError('mutated core did not typecheck:\n'+compiled.stdout)
+                    raise ValueError(f'mutated core did not typecheck (exit {compiled.returncode}):\n'+compiled.stdout)
                 rejected = run([row['proof']], snapshot)
                 # A timeout, signal, parse error or unrelated proof failure is not evidence.
                 failure = row.get('fails_in',row['law'])

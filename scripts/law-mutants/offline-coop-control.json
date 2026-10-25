@@ -1,0 +1,106 @@
+[
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "reached_horizon",
+    "label": "horizon-is-victory",
+    "old": "case True{}: Horizon{}",
+    "new": "case True{}: Victory{}"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "defeat_priority",
+    "label": "death-is-win",
+    "old": "case 3: Defeat{}",
+    "new": "case 3: Victory{}"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "victory_priority",
+    "label": "timed-finale-is-loss",
+    "old": "case 4: Victory{}",
+    "new": "case 4: Defeat{}"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "abort_priority",
+    "label": "abort-is-death",
+    "old": "case 5: Aborted{}",
+    "new": "case 5: Defeat{}"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "active_horizon",
+    "label": "reverse-horizon-clock",
+    "old": "horizon(U32.is_ge(tick,requested))",
+    "new": "horizon(U32.is_le(tick,requested))"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "active_continues",
+    "label": "active-stops-immediately",
+    "old": "case Active{}: False{}",
+    "new": "case Active{}: True{}"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "horizon_label",
+    "label": "horizon-receipt-lies-victory",
+    "old": "case Horizon{}: \"horizon\"",
+    "new": "case Horizon{}: \"victory\""
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "boss_variant_exact",
+    "label": "boss-finale-only",
+    "old": "Bool.and(U32.is_le(20,variant),U32.is_le(variant,30))",
+    "new": "U32.is_eq(variant,30)"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "boss_variant_exact",
+    "label": "boss-excludes-lower-bound",
+    "old": "U32.is_le(20,variant)",
+    "new": "U32.is_lt(20,variant)"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "boss_variant_exact",
+    "label": "boss-excludes-finale",
+    "old": "U32.is_le(variant,30)",
+    "new": "U32.is_lt(variant,30)"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "living_enemy_exact",
+    "label": "dead-enemies-count",
+    "old": "U32.is_lt(0,hp)",
+    "new": "U32.is_le(0,hp)"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "living_enemy_exact",
+    "label": "nonenemy-counts",
+    "old": "U32.is_eq(kind,0)",
+    "new": "U32.is_le(kind,1)"
+  },
+  {
+    "source": "examples/survivors/offline-coop-control.bend",
+    "proof": "examples/survivors/offline-coop-control-PROOF.bend",
+    "law": "ordinary_exact",
+    "label": "boss-also-ordinary",
+    "old": "Bool.and(living_enemy(kind,hp),Bool.not(boss_variant(variant)))",
+    "new": "Bool.and(living_enemy(kind,hp),boss_variant(variant))"
+  }
+]

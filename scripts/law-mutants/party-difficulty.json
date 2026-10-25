@@ -2,25 +2,81 @@
   {
     "source": "examples/survivors/party-difficulty.bend",
     "proof": "examples/survivors/party-difficulty-PROOF.bend",
-    "law": "spawn_limit_exact",
-    "label": "party-spawn-ignores-player-count",
-    "old": "U32.min(Pools.max_regular_enemies(),(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32))",
-    "new": "U32.min(base,Pools.max_regular_enemies())"
+    "law": "default_extra_exact",
+    "label": "default-restores-old-double-population",
+    "old": "def extra_per_player_percent() -> U32: 25",
+    "new": "def extra_per_player_percent() -> U32: 100"
   },
   {
     "source": "examples/survivors/party-difficulty.bend",
     "proof": "examples/survivors/party-difficulty-PROOF.bend",
     "law": "spawn_limit_exact",
-    "label": "party-spawn-exceeds-pool",
-    "old": "U32.min(Pools.max_regular_enemies(),(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32))",
-    "new": "(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32)"
+    "label": "public-game-entry-ignores-default-config",
+    "old": "spawn_limit_for(base,players,extra_per_player_percent())",
+    "new": "spawn_limit_for(base,players,100)"
   },
   {
     "source": "examples/survivors/party-difficulty.bend",
     "proof": "examples/survivors/party-difficulty-PROOF.bend",
-    "law": "spawn_limit_exact",
-    "label": "party-spawn-multiplies-unbounded-inputs",
-    "old": "U32.min(Pools.max_regular_enemies(),(U32.min(base,Pools.max_regular_enemies()) * U32.min(players,Pools.max_regular_enemies()) : U32))",
-    "new": "U32.min(Pools.max_regular_enemies(),(base * players : U32))"
+    "law": "select_empty_exact",
+    "label": "empty-party-still-admits-monsters",
+    "old": "case True{}: 0",
+    "new": "case True{}: bounded_base(base)"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "select_single_exact",
+    "label": "single-player-charged-party-overhead",
+    "old": "case True{}: bounded_base(base)",
+    "new": "case True{}: scaled_limit(base,2,extraPercent)"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "bounded_base_exact",
+    "label": "base-cap-removed-before-arithmetic",
+    "old": "U32.min(base,Pools.max_regular_enemies())",
+    "new": "base"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "bounded_players_exact",
+    "label": "player-clamp-removed-before-arithmetic",
+    "old": "U32.max(1,U32.min(players,Pools.max_regular_enemies()))",
+    "new": "players"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "bounded_extra_exact",
+    "label": "extra-clamp-removed-before-arithmetic",
+    "old": "U32.min(extraPercent,100)",
+    "new": "extraPercent"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "population_percent_exact",
+    "label": "overhead-charged-to-first-player",
+    "old": "(100 + (bounded_players(players) - 1) * bounded_extra(extraPercent) : U32)",
+    "new": "(100 + bounded_players(players) * bounded_extra(extraPercent) : U32)"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "capped_limit_exact",
+    "label": "scaled-budget-exceeds-physical-pool",
+    "old": "U32.min(Pools.max_regular_enemies(),amount)",
+    "new": "amount"
+  },
+  {
+    "source": "examples/survivors/party-difficulty.bend",
+    "proof": "examples/survivors/party-difficulty-PROOF.bend",
+    "law": "scaled_limit_exact",
+    "label": "percentage-rounds-up-instead-of-down",
+    "old": "bounded_base(base) * population_percent(players,extraPercent) / 100",
+    "new": "(bounded_base(base) * population_percent(players,extraPercent) + 99) / 100"
   }
 ]

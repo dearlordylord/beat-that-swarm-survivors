@@ -11,6 +11,17 @@ collector. A fallen player stays out while the teammate continues. The host keep
 the shared world in memory. A guest reload can rejoin through the same invitation;
 closing or reloading the host loses that run. There is no host migration.
 
+Ordinary enemy admission uses the solo stage budget plus 25% per additional
+living player: two living players use 125%, rather than the previous 200%.
+The result rounds down and remains capped at 500. One living player keeps the
+solo budget. This changes population admission only; enemy HP, damage, shared
+XP and timed bosses retain their existing rules. It does not instantly remove
+enemies already present when a player falls.
+
+The native two-bot balance runner, paired seeds, pressure samples and offline
+retrospective workflow are documented in
+[the bot tools](../../tools/survivors-bot/README.md#balance-comparisons-and-retrospective-evidence).
+
 At a terminal result, Bend progression settles each local player's profile once,
 keyed by run and player. Departure or host loss is not a settlement receipt and
 does not award an aborted run's accumulated rewards.
