@@ -37,3 +37,20 @@ enemy fields and preserve source actor order explicitly; no enemy health word
 is interpreted as damage or reward data. The development physical observer
 records Phase and Identity columns and their real stamps, alongside typed
 snapshot fields. It does not synthesize a unified Motion column.
+
+The maintained production wiring control runs in the co-op reliability gate.
+It also runs independently:
+
+```sh
+python3 examples/survivors/enemy-birth-wiring-control.py --output /tmp/survivors-enemy-birth-control
+```
+
+The output directory must be new and outside the repository. Each compiler and
+fixture process has a 10-second CPU limit and 60-second wall limit. The runner
+copies Bend sources into a temporary directory, checks the pristine production
+fixture passes, replaces the actual accepted-birth callsite with a stale-status
+and nonzero contact/killer constructor, requires that mutant to emit
+successfully, and requires the same fixture to fail its named birth assertion.
+A compiler, import or unrelated runtime failure cannot count as detection.
+Production Game source is never modified; optional receipt/logs are retained
+only in the requested external directory.
