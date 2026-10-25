@@ -39,6 +39,7 @@ example_node --stack_size=192 "$app/coop-contact-playback-check.mjs" "$scratch/c
 example_node --stack_size=192 "$app/coop-playback-wire-check.mjs" "$scratch/coop-playback-wire.mjs" "$scratch"
 example_node "$app/coop-snapshot-codec-check.mjs" "$scratch/coop-connection.mjs"
 COOP_ENCODER_MODULE="$scratch/coop-encoder.mjs" COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/coop-hit-source-check.mjs"
+COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/enemy-birth-check.mjs"
 COOP_ENCODER_MODULE="$scratch/coop-encoder.mjs" COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node "$app/coop-dense-contact-check.mjs"
 COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-dense-contact-check.mjs" --journal-only
 source_fingerprint_after="$(source_fingerprint)"

@@ -8,13 +8,12 @@ The schema, affine world ownership and component-family bindings are defined in
 [`game-storage.bend`](game-storage.bend), depending on the pure payloads in
 [`game-components.bend`](game-components.bend). Systems, queries and checked
 access contracts remain visible together in [`game.bend`](game.bend).
-Enemy/relic spatial state and movement policy belong to
-[`enemy-spatial.bend`](enemy-spatial.bend): movement writes position and age,
-preserves radius, and has read-only metadata and status access. Its sparse
-column covers every enemy/relic slot, including dormant and loot occupants;
-stored legacy Body geometry words for these slots are erased. See the
-[spatial migration contract](../../research/survivors-spatial-migration.md) for
-phase validity and the temporary boundaries owned by later migration slices.
+Enemy movement policy belongs to [`enemy-spatial.bend`](enemy-spatial.bend).
+Combat and lifetime decisions belong to [`enemy-combat.bend`](enemy-combat.bend)
+and [`enemy-lifecycle.bend`](enemy-lifecycle.bend). Canonical Spatial, Vitals,
+Status, Phase and read-only slot identity replace enemy Body/Motion authority.
+See the [enemy authority contract](../../research/survivors-enemy-migration.md)
+for current access rights, snapshot timing and the narrow birth proof scope.
 Immutable role definitions belong to
 [`entity-role.bend`](entity-role.bend), with [kernel laws](entity-role/LAWS.bend);
 query membership has [its own policy](movement-membership.bend) and
