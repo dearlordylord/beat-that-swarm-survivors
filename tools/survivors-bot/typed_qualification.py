@@ -33,6 +33,10 @@ def entities(payload):
         by_identity[identity]=fact
     return [by_identity[i] for i in range(C.DEFAULT_LAYOUT['totalCount'])]
 
+def loot_items(payload):
+    items=Pickup.validate_and_project(payload['components']['actorColumns'],payload['metadata'],C.DEFAULT_LAYOUT)
+    return [dict(identity=identity,item=items[identity]['item']) for identity in sorted(items) if items[identity]['active'] and items[identity]['item']['kind']!='xp']
+
 def canonical(facts):
     """Closed gameplay surface, omitting retired inactive transport rows.
 
@@ -45,8 +49,7 @@ def canonical(facts):
     f['snapshots']=[s for s in f['snapshots'] if s['kind']!=8]
     return f
 
-def project(payload,tick):
-    C.validate_payload(payload,tick)
+def snapshot_facts(payload):
     es=entities(payload);snapshots=[]
     for s in payload['snapshots']:
         kind,v=next(iter(s.items()));e=es[v['identity']]
@@ -55,7 +58,12 @@ def project(payload,tick):
         elif f['kind'] in (1,7):f.update(damage=e['damage'],trajectory=e['trajectory'])
         elif f['kind']==2:f.update(amount=e['pickup']['amount'],generation=e['pickup']['generation'])
         snapshots.append(f)
-    return canonical(dict(run=dict(zip(RUN_FIELDS,payload['run'])),entities=es,visible=[],snapshots=snapshots,offers=payload['offers'],pending=payload['pending'],identity=dict(namespace=payload['metadata']['namespace'],allocator=payload['metadata']['allocator'])))
+    return es,snapshots
+
+def project(payload,tick):
+    C.validate_payload(payload,tick)
+    es,snapshots=snapshot_facts(payload)
+    return canonical(dict(run=dict(zip(RUN_FIELDS,payload['run'])),entities=es,visible=[],snapshots=snapshots,lootItems=loot_items(payload),offers=payload['offers'],pending=payload['pending'],identity=dict(namespace=payload['metadata']['namespace'],allocator=payload['metadata']['allocator'])))
 
 def canonical_baseline(facts):
     """Interpret only the explicitly frozen former schema, never current state."""
@@ -69,6 +77,15 @@ def canonical_baseline(facts):
             marker=entity['pickup']['variant']
             if marker not in (0,1) and not(initial_marker and marker==entity['seed']):raise R.ReplayError('Unexpected frozen XP marker')
             entity['pickup']['variant']=int(marker==1)
+    f['lootItems']=[]
+    for entity in f['entities']:
+        kind=entity['kind'];variant=entity['variant']
+        if kind==3:item=dict(kind='gold',coins=2+min(4,variant//4))
+        elif kind==4:item=dict(kind='healing',health=25)
+        elif kind==5:item=dict(kind='chest')
+        elif kind==9:item=dict(kind='relic',stage=variant)
+        else:continue
+        f['lootItems'].append(dict(identity=entity['seed'],item=item))
     for value in f['entities']+f['snapshots']:
         if 'trajectory' in value:
             trajectory=value['trajectory'];packed=trajectory.pop('logicalSlot')
