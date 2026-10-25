@@ -236,11 +236,30 @@
   #menu #tabs .tab-label{font-size:10px}
 }
 
-/* Header banners: the selected third treatment. Controls keep their full hit area.
-   N teeth + N-1 gaps fill W exactly; menu-crenellations adapts their common size. */
-.banner-heading,.tab-surface{
-  --cren-size:8px;--cren-step:5.2631578947%;--cren-period:10.5263157895%;
+/* Header banners are entirely CSS: no post-load geometry replacement.
+   The heading's query box excludes padding; its painted surface includes it. */
+.banner-heading{container-type:inline-size;--banner-left:18px;--banner-right:18px}
+#menu #tabs :is(button,a.menu-route){container-type:inline-size}
+.banner-heading::before,#menu #tabs .tab-surface{
+  --cren-width:100cqw;
+  --cren-cells:19;
+  --cren-size:calc(var(--cren-width) / var(--cren-cells));
+  --cren-step:calc(100% / var(--cren-cells));
+  --cren-period:calc(200% / var(--cren-cells));
   --cren-mask:linear-gradient(#000,#000) top/100% calc(100% - var(--cren-size)) no-repeat,repeating-linear-gradient(90deg,#000 0 var(--cren-step),transparent var(--cren-step) var(--cren-period)) bottom/100% var(--cren-size) no-repeat;
+}
+.banner-heading::before{--cren-width:calc(100cqw + var(--banner-left) + var(--banner-right))}
+/* Stable CSS-only density steps for browsers without typed length division.
+   An odd cell count always gives full end teeth and equal square gaps. */
+@container (max-width:100px){.banner-heading::before,#menu #tabs .tab-surface{--cren-cells:9}}
+@container (min-width:240px){.banner-heading::before,#menu #tabs .tab-surface{--cren-cells:35}}
+@container (min-width:480px){.banner-heading::before,#menu #tabs .tab-surface{--cren-cells:63}}
+@container (min-width:800px){.banner-heading::before,#menu #tabs .tab-surface{--cren-cells:103}}
+@supports (width:calc(1px * (1px / 1px))){
+  /* N = round((W/8 + 1)/2); cells = 2N-1; side = W/cells. */
+  .banner-heading::before,#menu #tabs .tab-surface{
+    --cren-cells:max(3,calc(2 * round(nearest,calc(var(--cren-width) / 16px + .5),1) - 1));
+  }
 }
 #menu #tabs .tab-surface{-webkit-mask:var(--cren-mask);mask:var(--cren-mask)}
 #app .banner-panel{
@@ -250,7 +269,7 @@
 .banner-heading{
   display:block;position:relative;isolation:isolate;
   margin:calc(-1 * var(--banner-inset,18px)) calc(-1 * var(--banner-inset,18px)) 24px;
-  padding:19px 18px 17px;
+  padding:19px var(--banner-right) 17px var(--banner-left);
 }
 .banner-heading::before{
   content:'';position:absolute;inset:0 0 calc(-1 * var(--cren-size));z-index:-1;pointer-events:none;
@@ -261,7 +280,7 @@
 #app .banner-heading :is(h2,h3){margin:0}
 #app .banner-heading .eyebrow{display:block;margin:0 0 10px;font:10px system-ui,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#d6c397}
 #app #menu .card.banner-panel{--banner-inset:10px;padding:20px}
-#app .card .banner-heading{padding:13px 12px 16px;margin-bottom:20px}
+#app .card .banner-heading{--banner-left:12px;--banner-right:12px;padding:13px var(--banner-right) 16px var(--banner-left);margin-bottom:20px}
 #app #menu .card .banner-heading h3{font-size:17px;line-height:1.3}
 #app .card .banner-heading .icon{display:block;margin-bottom:6px;color:#d6c397!important}
 #app #menu .card.achieved .banner-heading::before{background:linear-gradient(110deg,#534139,#352735);border-top-color:#d6c397}
@@ -274,7 +293,7 @@
 #app #menu .expedition .choice-check,#app #menu .expedition .choice-glyph{color:#d6c397}
 #app #overlay .dialog.banner-panel{--banner-inset:18px;padding:30px;background:#241d29;border-radius:0}
 #app #overlay .card.banner-panel{--banner-inset:9px;padding:18px;background:#241d29;border-radius:0}
-#app #overlay .card .banner-heading{padding:9px 9px 12px}
+#app #overlay .card .banner-heading{--banner-left:9px;--banner-right:9px;padding:9px var(--banner-right) 12px var(--banner-left)}
 #app #menu .a-run-card,#app #menu .coop-survivor-preview,#app #menu .selection-rows{border-radius:0;border-top:3px solid #a1875d}
 @media(max-width:600px){
   #app #overlay .dialog.banner-panel{--banner-inset:12px;padding:22px 20px}
