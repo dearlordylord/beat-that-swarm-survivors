@@ -38,7 +38,7 @@ law visual_owner_exact:
   for +slot:U32
   {W.visual_owner(kind,slot) == Bool.pick(U32,U32.is_eq(kind,1),(slot / 65536 : U32),4294967295) : U32}
 
-# Guarantees: Players retain their ID, character lifetime and connected health with F32-normalized coordinates.
+# Guarantees: Players retain their ID, character lifetime and connected liveness with F32-normalized coordinates.
 # Why it matters: Disconnected characters cannot be treated as active projectile kinds.
 law player_projection_exact:
   for +id:U32
@@ -47,16 +47,16 @@ law player_projection_exact:
   for +y:F32
   for +hp:U32
   for +connected:Bool
-  {W.player_actor(id,character,x,y,hp,connected) == P.Actor{id,character,"player:" ++ U32.show(id) ++ ":" ++ U32.show(character),Numbers.from_bits(F32.bits(x)),Numbers.from_bits(F32.bits(y)),0,Bool.pick(U32,connected,hp,0),id} : P.Actor}
+  {W.player_actor(id,character,x,y,hp,connected) == P.Actor{id,character,"player:" ++ U32.show(id) ++ ":" ++ U32.show(character),Numbers.from_bits(F32.bits(x)),Numbers.from_bits(F32.bits(y)),0,Bool.and(connected,U32.is_gt(hp,0)),id} : P.Actor}
 
-# Guarantees: Kinds one and seven use positive life and pierce as the live marker; other bodies preserve health.
-# Why it matters: Gameplay projectiles may have zero HP yet must interpolate while active.
+# Guarantees: Kinds one and seven use positive life and pierce as the live marker; other actors use positive health.
+# Why it matters: Gameplay projectiles may have zero health yet must interpolate while active.
 law body_liveness_exact:
   for +kind:U32
   for +hp:U32
   for +life:U32
   for +pierce:U32
-  {W.body_liveness(kind,hp,life,pierce) == Bool.pick(U32,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7)),Bool.to_u32(Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))),hp) : U32}
+  {W.body_liveness(kind,hp,life,pierce) == Bool.pick(Bool,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7)),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0)),U32.is_gt(hp,0)) : Bool}
 
 # Guarantees: Projected bodies use the shared lifetime, owner and liveness policies and normalize both coordinates.
 # Why it matters: The live projection boundary must actually apply the rules that prevent projectile stepping.
@@ -96,7 +96,7 @@ law extra_rejected:
   for +tick:U32
   {W.extra_selected(False{},key,kind,variant,x,y,age,hp,tick) == None{} : Maybe<&2,P.Actor>}
 
-# Guarantees: Retained extras carry item lifetime, normalized position, original age and health, and no player owner.
+# Guarantees: Retained extras carry item lifetime, normalized position, original age and explicit liveness, and no player owner.
 # Why it matters: Loot and stage objects retain their separate presentation identity.
 law extra_kept:
   for +key:U32
@@ -107,7 +107,7 @@ law extra_kept:
   for +age:U32
   for +hp:U32
   for +tick:U32
-  {W.extra_selected(True{},key,kind,variant,x,y,age,hp,tick) == Some{P.Actor{key,kind,"item:" ++ U32.show(kind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show((tick - age : U32)),Numbers.from_bits(F32.bits(x)),Numbers.from_bits(F32.bits(y)),age,hp,4294967295}} : Maybe<&2,P.Actor>}
+  {W.extra_selected(True{},key,kind,variant,x,y,age,hp,tick) == Some{P.Actor{key,kind,"item:" ++ U32.show(kind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show((tick - age : U32)),Numbers.from_bits(F32.bits(x)),Numbers.from_bits(F32.bits(y)),age,U32.is_gt(hp,0),4294967295}} : Maybe<&2,P.Actor>}
 
 # Guarantees: Exactly kinds zero, one and seven are excluded from the extras path.
 # Why it matters: The IO adapter cannot independently decide which bodies belong to the canonical combat cohort.

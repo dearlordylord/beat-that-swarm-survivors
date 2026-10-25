@@ -4,7 +4,7 @@ import ./list-map.bend as LM
 
 # One bounded authoritative timeline for every remote combat layer.
 # The local avatar's prediction is intentionally outside this model.
-type Actor is Data: Actor{key:U32,kind:U32,generation:String,x:F32,y:F32,age:U32,hp:U32,owner:U32}
+type Actor is Data: Actor{key:U32,kind:U32,generation:String,x:F32,y:F32,age:U32,alive:Bool,owner:U32}
 type Frame is Data: Frame{observation:U32,tick:U32,receivedAt:Nat,players:List<&2,Actor>,bodies:List<&2,Actor>}
 type Indexed is Data: Indexed{frame:Frame,players:BI.Index<Actor>,bodies:BI.Index<Actor>}
 # fraction is millionths of one world tick. Emitted 2.0.38 Nat timestamps
@@ -138,10 +138,10 @@ def advance(state:State,now:Nat) -> State:
 def identity(a:Actor,b:Actor) -> Bool:
   match a b:
     case Actor{k0,t0,g0,_,_,_,h0,o0} Actor{k1,t1,g1,_,_,_,h1,o1}:
-      Bool.and(U32.is_eq(k0,k1),Bool.and(U32.is_eq(t0,t1),Bool.and(String.eq(g0,g1),Bool.and(U32.is_eq(o0,o1),Bool.and(U32.is_gt(h0,0),U32.is_gt(h1,0))))))
+      Bool.and(U32.is_eq(k0,k1),Bool.and(U32.is_eq(t0,t1),Bool.and(String.eq(g0,g1),Bool.and(U32.is_eq(o0,o1),Bool.and(h0,h1)))))
 def blended(allowed:Bool,a:Actor,b:Actor,+alpha:F32) -> Actor:
   match allowed a b:
-    case True{} Actor{key,kind,generation,x0,y0,age,hp,owner} Actor{_,_,_,x1,y1,_,_,_}: Actor{key,kind,generation,F32.lerp(x0,x1,alpha),F32.lerp(y0,y1,alpha),age,hp,owner}
+    case True{} Actor{key,kind,generation,x0,y0,age,alive,owner} Actor{_,_,_,x1,y1,_,_,_}: Actor{key,kind,generation,F32.lerp(x0,x1,alpha),F32.lerp(y0,y1,alpha),age,alive,owner}
     case False{} a _: a
 def matched(found:Maybe<&2,Actor>,+old:Actor,alpha:F32) -> Actor:
   match found:

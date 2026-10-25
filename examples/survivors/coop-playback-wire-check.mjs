@@ -21,11 +21,11 @@ for(const connected of [true,false]){
  const actor=W.player_actor({$:'PlayerSnapshot',id:1,run:run(),connected});
  check(actor.key===1&&actor.owner===1&&actor.generation==='player:1:1','player identity projected');
  check(actor.x===Math.fround(.1)&&actor.y===Math.fround(-.2),'nested player F32 normalized');
- check(actor.hp===(connected?100:0),'player health follows connection without projectile-kind collision');
+ check(actor.alive===connected,'player health follows connection without projectile-kind collision');
 }
 for(const kind of [0,1,7])for(const life of [0,1,20])for(const pierce of [0,1,2]){
  const actor=W.body_actor(body({kind,hp:kind===0?17:0}),motion({life,pierce}),90);
- check(actor.hp===(kind===0?17:Number(life>0&&pierce>0)),'kind-specific presentation liveness');
+ check(actor.alive===(kind===0?true:(life>0&&pierce>0)),'kind-specific presentation liveness');
  check(actor.x===Math.fround(.1)&&actor.y===Math.fround(-.2),'nested body F32 normalized');
  check(actor.owner===(kind===1?1:4294967295),'projectile owner from packed slot');
  check(actor.generation===(kind===0?'enemy:42:90':kind===1?'1:90:3:4':'hostile:42:90'),'exact body lifetime');
@@ -41,7 +41,7 @@ check(array(P.sample(state).value.bodies)[0].x===3,'real HP-zero projectile inte
 check(body().hp===0,'presentation liveness does not mutate gameplay body HP');
 const owned=run({character:7,hp:0});
 check(W.own_run(scene(100,body(),{own:8,players:list([{$:'PlayerSnapshot',id:3,run:run(),connected:true},{$:'PlayerSnapshot',id:8,run:owned,connected:false}])})).value===owned,'own run follows ID rather than list position');
-const extra=Array.from({length:12000},(_,key)=>({$:'Actor',key,kind:2,generation:`extra:${key}`,x:0,y:0,age:0,hp:0,owner:4294967295}));
+const extra=Array.from({length:12000},(_,key)=>({$:'Actor',key,kind:2,generation:`extra:${key}`,x:0,y:0,age:0,alive:false,owner:4294967295}));
 check(array(W.join(list(extra),list(extra))).length===24000,'large ordered join remains stack safe');
 const scratch=await mkdtemp(join(tmpdir(),'coop-wire-adapter-'));
 try{

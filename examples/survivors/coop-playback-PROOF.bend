@@ -54,7 +54,7 @@ def L.unmatched_preserves_old(old,alpha):
 def L.different_lifetime_preserves_old(old,new,alpha):
   {==}
 
-def L.blend_only_positions(key,kind,generation,x0,y0,age,hp,owner,k1,t1,g1,x1,y1,a1,h1,o1,alpha):
+def L.blend_only_positions(key,kind,generation,x0,y0,age,alive,owner,k1,t1,g1,x1,y1,a1,h1,o1,alpha):
   {==}
 
 def L.empty_sample(cursor,recovered,delay):
@@ -135,7 +135,7 @@ def L.bracket_cons(head,tail,new,tick,fraction):
 def L.advance_empty(cursor,recovered,delay,now):
   {==}
 
-def L.actor_key_exact(key,kind,generation,x,y,age,hp,owner):
+def L.actor_key_exact(key,kind,generation,x,y,age,alive,owner):
   {==}
 
 def L.index_rows_empty(index):

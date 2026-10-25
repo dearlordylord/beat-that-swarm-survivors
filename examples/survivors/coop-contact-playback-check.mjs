@@ -7,8 +7,8 @@ const {default:C}=await import(pathToFileURL(resolve(process.argv[2]??'examples/
 const {default:P}=await import(pathToFileURL(resolve(process.argv[3]??'examples/survivors/dist/coop-playback.mjs')));
 const list=rows=>rows.reduceRight((tail,head)=>({$:'Con',head,tail}),{$:'Nil'});
 const array=rows=>{const out=[];for(;rows.$==='Con';rows=rows.tail)out.push(rows.head);return out;};
-const enemy=(key,x,extra={})=>({$:'Actor',key,kind:0,generation:`enemy:${key}:7`,x,y:0,age:20,hp:10,owner:0,...extra});
-const shot=(key,x,extra={})=>({$:'Actor',key,kind:1,generation:`shot:${key}`,x,y:0,age:3,hp:4,owner:1,...extra});
+const enemy=(key,x,extra={})=>({$:'Actor',key,kind:0,generation:`enemy:${key}:7`,x,y:0,age:20,alive:true,owner:0,...extra});
+const shot=(key,x,extra={})=>({$:'Actor',key,kind:1,generation:`shot:${key}`,x,y:0,age:3,alive:true,owner:1,...extra});
 const event=(extra={})=>({$:'HitEvent',id:'hit:1',tick:104,kind:2,shotId:'shot:50',shotSeed:50,targetSeed:42,targetGeneration:7,fraction:.5,impactX:11.5,impactY:0,targetAtImpactX:13.5,targetAtImpactY:0,radius:3,outcome:0,...extra});
 const journal=events=>({$:'State',epoch:1,now:106,events:list(events),overflow:0,expired:0});
 const frame=(observation,tick,bodies)=>({$:'Frame',observation,tick,receivedAt:tick*16667,players:list([]),bodies:list(bodies)});
@@ -32,7 +32,7 @@ check(array(out.contacts)[0].x!==11.5,'FX does not stay at stale authority coord
 f=fixture([enemy(42,10),shot(50,0)],[],[event()]);
 out=display(f,101,750000);
 check(body(out,42).x===11.75,'dying target reconstructs the last observed path');
-check(body(out,42).hp===10,'presentation preserves original health metadata');
+check(body(out,42).alive===true,'presentation preserves explicit actor liveness');
 out=display(f,104);
 check(body(out,42).x===13.5&&!body(out,50),'target holds impact point after shot removal');
 check(array(out.contacts)[0].x===11.5,'dying target FX shares the same contact point');

@@ -18,10 +18,10 @@
   {
     "source": "examples/survivors/coop-playback-wire-policy.bend",
     "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
-    "label": "projection-hp-zero-shots-are-dead",
+    "label": "projection-shot-liveness-uses-health-instead-of-lifetime",
     "law": "body_liveness_exact",
-    "old": "Bool.pick(U32,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7)),Bool.to_u32(Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))),hp)",
-    "new": "hp"
+    "old": "Bool.pick(Bool,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7)),Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0)),U32.is_gt(hp,0))",
+    "new": "U32.is_gt(hp,0)"
   },
   {
     "source": "examples/survivors/coop-playback-wire-policy.bend",

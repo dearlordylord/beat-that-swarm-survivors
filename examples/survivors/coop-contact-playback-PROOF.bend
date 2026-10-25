@@ -27,16 +27,16 @@ def L.target_at_impact_exact(id,tick,kind,shot,shotSeed,targetSeed,generation,fr
 def L.target_generation_exact(seed,born):
   {==}
 
-def L.target_lifetime_exact(key,actorKind,actorGeneration,x,y,age,hp,owner,id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome):
+def L.target_lifetime_exact(key,actorKind,actorGeneration,x,y,age,alive,owner,id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome):
   {==}
 
-def L.shot_lifetime_exact(key,actorKind,actorGeneration,x,y,age,hp,owner,id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome):
+def L.shot_lifetime_exact(key,actorKind,actorGeneration,x,y,age,alive,owner,id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome):
   {==}
 
-def L.point_exact(key,actorKind,actorGeneration,x,y,age,hp,owner):
+def L.point_exact(key,actorKind,actorGeneration,x,y,age,alive,owner):
   {==}
 
-def L.positioned_preserves_metadata(key,actorKind,actorGeneration,x,y,age,hp,owner,nx,ny):
+def L.positioned_preserves_metadata(key,actorKind,actorGeneration,x,y,age,alive,owner,nx,ny):
   {==}
 
 def L.contact_relative_geometry(id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome,x,y):
@@ -104,7 +104,7 @@ def L.actor_unchanged(context,actor,shot):
 def L.actor_changed_dispatch(context,actor,shot):
   {==}
 
-def L.actor_policy_exact(key,actorKind,actorGeneration,x,y,age,hp,owner,context):
+def L.actor_policy_exact(key,actorKind,actorGeneration,x,y,age,alive,owner,context):
   {==}
 
 def L.living_target_endpoint(fallback,old,new,event,base,next):
@@ -278,7 +278,7 @@ def L.path_candidate_yes(actor,context,index):
 def L.path_candidate_no(actor,context,index):
   {==}
 
-def L.path_candidate_kind(key,kind,generation,x,y,age,hp,owner,context,index):
+def L.path_candidate_kind(key,kind,generation,x,y,age,alive,owner,context,index):
   {==}
 
 def L.path_rows_empty(context,index):

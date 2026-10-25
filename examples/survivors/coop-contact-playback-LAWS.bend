@@ -153,7 +153,7 @@ law target_lifetime_exact:
   for +x:F32
   for +y:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
   for +id:String
   for +tick:U32
@@ -169,7 +169,7 @@ law target_lifetime_exact:
   for +ty:F32
   for +radius:F32
   for +outcome:U32
-  {C.target_matches(P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner},J.HitEvent{id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome}) == Bool.and(U32.is_eq(actorKind,0),Bool.and(U32.is_eq(key,targetSeed),String.eq(actorGeneration,"enemy:" ++ U32.show(targetSeed) ++ ":" ++ U32.show(generation)))) : Bool}
+  {C.target_matches(P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner},J.HitEvent{id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome}) == Bool.and(U32.is_eq(actorKind,0),Bool.and(U32.is_eq(key,targetSeed),String.eq(actorGeneration,"enemy:" ++ U32.show(targetSeed) ++ ":" ++ U32.show(generation)))) : Bool}
 
 # Guarantees: A shot matches only kind one with identical seed and shot lifetime identifier.
 # Why it matters: A terminal contact cannot remove a later projectile using the same slot.
@@ -180,7 +180,7 @@ law shot_lifetime_exact:
   for +x:F32
   for +y:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
   for +id:String
   for +tick:U32
@@ -196,7 +196,7 @@ law shot_lifetime_exact:
   for +ty:F32
   for +radius:F32
   for +outcome:U32
-  {C.shot_matches(P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner},J.HitEvent{id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome}) == Bool.and(U32.is_eq(actorKind,1),Bool.and(U32.is_eq(key,shotSeed),String.eq(actorGeneration,shot))) : Bool}
+  {C.shot_matches(P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner},J.HitEvent{id,tick,kind,shot,shotSeed,targetSeed,generation,fraction,ix,iy,tx,ty,radius,outcome}) == Bool.and(U32.is_eq(actorKind,1),Bool.and(U32.is_eq(key,shotSeed),String.eq(actorGeneration,shot))) : Bool}
 
 # Guarantees: An actor point exposes its current x and y.
 # Why it matters: Geometry cannot silently anchor at an unrelated actor field.
@@ -207,9 +207,9 @@ law point_exact:
   for +x:F32
   for +y:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
-  {C.point(P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner}) == C.Point{x,y} : C.Point}
+  {C.point(P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner}) == C.Point{x,y} : C.Point}
 
 # Guarantees: Position correction changes only x and y.
 # Why it matters: Contact playback cannot invent damage, ownership, health or actor lifetime.
@@ -220,11 +220,11 @@ law positioned_preserves_metadata:
   for +x:F32
   for +y:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
   for +nx:F32
   for +ny:F32
-  {C.positioned(P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner},C.Point{nx,ny}) == P.Actor{key,actorKind,actorGeneration,nx,ny,age,hp,owner} : P.Actor}
+  {C.positioned(P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner},C.Point{nx,ny}) == P.Actor{key,actorKind,actorGeneration,nx,ny,age,alive,owner} : P.Actor}
 
 # Guarantees: The visible contact equals displayed target position plus the authoritative contact offset.
 # Why it matters: Projectiles and hit effects must meet the displayed enemy rather than its delayed coordinates.
@@ -448,10 +448,10 @@ law actor_policy_exact:
   for +x:F32
   for +y:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
   for +context:C.Context
-  {C.project_actor(context,P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner}) == C.actor_selected(Bool.and(Bool.or(U32.is_eq(actorKind,0),U32.is_eq(actorKind,1)),Bool.not(C.continues(context,P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner}))),context,P.Actor{key,actorKind,actorGeneration,x,y,age,hp,owner},U32.is_eq(actorKind,1)) : Maybe<&2,P.Actor>}
+  {C.project_actor(context,P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner}) == C.actor_selected(Bool.and(Bool.or(U32.is_eq(actorKind,0),U32.is_eq(actorKind,1)),Bool.not(C.continues(context,P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner}))),context,P.Actor{key,actorKind,actorGeneration,x,y,age,alive,owner},U32.is_eq(actorKind,1)) : Maybe<&2,P.Actor>}
 
 # Guarantees: A continuing target endpoint is its position on the same authority bracket at impact time.
 # Why it matters: Remote shots and moving enemies must meet under one display clock.
@@ -974,11 +974,11 @@ law path_candidate_kind:
   for +x:F32
   for +y:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
   for +context:C.Context
   for +index:BI.Index<J.HitEvent>
-  {C.path_candidate(P.Actor{key,kind,generation,x,y,age,hp,owner},context,index) == C.path_candidate_selected(U32.is_eq(kind,0),P.Actor{key,kind,generation,x,y,age,hp,owner},context,index) : BI.Index<J.HitEvent>}
+  {C.path_candidate(P.Actor{key,kind,generation,x,y,age,alive,owner},context,index) == C.path_candidate_selected(U32.is_eq(kind,0),P.Actor{key,kind,generation,x,y,age,alive,owner},context,index) : BI.Index<J.HitEvent>}
 
 # Guarantees: Path preparation preserves its accumulated index when all actors are processed.
 # Why it matters: Completed target selections remain available to all projectile endpoints.
