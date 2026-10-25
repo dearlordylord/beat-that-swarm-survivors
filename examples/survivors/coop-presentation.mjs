@@ -21,6 +21,44 @@ const micros = now => {
   if (!Number.isSafeInteger(value) || value < 0) throw Error('Invalid local presentation clock.');
   return value;
 };
+function actorMetadata(actor, frame) {
+  if (actor.kind === 0) {
+    const enemy = frame.enemies.find(value => value.identity === actor.key);
+    if (!enemy) throw Error('An enemy actor has no named render metadata.');
+    return {type:'enemy', value:{...enemy,x:actor.x,y:actor.y,lifetime:actor.generation,tick:frame.tick}};
+  }
+  if (actor.kind === 1 || actor.kind === 7) {
+    const projectile = frame.projectiles.find(value => value.identity === actor.key);
+    if (!projectile) throw Error('A projectile actor has no named render metadata.');
+    return {type:'projectile', value:{...projectile,x:actor.x,y:actor.y,lifetime:actor.generation,owner:actor.owner,tick:frame.tick}};
+  }
+  const body = frame.bodies.find(value => value[7] === actor.key);
+  if (!body) throw Error('An item actor has no render metadata.');
+  const value=body.slice(); value[0]=actor.x; value[1]=actor.y;
+  value[9]=actor.generation; value[10]=actor.owner; value[11]=frame.tick;
+  return {type:'body',value};
+}
+function positionedMetadata(metadata, point) {
+  if (metadata.type === 'body') {
+    const value=metadata.value.slice(); value[0]=point.x; value[1]=point.y;
+    return {type:'body',value};
+  }
+  return {type:metadata.type,value:{...metadata.value,x:point.x,y:point.y}};
+}
+function observations(records, order) {
+  const bodies=[],enemies=[],projectiles=[];
+  for(const record of records) {
+    if(record.type==='body') bodies.push(record.value);
+    else if(record.type==='enemy') enemies.push(record.value);
+    else projectiles.push(record.value);
+  }
+  const bodyIds=new Set(bodies.map(value=>value[7]));
+  const enemyIds=new Set(enemies.map(value=>value.identity));
+  const projectileIds=new Set(projectiles.map(value=>value.identity));
+  const actorOrder=order.filter(reference=>Object.hasOwn(reference,'enemy')?enemyIds.has(reference.enemy):
+    Object.hasOwn(reference,'projectile')?projectileIds.has(reference.projectile):bodyIds.has(reference.body));
+  return {bodies,enemies,projectiles,actorOrder};
+}
 export class ObservationPresentation {
   constructor() { this.reset(); }
   reset() {
@@ -39,17 +77,10 @@ export class ObservationPresentation {
     }
     const projected = Wire.project(frame.combatForecast,frame.observationSeq,micros(receivedAt),list(extras));
     if (!Playback.accepts(this.state,projected)) return;
-    const metadata = new Map((frame.bodies || []).map(body => [body[7],body]));
-    const bodies = array(projected.bodies).map(actor => {
-      const body = metadata.get(actor.key);
-      if (!body) throw Error('An authoritative actor has no render metadata.');
-      const result = body.slice();
-      result[0] = actor.x; result[1] = actor.y;
-      result[9] = actor.generation; result[10] = actor.owner; result[11] = frame.tick;
-      return result;
-    });
-    this.frames.set(frame.observationSeq,{...frame,bodies});
-    this.metadata.set(frame.observationSeq,new Map(bodies.map(body => [`${body[7]}:${body[9]}`,body])));
+    const records = array(projected.bodies).map(actor=>actorMetadata(actor,frame));
+    this.frames.set(frame.observationSeq,{...frame,...observations(records,frame.actorOrder)});
+    this.metadata.set(frame.observationSeq,new Map(array(projected.bodies).map((actor,index)=>
+      [`${actor.key}:${actor.generation}`,records[index]])));
     this.state = Playback.push(this.state,projected);
     const retained = new Set(array(Playback.observations(this.state)));
     for (const observation of this.frames.keys())
@@ -73,23 +104,23 @@ export class ObservationPresentation {
       const point = playerPositions.get(player.id);
       return point ? {...player,px:point.x,py:point.y} : player;
     });
-    const bodies = array(sample.bodies).map(point => {
-      const body = this.metadata.get(sample.baseObservation)?.get(`${point.key}:${point.generation}`);
-      if (!body) throw Error('A displayed actor has no retained lifetime metadata.');
-      const result = body.slice(); result[0] = point.x; result[1] = point.y;
-      return result;
+    const records = array(sample.bodies).map(point => {
+      const metadata=this.metadata.get(sample.baseObservation)?.get(`${point.key}:${point.generation}`);
+      if(!metadata) throw Error('A displayed actor has no retained lifetime metadata.');
+      return positionedMetadata(metadata,point);
     });
+    const actors=observations(records,source.actorOrder);
     const own = playerPositions.get(source.ownPlayerId);
-    return {...source,tick:sample.tick,players,bodies,combatImpacts:array(HitEffects.render(this.effects,sample)),
+    return {...source,...actors,tick:sample.tick,players,combatImpacts:array(HitEffects.render(this.effects,sample)),
       px:own?.x ?? source.px,py:own?.y ?? source.py,
       remotePresentation:{sampledAt:now,sourceTick:source.tick,tick:sample.tick,fraction:sample.fraction,alpha:sample.alpha,
         baseObservation:sample.baseObservation,nextObservation:sample.nextObservation,
         retainedFrames:this.frames.size,recovered:this.state.recovered,buffering:Playback.is_buffering(this.state)}};
   }
-  bodyMetadata(seed,generation) {
-    for (const metadata of this.metadata.values()) {
-      const body = metadata.get(`${seed}:${generation}`);
-      if (body) return body;
+  enemyMetadata(identity,generation) {
+    for(const metadata of this.metadata.values()) {
+      const record=metadata.get(`${identity}:${generation}`);
+      if(record?.type==='enemy') return record.value;
     }
     return null;
   }
