@@ -90,9 +90,10 @@ function runJournalOnly() {
 if (process.argv.includes('--journal-only')) {
   runJournalOnly();
 } else {
-  const [{ default: Core }, { default: Game }] = await Promise.all([
+  const [{ default: Core }, { default: Game }, { default: Encoder }] = await Promise.all([
     import(moduleUrl('COOP_CORE_MODULE', './dist/web/dist/coop-core.mjs')),
     import(moduleUrl('COOP_GAME_MODULE', './dist/web/dist/game.mjs')),
+    import(moduleUrl('COOP_ENCODER_MODULE', './dist/web/dist/coop-encoder.mjs')),
   ]);
 
   const contactTick = 10802;
@@ -220,7 +221,6 @@ if (process.argv.includes('--journal-only')) {
   };
   const encodeStart = performance.now();
   const encodedPacket = Core.journal_clock(fullEvents, corePacket);
-  const { default: Encoder } = await import(moduleUrl('COOP_ENCODER_MODULE', './dist/web/dist/coop-encoder.mjs'));
   const encodedFrame = Encoder.encode(encodedPacket.observation).value;
   const encodeMs = performance.now() - encodeStart;
   assert.deepEqual(encodedPacket.state, corePacket.state, 'journal serialization does not change Core state');
