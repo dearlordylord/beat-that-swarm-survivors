@@ -9,5 +9,4 @@ type Vitals is Data: Vitals{health: U32,maximum: U32}
 type Trajectory is Data: Trajectory{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<&2,U32>,ownerBase: U32,logicalSlot: U32}
 type ShotPayload is Data: ShotPayload{weapon: U32,damage: U32,active: Bool}
 type Status is Data: Status{slow: U32,burn: U32}
-type Pickup is Data: Pickup{amount: U32,generation: U32,variant: U32,active: Bool}
 type PlayerRecord is Data: PlayerRecord{id: U32,player: RS.PlayerState,connected: Bool}
