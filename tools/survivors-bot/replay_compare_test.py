@@ -29,6 +29,7 @@ class CompareTest(unittest.TestCase):
     def test_equal_malformed_world_is_rejected(self):
         mutations=[lambda p:p['components']['actorColumns']['identities'][1].__setitem__(1,2),
                    lambda p:p['components']['actorColumns']['roles'][0].__setitem__(1,'EnemySlot'),
+                   lambda p:(p['components']['actorColumns']['shots'][0][1].__setitem__(2,1),p['components']['actorColumns']['trajectories'][0][1].__setitem__(7,1)),
                    lambda p:p['components']['actorColumns']['vitals'].pop(),
                    lambda p:p['components']['actorColumns']['shots'][1].__setitem__(1,[0,1,1]),
                    lambda p:p['components']['actorColumns']['projectileCandidates'].reverse(),

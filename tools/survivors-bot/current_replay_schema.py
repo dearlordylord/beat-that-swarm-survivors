@@ -214,6 +214,9 @@ def validate_payload(payload,checkpoint_tick,layout=None):
             if phase[0]>2: raise ReplayError('Unknown enemy phase')
         if role in PROJECTILES:
             Shot.payload(c['shots'][offset][1]);Shot.trajectory(c['trajectories'][offset][1])
+            source=c['trajectories'][offset][1][7]
+            if role=='HostileProjectileSlot' and source is not None: raise ReplayError('Hostile slot has player ownership')
+            if role=='PlayerProjectileSlot' and c['shots'][offset][1][2] and source!=0: raise ReplayError('Active native projectile source is not the actual solo player')
         if membership['pickups']:
             value=c['pickups'][offset][1]
             if not isinstance(value,list) or len(value)!=3: raise ReplayError('Invalid Pickup payload')
