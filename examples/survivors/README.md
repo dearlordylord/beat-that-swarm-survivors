@@ -126,6 +126,12 @@ Adaptive chip-metal shares its Bend score and danger assessment through
 browser renders the shared notes through Web Audio. Scheduling policy and
 validation scope are linked from the [music guide](music/README.md).
 
+Browser combat sounds use [`audio-events.bend`](audio-events.bend) for attack
+births, impacts, explosions, pickups and reward transitions. Co-op impact sounds
+follow confirmed contacts at their displayed time. The [audio wiring note](../../research/audio-effects-wiring.md)
+records deduplication and browser signal checks. Start or Join unlocks browser
+audio; the game's sound setting, volume and the iPhone silent switch still apply.
+
 ## Multiplayer exploration
 
 [Browser co-op](COOP.md) uses the shared Bend world and Iroh transport. Its

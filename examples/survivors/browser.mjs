@@ -46,6 +46,7 @@ const $ = (s) => document.querySelector(s),
     stop(...args) { this.engine?.stop(...args); },
     event(...args) { this.engine?.event(...args); },
     update(...args) { this.engine?.update(...args); },
+    observe(...args) { this.engine?.observe(...args); },
     setMuted(...args) { this.engine?.setMuted(...args); },
     setVolume(...args) { this.engine?.setVolume(...args); },
   };
@@ -185,11 +186,7 @@ function accept(packet) {
   if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true;
   runHistory = observeRun(runHistory, { weapons: frame.weapons });
   frame.stage ??= stage;
-  if (old && running) {
-    if (frame.hp < old.hp) audio.event("hit");
-    if (frame.kills > old.kills) audio.event("kill");
-    if (frame.hp > old.hp) audio.event("heal");
-  }
+  if (running) audio.observe({...frame,runId});
   if (frame.phase !== shownPhase) {
     shownPhase = frame.phase;
     phase();
@@ -262,7 +259,6 @@ function phase() {
   const d = $("#dialog");
   if (frame.phase === 1 || frame.phase === 2) {
     audio.stop();
-    audio.event(frame.phase === 1 ? "level" : "chest");
     let offers = frame.offers || [];
     d.innerHTML = `<div class="banner-heading"><div class="eyebrow">${frame.phase === 1 ? `LEVEL ${frame.level}` : "TREASURE OF THE NIGHT"}</div><h2 id="dialog-title">${frame.phase === 1 ? "Power awakens" : "A fallen lord’s gift"}</h2></div><p>${frame.phase === 1 ? "Choose an ability for the next wave." : "Choose your reward. A matching weapon may evolve."}</p><div class="grid choices">${offers
       .map((o, index) => {
@@ -300,7 +296,6 @@ function phase() {
         "",
       )}</div>${frame.phase === 1 ? `<div class="dialog-actions"><button data-run="reroll" ${frame.rerolls === 0 ? "disabled" : ""}>↻ Reroll${frame.rerolls !== undefined ? ` (${frame.rerolls})` : ""}</button><button id="banish">Banish an offer…</button><button data-run="skip">Skip</button></div>` : ""}`;
   } else if (frame.phase === 3 || frame.phase === 4) {
-    audio.event(frame.phase === 4 ? "victory" : "gameover");
     const awards = recordRun(profile, runResult());
     saveProfile(profile);
     d.innerHTML = `<div class="banner-heading"><div class="eyebrow">${STAGES[stage].name.toUpperCase()}</div><h2 id="dialog-title">${frame.phase === 4 ? "The dawn is yours" : "The night will remember"}</h2></div><p>${frame.phase === 4 ? "The horde has fallen. Your legacy grows stronger." : "Every shard of power brings the next dawn closer."}</p><div class="summary"><div><strong>${time(frame.tick / 60)}</strong><span>TIME</span></div><div><strong>${frame.kills}</strong><span>DEFEATED</span></div><div><strong>${frame.level}</strong><span>LEVEL</span></div><div><strong>+${frame.gold} ◈</strong><span>LEGACY</span></div></div>${awards.length ? `<p>New achievements: ${awards.map((id) => ACHIEVEMENTS.find((a) => a.id === id)?.name || id).join(", ")}</p>` : ""}<div class="dialog-actions"><button class="primary" id="restart">Another night</button><button id="return">Return to menu</button></div>`;
@@ -617,6 +612,7 @@ function joystick(e) {
   e.preventDefault();
 }
 joy.addEventListener("pointerdown", (e) => {
+  audio.unlock();
   pointer = e.pointerId;
   joy.setPointerCapture(pointer);
   joystick(e);

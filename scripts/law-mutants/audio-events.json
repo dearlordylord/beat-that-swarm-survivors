@@ -1,0 +1,50 @@
+[
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-drop-player-shot",
+    "law": "attack_exact",
+    "old": "Bool.or(U32.is_eq(kind,1),Bool.or(U32.is_eq(kind,6),U32.is_eq(kind,7)))",
+    "new": "Bool.or(U32.is_eq(kind,6),U32.is_eq(kind,7))"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-replay-confirmed-impact-tick",
+    "law": "impact_admission_exact",
+    "old": "Bool.and(U32.is_gt(tick,after),U32.is_le(tick,now))",
+    "new": "U32.is_le(tick,now)"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-repeat-same-tick-births",
+    "law": "same_tick_keeps_body_history",
+    "old": "case False{} _: observed(old,current,impactTick,Scanned{bodies,[]})",
+    "new": "case False{} _: observed(old,current,impactTick,scan(rows,bodies,0,0.0,False{},BI.Empty{},[]))"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-ignore-pooled-slot-birth",
+    "law": "generation_exact",
+    "old": "String.eq(a,b),U32.is_eq(aBorn,bBorn))",
+    "new": "String.eq(a,b),True{})"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-suppress-solo-monster-impact",
+    "law": "body_changes_exact",
+    "old": "Bool.not(confirmed),Bool.and(U32.is_eq(kind,0),U32.is_lt(hp,oldHp))",
+    "new": "False{},Bool.and(U32.is_eq(kind,0),U32.is_lt(hp,oldHp))"
+  },
+  {
+    "source": "examples/survivors/audio-events.bend",
+    "proof": "examples/survivors/audio-events-PROOF.bend",
+    "label": "audio-do-not-commit-played-impact",
+    "law": "impact_commit_exact",
+    "old": "Out{State{ready,meta,bodies,tick},[Sound{1,pan(x,meta_x(meta))}]}",
+    "new": "Out{State{ready,meta,bodies,0},[Sound{1,pan(x,meta_x(meta))}]}"
+  }
+]

@@ -160,6 +160,7 @@ export class CoopUI {
     };
     on(pad, 'pointerdown', event => {
       if (this.touchPointerId !== null) return;
+      this.audio.unlock();
       this.touchPointerId = event.pointerId;
       pad.setPointerCapture(event.pointerId); pad.dataset.active = 'true'; touchMove(event);
     });
@@ -174,6 +175,7 @@ export class CoopUI {
         if (this.frame && !this.renderFailed) {
           const display = this.displayFrame(now);
           this.renderer.draw(display, delta / 1000, this.profile.settings || {});
+          this.audio.impacts(display);
           this.displayedFrame = display;
           if (!this.$('#coop-map-panel').hidden) this.renderer.drawMap(this.$('#coop-map'), display);
           if (delta > 0) this.fps = this.fps === undefined ? 1000 / delta : this.fps * .95 + 1000 / delta * .05;
@@ -342,6 +344,7 @@ export class CoopUI {
     const button = this.$(`#coop-offers [data-choice="${index}"]`);
     if (!button || button.disabled || this.choiceBusy) return;
     this.setChoicePending(true);
+    this.audio.event('choose');
     this.invoke('onChoice', { round: this.frame.roundId ?? this.frame.rewardRound?.id ?? 0, index });
   }
   toggleMap(open = this.$('#coop-map-panel').hidden) {
@@ -355,6 +358,7 @@ export class CoopUI {
     // A disconnect arriving after a completed receipt must not replace its result screen.
     if (previous && previous.runId === frame.runId && [3, 4].includes(previous.phase) && frame.phase === 5) return;
     this.frame = frame;
+    this.audio.observe(frame);
     if (frame.ownPlayerId === 1) this.$('#coop-join-title').textContent = 'Your place is ready!';
     this.presentation.push(frame, this.window.performance.now());
     const saved = this.progress.observe(frame);
@@ -390,7 +394,6 @@ export class CoopUI {
           const item = offerPresentation(offer);
           return `<button class="reward-offer banner-panel" data-choice="${index}"><span class="banner-heading"><span class="offer-icon" aria-hidden="true">${esc(item.icon)}</span><strong>${esc(item.name)}</strong></span><small>${esc(item.description)}</small><small>${esc(item.detail)} · ${index + 1}</small></button>`;
         }).join('');
-        this.audio.event(frame.phase === 1 ? 'level' : 'chest');
         this.$('#coop-offers button')?.focus({ preventScroll: true });
       } else if (ended || aborted) {
         this.clearInput();
@@ -403,13 +406,7 @@ export class CoopUI {
         this.$('#coop-finish').addEventListener('click', () => this.invoke('onLeave'), { once: true, signal: this.events.signal });
         this.$('#coop-finish').focus({ preventScroll: true });
         if (aborted) this.audio.stop(true);
-        else this.audio.event(frame.phase === 4 ? 'victory' : 'gameover');
       }
-    }
-    if (previous) {
-      if (frame.hp < previous.hp) this.audio.event('hit');
-      if (frame.hp > previous.hp) this.audio.event('heal');
-      if (frame.kills > previous.kills) this.audio.event('kill');
     }
     this.audio.update(frame, frame.phase === 0);
     if (!previous) this.canvas.focus({ preventScroll: true });

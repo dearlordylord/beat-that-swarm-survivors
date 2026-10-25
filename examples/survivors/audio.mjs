@@ -1,7 +1,9 @@
 import Game from "./dist/game.mjs";
+import Sounds from "./dist/audio-events.mjs";
 
-// Music-only level compensates for short chip envelopes; SFX retain their existing gain.
+// Separate mix levels keep short combat transients audible beside chip music.
 const MUSIC_LEVEL = 4;
+const SFX_LEVEL = 2;
 
 // Bend owns composition and threat decisions; this adapter schedules and synthesizes.
 // No AudioContext is created until an explicit user gesture.
@@ -29,6 +31,7 @@ export class AudioEngine {
     this.musicSeed = (Math.random() * 0x100000000) >>> 0;
     this.lastEvent = new Map();
     this.nodes = new Map();
+    this.soundState = Sounds.fresh();
   }
   unlock() {
     if (!this.enabled) return;
@@ -42,8 +45,8 @@ export class AudioEngine {
         this._gain();
         this.nextNote = this.context.currentTime + 0.1;
       }
-      if (this.context.state === "suspended")
-        this.context.resume().catch(() => {});
+      if (this.context.state === "suspended" || this.context.state === "interrupted")
+        this.context.resume().catch(error => console.warn('Could not resume game audio:', error));
     } catch {}
   }
   _gain() {
@@ -80,7 +83,7 @@ export class AudioEngine {
     slide = 0,
     bus = "sfx",
   ) {
-    if (bus === "music") gain *= MUSIC_LEVEL;
+    gain *= bus === "music" ? MUSIC_LEVEL : SFX_LEVEL;
     const c = this.context;
     if (!c || !this.enabled || this.muted || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24)) return;
     this.voices++;
@@ -121,14 +124,30 @@ export class AudioEngine {
   event(name, x = 0) {
     if (!this.context || !this.enabled || this.muted) return;
     const now = this.context.currentTime,
-      limits = { shot: 0.065, hit: 0.08, kill: 0.09 };
+      limits = { shot: 0.065, impact: 0.055, hit: 0.08, kill: 0.09, hostile: 0.12, cast: 0.14, explosion: 0.14, pickup: 0.09 };
     if (now - (this.lastEvent.get(name) ?? -99) < (limits[name] ?? 0.08))
       return;
     this.lastEvent.set(name, now);
     const pan = Math.max(-1, Math.min(1, Number(x) || 0));
     switch (name) {
       case "shot":
-        this._tone(640, 0.065, 0.022, "triangle", 0, pan, 250);
+        this._tone(780, 0.07, 0.09, "square", 0, pan, 260);
+        break;
+      case "impact":
+        this._tone(230, 0.065, 0.095, "sawtooth", 0, pan, 70);
+        break;
+      case "hostile":
+        this._tone(180, 0.11, 0.055, "square", 0, pan, 90);
+        break;
+      case "cast":
+        this._tone(330, 0.15, 0.075, "triangle", 0, pan, 880);
+        break;
+      case "explosion":
+        this._noise(0.2, 0.18, 0, 1800, false, "sfx");
+        this._tone(100, 0.2, 0.12, "sine", 0, pan, 30);
+        break;
+      case "pickup":
+        this._tone(920, 0.055, 0.05, "triangle", 0, pan, 1400);
         break;
       case "hit":
         this._tone(120, 0.09, 0.055, "sawtooth", 0, pan, 45);
@@ -165,10 +184,10 @@ export class AudioEngine {
         break;
     }
   }
-  _noise(duration, gain, delay, cutoff, highpass = false) {
-    gain *= MUSIC_LEVEL;
+  _noise(duration, gain, delay, cutoff, highpass = false, bus = "music") {
+    gain *= bus === "music" ? MUSIC_LEVEL : SFX_LEVEL;
     const c = this.context;
-    if (!c || this.musicVoices >= 32 || this.muted || !this.enabled) return;
+    if (!c || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24) || this.muted || !this.enabled) return;
     if (!this.noiseBuffer) {
       this.noiseBuffer = c.createBuffer(1, c.sampleRate, c.sampleRate);
       const data = this.noiseBuffer.getChannelData(0);
@@ -185,9 +204,9 @@ export class AudioEngine {
     env.gain.setValueAtTime(Math.max(0.0002, gain), start);
     env.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     source.connect(filter); filter.connect(env); env.connect(this.master);
-    this.voices++; this.musicVoices++; this.nodes.set(source, "music");
+    this.voices++; this[`${bus}Voices`]++; this.nodes.set(source, bus);
     source.onended = () => {
-      if (this.nodes.delete(source)) { this.voices--; this.musicVoices--; }
+      if (this.nodes.delete(source)) { this.voices--; this[`${bus}Voices`]--; }
       source.disconnect(); filter.disconnect(); env.disconnect();
     };
     source.start(start); source.stop(start + duration + 0.01);
@@ -208,6 +227,33 @@ export class AudioEngine {
       case 5: this._noise(0.035, 0.055 * level, delay, 6500, true); break;
       case 6: this._noise(0.38, 0.08 * level, delay, 4500, true); break;
     }
+  }
+  _playSounds(result) {
+    this.soundState = result.state;
+    for (let rows = result.events; rows.$ === 'Con'; rows = rows.tail)
+      this.event(Sounds.name(rows.head.kind), rows.head.pan);
+  }
+  observe(frame) {
+    let rows = {$:'Nil'};
+    for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
+      const body = frame.bodies[i];
+      rows = {$:'Con',head:{$:'Body',seed:body[7] >>> 0,kind:body[2] >>> 0,
+        variant:body[3] >>> 0,age:body[6] >>> 0,hp:body[4] >>> 0,x:Math.fround(body[0]),
+        radius:Math.fround(body[8]),generation:typeof body[9] === 'string' ? body[9] : ''},tail:rows};
+    }
+    this._playSounds(Sounds.observe(this.soundState,{$:'Meta',run:frame.runId || '',
+      tick:frame.tick >>> 0,phase:frame.phase >>> 0,round:frame.roundId >>> 0,
+      hp:frame.hp >>> 0,kills:frame.kills >>> 0,gold:frame.gold >>> 0,
+      xp:frame.xp >>> 0,level:frame.level >>> 0,px:Math.fround(frame.px),confirmed:frame.coop === true},rows));
+  }
+  impacts(frame) {
+    if (!frame.combatImpacts?.length) return;
+    let rows = {$:'Nil'};
+    for (let i = frame.combatImpacts.length - 1; i >= 0; i--) {
+      const hit = frame.combatImpacts[i];
+      rows = {$:'Con',head:{$:'Impact',tick:hit.tick >>> 0,x:Math.fround(hit.x)},tail:rows};
+    }
+    this._playSounds(Sounds.impacts(this.soundState,rows));
   }
   _refreshDanger(now, force = false) {
     if (!this.frame || (!force && now - this.lastDanger < 0.1)) return;
@@ -272,6 +318,6 @@ export class AudioEngine {
       }
     }
     this.nextNote = (this.context?.currentTime ?? 0) + 0.04;
-    if (reset) { this.musicSeed = (Math.random() * 0x100000000) >>> 0; this.step = 0; this.danger = 0; this.targetBand = 0; this.activeBand = 0; this.lastDanger = -Infinity; }
+    if (reset) { this.soundState = Sounds.fresh(); this.lastEvent.clear(); this.musicSeed = (Math.random() * 0x100000000) >>> 0; this.step = 0; this.danger = 0; this.targetBand = 0; this.activeBand = 0; this.lastDanger = -Infinity; }
   }
 }
