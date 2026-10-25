@@ -1,0 +1,129 @@
+{
+  "retrieved": "2026-10-25",
+  "scope": "discovery metadata; read primary works before relying on methods",
+  "queries": [
+    {
+      "query": "\"game balancing\"",
+      "url": "https://pldb.kirancodes.me/api/search?q=%22game+balancing%22&limit=5",
+      "total": 1,
+      "limit": 5,
+      "results": [
+        {
+          "key": "conf/kbse/CastellanoZATII22",
+          "title": "Explaining the Behaviour of Game Agents Using Differential Comparison",
+          "year": 2022,
+          "venue": "ase",
+          "doi": "10.1145/3551349.3560503",
+          "url": "https://doi.org/10.1145/3551349.3560503",
+          "open_access_url": "https://dl.acm.org/doi/pdf/10.1145/3551349.3560503"
+        }
+      ]
+    },
+    {
+      "query": "\"game\" testing",
+      "url": "https://pldb.kirancodes.me/api/search?q=%22game%22+testing&limit=5",
+      "total": 58,
+      "limit": 5,
+      "results": [
+        {
+          "key": "conf/kbse/SchaeferDS13",
+          "title": "Crushinator: A framework towards game-independent testing",
+          "year": 2013,
+          "venue": "ase",
+          "doi": "10.1109/ase.2013.6693143",
+          "url": "https://doi.org/10.1109/ase.2013.6693143",
+          "open_access_url": null
+        },
+        {
+          "key": "conf/icse/Chen11",
+          "title": "GATE: game-based testing environment",
+          "year": 2011,
+          "venue": "icse",
+          "doi": "10.1145/1985793.1986000",
+          "url": "https://doi.org/10.1145/1985793.1986000",
+          "open_access_url": "https://dl.acm.org/doi/pdf/10.1145/1985793.1986000"
+        },
+        {
+          "key": "conf/sigsoft/WangLGLXD23",
+          "title": "A Unified Framework for Mini-game Testing: Experience on WeChat",
+          "year": 2023,
+          "venue": "fse",
+          "doi": "10.1145/3611643.3613868",
+          "url": "https://doi.org/10.1145/3611643.3613868",
+          "open_access_url": "https://dl.acm.org/doi/pdf/10.1145/3611643.3613868"
+        },
+        {
+          "key": "conf/kbse/ChenHW25",
+          "title": "MIMIC: Integrating Diverse Personality Traits for Better Game Testing Using Large Language Model",
+          "year": 2025,
+          "venue": "ase",
+          "doi": "10.1109/ase63991.2025.00012",
+          "url": "https://doi.org/10.1109/ase63991.2025.00012",
+          "open_access_url": "https://arxiv.org/pdf/2510.01635"
+        },
+        {
+          "key": "conf/kbse/ZhengFXS0HMLSC19",
+          "title": "Wuji: Automatic Online Combat Game Testing Using Evolutionary Deep Reinforcement Learning",
+          "year": 2019,
+          "venue": "ase",
+          "doi": "10.1109/ase.2019.00077",
+          "url": "https://doi.org/10.1109/ase.2019.00077",
+          "open_access_url": "https://ink.library.smu.edu.sg/cgi/viewcontent.cgi?article=8068&amp;amp;context=sis_research"
+        }
+      ]
+    },
+    {
+      "query": "\"statistical model checking\"",
+      "url": "https://pldb.kirancodes.me/api/search?q=%22statistical+model+checking%22&limit=5",
+      "total": 21,
+      "limit": 5,
+      "results": [
+        {
+          "key": "conf/cav/SenVA05",
+          "title": "On Statistical Model Checking of Stochastic Systems",
+          "year": 2005,
+          "venue": "cav",
+          "doi": "10.1007/11513988_26",
+          "url": "https://doi.org/10.1007/11513988_26",
+          "open_access_url": "https://link.springer.com/content/pdf/10.1007%2F11513988_26.pdf"
+        },
+        {
+          "key": "conf/cav/SenVA04",
+          "title": "Statistical Model Checking of Black-Box Probabilistic Systems",
+          "year": 2004,
+          "venue": "cav",
+          "doi": "10.1007/978-3-540-27813-9_16",
+          "url": "https://doi.org/10.1007/978-3-540-27813-9_16",
+          "open_access_url": null
+        },
+        {
+          "key": "conf/cav/JegourelLS13",
+          "title": "Importance Splitting for Statistical Model Checking Rare Properties",
+          "year": 2013,
+          "venue": "cav",
+          "doi": "10.1007/978-3-642-39799-8_38",
+          "url": "https://doi.org/10.1007/978-3-642-39799-8_38",
+          "open_access_url": "https://inria.hal.science/hal-01087826"
+        },
+        {
+          "key": "conf/tacas/BarbotHP12",
+          "title": "Coupling and Importance Sampling for Statistical Model Checking",
+          "year": 2012,
+          "venue": "tacas",
+          "doi": "10.1007/978-3-642-28756-5_23",
+          "url": "https://doi.org/10.1007/978-3-642-28756-5_23",
+          "open_access_url": null
+        },
+        {
+          "key": "conf/tacas/JegourelLS12",
+          "title": "A Platform for High Performance Statistical Model Checking - PLASMA",
+          "year": 2012,
+          "venue": "tacas",
+          "doi": "10.1007/978-3-642-28756-5_37",
+          "url": "https://doi.org/10.1007/978-3-642-28756-5_37",
+          "open_access_url": "https://link.springer.com/content/pdf/10.1007/978-3-642-28756-5_37.pdf"
+        }
+      ]
+    }
+  ]
+}
