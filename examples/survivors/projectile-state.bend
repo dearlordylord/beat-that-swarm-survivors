@@ -33,6 +33,10 @@ def damage(state: State) -> U32:
 def visited(state: State) -> List<&2,U32>:
   match state:
     case State{_,_,_,_,Components.Trajectory{_,_,_,_,visited,_,_}}: visited
+def present(state: State) -> Bool:
+  match state:
+    case State{_,_,_,Components.ShotPayload{_,_,present},_}: present
+
 def active(state: State) -> Bool:
   match state:
     case State{_,_,_,Components.ShotPayload{_,_,active},Components.Trajectory{_,_,life,pierce,_,_,_}}: Bool.and(active,Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)))
