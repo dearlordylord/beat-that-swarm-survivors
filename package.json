@@ -1,0 +1,32 @@
+{
+  "name": "@bendvy-examples/development",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.20.0"
+  },
+  "scripts": {
+    "typecheck": "npm run generate:types && tsc --noEmit && tsc -p examples/survivors/tsconfig.browser.json --noEmit && tsc -p tools/survivors-bot/tsconfig.journal.json --noEmit && tsc -p tsconfig.bend-abi.json",
+    "check:dependencies": "python3 scripts/check-dependencies.py",
+    "build:browser": "npm run generate:types && tsc -p examples/survivors/tsconfig.browser.json",
+    "lint": "oxlint --deny-warnings",
+    "format": "dprint fmt",
+    "check:format": "dprint check",
+    "check:typescript": "python3 scripts/check-typescript-sources.py && npm run typecheck && npm run lint && npm run check:format && npm run test:boundaries && npm run test:abi",
+    "check:coop": "bash examples/survivors/check-coop-reliability.sh",
+    "build:journal": "tsc -p tools/survivors-bot/tsconfig.journal.json",
+    "journal": "node tools/survivors-bot/journal.mts",
+    "generate:types": "python3 scripts/generate-bend-types.py && node scripts/generate-bend-codecs.mts && python3 scripts/generate-observation-schema.py",
+    "test:boundaries": "node --test scripts/bend-codecs.test.mts scripts/survivors-publication-values.test.mts examples/survivors/boundaries.test.mts examples/bend-module.test.mts scripts/source-boundaries.test.mts",
+    "test:abi": "python3 scripts/test-generate-bend-types.py"
+  },
+  "devDependencies": {
+    "@types/node": "25.2.0",
+    "dprint": "0.55.2",
+    "oxlint": "1.76.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "playwright": "1.63.0",
+    "typescript": "7.0.2",
+    "typescript-compiler-api": "npm:typescript@6.0.2"
+  }
+}

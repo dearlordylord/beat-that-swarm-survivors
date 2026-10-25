@@ -7,6 +7,7 @@ A deterministic controller with spatial memory and bounded route planning for th
 From the repository root, install the optional tool's pinned dependencies with a Node.js version supported by [package.json](package.json):
 
 ```sh
+npm ci
 npm ci --prefix tools/survivors-bot --ignore-scripts
 ./tools/survivors-bot/run.sh --mode heuristic --profile fresh --decisions both --ticks 1800
 ```
@@ -37,8 +38,8 @@ Inspect the engine's actual offers, complete goal catalog and mechanical values 
 | `--ticks N` | Simulation horizon |
 | `--seed N` | Explicit U32 simulation seed; headless, visible and batch entry points |
 
-CLI defaults, validation and request handling belong to [run.mjs](run.mjs),
-[runner.mjs](runner.mjs) and [provider.mjs](provider.mjs). Bounds in
+CLI defaults, validation and request handling belong to [run.mts](run.mts),
+[runner.mts](runner.mts) and [provider.mts](provider.mts). Bounds in
 [run.sh](run.sh) apply to the whole invocation, so a requested simulation horizon
 is not a completion guarantee. Simulation waits during classification; provider
 latency is not simulated danger.
@@ -46,10 +47,10 @@ latency is not simulated danger.
 ## Context and actions
 
 [bot-actions.bend](../../examples/survivors/bot-actions.bend) supplies actual legal
-alternatives and immediate engine previews. [context.mjs](context.mjs) packages
+alternatives and immediate engine previews. [context.mts](context.mts) packages
 them for the provider. Previews do not predict future combat or survival.
 
-[planner.mjs](planner.mjs) owns the deterministic spatial planner, its observation
+[planner.mts](planner.mts) owns the deterministic spatial planner, its observation
 model, resource retention, routing and steering. The classifier advises that
 planner through prepared legal alternatives. It cannot invent engine actions.
 The planner uses omniscient engine observations; it is not a model of human
@@ -70,7 +71,7 @@ Run from the repository root with Bend and a Node.js version supported by [packa
 ./tools/survivors-bot/batch.sh --count 2 --ticks 60 --workers 1 --wall-seconds 60
 ```
 
-[batch.mjs](batch.mjs) and [batch-worker.mjs](batch-worker.mjs) define batch
+[batch.mts](batch.mts) and [batch-worker.mts](batch-worker.mts) define batch
 configuration, seed assignment, workload limits and completion status.
 [batch.sh](batch.sh) owns compilation. A requested workload is not a throughput
 guarantee; choose it from measurements on the host.
@@ -146,7 +147,7 @@ The failure/fuel fixture `offline-parallel-test.bend` is included in `examples/s
 bash tools/survivors-bot/check.sh
 ```
 
-Checks include offline provider/context/controller tests, a real Bend action-catalog fixture and an actual simulation integration with a fake classifier. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
+The check builds the Bend action facade and validates real fresh/advanced goal catalogs and mechanics, including rejection of malformed nested fields. The root `npm run check:typescript` gate covers types, lint, JSON boundaries and ABI contracts. These checks make no live classifier requests. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
 
 ## Visible native run and decision journal
 
@@ -163,20 +164,20 @@ uses Node for its controller and the same published ECS dependency as the game.
 Its wall-time horizon does not guarantee a simulation horizon. The ordinary
 native game still launches without Node.
 
-In a second terminal, open the journal:
+The journal client is compiled from [journal-client.mts](journal-client.mts) at startup. Install the root TypeScript toolchain with `npm ci` first. In a second terminal, open the journal:
 
 ```sh
-node tools/survivors-bot/journal.mjs --host 0.0.0.0 --port 8714
+node tools/survivors-bot/journal.mts --host 0.0.0.0 --port 8714
 ```
 
 Visit `http://localhost:8714/` on that machine, or its host address on port 8714. The viewer reads the newest run by default; use the printed `--receipt` command to fix a particular run. The read-only viewer exposes the selected journal to hosts that can reach its listening address; use default `127.0.0.1` for local-only access.
 
-[journal.mjs](journal.mjs) and [journal.html](journal.html) present actual
+[journal.mts](journal.mts) and [journal.html](journal.html) present actual
 telemetry and classifier decisions. Outcome intervals are observations, not
 causal credit; the journal does not invent model reasoning.
 
 [native-bot.bend](../../examples/survivors/native-bot.bend) and
-[visible-controller.mjs](visible-controller.mjs) own the lockstep protocol,
+[visible-controller.mts](visible-controller.mts) own the lockstep protocol,
 observation batches and command validation. The experiment uses an isolated bot
 profile and excludes native audio. Short observation batches still leave a
 reaction delay; classification cannot bypass engine validation.

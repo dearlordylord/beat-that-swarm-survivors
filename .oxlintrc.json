@@ -1,0 +1,52 @@
+{
+  "plugins": [
+    "typescript",
+    "import"
+  ],
+  "options": {
+    "typeAware": true
+  },
+  "ignorePatterns": [
+    "vendor/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    ".typescript/**",
+    "examples/survivors/content.mts",
+    "examples/survivors/bend-codecs.generated.mts",
+    "examples/survivors/observation-schema.generated.mts"
+  ],
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-misused-promises": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "no-array-constructor": "error",
+    "object-shorthand": "error",
+    "import/first": "error",
+    "import/no-duplicates": "error"
+  },
+  "categories": {
+    "correctness": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "types/*.d.ts"
+      ],
+      "rules": {
+        "no-var": "off"
+      }
+    }
+  ]
+}

@@ -80,7 +80,7 @@ they do not qualify macOS or cross-network direct connectivity.
 
 ## Game boundary
 
-`examples/survivors/coop-transport.mjs` copies queued payloads, serializes writes,
+`examples/survivors/coop-transport.mts` copies queued payloads, serializes writes,
 binds incoming events to the authenticated peer and invalidates stale sends.
 Its queue is bounded to 16 messages / 4 MiB, with a 1 MiB frame limit in JS and
 Rust. Normal sends do not wait for an acknowledgment. The optional

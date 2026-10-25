@@ -6,4 +6,4 @@ mkdir -p examples/survivors/dist
 example_emit examples/survivors/game.bend examples/survivors/dist/game.mjs
 example_emit examples/survivors/menu-catalog.bend examples/survivors/dist/menu-catalog.mjs
 example_emit examples/survivors/menu-progression.bend examples/survivors/dist/menu-progression.mjs
-"$NODE" examples/survivors/generate-menu-content.mjs
+"$NODE" examples/survivors/generate-menu-content.mts

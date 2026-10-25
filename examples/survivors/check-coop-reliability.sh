@@ -10,7 +10,7 @@ source_fingerprint() {
   local source_list="$scratch/source-list"
   {
     find "$app" \( -path "$app/dist" -o -path "$app/web/node_modules" \) -prune -o \
-      -type f \( -name '*.bend' -o -name '*.mjs' -o -name '*.sh' -o -name '*.json' \) -print
+      -type f \( -name '*.bend' -o -name '*.mjs' -o -name '*.mts' -o -name '*.ts' -o -name '*.sh' -o -name '*.json' \) -print
     find "$example_repo/vendor/bendlib/packages" -type f -name '*.bend'
     printf '%s\n' "$example_repo/examples/common.sh"
   } | LC_ALL=C sort > "$source_list"
@@ -23,22 +23,22 @@ source_fingerprint_before="$(source_fingerprint)"
 for module in party-difficulty contact-id-set coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-client-clock coop-input-flow coop-hit-journal coop-local-projectiles coop-contact-playback coop-playback-wire coop-core coop-session coop-prediction game; do
   example_emit "$app/$module.bend" "$scratch/$module.mjs"
 done
-example_node "$app/observations-check.mjs" "$scratch"
+example_node "$app/observations-check.mts" "$scratch"
 for module in coop-playback coop-client-clock coop-snapshot-flow coop-snapshot-receipts coop-client-delivery coop-hit-effects; do
-  example_node --stack_size=192 "$app/$module-check.mjs" "$scratch/$module.mjs"
+  example_node --stack_size=192 "$app/$module-check.mts" "$scratch/$module.mjs"
 done
-example_node --stack_size=192 "$app/party-difficulty-check.mjs" "$scratch/party-difficulty.mjs"
-CONTACT_ID_SET_MODULE="$scratch/contact-id-set.mjs" example_node --stack_size=192 "$app/contact-id-set-check.mjs"
-COOP_FLOW_MODULE="$scratch/coop-input-flow.mjs" example_node --stack_size=192 "$app/coop-input-flow-check.mjs"
-COOP_PREDICTION_MODULE="$scratch/coop-prediction.mjs" example_node --stack_size=192 "$app/coop-prediction-check.mjs"
-COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-hit-journal-check.mjs"
-COOP_LOCAL_PROJECTILES_MODULE="$scratch/coop-local-projectiles.mjs" example_node --stack_size=192 "$app/coop-local-projectiles-check.mjs"
-example_node --stack_size=192 "$app/coop-contact-playback-check.mjs" "$scratch/coop-contact-playback.mjs" "$scratch/coop-playback.mjs"
-example_node --stack_size=192 "$app/coop-playback-wire-check.mjs" "$scratch/coop-playback-wire.mjs" "$scratch"
-example_node "$app/coop-snapshot-codec-check.mjs"
-COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/coop-hit-source-check.mjs"
-COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node "$app/coop-dense-contact-check.mjs"
-COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-dense-contact-check.mjs" --journal-only
+example_node --stack_size=192 "$app/party-difficulty-check.mts" "$scratch/party-difficulty.mjs"
+CONTACT_ID_SET_MODULE="$scratch/contact-id-set.mjs" example_node --stack_size=192 "$app/contact-id-set-check.mts"
+COOP_FLOW_MODULE="$scratch/coop-input-flow.mjs" example_node --stack_size=192 "$app/coop-input-flow-check.mts"
+COOP_PREDICTION_MODULE="$scratch/coop-prediction.mjs" example_node --stack_size=192 "$app/coop-prediction-check.mts"
+COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-hit-journal-check.mts"
+COOP_LOCAL_PROJECTILES_MODULE="$scratch/coop-local-projectiles.mjs" example_node --stack_size=192 "$app/coop-local-projectiles-check.mts"
+example_node --stack_size=192 "$app/coop-contact-playback-check.mts" "$scratch/coop-contact-playback.mjs" "$scratch/coop-playback.mjs"
+example_node --stack_size=192 "$app/coop-playback-wire-check.mts" "$scratch/coop-playback-wire.mjs" "$scratch"
+example_node "$app/coop-snapshot-codec-check.mts"
+COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/coop-hit-source-check.mts"
+COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node "$app/coop-dense-contact-check.mts"
+COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-dense-contact-check.mts" --journal-only
 source_fingerprint_after="$(source_fingerprint)"
 if [[ "$source_fingerprint_before" != "$source_fingerprint_after" ]]; then
   printf 'co-op reliability sources changed while the checks were running\n' >&2

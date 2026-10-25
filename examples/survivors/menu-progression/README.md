@@ -1,7 +1,7 @@
 # Profile progression
 
 [Browser progression](../menu-progression.bend) owns profile normalization,
-prices, admission, purchases, rewards and achievements. [The browser adapter](../progression.mjs)
+prices, admission, purchases, rewards and achievements. [The browser adapter](../progression.mts)
 converts values and persists them through localStorage.
 
 [Native economy](../native-economy.bend) owns native purchases and profile slots;

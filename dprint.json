@@ -1,0 +1,27 @@
+{
+  "oxc": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "semicolons": "asNeeded",
+    "quoteStyle": "double",
+    "trailingCommas": "none",
+    "expand": "never"
+  },
+  "includes": [
+    "examples/**/*.{ts,mts}",
+    "tools/**/*.mts",
+    "scripts/**/*.mts"
+  ],
+  "excludes": [
+    "**/node_modules",
+    "**/dist",
+    "vendor",
+    "examples/survivors/content.mts",
+    "examples/survivors/bend-codecs.generated.mts",
+    "examples/survivors/observation-schema.generated.mts"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/oxc-0.32.0.wasm"
+  ]
+}

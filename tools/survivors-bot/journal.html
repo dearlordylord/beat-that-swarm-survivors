@@ -7,48 +7,4 @@
 <p>Read-only observer. Positions and context come from the actual run. Candidate probabilities are provider output; no invented explanation of the model’s reasoning.</p>
 <div class="bar"><label>Decision <select id="pick"><option value="latest">Follow latest</option></select></label><span id="receipt"></span></div>
 <div class="layout"><section><div class="panel"><div class="stats" id="stats"></div><p id="maplabel">Waiting for a run…</p><canvas id="map" width="640" height="640"></canvas><p>● Player · red enemies · blue experience · amber chests · violet relic · cyan wisps · green wards · white projectiles. Gold ring: selected goal. This is a telemetry map, not the native renderer.</p></div><div class="panel"><h2>Local movement intents</h2><p>Recent deterministic steering targets, separate from classifier decisions.</p><pre id="movement"></pre></div><div class="panel"><h2>Run evidence</h2><div id="outcome">No result yet.</div><details><summary>Provenance and run settings</summary><pre id="provenance"></pre></details></div></section><section><h2>Decisions</h2><div id="decisions"></div></section></div>
-<script>
-const $=id=>document.getElementById(id), text=(tag,value,parent,cls)=>{const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;parent.append(e);return e;};
-let paused=false, payload, count=-1, selected='latest';
-$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Resume display':'Pause display';if(!paused&&payload)render(payload);};
-$('pick').onchange=()=>{selected=$('pick').value;count=-1;if(payload)render(payload);};
-function frameOf(records,tick=Infinity){for(let i=records.length-1;i>=0;i--){const r=records[i];if(['frame','observation'].includes(r.type)&&r.frame&&r.frame.tick<=tick)return r.frame;}return null;}
-function selectedCandidate(d){const r=d.request,result=d.result;if(!r||!result)return null;return r.candidates?.find(c=>r.kind==='upgrade'?c.offerIndex===result.selected:JSON.stringify(c.goal)===JSON.stringify(result.selected));}
-function draw(frame,decision){const canvas=$('map'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,640,640);if(!frame)return;const scale=640/3600;ctx.strokeStyle='#233041';for(let p=0;p<=3600;p+=600){ctx.beginPath();ctx.moveTo(p*scale,0);ctx.lineTo(p*scale,640);ctx.moveTo(0,p*scale);ctx.lineTo(640,p*scale);ctx.stroke();}const colors={0:'#f47579',2:'#75bfff',1:'#d3b266',5:'#ffd36e',7:'#eeeeee',9:'#c398ff',10:'#70ddf4',11:'#75d692'};for(const b of frame.bodies||[]){if(b[2]===0&&b[4]<=0)continue;ctx.fillStyle=colors[b[2]]||'#61738b';ctx.beginPath();ctx.arc(b[0]*scale,b[1]*scale,[5,9,10,11].includes(b[2])?4:2,0,Math.PI*2);ctx.fill();}ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(frame.px*scale,frame.py*scale,5,0,Math.PI*2);ctx.fill();const goal=selectedCandidate(decision||{})?.goal||decision?.result?.selected;if(goal?.target){ctx.strokeStyle='#f7cf73';ctx.lineWidth=2;ctx.beginPath();ctx.arc(goal.target.x*scale,goal.target.y*scale,9,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(frame.px*scale,frame.py*scale);ctx.lineTo(goal.target.x*scale,goal.target.y*scale);ctx.stroke();}}
-function render(data){const records=data.records||[],decisions=records.filter(r=>r.type==='decision'),pending=records.filter(r=>r.type==='decision-request'),last=decisions.at(-1);$('receipt').textContent=data.file||'No journal yet';$('connection').textContent=data.errors?.length?'Journal contains invalid records':data.waiting?'Waiting for a run':'Live · updates every 500 ms';$('connection').className=data.errors?.length?'error':'';
-const signature=(data.file||'')+':'+decisions.length;if(count!==signature){count=signature;const old=selected;$('pick').replaceChildren();const opt=document.createElement('option');opt.value='latest';opt.textContent='Follow latest';$('pick').append(opt);decisions.forEach((d,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`#${d.request?.decisionSeq??i+1} ${d.request?.kind||'decision'}`;$('pick').append(o);});selected=old==='latest'||Number(old)>=decisions.length?'latest':old;$('pick').value=selected;}
-const active=selected==='latest'?last:decisions[Number(selected)],frame=frameOf(records,selected==='latest'?Infinity:active?.request?.snapshot?.facts?.tick??-1);
-$('stats').replaceChildren();const summary=records.findLast(r=>r.type==='summary');const status=frame||summary||{};for(const [label,value]of [['Time',status.tick===undefined?'—':(status.tick/60).toFixed(1)+'s'],['HP',status.hp??'—'],['Level',status.level??'—'],['Kills',status.kills??'—']]){const box=text('div','',$('stats'));text('strong',value,box);text('small',label,box);}
-$('maplabel').textContent=frame?`Actual observation · tick ${frame.tick}${selected==='latest'?'':' · at or before selected decision'}`:selected==='latest'?'No position telemetry in this receipt. Decisions below are available.':'Historical decision selected. Raw context below; map does not substitute current positions.';draw(frame,active);
-$('movement').textContent=JSON.stringify(records.filter(r=>r.type==='movement-intent').slice(-8),null,2);
-$('provenance').textContent=JSON.stringify(records.filter(r=>['provenance','start'].includes(r.type)),null,2);$('outcome').textContent=summary?JSON.stringify(summary,null,2):'Run is open. No terminal result recorded.';
-$('decisions').replaceChildren();
-const inFlight=pending.at(-1),waiting=inFlight&&!decisions.some(d=>d.request?.decisionSeq===inFlight.request?.decisionSeq);
-const shown=selected==='latest'?[...(waiting?[inFlight]:[]),...decisions.slice(-12).reverse()]:active?[active]:[];
-for(const d of shown){
- const a=text('article','',$('decisions')),r=d.request||{},result=d.result||{},chosen=selectedCandidate(d);
- text('h2',`#${r.decisionSeq??'?'} · ${r.kind||'decision'}`,a);
- text('div',`${result.source||'Inference in flight'}${result.reason?' · '+result.reason:''}`,a,'tag');
- if(result.response)text('p',`${result.response.model||'provider'} · ${Math.round(result.response.latencyMs||0)} ms`,a);
- for(const c of r.candidates||[]){const node=text('div','',a,'candidate'+(c===chosen?' selected':''));text('strong',(c===chosen?'✓ ':'')+c.id,node);text('div',c.description||JSON.stringify(c.effect||c.goal||c.offer),node);}
- const outcomes=records.filter(o=>o.type==='outcome'&&o.decisionSeq===r.decisionSeq);
- if(outcomes.length){
-  text('h3','Observed after this decision',a);
-  text('p','Measured changes over the run. Other actions and combat continue during each interval; these numbers do not establish that this decision caused the change.',a);
-  const table=text('table','',a),head=text('tr','',text('thead','',table));
-  for(const label of ['Interval','HP Δ','Kills Δ','Gold Δ','Level Δ'])text('th',label,head);
-  const body=text('tbody','',table),signed=n=>Number.isFinite(n)?(n>0?'+':'')+n:'—';
-  for(const outcome of outcomes){
-   const row=text('tr','',body),delta=outcome.delta||{};
-   text('td',`${((outcome.toTick-outcome.fromTick)/60).toFixed(1)}s · ticks ${outcome.fromTick}–${outcome.toTick}`,row);
-   for(const key of ['hp','kills','gold','level'])text('td',signed(delta[key]),row);
-  }
-  const evidence=text('details','',a);text('summary','Measured intervals and qualifications',evidence);text('pre',JSON.stringify(outcomes,null,2),evidence);
- }else if(d.type==='decision')text('p','No post-decision interval recorded yet.',a);
- const details=text('details','',a);text('summary','Actual decision context, response and validation result',details);text('pre',JSON.stringify(d,null,2),details);
-}
-if(!shown.length)text('p','Waiting for the first decision.',$('decisions'));
-
-}
-async function poll(){try{const response=await fetch('/api/journal');if(!response.ok)throw new Error('Unavailable');payload=await response.json();if(!paused)render(payload);}catch{$('connection').textContent='Disconnected · retrying';$('connection').className='error';}setTimeout(poll,500);}poll();
-</script></html>
+<script type="module" src="/journal-client.mjs"></script></html>

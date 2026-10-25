@@ -88,7 +88,7 @@ From the repository root, use the browser prerequisites in
 [README.md](README.md#browser-launch), then run:
 
 ```sh
-node examples/survivors/launch.mjs
+node examples/survivors/launch.mts
 ```
 
 Open the printed co-op URL. Cross-device invitations require HTTPS. The launcher
@@ -108,7 +108,7 @@ and [reliability plan](../../research/coop-reliability-plan.md).
 The [results report](../../research/coop-reliability-results.md) records the
 qualified scenarios and remaining limits.
 
-The optional [actual-Iroh browser harness](../../tools/survivors-bot/coop-reliability-browser-check.mjs)
+The optional [actual-Iroh browser harness](../../tools/survivors-bot/coop-reliability-browser-check.mts)
 requires an existing Playwright installation with Chromium and its platform
 libraries. It installs nothing. Serve a frozen prepared artifact containing
 `version.json`; point both the URL and local artifact path at that same build:
@@ -117,7 +117,7 @@ libraries. It installs nothing. Serve a frozen prepared artifact containing
 PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
 COOP_URL=http://127.0.0.1:8713/coop.html \
 COOP_SOURCE_ARTIFACT_DIR=/absolute/path/to/prepared/dist \
-node tools/survivors-bot/coop-reliability-browser-check.mjs
+node tools/survivors-bot/coop-reliability-browser-check.mts
 ```
 
 It checks source hashes, actual input application, remote motion, authority lag,
