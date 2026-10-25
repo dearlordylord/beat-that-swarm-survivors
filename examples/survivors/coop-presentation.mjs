@@ -30,7 +30,7 @@ function actorMetadata(actor, frame) {
   if (actor.kind === 1 || actor.kind === 7) {
     const projectile = frame.projectiles.find(value => value.identity === actor.key);
     if (!projectile) throw Error('A projectile actor has no named render metadata.');
-    return {type:'projectile', value:{...projectile,x:actor.x,y:actor.y,lifetime:actor.generation,owner:actor.owner,tick:frame.tick}};
+    return {type:'projectile', value:{...projectile,x:actor.x,y:actor.y,lifetime:actor.generation,tick:frame.tick}};
   }
   if ([2,3,4,5,9].includes(actor.kind)) {
     const pickup = frame.pickups.find(value => value.slot === actor.key);
