@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import pickup-state.bend as Pickup
 import enemy-combat.bend as Enemy
 import game-components.bend as Components
 import projectile-state.bend as Shot
@@ -68,12 +69,12 @@ def enemy_phase(value: Enemy.Phase) -> String:
 def identity(value: Components.Identity) -> String:
   match value:
     case Components.Identity{slot}: U32.show(slot)
-def enemy(value: Enemy.State) -> String:
-  match value:
-    case Enemy.State{space,archetype,slot,hp,status}: "{\"spatial\":" ++ spatial(space) ++ ",\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(slot) ++ ",\"vitals\":" ++ vitals(hp) ++ ",\"status\":" ++ enemy_status(status) ++ "}"
 def enemy_status(value: Components.Status) -> String:
   match value:
     case Components.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
+def enemy(value: Enemy.State) -> String:
+  match value:
+    case Enemy.State{space,archetype,slot,hp,status}: "{\"spatial\":" ++ spatial(space) ++ ",\"archetype\":" ++ U32.show(archetype) ++ ",\"identity\":" ++ U32.show(slot) ++ ",\"vitals\":" ++ vitals(hp) ++ ",\"status\":" ++ enemy_status(status) ++ "}"
 def motion(value: G.Motion) -> String:
   match value:
     case G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(slow),U32.show(burn),U32.show(owner),U32.show(slot)])
@@ -88,11 +89,25 @@ def projectile_state(value: Shot.State) -> String:
   match value:
     case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}:
       "{\"spatial\":" ++ array([fbits(x),fbits(y),U32.show(age),fbits(radius)]) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"side\":" ++ projectile_side(side) ++ ",\"payload\":" ++ array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))]) ++ ",\"trajectory\":" ++ array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot)]) ++ "}"
+def pickup_item(value: Pickup.Item) -> String:
+  match value:
+    case Pickup.Xp{amount,accumulator}: array(["0",U32.show(amount),U32.show(Bool.to_u32(accumulator))])
+    case Pickup.Gold{coins}: array(["1",U32.show(coins)])
+    case Pickup.Healing{health}: array(["2",U32.show(health)])
+    case Pickup.Chest{}: "[3]"
+    case Pickup.Relic{stage}: array(["4",U32.show(stage)])
+def pickup(value: Pickup.Payload) -> String:
+  match value:
+    case Pickup.Payload{item,generation,active}: array([pickup_item(item),U32.show(generation),U32.show(Bool.to_u32(active))])
+def pickup_state(value: Pickup.State) -> String:
+  match value:
+    case Pickup.State{space,payload,identity}: "{\"spatial\":" ++ spatial(space) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"payload\":" ++ pickup(payload) ++ "}"
 def snapshot_row(value: G.Snapshot) -> String:
   match value:
     case G.Snapshot{b,m}: array([body(b),motion(m)])
     case G.ProjectileSnapshot{projectile}: "{\"projectile\":" ++ projectile_state(projectile) ++ "}"
     case G.EnemySnapshot{value}: "{\"enemy\":" ++ enemy(value) ++ "}"
+    case G.PickupSnapshot{value}: "{\"pickup\":" ++ pickup_state(value) ++ "}"
 def bodies_items(rows: List<&2,Components.Body>) -> String:
   match rows:
     case []: ""
@@ -157,9 +172,6 @@ def trajectory(value: Components.Trajectory) -> String:
 def status(value: Components.Status) -> String:
   match value:
     case Components.Status{slow,burn}: array([U32.show(slow),U32.show(burn)])
-def pickup(value: Components.Pickup) -> String:
-  match value:
-    case Components.Pickup{amount,generation,variant,active}: array([U32.show(amount),U32.show(generation),U32.show(variant),U32.show(Bool.to_u32(active))])
 def role(value: GRole.Role) -> String:
   match value:
     case GRole.EnemySlot{}: "\"EnemySlot\""
@@ -195,7 +207,7 @@ def logical_rows(fuel: Nat,+id: U32,state: LogicalColumns & List<&2,String>) -> 
   match fuel state:
     case 0n Tuple{columns,reversed}: (columns,join(List.reverse(&2,String,reversed)))
     case 1n+rest Tuple{columns,reversed}: logical_rows(rest,(id + 1 : U32),logical_row_accumulated(reversed,logical_row(id,columns)))
-def logical_store_done(b: Col.Column<Storage.Schema,Components.Body>,v: Col.Column<Storage.Schema,Components.Vitals>,p: Col.Column<Storage.Schema,Components.Pickup>,r: Col.Column<Storage.Schema,GRole.Role>,movement: Storage.MovementRoster,candidates: Storage.CandidateRoster,players: Col.Column<Storage.Schema,Components.PlayerRecord>,spaces: Col.Column<Storage.Schema,Space.Spatial>,enemyPhases: Col.Column<Storage.Schema,Enemy.Phase>,identities: Col.Column<Storage.Schema,Components.Identity>,shots: Col.Column<Storage.Schema,Components.ShotPayload>,result: LogicalColumns & String) -> Storage.Store & String:
+def logical_store_done(b: Col.Column<Storage.Schema,Components.Body>,v: Col.Column<Storage.Schema,Components.Vitals>,p: Col.Column<Storage.Schema,Pickup.Payload>,r: Col.Column<Storage.Schema,GRole.Role>,movement: Storage.MovementRoster,candidates: Storage.CandidateRoster,players: Col.Column<Storage.Schema,Components.PlayerRecord>,spaces: Col.Column<Storage.Schema,Space.Spatial>,enemyPhases: Col.Column<Storage.Schema,Enemy.Phase>,identities: Col.Column<Storage.Schema,Components.Identity>,shots: Col.Column<Storage.Schema,Components.ShotPayload>,result: LogicalColumns & String) -> Storage.Store & String:
   match result:
     case (LogicalColumns{t,s},text): (Storage.Store{b,v,t,s,p,r,movement,candidates,players,spaces,enemyPhases,identities,shots},text)
 def logical_store(store: Storage.Store) -> Storage.Store & String:
@@ -232,7 +244,7 @@ def store_pickup(bs: String,vs: String,ts: String,ss: String,result: Storage.Sto
     case (owner,ps): store_role(bs,vs,ts,ss,ps,observed_column(~GRole.Role,~GRole.Role,~Storage.RoleRest,~Storage.take_role,~Storage.put_role,~Storage.project_role,~role,owner))
 def store_status(bs: String,vs: String,ts: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
-    case (owner,ss): store_pickup(bs,vs,ts,ss,observed_column(~Components.Pickup,~Components.Pickup,~Storage.PickupRest,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~pickup,owner))
+    case (owner,ss): store_pickup(bs,vs,ts,ss,observed_column(~Pickup.Payload,~Pickup.Payload,~Storage.PickupRest,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~pickup,owner))
 def store_trajectory(bs: String,vs: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,ts): store_status(bs,vs,ts,observed_column(~Components.Status,~Components.Status,~Storage.StatusRest,~Storage.take_status,~Storage.put_status,~Storage.project_status,~status,owner))
@@ -352,11 +364,21 @@ def fold_projectile_side(value: Shot.Side) -> U32:
 def fold_shot_payload(value: Components.ShotPayload,acc: U32) -> U32:
   match value:
     case Components.ShotPayload{weapon,damage,active}: fold_words([weapon,damage,Bool.to_u32(active)],acc)
+def fold_spatial(value: Space.Spatial,acc: U32) -> U32:
+  match value:
+    case Space.Spatial{x,y,age,radius}: fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius)],acc)
+def fold_status(value: Components.Status,acc: U32) -> U32:
+  match value:
+    case Components.Status{slow,burn}: fold_words([slow,burn],acc)
+def fold_pickup(value: Pickup.Payload,acc: U32) -> U32:
+  match value:
+    case Pickup.Payload{item,generation,active}: fold_words([generation,Bool.to_u32(active)],fold_words(codes(pickup_item(item)),acc))
 def fold_snapshot(value: G.Snapshot,acc: U32) -> U32:
   match value:
     case G.Snapshot{b,m}: fold_motion(m,fold_body(b,acc))
     case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}}}: fold_words(visited,fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius),identity,fold_projectile_side(side),weapon,damage,Bool.to_u32(active),F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
     case G.EnemySnapshot{Enemy.State{space,archetype,slot,hp,status}}: fold_status(status,fold_vitals(hp,fold_words([archetype,slot],fold_spatial(space,acc))))
+    case G.PickupSnapshot{Pickup.State{space,payload,identity}}: fold_pickup(payload,mix(fold_spatial(space,acc),identity))
 def fold_bodies(rows: List<&2,Components.Body>,acc: U32) -> U32:
   match rows:
     case []: mix(acc,0)
@@ -369,9 +391,6 @@ def fold_snapshots(rows: List<&2,G.Snapshot>,acc: U32) -> U32:
   match rows:
     case []: mix(acc,0)
     case value <> rest: fold_snapshots(rest,fold_snapshot(value,mix(acc,1)))
-def fold_spatial(value: Space.Spatial,acc: U32) -> U32:
-  match value:
-    case Space.Spatial{x,y,age,radius}: fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius)],acc)
 def fold_run(value: G.Run,acc: U32) -> U32:
   match value:
     case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: fold_words(enemyKinds,fold_words(passives,fold_words(weapons,fold_words([phase,tick,F32.bits(px),F32.bits(py),hp,maximum,xp,need,level,kills,gold,character,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,relicCollected],acc))))
@@ -405,12 +424,6 @@ def fold_movement_roster(value: Storage.MovementRoster,acc: U32) -> U32:
 def fold_trajectory(value: Components.Trajectory,acc: U32) -> U32:
   match value:
     case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}: fold_words(visited,fold_words([F32.bits(vx),F32.bits(vy),life,pierce,owner,slot],acc))
-def fold_status(value: Components.Status,acc: U32) -> U32:
-  match value:
-    case Components.Status{slow,burn}: fold_words([slow,burn],acc)
-def fold_pickup(value: Components.Pickup,acc: U32) -> U32:
-  match value:
-    case Components.Pickup{amount,generation,variant,active}: fold_words([amount,generation,variant,Bool.to_u32(active)],acc)
 def fold_role(value: GRole.Role,acc: U32) -> U32: fold_words(codes(role(value)),acc)
 def fold_candidate_roster(value: Storage.CandidateRoster,acc: U32) -> U32:
   match value:
@@ -447,7 +460,7 @@ def force_store_pickup(result: Storage.Store & U32) -> Storage.Store & U32:
     case (owner,acc): force_store_role(force_store_column(~GRole.Role,~GRole.Role,~Storage.RoleRest,~Storage.take_role,~Storage.put_role,~Storage.project_role,~fold_role,acc,owner))
 def force_store_status(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
-    case (owner,acc): force_store_pickup(force_store_column(~Components.Pickup,~Components.Pickup,~Storage.PickupRest,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~fold_pickup,acc,owner))
+    case (owner,acc): force_store_pickup(force_store_column(~Pickup.Payload,~Pickup.Payload,~Storage.PickupRest,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~fold_pickup,acc,owner))
 def force_store_trajectory(result: Storage.Store & U32) -> Storage.Store & U32:
   match result:
     case (owner,acc): force_store_status(force_store_column(~Components.Status,~Components.Status,~Storage.StatusRest,~Storage.take_status,~Storage.put_status,~Storage.project_status,~fold_status,acc,owner))
