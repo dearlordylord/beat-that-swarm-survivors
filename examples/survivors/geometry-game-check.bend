@@ -26,6 +26,10 @@ def death_pickup(state: Maybe<&2,Pickup.State>) -> Bool:
   match state:
     case Some{state}: reachable(state)
     case None{}: False{}
+def death_reachable(outcome: Enemy.Outcome) -> Bool:
+  match outcome:
+    case Enemy.Killed{_,reward}: death_pickup(DeathPickup.create(reward,1))
+    case _: False{}
 def batch_reachable(states: List<&2,Pickup.State>) -> Bool:
   match states:
     case head <> _: reachable(head)
@@ -47,7 +51,7 @@ def first_target(rows:List<&2,U32>) -> Bool:
     case _: False{}
 def main() -> IO(Unit):
   do IO<Unit>:
-    expect(death_pickup(DeathPickup.create(Enemy.DeathReward{Enemy.GoldDrop{},1,42.0,42.0,17,1,None{}},1)),"edge death loot has a legal physical pickup position")
+    expect(death_reachable(Enemy.resolved_health(0,Space.Spatial{42.0,42.0,0,6.0},17,17,1,Components.Status{Effect.Slow{0,False{}},Effect.Burn{0,None{}}},0,A.player_min(),A.player_min(),None{})),"edge death loot has a legal physical pickup position")
     expect(batch_reachable(Pool.route([Pool.Drop{7,42.0,42.0}],[Pickup.State{Space.Spatial{0.0,0.0,0,0.0},Pickup.Payload{Pickup.Xp{0,False{}},0,False{}},PL.xp_start()}],1,A.player_min(),A.player_min())),"new XP allocation stays physically reachable")
     expect(reachable(Pool.merge_overflow(True{},Pickup.State{Space.Spatial{42.0,42.0,0,6.0},Pickup.Payload{Pickup.Xp{7,False{}},1,True{}},PL.xp_start()},1)),"existing overflow accumulator stays physically reachable")
     expect(first_target(selected(G.contact_team(team([shot(),enemy(1080.0,2),enemy(1040.0,1)])))),"fast projectile contacts the first crossed enemy")
