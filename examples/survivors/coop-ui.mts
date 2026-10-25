@@ -1,5 +1,5 @@
 import { displayText, defined, errorMessage } from "./host-values.mts"
-import { element } from "./dom.mts"
+import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { Setup, SetupKind, Profile } from "./profile.mts"
 import type { Offer, Frame } from "./frame.mts"
 import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS, PASSIVES, UNIONS, ACHIEVEMENTS } from "./content.mts"
@@ -238,6 +238,7 @@ export class CoopUI {
     on(this.$("#coop-leave"), "click", () => this.invoke(() => this.callbacks.onLeave?.()))
     on(this.$("#coop-map-toggle"), "click", () => this.toggleMap())
     on(this.$("#coop-map-close"), "click", () => this.toggleMap(false))
+    enableSecondaryRewardTouch(this.$("#coop-offers"), this.events.signal)
     on(this.$("#coop-offers"), "click", (event) => {
       const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-choice]") : null
       if (button && !button.disabled) this.choose(Number(button.dataset.choice))

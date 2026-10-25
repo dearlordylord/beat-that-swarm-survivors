@@ -85,3 +85,46 @@ export function element(selector: string, document = globalThis.document): HTMLE
   if (!node) throw new Error(`Missing element: ${selector}`)
   return node
 }
+
+export function enableSecondaryRewardTouch(root: HTMLElement, signal?: AbortSignal) {
+  const contacts = new Map<number, { button: HTMLButtonElement; x: number; y: number }>()
+  const options = signal ? { signal } : {}
+  root.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType !== "touch" || event.isPrimary) return
+      const button =
+        event.target instanceof Element ? event.target.closest<HTMLButtonElement>("button[data-choice]") : null
+      if (button && !button.disabled) contacts.set(event.pointerId, { button, x: event.clientX, y: event.clientY })
+    },
+    options
+  )
+  root.addEventListener(
+    "pointermove",
+    (event) => {
+      const contact = contacts.get(event.pointerId)
+      if (contact && Math.hypot(event.clientX - contact.x, event.clientY - contact.y) > 10)
+        contacts.delete(event.pointerId)
+    },
+    options
+  )
+  root.addEventListener(
+    "pointercancel",
+    (event) => {
+      contacts.delete(event.pointerId)
+    },
+    options
+  )
+  root.addEventListener(
+    "pointerup",
+    (event) => {
+      const contact = contacts.get(event.pointerId)
+      contacts.delete(event.pointerId)
+      if (!contact || contact.button.disabled || !contact.button.isConnected) return
+      const releasedOver = root.ownerDocument.elementFromPoint(event.clientX, event.clientY)?.closest("button")
+      if (releasedOver === contact.button && Math.hypot(event.clientX - contact.x, event.clientY - contact.y) <= 10)
+        contact.button.click()
+    },
+    options
+  )
+}
