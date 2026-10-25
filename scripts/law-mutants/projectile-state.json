@@ -14,5 +14,13 @@
     "new": "Components.Trajectory{vx,vy,life,pierce,[999],owner,logicalSlot,sourcePlayer}",
     "proof": "examples/survivors/projectile-state/PROOF.bend",
     "law": "created_exact"
+  },
+  {
+    "label": "projectile birth preserves explicit source player",
+    "source": "examples/survivors/projectile-state.bend",
+    "old": "Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot,sourcePlayer}",
+    "new": "Components.Trajectory{vx,vy,life,pierce,[],owner,logicalSlot,None{}}",
+    "proof": "examples/survivors/projectile-state/PROOF.bend",
+    "law": "created_exact"
   }
 ]
