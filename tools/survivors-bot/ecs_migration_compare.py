@@ -162,7 +162,43 @@ def rows(records, total, label):
     return records
 
 
+def spatial_payload(payload, layout):
+    """Validate actual sparse spatial storage, then expose logical actor rows.
+
+    This is a temporary cross-schema projection only. The exact replay verifier
+    compares the original payload, including spaces and their actual stamps.
+    """
+    components = payload['components']
+    exact_keys(components, NEW_COMPONENTS | {'spaces'}, 'spatial components')
+    total = layout['totalCount']
+    now, _ = validate_metadata(payload['metadata'], total)
+    rows(components['bodies'], total, 'bodies')
+    rows(components['spaces'], total, 'spaces')
+    restored = []
+    for offset, (body_row, space_row) in enumerate(zip(components['bodies'], components['spaces'])):
+        role = assigned(offset, layout)
+        body = body_row[1]
+        R.words(body, 9, 'stored Body')
+        _, space, stamp = space_row
+        present = role in ENEMIES
+        if (space is not None) != present:
+            raise ReplayError('Wrong sparse spatial composition')
+        stamp_valid(stamp, present, now)
+        if present:
+            R.words(space, 4, 'Spatial')
+            if [body[0], body[1], body[6], body[8]] != [0, 0, 0, 0]:
+                raise ReplayError('Enemy Body contains duplicate spatial authority')
+            logical = list(body)
+            logical[0], logical[1], logical[6], logical[8] = space
+        else:
+            logical = body
+        restored.append([body_row[0], logical, body_row[2]])
+    return {**payload, 'components': {**{key: value for key, value in components.items() if key != 'spaces'}, 'bodies': restored}}
+
+
 def validate_payload(payload, checkpoint_tick, layout, migrated):
+    if migrated and isinstance(payload, dict) and isinstance(payload.get('components'), dict) and 'spaces' in payload['components']:
+        return validate_payload(spatial_payload(payload, layout), checkpoint_tick, layout, migrated)
     validate_gameplay(payload, checkpoint_tick)
     total = layout['totalCount']
     now, live = validate_metadata(payload['metadata'], total)

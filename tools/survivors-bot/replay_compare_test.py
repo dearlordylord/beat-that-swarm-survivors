@@ -143,6 +143,54 @@ class SparseCompareTest(unittest.TestCase):
         self.write(rows, rows)
         with self.assertRaises(R.ReplayError): self.compare()
 
+    def spatial(self):
+        rows = self.schema.replay(True)
+        for record in rows:
+            if record['type'] != 'checkpoint':
+                continue
+            components = record['payload']['components']
+            spaces = []
+            for index, (_, body, stamp) in enumerate(components['bodies']):
+                enemy = components['roles'][index][1] in self.schema.M.ENEMIES
+                spaces.append([index + 1, [body[0], body[1], body[6], body[8]] if enemy else None,
+                               copy.deepcopy(stamp if enemy else [None, None])])
+                if enemy:
+                    body[0], body[1], body[6], body[8] = 0, 0, 0, 0
+            components['spaces'] = spaces
+        return rows
+
+    def test_spatial_current_schema_compares_all_actual_values_and_stamps(self):
+        rows = self.spatial()
+        self.write(rows, rows)
+        self.assertEqual(self.compare()['checkpoints'], 2)
+        for field in range(4):
+            changed = copy.deepcopy(rows)
+            changed[2]['payload']['components']['spaces'][0][1][field] += 1
+            self.schema.M.validate_payload(changed[2]['payload'], 1, self.layout, True)
+            self.write(rows, changed)
+            with self.assertRaises(R.ReplayError): self.compare()
+        changed = copy.deepcopy(rows)
+        changed[2]['payload']['components']['spaces'][0][2] = [[0, 2], [0, 90]]
+        self.schema.M.validate_payload(changed[2]['payload'], 1, self.layout, True)
+        self.write(rows, changed)
+        with self.assertRaises(R.ReplayError): self.compare()
+
+    def test_spatial_composition_and_duplicate_authority_are_rejected(self):
+        corruptions = [
+            lambda c: c['spaces'][0].__setitem__(1, None),
+            lambda c: c['spaces'][2].__setitem__(1, [0, 0, 0, 0]),
+            lambda c: c['spaces'].pop(),
+            lambda c: c['spaces'].reverse(),
+            lambda c: c['spaces'][0].__setitem__(2, [[0, 1], [0, 101]]),
+            lambda c: c['bodies'][0][1].__setitem__(0, 1),
+            lambda c: c['bodies'][0][1].__setitem__(6, 1),
+        ]
+        for corrupt in corruptions:
+            rows = self.spatial()
+            corrupt(rows[2]['payload']['components'])
+            self.write(rows, rows)
+            with self.assertRaises(R.ReplayError): self.compare()
+
     def test_absent_routing_is_rejected(self):
         left = self.schema.replay(True); right = copy.deepcopy(left)
         for key in ("movementCandidates", "projectileCandidates", "poolCandidates"):

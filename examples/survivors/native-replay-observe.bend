@@ -1,6 +1,7 @@
 import run-state.bend as RS
 import Base
 import game.bend as G
+import enemy-spatial.bend as Space
 import pools.bend as PL
 import entity-role.bend as GRole
 import bendvy-ecs-core@0.1.0.1/world.bend as W
@@ -49,6 +50,9 @@ def stamp(value: L.Stamp) -> String:
 def body(value: G.Body) -> String:
   match value:
     case G.Body{x,y,kind,variant,hp,maximum,age,seed,radius}: array([fbits(x),fbits(y),U32.show(kind),U32.show(variant),U32.show(hp),U32.show(maximum),U32.show(age),U32.show(seed),fbits(radius)])
+def spatial(value: Space.Spatial) -> String:
+  match value:
+    case Space.Spatial{x,y,age,radius}: array([fbits(x),fbits(y),U32.show(age),fbits(radius)])
 def vitals(value: G.Vitals) -> String:
   match value:
     case G.Vitals{health,maximum}: array([U32.show(health),U32.show(maximum)])
@@ -160,12 +164,12 @@ def logical_rows(fuel: Nat,+id: U32,state: LogicalColumns & List<&2,String>) -> 
   match fuel state:
     case 0n Tuple{columns,reversed}: (columns,join(List.reverse(&2,String,reversed)))
     case 1n+rest Tuple{columns,reversed}: logical_rows(rest,(id + 1 : U32),logical_row_accumulated(reversed,logical_row(id,columns)))
-def logical_store_done(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.Vitals>,p: Col.Column<G.Schema,G.Pickup>,r: Col.Column<G.Schema,GRole.Role>,movement: G.MovementRoster,candidates: G.CandidateRoster,players: Col.Column<G.Schema,G.PlayerRecord>,result: LogicalColumns & String) -> G.Store & String:
+def logical_store_done(b: Col.Column<G.Schema,G.Body>,v: Col.Column<G.Schema,G.Vitals>,p: Col.Column<G.Schema,G.Pickup>,r: Col.Column<G.Schema,GRole.Role>,movement: G.MovementRoster,candidates: G.CandidateRoster,players: Col.Column<G.Schema,G.PlayerRecord>,spaces: Col.Column<G.Schema,Space.Spatial>,result: LogicalColumns & String) -> G.Store & String:
   match result:
-    case (LogicalColumns{t,s},text): (G.Store{b,v,t,s,p,r,movement,candidates,players},text)
+    case (LogicalColumns{t,s},text): (G.Store{b,v,t,s,p,r,movement,candidates,players,spaces},text)
 def logical_store(store: G.Store) -> G.Store & String:
   match store:
-    case G.Store{b,v,t,s,p,r,movement,candidates,players}: logical_store_done(b,v,p,r,movement,candidates,players,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
+    case G.Store{b,v,t,s,p,r,movement,candidates,players,spaces}: logical_store_done(b,v,p,r,movement,candidates,players,spaces,logical_rows(PL.total_nat(),1,(LogicalColumns{t,s},[])))
 def observed_column_done(~C: Type,~Rest: Type,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,rest: Rest,result: Col.Column<G.Schema,C> & String) -> G.Store & String:
   match result:
     case (column,text): (put(rest,column),text)
@@ -174,12 +178,15 @@ def observed_column_split(~C: Type,~V: Data,~Rest: Type,~put: Rest -> Col.Column
     case (rest,column): observed_column_done(~C,~Rest,~put,rest,column_rows(~C,~V,~project,~show,PL.total_nat(),1,column))
 def observed_column(~C: Type,~V: Data,~Rest: Type,~take: G.Store -> Rest & Col.Column<G.Schema,C>,~put: Rest -> Col.Column<G.Schema,C> -> G.Store,~project: C -> C & V,~show: V -> String,store: G.Store) -> G.Store & String:
   observed_column_split(~C,~V,~Rest,~put,~project,~show,take(store))
-def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: G.Store & String) -> G.Store & String:
+def store_logical(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,es: String,result: G.Store & String) -> G.Store & String:
   match result:
-    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players},ms): (G.Store{b,v,t,s,p,r,movement,candidates,players},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},ms): (G.Store{b,v,t,s,p,r,movement,candidates,players,spaces},"{\"bodies\":[" ++ bs ++ "],\"vitals\":[" ++ vs ++ "],\"motions\":[" ++ ms ++ "],\"trajectories\":[" ++ ts ++ "],\"statuses\":[" ++ ss ++ "],\"pickups\":[" ++ ps ++ "],\"roles\":[" ++ rs ++ "],\"spaces\":[" ++ es ++ "],\"movementCandidates\":" ++ movement_roster(movement) ++ ",\"projectileCandidates\":" ++ candidate_roster(True{},candidates) ++ ",\"poolCandidates\":" ++ candidate_roster(False{},candidates) ++ "}")
+def store_spatial(bs: String,vs: String,ts: String,ss: String,ps: String,rs: String,result: G.Store & String) -> G.Store & String:
+  match result:
+    case (owner,es): store_logical(bs,vs,ts,ss,ps,rs,es,logical_store(owner))
 def store_role(bs: String,vs: String,ts: String,ss: String,ps: String,result: G.Store & String) -> G.Store & String:
   match result:
-    case (owner,rs): store_logical(bs,vs,ts,ss,ps,rs,logical_store(owner))
+    case (owner,rs): store_spatial(bs,vs,ts,ss,ps,rs,observed_column(~Space.Spatial,~Space.Spatial,~G.SpatialRest,~G.take_spatial,~G.put_spatial,~G.project_spatial,~spatial,owner))
 def store_pickup(bs: String,vs: String,ts: String,ss: String,result: G.Store & String) -> G.Store & String:
   match result:
     case (owner,ps): store_role(bs,vs,ts,ss,ps,observed_column(~GRole.Role,~GRole.Role,~G.RoleRest,~G.take_role,~G.put_role,~G.project_role,~role,owner))
@@ -313,6 +320,9 @@ def fold_snapshots(rows: List<&2,G.Snapshot>,acc: U32) -> U32:
   match rows:
     case []: mix(acc,0)
     case value <> rest: fold_snapshots(rest,fold_snapshot(value,mix(acc,1)))
+def fold_spatial(value: Space.Spatial,acc: U32) -> U32:
+  match value:
+    case Space.Spatial{x,y,age,radius}: fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius)],acc)
 def fold_run(value: G.Run,acc: U32) -> U32:
   match value:
     case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: fold_words(enemyKinds,fold_words(passives,fold_words(weapons,fold_words([phase,tick,F32.bits(px),F32.bits(py),hp,maximum,xp,need,level,kills,gold,character,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,relicCollected],acc))))
@@ -366,10 +376,10 @@ def force_store_column(~C: Type,~V: Data,~Rest: Type,~take: G.Store -> Rest & Co
   force_column_split(~C,~V,~Rest,~put,~project,~fold,acc,take(store))
 def force_store_routing(result: G.Store & U32) -> G.Store & U32:
   match result:
-    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players},acc): (G.Store{b,v,t,s,p,r,movement,candidates,players},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
+    case (G.Store{b,v,t,s,p,r,+movement,+candidates,players,spaces},acc): (G.Store{b,v,t,s,p,r,movement,candidates,players,spaces},fold_candidate_roster(candidates,fold_movement_roster(movement,acc)))
 def force_store_role(result: G.Store & U32) -> G.Store & U32:
   match result:
-    case (owner,acc): force_store_routing((owner,acc))
+    case (owner,acc): force_store_routing(force_store_column(~Space.Spatial,~Space.Spatial,~G.SpatialRest,~G.take_spatial,~G.put_spatial,~G.project_spatial,~fold_spatial,acc,owner))
 def force_store_pickup(result: G.Store & U32) -> G.Store & U32:
   match result:
     case (owner,acc): force_store_role(force_store_column(~GRole.Role,~GRole.Role,~G.RoleRest,~G.take_role,~G.put_role,~G.project_role,~fold_role,acc,owner))

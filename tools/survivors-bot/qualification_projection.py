@@ -44,7 +44,7 @@ def snapshot(value):
 
 def project(payload, tick):
     M.validate_payload(payload, tick, LAYOUT, migrated=True)
-    c = payload['components']
+    c = M.spatial_payload(payload, LAYOUT)['components'] if 'spaces' in payload['components'] else payload['components']
     entities = []
     for i, (_, body, _) in enumerate(c['bodies']):
         fact = actor(body)
@@ -92,7 +92,8 @@ def controls(path):
     original = checkpoint['payload']
     baseline = project(original, original['run'][1])
     compare(baseline, copy.deepcopy(baseline))
-    for label in ('damage', 'xp', 'generation', 'status'):
+    labels = ('damage', 'xp', 'generation', 'status') + (('spatial-age',) if 'spaces' in original['components'] else ())
+    for label in labels:
         changed = copy.deepcopy(original)
         c = changed['components']
         if label == 'damage':
@@ -104,6 +105,9 @@ def controls(path):
             index = next(i for i, row in enumerate(c['roles']) if row[1] == 'XpSlot')
             c['pickups'][index][1][1] += 1
             c['bodies'][index][1][5] += 1
+        elif label == 'spatial-age':
+            index = next(i for i, row in enumerate(c['roles']) if row[1] in M.ENEMIES)
+            c['spaces'][index][1][2] += 1
         else:
             index = next(i for i, row in enumerate(c['roles']) if row[1] in M.ENEMIES)
             c['statuses'][index][1][0] += 1
@@ -119,7 +123,7 @@ def controls(path):
     representation = copy.deepcopy(original)
     representation['metadata']['clock'][0][1] += 1
     compare(baseline, project(representation, original['run'][1]))
-    return ['raw-source-damage', 'raw-source-xp', 'raw-source-generation', 'raw-source-status', 'representation-clock-positive']
+    return ['raw-source-' + label for label in labels] + ['representation-clock-positive']
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)

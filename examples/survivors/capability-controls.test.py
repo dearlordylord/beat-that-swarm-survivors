@@ -31,6 +31,14 @@ def cpu_bound():
 # Each refusal uses the same actual game accessor as its accepted control.
 # The opaque H and Ops(H) remain universally quantified, as in gameplay bodies.
 CASES = [
+    ('movement-spatial-health', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
+     'write', 'G.Vitals', 'cross-family'),
+    ('movement-metadata-read', 'MoveOps', 'move_body_cap', 'G.Body',
+     'read', 'G.Body', 'read-to-write'),
+    ('movement-spatial-identity', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
+     'write', 'G.Body', 'cross-family'),
+    ('movement-spatial-pickup', 'MoveOps', 'move_spatial_cap', 'Space.Spatial',
+     'write', 'G.Pickup', 'cross-family'),
     ('movement-status-read', 'MoveOps', 'move_status_cap', 'G.Status',
      'read', 'G.Status', 'read-to-write'),
     ('pickup-body-read', 'PickupOps', 'pickup_body_cap', 'G.Body',
@@ -49,6 +57,7 @@ def module(directory, case, negative):
     component = rejected if negative else field
     header = '\n'.join([
         'import Base',
+        f'import {Path(os.path.relpath(HERE / "enemy-spatial.bend", directory)).as_posix()} as Space',
         f'import {Path(os.path.relpath(GAME, directory)).as_posix()} as G',
         f'import {Path(os.path.relpath(HERE / "entity-role.bend", directory)).as_posix()} as Role',
         f'import {imported("Cap")} as Cap',
@@ -82,7 +91,7 @@ def check(directory, name, source):
 def refuse(diagnostic, case):
     # Restrict rejection to the intended term, type mismatch and constructors.
     # Parse/import/arity/affine failures do not qualify an authority boundary.
-    _, _, accessor, _, _, _, reason = case
+    _, _, accessor, field, _, rejected, reason = case
     assert 'Location: control' in diagnostic, diagnostic
     assert re.search(r'expected\s*:', diagnostic), diagnostic
     assert re.search(r'observed\s*:', diagnostic), diagnostic
@@ -95,7 +104,7 @@ def refuse(diagnostic, case):
         assert re.search(r'\bWrite\b', expected) and re.search(r'\bRead\b', observed), diagnostic
     else:
         assert re.search(r'\bWrite\b', expected) and re.search(r'\bWrite\b', observed), diagnostic
-        assert 'Vitals' in expected and 'Body' in observed, diagnostic
+        assert rejected.split('.')[-1] in expected and field.split('.')[-1] in observed, diagnostic
 
 
 def main():

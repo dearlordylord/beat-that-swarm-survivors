@@ -100,7 +100,8 @@ function resolveMovedEnemy(team, value) {
   const { body, motion } = value;
   const nearest = Game.team_nearest(team, body.x, body.y);
   const args = Game.team_args(team, nearest);
-  const moved = Game.move_body(body, motion, args);
+  const space = Game.team_move_space(team, Game.spatial_of_body(body), body.variant, motion.slow);
+  const moved = Game.body_at_spatial(body, space);
   const row = Game.enemy_update(moved, args.run);
   const result = Game.team_enemy_updated(team, moved, { $: 'Status', slow: motion.slow, burn: motion.burn }, row);
   return { moved, row, result };
