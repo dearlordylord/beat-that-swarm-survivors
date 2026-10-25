@@ -1,8 +1,7 @@
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from './dist/coop-protocol.mjs';
 import Prediction from './dist/coop-prediction.mjs';
-import WeaponForecast from './dist/coop-weapon-prediction.mjs';
-import WeaponReconcile from './dist/coop-weapon-reconcile.mjs';
+import CombatForecast from './dist/coop-combat-prediction.mjs';
 import { CoopTransport } from './coop-transport.mjs';
 import { CoopUI } from './coop-ui.mjs';
 let transport, worker, role, sessionId, sequence = 0, tick = 0, epoch = 0;
@@ -12,7 +11,9 @@ let latestSnapshot, sendingSnapshot = false;
 const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
 let deliverySequence = 0;
 let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
-let weaponForecast, weaponPresentation, weaponPresentationState, weaponPresentationSeeds;
+let predictionLead = 4, lastRoundTripMs = 0, lastPredictionResync, authorityInputTiming;
+const sentCommandTimes = new Map();
+let combatForecast, combatPresentation, combatPresentationState;
 const PREDICTION_STEP = 1000 / 60;
 const bendBool = value => Boolean(value);
 function advancePrediction(now = performance.now()) {
@@ -24,36 +25,53 @@ function advancePrediction(now = performance.now()) {
   predictionAt = now;
   let count = 0;
   while (predictionRemainder >= PREDICTION_STEP && count++ < 4) {
-    if (prediction.enabled && prediction.age < Prediction.horizon() && connected) {
+    if (Prediction.can_tick(prediction) && connected) {
       sendAction({$:'MovementTick',round:predictionRound ?? 0,
         x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
       prediction = Prediction.tick(prediction);
-      if (weaponForecast) weaponForecast = WeaponForecast.advance(weaponForecast,
+      if (combatForecast) combatForecast = CombatForecast.advance(combatForecast,
         Math.sign(input.x)+1,Math.sign(input.y)+1);
     }
     predictionRemainder -= PREDICTION_STEP;
   }
 }
+function observeRoundTrip(envelope,now) {
+  const acknowledged = envelope.admission?.guest?.lastSeq;
+  if (!Number.isInteger(acknowledged)) return;
+  const sentAt = sentCommandTimes.get(acknowledged);
+  if (sentAt !== undefined) lastRoundTripMs = Math.max(0,now-sentAt);
+  // Sample first: the first eligible frame must include its Setup round trip.
+  for (const seq of sentCommandTimes.keys()) if (seq <= acknowledged) sentCommandTimes.delete(seq);
+}
 function reconcilePrediction(envelope) {
   const frame = envelope.frame, now = performance.now();
   if (prediction && !Prediction.observation_newer(prediction,envelope.observationSeq)) return false;
+  observeRoundTrip(envelope,now);
   const reset = !prediction || predictionRun !== frame.runId || predictionStage !== frame.stage
     || predictionRound !== (frame.roundId ?? 0);
   const wasEnabled = !reset && prediction.enabled === true;
+  if (reset || !wasEnabled) predictionLead = Prediction.lead(Math.ceil(lastRoundTripMs));
   if (reset) {
-    prediction = Prediction.fresh(frame.px, frame.py, frame.stepDistance, bendBool(frame.predictionAllowed));
+    prediction = Prediction.fresh(frame.px,frame.py,frame.stepDistance,bendBool(frame.predictionAllowed),frame.tick,predictionLead);
     predictionRun = frame.runId; predictionStage = frame.stage; predictionRound = frame.roundId ?? 0;
     predictionAt = now; predictionRemainder = 0;
   } else advancePrediction(now);
-  const receipt = envelope.receipt || {$:'Receipt',seq:0,steps:0,x:1,y:1,expired:false};
-  prediction = Prediction.reconcile(prediction,envelope.observationSeq,frame.px,frame.py,
-    frame.stepDistance,bendBool(frame.predictionAllowed),receipt);
+  const resync = !reset && wasEnabled && frame.predictionAllowed && Prediction.resync_needed(prediction,frame.tick);
+  const previousDisplayWorldTick = prediction.displayWorldTick;
+  prediction = Prediction.reconcile(prediction,envelope.observationSeq,frame.tick,frame.px,frame.py,
+    frame.stepDistance,bendBool(frame.predictionAllowed),predictionLead);
+  if (resync) lastPredictionResync = Object.freeze({reason:'authority-caught-display-cursor',
+    previousDisplayWorldTick,anchorWorldTick:frame.tick,displayWorldTick:prediction.displayWorldTick,lead:predictionLead});
+  else if (reset) lastPredictionResync = null;
   if (prediction.observation !== envelope.observationSeq) return false;
-  authorityFrame = frame;
-  const freshWeapons = frame.predictionAllowed && frame.weaponForecast
-    ? WeaponForecast.forecast(WeaponForecast.receive(frame.weaponForecast),prediction) : null;
-  weaponForecast = freshWeapons && weaponForecast && !reset && wasEnabled
-    ? WeaponReconcile.rebase(weaponForecast,freshWeapons) : freshWeapons;
+  authorityFrame = frame; authorityInputTiming = envelope.inputTiming;
+  // Each accepted authority frame is a new canonical cohort anchor. Previous
+  // speculative trajectories may not override current contacts or enemy state.
+  const combatAnchor = frame.predictionAllowed && frame.combatForecast
+    ? CombatForecast.with_diagnostics(CombatForecast.receive(frame.combatForecast,envelope.admission),
+      new URL(location.href).searchParams.has('combatTrace')) : null;
+  combatForecast = combatAnchor
+    ? CombatForecast.rebase(!reset && wasEnabled && combatForecast ? combatForecast : combatAnchor,combatAnchor,prediction) : null;
   if (!frame.predictionAllowed || !wasEnabled) { predictionAt = now; predictionRemainder = 0; }
   return true;
 }
@@ -64,21 +82,34 @@ function displayFrame(frame, now) {
   const own = authorityFrame.players?.find(player => player.id === authorityFrame.ownPlayerId);
   const predicting = authorityFrame.predictionAllowed;
   let bodies = frame.bodies;
-  if (predicting && weaponForecast) {
-    if (weaponPresentationState !== weaponForecast) {
-      weaponPresentationState = weaponForecast;
-      weaponPresentation = JSON.parse(WeaponForecast.render(weaponForecast));
-      weaponPresentationSeeds = new Set(weaponPresentation.ownSeeds);
+  let predictedPlayers, combatDiagnostics;
+  if (predicting && combatForecast) {
+    if (combatPresentationState !== combatForecast) {
+      combatPresentationState = combatForecast;
+      combatPresentation = JSON.parse(CombatForecast.render(combatForecast));
     }
-    // Replace only this player's weapon visuals. Remote shots, enemies, damage
-    // and pickups remain the received/interpolated authoritative observation.
-    bodies = (frame.bodies || []).filter(body => body[2] !== 1 || !weaponPresentationSeeds.has(body[7]))
-      .concat(weaponPresentation.bodies);
+    // Enemies and every known projectile are rendered from one Bend cohort
+    // clock. Pickups, rewards and durable gameplay remain authoritative.
+    bodies = (frame.bodies || []).filter(body => ![0,1,7].includes(body[2]))
+      .concat(combatPresentation.bodies);
+    predictedPlayers = new Map(combatPresentation.players.map(player => [player.id,player]));
+    // Display-only evidence belongs to this exact Bend cohort sample. It is not
+    // passed to authoritative progression, rewards, audio or the network.
+    combatDiagnostics = Object.freeze({tick:combatPresentation.tick,contacts:combatPresentation.contacts,
+      assumptions:combatPresentation.assumptions,predictedCohort:combatPresentation.predictedCohort});
   }
-  return {...frame,bodies,px:predicting ? point.x : authorityFrame.px,py:predicting ? point.y : authorityFrame.py,
-    players:frame.players?.map(player => player.id === authorityFrame.ownPlayerId && own
-      ? {...player,...own,px:predicting ? point.x : own.px,py:predicting ? point.y : own.py} : player)};
+  const predictionTiming = prediction ? Object.freeze({anchorWorldTick:prediction.anchorWorldTick,
+    displayWorldTick:prediction.displayWorldTick,lead:predictionLead,roundTripMs:lastRoundTripMs,resync:lastPredictionResync,server:authorityInputTiming}) : undefined;
+  return {...frame,bodies,combatPresentation:combatDiagnostics,predictionTiming,px:predicting ? point.x : authorityFrame.px,py:predicting ? point.y : authorityFrame.py,
+    players:frame.players?.map(player => {
+      const projected = predictedPlayers?.get(player.id);
+      const authoritative = player.id === authorityFrame.ownPlayerId && own ? {...player,...own} : player;
+      if (projected) return {...authoritative,px:projected.px,py:projected.py};
+      return player.id === authorityFrame.ownPlayerId && own
+        ? {...authoritative,px:predicting ? point.x : own.px,py:predicting ? point.y : own.py} : player;
+    })};
 }
+
 function postCommand(text, player) {
   if (!worker || pendingCommands.size >= MAX_COMMANDS) return false;
   const deliveryId = ++deliverySequence;
@@ -95,10 +126,16 @@ const decoder = new TextDecoder('utf-8', {fatal:true});
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
 function command(action) {
   const seq = ++sequence;
+  const intendedTick = role === 'guest' && prediction && action.$ === 'MovementTick'
+    ? Prediction.next_world_tick(prediction) : tick;
+  if (role === 'guest') {
+    sentCommandTimes.set(seq,performance.now());
+    if (sentCommandTimes.size > 256) sentCommandTimes.delete(sentCommandTimes.keys().next().value);
+  }
   if (role === 'guest' && prediction && action.$ === 'MovementTick')
     prediction = Prediction.command(prediction,seq,action.x,action.y);
   return Protocol.encode({$: 'Command', session:sessionId, player:role === 'host' ? 0 : 1,
-    seq, intendedTick:tick, action});
+    seq,intendedTick,action});
 }
 function sendAction(action) {
   if (role === 'host' ? !worker : !connected) return;
@@ -113,7 +150,7 @@ function sendAction(action) {
       if (generation !== epoch) return;
       if (action.$ === 'Choice') ui.setChoicePending(false);
       if (action.$ === 'MovementTick') {
-        connected = false; prediction = null; authorityFrame = null; weaponForecast = null;
+        connected = false; prediction = null; authorityFrame = null; combatForecast = null;
         clearInterval(inputTimer); transport?.close();
       }
       ui.status(error.message,{error:true});
@@ -164,7 +201,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         else {
           const envelope = JSON.parse(text);
           if (envelope.type !== 'frame') return;
-          if (envelope.predictionModel !== 'input-ticks-weapons-v1' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
+          if (envelope.predictionModel !== 'world-input-combat-v2' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
               || typeof envelope.frame?.predictionAllowed !== 'boolean') {
             cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
           }
@@ -176,7 +213,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         }
       } catch (error) { showError(error); }
     } else if (event.type === 'disconnected') {
-      connected = false; prediction = null; authorityFrame = null; weaponForecast = null;
+      connected = false; prediction = null; authorityFrame = null; combatForecast = null;
       if (kind !== 'host') clearInterval(inputTimer);
       if (kind === 'host') { transport?.close(); worker?.postMessage({type:'disconnect'}); ui.status('Guest left. The run continues.'); }
       else ui.status('Host disconnected. Session ended.',{error:true});
@@ -192,7 +229,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
       if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
       else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
       else if (message.type === 'remote-frame') {
-        latestSnapshot = {type:'frame',predictionModel:'input-ticks-weapons-v1',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,observationSeq:message.observationSeq}; flushSnapshot();
+        latestSnapshot = {type:'frame',predictionModel:'world-input-combat-v2',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
       } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
         refuseGuest(message.type === 'guest-input-overflow'
           ? 'Guest input queue overflowed. The guest was disconnected.'
@@ -210,9 +247,10 @@ async function connect(kind, ticket, setup, invitation = {}) {
 }
 function showError(error) { ui.status(error.message || String(error),{error:true}); console.error(error); }
 function cleanup() {
-  epoch++; pendingCommands.clear(); receivedFrame = false; stalled = false;
-  prediction = null; authorityFrame = null; weaponForecast = null; weaponPresentation = null;
-  weaponPresentationState = null; weaponPresentationSeeds = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
+  epoch++; pendingCommands.clear(); sentCommandTimes.clear(); receivedFrame = false; stalled = false;
+  predictionLead = 4; lastRoundTripMs = 0; lastPredictionResync = null; authorityInputTiming = null;
+  prediction = null; authorityFrame = null; combatForecast = null; combatPresentation = null;
+  combatPresentationState = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
   connected = false; clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
   worker?.terminate(); worker = null; transport?.close(); transport = null;
   input = {x:0,y:0};

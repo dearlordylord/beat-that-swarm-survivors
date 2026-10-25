@@ -6,6 +6,8 @@ type Action is Data:
   MovementTick{round: U32,x: U32,y: U32}
   Choice{round: U32,index: U32}
   Setup{character: U32,arcana: U32,meta: U32,allowedWeapons: U32}
+# MovementTick.intendedTick is its exact assigned world tick. The seq field
+# identifies transport commands and must never be interpreted as game time.
 type Command is Data: Command{session: U32,player: U32,seq: U32,intendedTick: U32,action: Action}
 type Lane is Data: Lane{lastSeq: U32,inputSeq: U32,appliedSeq: U32,appliedTick: U32,receivedAt: U32,x: U32,y: U32}
 type State is Data: State{session: U32,clock: U32,host: Lane,guest: Lane,guestConnected: Bool,ended: Bool}
@@ -76,14 +78,7 @@ def disconnect(player: U32,state: State) -> State:
     case 1 State{session,now,host,_,_,ended}: State{session,now,host,neutral(),False{},ended}
     case _ state: state
 
-# Receipt describes consumed movement, never merely the newest received input.
-# The worker updates it only after an authoritative gameplay step advanced.
-type Receipt is Data: Receipt{seq: U32,steps: U32,x: U32,y: U32,expired: Bool}
+# A receipt identifies a resolved authoritative world tick. Missing input is an
+# explicit neutral fallback, not an invitation to shift a late packet forward.
+type Receipt is Data: Receipt{seq: U32,worldTick: U32,x: U32,y: U32,applied: Bool}
 def receipt_fresh() -> Receipt: Receipt{0,0,1,1,False{}}
-def receipt_lane(previous: Receipt,lane: Lane,+clock: U32,+enabled: Bool) -> Receipt:
-  match previous lane:
-    case Receipt{prior,+steps,_,_,_} Lane{_,+seq,_,_,+received,x,y}:
-      Receipt{seq,Bool.pick(U32,U32.is_eq(prior,seq),U32.min((steps + 1 : U32),65535),1),Bool.pick(U32,enabled,x,1),Bool.pick(U32,enabled,y,1),Bool.or(Bool.not(enabled),U32.is_ge((clock - received : U32),18))}
-def receipt_step(previous: Receipt,state: State,+player: U32) -> Receipt:
-  match state:
-    case State{_,clock,host,guest,connected,+ended}: receipt_lane(previous,lane_at(player,host,guest),clock,Bool.and(Bool.not(ended),Bool.or(U32.is_eq(player,0),connected)))

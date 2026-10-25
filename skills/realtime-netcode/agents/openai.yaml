@@ -1,0 +1,4 @@
+interface:
+  display_name: "Realtime Netcode"
+  short_description: "Debug game prediction, clocks and reconciliation"
+  default_prompt: "Use $realtime-netcode to diagnose this multiplayer game's timing and prediction contract and implement a regression-tested fix."

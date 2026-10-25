@@ -1,80 +1,67 @@
 import Base
-import ./coop-input-queue.bend as Q
 import ./coop-prediction.bend as P
-import ./coop-session.bend as S
+import ./coop-prediction-replay.bend as R
 import ./player-movement.bend as M
 import ./coop-input-history-SPEC.bend as H
 
-# Guarantees: for any chronological input history and any split into consumed
-# prefix and pending suffix, executing both parts equals executing all ticks.
-# Why it matters: transport batching may change the split, never the F32 path.
-law fifo_partition:
-  for +consumed: List<&2,Q.Tick>
-  for +pending: List<&2,Q.Tick>
-  for +distance: F32
-  for +anchor: M.Point
-  {H.path(List.append(&2,Q.Tick,consumed,pending),distance,anchor) == H.path(pending,distance,H.path(consumed,distance,anchor)) : M.Point}
+# Guarantees: splitting any number of world steps preserves the exact final
+# saturating world clock, including its behavior at the U32 limit.
+# Why it matters: a replay boundary cannot change which clock labels later input.
+law clock_partition:
+  for +consumed:Nat
+  for +pending:Nat
+  for +worldTick:U32
+  {H.tick_after(Nat.add(consumed,pending),worldTick) == H.tick_after(pending,H.tick_after(consumed,worldTick)) : U32}
 
-# Guarantees: actual prediction replay of any chronological one-step tick list
-# with sufficient slots follows precisely the independent sequential F32 path
-# and consumes exactly one slot per tick. Room concerns only the tick count;
-# setting budget60 covers every suffix that fits the production horizon.
-# Why it matters: ACK batching cannot drop, repeat or reorder pending movements,
-# including reversals and diagonal movement at the arena's clamped boundaries.
-law pending_replay_preserves_path:
-  for +rows: List<&2,Q.Tick>
-  for +budget: U32
-  for +distance: F32
-  for +point: M.Point
-  for room: H.Room(rows,budget)
-  {P.replay(H.pending_rows(rows),distance,P.Replay{point,budget}) == P.Replay{H.path(rows,distance,point),H.budget_after(rows,budget)} : P.Replay}
+# Guarantees: actual movement replay over a consumed world interval followed by
+# a pending world interval equals replaying the entire interval from its anchor.
+# Inputs retain their original target ticks on both sides of the boundary.
+# Why it matters: ACK batching cannot change the F32 path, including neutral
+# holes, reversals and clamping; no FIFO-to-world-time equivalence is assumed.
+law world_partition_preserves_position:
+  for +consumed:Nat
+  for +pending:Nat
+  for +worldTick:U32
+  for +inputs:List<&2,P.Input>
+  for +distance:F32
+  for +point:M.Point
+  {P.replay_position(Nat.add(consumed,pending),worldTick,inputs,distance,point) == P.replay_position(pending,H.tick_after(consumed,worldTick),inputs,distance,P.replay_position(consumed,worldTick,inputs,distance,point)) : M.Point}
 
-# Guarantees: replaying any fitting pending suffix from the host's consumed
-# prefix endpoint equals the guest's entire original input path, bit-for-bit.
-# Why it matters: once ACK filtering selects the consumed prefix, changing that
-# boundary cannot itself move the displayed player or camera.
-law acknowledged_partition_preserves_path:
-  for +consumed: List<&2,Q.Tick>
-  for +pending: List<&2,Q.Tick>
-  for +budget: U32
-  for +distance: F32
-  for +anchor: M.Point
-  for room: H.Room(pending,budget)
-  {P.replay(H.pending_rows(pending),distance,P.Replay{H.path(consumed,distance,anchor),budget}) == P.Replay{H.path(List.append(&2,Q.Tick,consumed,pending),distance,anchor),H.budget_after(pending,budget)} : P.Replay}
+# Guarantees: any detached cohort adapter has the same whole-world-interval
+# partition rule. The second interval starts at the clock reached by the first.
+# Why it matters: weapon cooldowns and contacts cannot be shifted merely by
+# splitting replay at an acknowledgement; adapter physics are outside this law.
+law world_partition_preserves_cohort:
+  for ~A:Data
+  for ~advance:@+frame:A -> @+x:U32 -> @+y:U32 -> A
+  for +consumed:Nat
+  for +pending:Nat
+  for +worldTick:U32
+  for +inputs:List<&2,P.Input>
+  for +frame:A
+  {R.advance_worlds(~A,~advance,Nat.add(consumed,pending),worldTick,inputs,frame) == R.advance_worlds(~A,~advance,pending,H.tick_after(consumed,worldTick),inputs,R.advance_worlds(~A,~advance,consumed,worldTick,inputs,frame)) : A}
 
-# Guarantees: acknowledging a sole one-step input preserves the already
-# predicted point; the receipt identifies the consumed step, not its arrival.
-# Why it matters: an ACK alone must not add another movement step or snap back.
-law consumed_tick_preserves_position:
-  for +point: M.Point
-  for +distance: F32
-  for +seq: U32
-  for +x: U32
-  for +y: U32
-  for +prior: U32
-  for +observation: U32
-  for newer: {True{} == U32.is_gt(observation,prior) : Bool}
-  {H.reconcile(H.state(distance,[P.Segment{seq,x,y,1,0}],1,prior,point),observation,distance,Q.receipt(S.receipt_fresh(),Some{Q.Tick{seq,x,y}}),point) == point : M.Point}
+# Guarantees: for every world interval and assigned input history, the generic
+# cohort replay with the shared movement adapter equals actual camera replay.
+# Why it matters: camera and cohort cannot use different input clocks or remove
+# different neutral gaps while claiming the same predicted position.
+law cohort_movement_matches_position:
+  for +fuel:Nat
+  for +worldTick:U32
+  for +inputs:List<&2,P.Input>
+  for +distance:F32
+  for +point:M.Point
+  {R.advance_worlds(~H.Moving,~H.movement,fuel,worldTick,inputs,H.Moving{distance,point}) == H.Moving{distance,P.replay_position(fuel,worldTick,inputs,distance,point)} : H.Moving}
 
-# Guarantees: after any consumed chronological prefix, acknowledging its last
-# one-step input preserves one still-pending predicted step, bit-for-bit. The
-# pending sequence is retained and differs from the acknowledged sequence, and
-# the observation is newer. This theorem covers a suffix of exactly one tick.
-# Why it matters: a new ACK must not drop or double the next predicted movement
-# merely because a packet or world-step boundary happened between the two ticks.
-law one_pending_tick_preserves_path:
-  for +prefix: List<&2,Q.Tick>
-  for +anchor: M.Point
-  for +distance: F32
-  for +ack: U32
-  for +ackX: U32
-  for +ackY: U32
-  for +seq: U32
-  for +x: U32
-  for +y: U32
-  for +prior: U32
-  for +observation: U32
-  for retained: {True{} == U32.is_ge(seq,ack) : Bool}
-  for distinct: {False{} == U32.is_eq(seq,ack) : Bool}
-  for newer: {True{} == U32.is_gt(observation,prior) : Bool}
-  {H.reconcile(H.state(distance,[P.Segment{seq,x,y,1,0},P.Segment{ack,ackX,ackY,1,0}],2,prior,H.step(distance,Q.Tick{seq,x,y},H.path(prefix,distance,anchor))),observation,distance,Q.receipt(S.receipt_fresh(),Some{Q.Tick{ack,ackX,ackY}}),H.path(prefix,distance,anchor)) == H.step(distance,Q.Tick{seq,x,y},H.path(prefix,distance,anchor)) : M.Point}
+# Guarantees: an input-free interval invokes the adapter with codes1/1 exactly
+# once per world tick, rather than returning immediately for an empty row list.
+# Why it matters: actual cohort time must still reach scheduled weapon births
+# while waiting for a future assigned input. Neutral-code meaning is pinned by
+# the separate axis/adapter laws; arbitrary adapters are not assumed neutral.
+law neutral_worlds_are_not_compressed:
+  for ~A:Data
+  for ~advance:@+frame:A -> @+x:U32 -> @+y:U32 -> A
+  for +fuel:Nat
+  for worldTick:U32
+  for +frame:A
+  {R.advance_worlds(~A,~advance,fuel,worldTick,[],frame) == H.neutral_worlds(~A,~advance,fuel,frame) : A}

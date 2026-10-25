@@ -1,0 +1,66 @@
+[
+  {
+    "label": "replay skips neutral world steps",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "step_direction(~A,~advance,frame,P.input_at(inputs,P.after(worldTick,1)))",
+    "new": "frame",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "worlds_successor"
+  },
+  {
+    "label": "replay jumps across a world tick",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "rest,P.after(worldTick,1),inputs,",
+    "new": "rest,P.after(worldTick,2),inputs,",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "worlds_successor"
+  },
+  {
+    "label": "replay compresses interval to command count",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "case P.State{_,_,_,True{},inputs,+anchor,display,_,_}: advance_worlds(~A,~advance,U32.to_nat(P.world_count(anchor,display)),anchor,inputs,frame)",
+    "new": "case P.State{_,_,_,True{},+inputs,+anchor,display,_,_}: advance_worlds(~A,~advance,List.length(&2,P.Input,inputs),anchor,inputs,frame)",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "forecast_world_interval_exact"
+  },
+  {
+    "label": "replay assigns input to preceding world tick",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "P.input_at(inputs,P.after(worldTick,1))",
+    "new": "P.input_at(inputs,worldTick)",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "worlds_successor"
+  },
+  {
+    "label": "inactive replay advances the cohort",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "case P.State{_,_,_,False{},_,_,_,_,_}: frame",
+    "new": "case P.State{_,_,_,False{},_,_,_,_,_}: advance(frame,1,1)",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "forecast_disabled_preserves"
+  },
+  {
+    "label": "replay bypasses paused guard",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "case False{}: frame",
+    "new": "case False{}: advance(frame,x,y)",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "guard_refuses"
+  },
+  {
+    "label": "replay permits fallen player",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "U32.is_gt(hp,0)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "eligibility_exact"
+  },
+  {
+    "label": "replay omits player from semantic identity",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "U32.show(player) ++ \":\"",
+    "new": "U32.show(0) ++ \":\"",
+    "proof": "examples/survivors/coop-prediction-replay-PROOF.bend",
+    "law": "generation_exact"
+  }
+]

@@ -1,0 +1,98 @@
+[
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "canonical combat retains previous timeline",
+    "old": "def canonical(~A:Data,previous:A,fresh:A) -> A: fresh",
+    "new": "def canonical(~A:Data,previous:A,fresh:A) -> A: previous",
+    "law": "canonical_fresh"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "canonical combat replay anchors on old presentation",
+    "old": "canonical(~A,previous,anchor)",
+    "new": "canonical(~A,anchor,previous)",
+    "law": "canonical_suffix_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "cohort leaves hostile projectiles behind",
+    "old": "U32.is_eq(kind,7)",
+    "new": "False{}",
+    "law": "cohort_kind_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "cohort clock advances twice",
+    "old": "def next_tick(tick:U32) -> U32: (tick + 1 : U32)",
+    "new": "def next_tick(tick:U32) -> U32: (tick + 2 : U32)",
+    "law": "cohort_clock_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "miss creates fake swept contact",
+    "old": "case Contact.Miss{}: None{}",
+    "new": "case Contact.Miss{}: Some{Witness{0,tick,shot,target,0,0,x0,y0,x1,y1,ex0,ey0,ex1,ey1,radius,0.0}}",
+    "law": "sweep_miss_has_no_witness"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "sweep diagnostics ignore actual contact solver",
+    "old": "Contact.sweep(x0,y0,x1,y1,ex0,ey0,ex1,ey1,radius)",
+    "new": "Contact.Hit{0.0}",
+    "law": "sweep_solver_is_source"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "point contact masquerades as swept travel",
+    "old": "Some{Witness{1,tick,shot,target,0,0,x,y,x,y,ex,ey,ex,ey,radius,0.0}}",
+    "new": "Some{Witness{0,tick,shot,target,0,0,x,y,x,y,ex,ey,ex,ey,radius,0.0}}",
+    "law": "point_hit_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "target lifetime copied from projectile lifetime",
+    "old": "BI.get(~U32,births,target,0)",
+    "new": "BI.get(~U32,births,shot,0)",
+    "law": "witness_lifetimes_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "diagnostic history lasts forty ticks",
+    "old": "def ttl_ticks() -> U32: 4",
+    "new": "def ttl_ticks() -> U32: 40",
+    "law": "diagnostic_ttl_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "old contact diagnostics never expire",
+    "old": "U32.is_lt((now - tick : U32),ttl_ticks())",
+    "new": "True{}",
+    "law": "diagnostic_recent_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "JSON float hydration bypasses native bit roundtrip",
+    "old": "def normalize(value:F32) -> F32: from_bits(F32.bits(value))",
+    "new": "def normalize(value:F32) -> F32: value",
+    "law": "receive_normalization_uses_bits"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "label": "native float hydration changes received bits",
+    "old": "case U32{word}: F32{word}",
+    "new": "case U32{word}: F32{Word.not(32n,word)}",
+    "law": "native_float_bits_exact"
+  }
+]

@@ -1,4 +1,5 @@
 import Base
+import list-index.bend as ListIndex
 import combat-policy.bend as Combat
 import music.bend as Music
 import arena.bend as A
@@ -228,10 +229,7 @@ type State is Type: State{world: World(),run: Run,bodies: List<&2,Body>,offers: 
 type Packet is Type: Packet{state: State,frame: String}
   Failed{error: String}
 def at(values: List<&2,U32>,index: U32) -> U32:
-  match values index:
-    case Nil{} _: 0
-    case Con{head,_} 0: head
-    case Con{_,tail} index: at(tail,(index - 1 : U32))
+  ListIndex.at(values,index)
 def bump(values: List<&2,U32>,index: U32) -> List<&2,U32>:
   match values index:
     case Nil{} _: []

@@ -46,32 +46,47 @@ can stall the host; no migration, whole-world rollback or mid-run rejoin is prov
 
 ## Guest input response
 
-Guest input is sampled on the next fixed 60 Hz tick. Each numbered tick is
-predicted once and sent through Iroh; the host consumes at most one queued tick
-per world step and acknowledges its exact number. Reconciliation repeats only
-the remaining ticks, rather than estimating durations between heartbeats.
-A small Bend core predicts your displayed position, camera and own weapon visuals. The world still
-confirms damage, pickups, XP and rewards. Remote actors retain interpolation.
+Guest input is sampled on fixed 60 Hz steps. Each command has an immutable
+`targetWorldTick`, distinct from its transport sequence. The host applies it
+only at that world tick; missing inputs resolve to neutral and late inputs are
+explicitly rejected rather than moved to another tick. Reconciliation replays
+every world tick, including neutral gaps, from the new authoritative anchor.
+
+The client keeps a monotonic display cursor ahead of authority, using a bounded
+lead selected from the Setup command round trip and a margin. Ordinary snapshots
+do not renumber pending inputs or advance that display cursor. If authority
+catches it, an explicit resync establishes a new interval; it is recorded in
+`predictionTiming`. A bounded forecast freezes when it cannot extend safely.
+A detached Bend forecast predicts player positions and known combat actors. The
+authoritative world still confirms damage, pickups, XP and rewards. Pickups and
+other noncombat presentation retain received observations.
 A known reward pause or death disables prediction. Its history/horizon are bounded;
 it freezes when it cannot safely extend the forecast. Reload both peers after
 updating to a different host protocol version.
 
 The proof and mutation gates are included in `check.sh`.
 
-Own weapons use detached Bend forecasts with the same spawning and trajectory
-helpers as the host. They replay the same pending input ticks as the player.
-Each visual shot has a semantic identity (player, birth tick, base weapon and
-volley slot), independent of its physical pool slot. A continuing shot retains
-its displayed trajectory across observations; a new target snapshot must not
-recreate its past flight. Its birth identity is stored separately from visual
-age: a burst of authoritative clock updates cannot advance its flight a second
-time. Only local fixed ticks advance an already displayed shot. Remote weapons
-remain received observations.
+The combat forecast uses one scene clock for known enemies and friendly/hostile
+projectiles. It calls shared Bend spawning, movement, swept-contact and status
+helpers, retains true visited-contact lists, and predicts future volleys for all
+observed living players using their current loadouts and observed input hints.
+Future remote input changes and new enemy births remain unknown. Shot
+identity includes player, birth tick, base weapon and volley slot, separately
+from a recycled physical slot and visual age.
 
-These forecasts use the latest observed enemy geometry. They never resolve
-damage, pickups, XP or rewards. The small replay/guard/identity/continuity policy
-kernel has checked laws and negative mutations; the shared Game adapters are
-qualified by runtime tests, rather than a claim that the entire game is proved.
+Every accepted observation replaces canonical geometry and replays the pending
+input suffix. It cannot retain an old projectile trajectory indefinitely. Player
+HP, pickups, XP and rewards remain authoritative; forecast contacts never commit
+those outcomes. The pure adoption/replay/contact-policy kernels have checked
+laws and negative mutations. Runtime comparisons qualify the Game adapters and
+browser wiring; this is not a proof of the entire game or network scheduler.
+
+Normal-connection manual observations match captured authoritative contacts and
+keep responsive movement. This does not establish correctness for arbitrary
+network conditions: future input and births remain unknown, and the +800 ms
+observation-delay control still exposes corrections. Internally valid predicted
+contacts alone do not establish that a host-confirmed hit was displayed. See the
+evidence below for the measured scope and remaining limits.
 
 Historical browser observations are recorded in [the research](../../research/coop-projectile-visibility.md).
 
@@ -96,3 +111,10 @@ After the SEO/share-card work:
 
 - Completed: touch control now selects all eight keyboard directions with a neutral centre. The input mapping has a neutral centre and eight direction sectors.
 - Revisit the two-player limit. It is currently in the session and one-peer transport adapter, not merely the Co-op hall. Support more guests and make the actual capacity clear in the UI. Remind the user after the touch-control task.
+
+## Netcode reference
+
+The repository-only [netcode skill](../../skills/realtime-netcode/SKILL.md)
+records the timing, prediction, identity and contact checks. It is not installed
+as a global skill. See also the [patterns research](../../research/netcode-time-and-prediction-patterns.md)
+and [existing skills and reading](../../research/existing-netcode-skills-and-reading.md).

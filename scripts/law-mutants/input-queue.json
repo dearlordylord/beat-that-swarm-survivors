@@ -1,64 +1,5 @@
 [
   {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "prepend reverses pending movement",
-    "old": "List.append(&2,Tick,pending,[Tick{seq,x,y}])",
-    "new": "Tick{seq,x,y} <> pending",
-    "law": "accepted_appends"
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "consume two ticks in one world step",
-    "old": "Taken{State{round,last,tail},Some{head}}",
-    "new": "Taken{State{round,last,List.tail(&2,Tick,tail)},Some{head}}",
-    "law": "take_one_exact"
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "empty queue repeats previous input",
-    "old": "case State{round,last,[]}: Taken{State{round,last,[]},None{}}",
-    "new": "case State{round,+last,[]}: Taken{State{round,last,[]},Some{Tick{last,2,1}}}",
-    "law": "empty_is_neutral"
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "accept input from old reward epoch",
-    "old": "U32.is_eq(epoch,round)",
-    "new": "True{}",
-    "law": "admission_exact",
-    "occurrences": 2
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "duplicate tick is admitted twice",
-    "old": "U32.is_gt(seq,last)",
-    "new": "U32.is_ge(seq,last)",
-    "law": "admission_exact",
-    "occurrences": 2
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "ignore queue capacity",
-    "old": "Nat.is_lt(List.length(&2,Tick,pending),128n)",
-    "new": "True{}",
-    "law": "admission_exact",
-    "occurrences": 3
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "acknowledge two steps for one tick",
-    "old": "S.Receipt{seq,1,x,y,False{}}",
-    "new": "S.Receipt{seq,2,x,y,False{}}",
-    "law": "receipt_one_exact"
-  },
-  {
     "source": "examples/survivors/coop-protocol.bend",
     "proof": "examples/survivors/coop-protocol-PROOF.bend",
     "law": "tick_fields_exact",
@@ -73,21 +14,5 @@
     "label": "tick parser swaps movement axes",
     "old": "return S.Command{a,b,c,d,S.MovementTick{e,f,g}}",
     "new": "return S.Command{a,b,c,d,S.MovementTick{e,g,f}}"
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "admit tick while gameplay paused",
-    "old": "def activity(phase: U32,enabled: Bool) -> Bool: Bool.and(U32.is_eq(phase,0),enabled)",
-    "new": "def activity(phase: U32,enabled: Bool) -> Bool: enabled",
-    "law": "activity_exact"
-  },
-  {
-    "source": "examples/survivors/coop-input-queue.bend",
-    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
-    "label": "overflow disconnects old epoch input",
-    "old": "Bool.and(activity(phase,enabled),Bool.and(Bool.not(Nat.is_lt(List.length(&2,Tick,pending),128n)),Bool.and(U32.is_eq(epoch,round),Bool.and(U32.is_gt(seq,last),Bool.and(U32.is_le(x,2),U32.is_le(y,2))))))",
-    "new": "Bool.not(Nat.is_lt(List.length(&2,Tick,pending),128n))",
-    "law": "overflow_exact"
   }
 ]

@@ -1,0 +1,50 @@
+[
+  {
+    "source": "examples/survivors/coop-combat-broadphase.bend",
+    "proof": "examples/survivors/coop-combat-broadphase-PROOF.bend",
+    "label": "combat broadphase outward slack removed",
+    "old": "def padding() -> F32: 64.0",
+    "new": "def padding() -> F32: 0.0",
+    "law": "outward_padding_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-broadphase.bend",
+    "proof": "examples/survivors/coop-combat-broadphase-PROOF.bend",
+    "label": "combat broadphase out of envelope source culled",
+    "old": "case Box{False{},_,_,_,_} _: True{}",
+    "new": "case Box{False{},_,_,_,_} _: False{}",
+    "law": "source_falls_back"
+  },
+  {
+    "source": "examples/survivors/coop-combat-broadphase.bend",
+    "proof": "examples/survivors/coop-combat-broadphase-PROOF.bend",
+    "label": "combat broadphase out of envelope target culled",
+    "old": "case _ Box{False{},_,_,_,_}: True{}",
+    "new": "case _ Box{False{},_,_,_,_}: False{}",
+    "law": "target_falls_back"
+  },
+  {
+    "source": "examples/survivors/coop-combat-broadphase.bend",
+    "proof": "examples/survivors/coop-combat-broadphase-PROOF.bend",
+    "label": "combat broadphase touching boxes rejected",
+    "old": "F32.is_le(lx0,rx1)",
+    "new": "F32.is_lt(lx0,rx1)",
+    "law": "inclusive_overlap_exact"
+  },
+  {
+    "source": "examples/survivors/coop-combat-broadphase.bend",
+    "proof": "examples/survivors/coop-combat-broadphase-PROOF.bend",
+    "label": "combat broadphase visited target retained",
+    "old": "case True{}: False{}",
+    "new": "case True{}: True{}",
+    "law": "visited_is_excluded"
+  },
+  {
+    "source": "examples/survivors/coop-combat-broadphase.bend",
+    "proof": "examples/survivors/coop-combat-broadphase-PROOF.bend",
+    "label": "combat broadphase rejected candidate deletes tail",
+    "old": "case False{}: tail",
+    "new": "case False{}: []",
+    "law": "reject_preserves_tail"
+  }
+]

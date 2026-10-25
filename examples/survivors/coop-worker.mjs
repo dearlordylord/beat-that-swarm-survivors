@@ -5,28 +5,31 @@ import Protocol from './dist/coop-protocol.mjs';
 import InputQueue from './dist/coop-input-queue.mjs';
 let core, session, timer, last = 0, accumulator = 0, active = false;
 let lastSnapshot = 0, observationSeq = 0, lastPhase;
-let guestReceipt = Session.receipt_fresh(), guestQueue = InputQueue.fresh(0);
-let currentRound = 0, currentPhase = 0, guestEligible = false;
+let guestReceipt = Session.receipt_fresh(), guestQueue = InputQueue.fresh(0,0);
+let currentRound = 0, currentPhase = 0, currentWorldTick = 0, guestEligible = false;
+let lastInputRejection = null;
 const STEP = 1000 / 60;
 function packet(result) {
   if (result.state) core = result.state;
   if (result.$ === 'CoreFailed') throw Error(result.message);
   if (result.$ === 'CoreRejected') { postMessage({type:'rejected',message:result.message}); return null; }
-  return result.frame ? JSON.parse(result.frame) : null;
+  const frame = result.frame ? JSON.parse(result.frame) : null;
+  if (Number.isInteger(frame?.tick)) currentWorldTick = frame.tick;
+  return frame;
 }
 function publish(remote = true) {
   const observation = ++observationSeq;
   const local = packet(Game.core_observe(core, 0));
   currentPhase = local.phase ?? currentPhase;
   const round = local.roundId ?? currentRound;
-  if (round !== currentRound || currentPhase !== 0) guestQueue = InputQueue.fresh(round);
+  if (round !== currentRound || currentPhase !== 0) guestQueue = InputQueue.fresh(round,currentWorldTick);
   currentRound = round;
   postMessage({type:'frame', frame:local});
   if (remote) {
     const guest = packet(Game.core_observe(core, 1));
     guestEligible = guest.predictionAllowed === true;
-    if (!guestEligible) guestQueue = InputQueue.fresh(currentRound);
-    postMessage({type:'remote-frame', frame:guest, admission:session, receipt:guestReceipt, observationSeq:observation});
+    if (!guestEligible) guestQueue = InputQueue.fresh(currentRound,currentWorldTick);
+    postMessage({type:'remote-frame', frame:guest, admission:session, receipt:guestReceipt, observationSeq:observation,inputTiming:{worldTick:currentWorldTick,lastRejected:lastInputRejection}});
   }
 }
 function accept(text, peer) {
@@ -40,10 +43,14 @@ function accept(text, peer) {
   if (action.$ === 'Movement' && peer === 1) {
     postMessage({type:'guest-protocol-mismatch'}); return;
   } else if (action.$ === 'MovementTick' && peer === 1) {
-    const admission = InputQueue.push_active(guestQueue,currentPhase,guestEligible,action.round,command.seq,action.x,action.y);
-    if (InputQueue.overflowed(guestQueue,currentPhase,guestEligible,action.round,command.seq,action.x,action.y)) {
+    const admission = InputQueue.push_active(guestQueue,currentPhase,guestEligible,action.round,command.seq,command.intendedTick,action.x,action.y);
+    if (!admission.accepted) {
+      lastInputRejection = {reason:admission.reason,seq:command.seq,targetWorldTick:command.intendedTick,worldTick:currentWorldTick};
+      postMessage({type:'input-rejected',...lastInputRejection});
+    }
+    if (admission.reason === 8) {
       session = Session.disconnect(1,session);
-      packet(Game.core_disconnect(core,1)); guestQueue = InputQueue.fresh(currentRound);
+      packet(Game.core_disconnect(core,1)); guestQueue = InputQueue.fresh(currentRound,currentWorldTick);
       postMessage({type:'guest-input-overflow'}); publish(false); return;
     }
     guestQueue = admission.state;
@@ -71,13 +78,14 @@ function schedule() {
   while (active && accumulator >= STEP && steps++ < 4) {
     session = Session.clock(session);
     const move = Session.directions(session);
-    const pending = InputQueue.take(guestQueue);
+    const pending = InputQueue.take_at(guestQueue,currentWorldTick+1);
     const input = pending.tick.$ === 'Some' ? pending.tick.value : null;
     const frame = packet(Game.core_step(core,move.x0,move.y0,
       input ? Session.axis(input.x) : 0,input ? Session.axis(input.y) : 0));
     if (frame?.advanced) {
+      if (pending.state.worldTick !== frame.tick) throw Error('Input clock disagreed with the authoritative game step.');
       guestQueue = pending.state;
-      guestReceipt = InputQueue.receipt(guestReceipt,pending.tick);
+      guestReceipt = InputQueue.receipt(frame.tick,pending.tick);
       session = Session.applied(frame.tick, session);
     }
     if (frame && frame.phase !== lastPhase) { lastPhase = frame.phase; lastSnapshot = now; publish(); }
@@ -92,7 +100,7 @@ onmessage = event => {
       case 'init': {
         clearInterval(timer); active = false; accumulator = 0;
         observationSeq = 0; lastPhase = undefined; guestReceipt = Session.receipt_fresh();
-        currentRound = 0; currentPhase = 0; guestEligible = false; guestQueue = InputQueue.fresh(0);
+        currentRound = 0; currentPhase = 0; currentWorldTick = 0; guestEligible = false; guestQueue = InputQueue.fresh(0,0); lastInputRejection = null;
         const s = message.setup;
         session = Session.fresh(message.session);
         packet(Game.core_start(s.character, s.meta, message.seed));
@@ -108,7 +116,7 @@ onmessage = event => {
       }
       case 'command': accept(message.text, message.player); break;
       case 'disconnect':
-        guestQueue = InputQueue.fresh(currentRound); guestEligible = false;
+        guestQueue = InputQueue.fresh(currentRound,currentWorldTick); guestEligible = false;
         session = Session.disconnect(1, session);
         packet(Game.core_disconnect(core, 1)); publish(false); break;
       case 'stop': clearInterval(timer); active = false; close(); break;

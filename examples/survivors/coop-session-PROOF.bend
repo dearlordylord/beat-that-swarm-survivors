@@ -96,3 +96,5 @@ def L.guest_replay_refused(state,session,seq,tick,action):
     case S.State{s,c,S.Lane{a,b,d,e,f,g,h},S.Lane{i,j,k,l,m,n,o},connected,ended} S.Setup{x,y,z,w}: sequence_false(s,c,S.Lane{a,b,d,e,f,g,h},S.update_lane(S.Setup{x,y,z,w},seq,c,S.Lane{i,j,k,l,m,n,o}),connected,ended,1,session,1,seq,tick,S.Setup{x,y,z,w},self_sequence_false(seq))
 
 def L.tick_does_not_hold(round,x,y,seq,clock,last,input,applied,tick,received,dx,dy): {==}
+
+def L.fresh_receipt_exact(): {==}

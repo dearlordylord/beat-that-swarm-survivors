@@ -29,8 +29,7 @@ example_emit "$app_dir/coop-session.bend" "$staging_dir/public/dist/coop-session
 example_emit "$app_dir/coop-protocol.bend" "$staging_dir/public/dist/coop-protocol.mjs"
 example_emit "$app_dir/coop-prediction.bend" "$staging_dir/public/dist/coop-prediction.mjs"
 example_emit "$app_dir/coop-input-queue.bend" "$staging_dir/public/dist/coop-input-queue.mjs"
-example_emit "$app_dir/coop-weapon-prediction.bend" "$staging_dir/public/dist/coop-weapon-prediction.mjs"
-example_emit "$app_dir/coop-weapon-reconcile.bend" "$staging_dir/public/dist/coop-weapon-reconcile.mjs"
+example_emit "$app_dir/coop-combat-prediction.bend" "$staging_dir/public/dist/coop-combat-prediction.mjs"
 bash "$example_repo/tools/iroh-transport/build.sh" "$staging_dir/public/iroh"
 for asset in style.css browser.mjs renderer.mjs content.mjs audio.mjs progression.mjs expedition-menu.mjs menu-controls.mjs menu-a.css menu-moon.css coop.css coop-ui.mjs coop-presentation.mjs coop-browser.mjs coop-worker.mjs coop-transport.mjs; do
   cp "$app_dir/$asset" "$staging_dir/public/$asset"

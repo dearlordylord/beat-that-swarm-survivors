@@ -1,98 +1,123 @@
 [
   {
-    "label": "admit duplicate observation",
+    "label": "lead floors instead of ceiling RTT",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "case State{_,_,_,_,_,_,prior}: U32.is_gt(observation,prior)",
-    "new": "case State{_,_,_,_,_,_,prior}: U32.is_ge(observation,prior)",
+    "old": "U32.min(roundTripMs,1000) * 60 + 999",
+    "new": "U32.min(roundTripMs,1000) * 60",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "reconciliation_exact"
+    "law": "lead_exact"
   },
   {
-    "label": "wait for authority instead of local step",
+    "label": "world cursor wraps instead of saturating",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "tick_allowed(Bool.and(enabled,U32.is_lt(age,horizon())),state)",
-    "new": "tick_allowed(False{},state)",
+    "old": "U32.min(amount,(4294967295 - tick : U32))",
+    "new": "amount",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "tick_exact"
+    "law": "after_exact"
   },
   {
-    "label": "stale neutral direction replaces actual input",
+    "label": "future input fills an earlier empty world tick",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "Segment{seq,x,y,0,0} <> List.take",
-    "new": "Segment{seq,1,1,0,0} <> List.take",
+    "old": "direction_selected(U32.is_eq(target,worldTick),x,y,input_at(tail,worldTick))",
+    "new": "direction_selected(U32.is_ge(target,worldTick),x,y,input_at(tail,worldTick))",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "command_selected_same",
-    "fails_in": "command_selected_same"
+    "law": "input_row_exact"
   },
   {
-    "label": "drop all pending history",
+    "label": "duplicate command overwrites assigned target",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "case row <> rest: acknowledged_row(seq,consumed,expired,row,acknowledge(rest,seq,consumed,expired))",
-    "new": "case row <> rest: []",
+    "old": "Bool.not(target_present(rows,after(display,1)))",
+    "new": "True{}",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "acknowledgment_exact"
+    "law": "command_gate_exact"
   },
   {
-    "label": "older cumulative receipt undoes consumption",
+    "label": "local prediction ignores sixty world tick limit",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "+consumed = U32.max(prior,reported)",
-    "new": "+consumed = reported",
+    "old": "U32.is_lt(world_count(anchor,display),horizon())",
+    "new": "True{}",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "ack_row_same",
-    "fails_in": "ack_row_same"
+    "law": "can_tick_exact"
   },
   {
-    "label": "expired held input survives",
+    "label": "packet identity is substituted for target world tick",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "Bool.pick(Bool,expired,U32.is_gt(id,seq),U32.is_ge(id,seq))",
-    "new": "U32.is_ge(id,seq)",
+    "old": "Input{seq,after(display,1),x,y} <> List.take",
+    "new": "Input{seq,seq,x,y} <> List.take",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "ack_row_same",
-    "fails_in": "ack_row_same"
+    "law": "command_assigns_next_world_tick"
   },
   {
-    "label": "replay pending segments in reverse order",
+    "label": "local tick advances cursor twice",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "replay(List.reverse(&2,Segment,segments),distance,Replay{M.Point{x,y},horizon()})",
-    "new": "replay(segments,distance,Replay{M.Point{x,y},horizon()})",
+    "old": "placed(distance,enabled,rows,anchor,after(display,1),observation,last,",
+    "new": "placed(distance,enabled,rows,anchor,after(display,2),observation,last,",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "history_same",
-    "fails_in": "history_same"
+    "law": "tick_selected_exact"
   },
   {
-    "label": "ignore prediction replay budget",
+    "label": "ACK filters packet sequence rather than assigned world tick",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "U32.min(budget,remaining(steps,consumed))",
-    "new": "remaining(steps,consumed)",
+    "old": "keep_input(U32.is_gt(target,anchorWorldTick),Input{seq,target,x,y}",
+    "new": "keep_input(U32.is_gt(seq,anchorWorldTick),Input{seq,target,x,y}",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "replay_segment_same",
-    "fails_in": "replay_segment_same"
+    "law": "unresolved_row_exact"
   },
   {
-    "label": "never advance the prediction age",
+    "label": "ordinary ACK silently restarts future display cursor",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "State{x,y,distance,enabled,segments,(age + 1 : U32),observation}",
-    "new": "State{x,y,distance,enabled,segments,age,observation}",
+    "old": "Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(anchor,display)),after(anchor,U32.min(initialLead,54)),display)",
+    "new": "Bool.pick(U32,True{},after(anchor,U32.min(initialLead,54)),display)",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "tick_selected_same",
-    "fails_in": "tick_selected_same"
+    "law": "cursor_exact"
   },
   {
-    "label": "allow prediction during pause or death",
+    "label": "duplicate observation is treated as fresh",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "U32.is_gt(observation,prior)",
+    "new": "U32.is_ge(observation,prior)",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "observation_newer_exact"
+  },
+  {
+    "label": "new observation may rewind world anchor",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "Bool.and(observation_newer(state,observation),U32.is_ge(anchorWorldTick,anchor_world_tick(state)))",
+    "new": "observation_newer(state,observation)",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "reconciliation_admission_exact"
+  },
+  {
+    "label": "reconciliation drops unresolved future commands",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "+rows = unresolved(inputs,anchor)",
+    "new": "+rows = unresolved([],anchor)",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "running_reconcile_exact"
+  },
+  {
+    "label": "startup drops neutral future lead",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "after(anchorWorldTick,U32.min(initialLead,54))",
+    "new": "anchorWorldTick",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "fresh_exact"
+  },
+  {
+    "label": "position replay looks up old world tick",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "input_at(rows,after(worldTick,1))))",
+    "new": "input_at(rows,worldTick)))",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "position_successor"
+  },
+  {
+    "label": "pause and death permit prediction",
     "source": "examples/survivors/coop-prediction.bend",
     "old": "Bool.and(connected,Bool.and(U32.is_eq(phase,0),U32.is_gt(hp,0)))",
     "new": "True{}",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
     "law": "prediction_gate_exact"
-  },
-  {
-    "label": "consume the wrong movement sequence",
-    "source": "examples/survivors/coop-session.bend",
-    "old": "U32.is_eq(prior,seq),U32.min((steps + 1 : U32),65535),1",
-    "new": "True{},U32.min((steps + 1 : U32),65535),1",
-    "proof": "examples/survivors/coop-prediction-PROOF.bend",
-    "law": "receipt_lane_same",
-    "fails_in": "receipt_lane_same"
   },
   {
     "label": "prediction doubles shared movement speed",

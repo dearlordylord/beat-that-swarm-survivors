@@ -1,0 +1,82 @@
+[
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "admit late input by ignoring its world deadline",
+    "old": "Bool.pick(U32,Bool.not(U32.is_gt(target,world)),5,",
+    "new": "Bool.pick(U32,False{},5,",
+    "law": "reason_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "silently relabel a future input to the next free tick",
+    "old": "[Tick{seq,target,x,y}]",
+    "new": "[Tick{seq,(world + 1 : U32),x,y}]",
+    "law": "accepted_appends_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "consume first queued input regardless of its assigned tick",
+    "old": "find_selected(U32.is_eq(world,target),Tick{seq,world,x,y},find_at(tail,target))",
+    "new": "find_selected(True{},Tick{seq,world,x,y},find_at(tail,target))",
+    "law": "assigned_input_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "retain an already resolved world input",
+    "old": "keep_selected(U32.is_gt(world,resolved),Tick{seq,world,x,y},future(tail,resolved))",
+    "new": "keep_selected(U32.is_ge(world,resolved),Tick{seq,world,x,y},future(tail,resolved))",
+    "law": "remaining_world_ticks_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "skip an authoritative world tick",
+    "old": "U32.is_eq(next,(world + 1 : U32))",
+    "new": "U32.is_eq(next,(world + 2 : U32))",
+    "law": "next_world_tick_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "acknowledge an input inside a neutral hole",
+    "old": "case None{}: S.Receipt{0,world,1,1,False{}}",
+    "new": "case None{}: S.Receipt{77,world,2,1,True{}}",
+    "law": "neutral_receipt_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "acknowledge a packet on the wrong world tick",
+    "old": "receipt_selected(U32.is_eq(target,world),seq,world,x,y)",
+    "new": "receipt_selected(True{},seq,world,x,y)",
+    "law": "assigned_receipt_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "allow input outside the bounded future window",
+    "old": "U32.is_gt((target - world : U32),60)",
+    "new": "U32.is_gt((target - world : U32),61)",
+    "law": "reason_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "permit a second packet for the same assigned world tick",
+    "old": "Bool.pick(U32,contains(pending,target),7,",
+    "new": "Bool.pick(U32,False{},7,",
+    "law": "reason_exact"
+  },
+  {
+    "source": "examples/survivors/coop-input-queue.bend",
+    "proof": "examples/survivors/coop-input-queue-PROOF.bend",
+    "label": "forget already assigned world slots in the membership helper",
+    "old": "Bool.or(U32.is_eq(world,target),contains(tail,target))",
+    "new": "contains(tail,target)",
+    "law": "membership_exact"
+  }
+]

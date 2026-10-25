@@ -182,3 +182,8 @@ law tick_does_not_hold:
   for +dx: U32
   for +dy: U32
   {S.update_lane(S.MovementTick{round,x,y},seq,clock,S.Lane{last,input,applied,tick,received,dx,dy}) == S.Lane{seq,input,applied,tick,received,dx,dy} : S.Lane}
+
+# Guarantees: a new session starts with an explicit unresolved neutral world tick.
+# Why it matters: a setup ACK cannot be mistaken for an applied gameplay input.
+law fresh_receipt_exact:
+  {S.receipt_fresh() == S.Receipt{0,0,1,1,False{}} : S.Receipt}

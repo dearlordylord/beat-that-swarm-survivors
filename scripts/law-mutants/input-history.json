@@ -1,37 +1,35 @@
 [
   {
-    "label": "reconciliation discards pending fixed ticks",
+    "label": "movement replay skips a world clock between adjacent intervals",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "replay(List.reverse(&2,Segment,segments),distance,Replay{M.Point{x,y},horizon()})",
-    "new": "replay([],distance,Replay{M.Point{x,y},horizon()})",
+    "old": "replay_position(rest,after(worldTick,1),rows,distance,advance_point",
+    "new": "replay_position(rest,after(worldTick,2),rows,distance,advance_point",
     "proof": "examples/survivors/coop-input-history-PROOF.bend",
-    "law": "one_pending_tick_preserves_path",
-    "fails_in": "pending_point"
+    "law": "world_partition_preserves_position"
   },
   {
-    "label": "pending fixed tick replays the wrong direction",
-    "source": "examples/survivors/coop-prediction.bend",
-    "old": "move_steps(U32.to_nat(count),distance,S.axis(x),S.axis(y),point)",
-    "new": "move_steps(U32.to_nat(count),distance,S.axis(y),S.axis(x),point)",
+    "label": "cohort replay skips a world clock between adjacent intervals",
+    "source": "examples/survivors/coop-prediction-replay.bend",
+    "old": "advance_worlds(~A,~advance,rest,P.after(worldTick,1),inputs,step_direction",
+    "new": "advance_worlds(~A,~advance,rest,P.after(worldTick,2),inputs,step_direction",
     "proof": "examples/survivors/coop-input-history-PROOF.bend",
-    "law": "one_pending_tick_preserves_path",
-    "fails_in": "replay_one"
+    "law": "world_partition_preserves_cohort"
   },
   {
-    "label": "FIFO pending replay reverses tick order",
-    "source": "examples/survivors/coop-prediction.bend",
-    "old": "case row <> rest: replay(rest,distance,replay_segment(distance,row,state))",
-    "new": "case row <> rest: replay_segment(distance,row,replay(rest,distance,state))",
+    "label": "shared movement reference swaps axes relative to camera replay",
+    "source": "examples/survivors/coop-input-history-SPEC.bend",
+    "old": "M.move_point(px,py,distance,S.axis(x),S.axis(y))",
+    "new": "M.move_point(px,py,distance,S.axis(y),S.axis(x))",
     "proof": "examples/survivors/coop-input-history-PROOF.bend",
-    "law": "pending_replay_preserves_path"
+    "law": "cohort_movement_matches_position",
+    "fails_in": "movement_step"
   },
   {
-    "label": "pending fixed tick replay applies two steps",
-    "source": "examples/survivors/coop-prediction.bend",
-    "old": "move_steps(U32.to_nat(count),distance,S.axis(x),S.axis(y),point)",
-    "new": "move_steps(U32.to_nat((count * 2 : U32)),distance,S.axis(x),S.axis(y),point)",
+    "label": "neutral-world reference compresses an input-free simulation interval",
+    "source": "examples/survivors/coop-input-history-SPEC.bend",
+    "old": "neutral_worlds(~A,~advance,rest,advance(frame,1,1))",
+    "new": "neutral_worlds(~A,~advance,rest,frame)",
     "proof": "examples/survivors/coop-input-history-PROOF.bend",
-    "law": "pending_replay_preserves_path",
-    "fails_in": "replay_one"
+    "law": "neutral_worlds_are_not_compressed"
   }
 ]

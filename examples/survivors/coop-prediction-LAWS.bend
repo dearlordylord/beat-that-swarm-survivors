@@ -1,261 +1,418 @@
 import Base
-import coop-prediction.bend as P
-import player-movement.bend as M
-import coop-session.bend as S
-import arena.bend as A
+import ./coop-prediction.bend as P
+import ./player-movement.bend as M
+import ./coop-session.bend as S
+import ./arena.bend as A
 
-# Independent transition specification. Machine arithmetic is stated explicitly;
-# it does not assume real-number identities for arbitrary IEEE F32 values.
-def newest(rows: List<&2,P.Segment>) -> U32:
-  match rows:
-    case []: 0
-    case P.Segment{seq,_,_,_,_} <> _: seq
-def observed(state: P.State) -> U32:
-  match state:
-    case P.State{_,_,_,_,_,_,observation}: observation
-def command_selected(allowed: Bool,+state: P.State,seq: U32,x: U32,y: U32) -> P.State:
-  match allowed state:
-    case False{} _: state
-    case True{} P.State{px,py,distance,enabled,rows,age,observation}: P.State{px,py,distance,enabled,P.Segment{seq,x,y,0,0} <> List.take(&2,P.Segment,rows,63n),age,observation}
-def command_spec(+state: P.State,+seq: U32,+x: U32,+y: U32) -> P.State:
-  match state:
-    case P.State{px,py,distance,enabled,+rows,age,observation}: command_selected(Bool.and(U32.is_gt(seq,newest(rows)),Bool.and(U32.is_le(x,2),U32.is_le(y,2))),P.State{px,py,distance,enabled,rows,age,observation},seq,x,y)
-def tick_position(distance: F32,enabled: Bool,rows: List<&2,P.Segment>,age: U32,observation: U32,point: M.Point) -> P.State:
-  match point:
-    case M.Point{x,y}: P.State{x,y,distance,enabled,rows,age,observation}
-def tick_selected(allowed: Bool,+state: P.State) -> P.State:
-  match allowed state:
-    case False{} _: state
-    case True{} P.State{px,py,+distance,+enabled,P.Segment{seq,+x,+y,steps,consumed} <> rest,age,observation}:
-      tick_position(distance,enabled,P.Segment{seq,x,y,U32.min((steps + 1 : U32),65535),consumed} <> rest,(age + 1 : U32),observation,M.move_point(px,py,distance,S.axis(x),S.axis(y)))
-    case True{} P.State{px,py,distance,enabled,[],age,observation}: P.State{px,py,distance,enabled,[],(age + 1 : U32),observation}
-def tick_spec(+state: P.State) -> P.State:
-  match state:
-    case P.State{_,_,_,enabled,_,age,_}: tick_selected(Bool.and(enabled,U32.is_lt(age,60)),state)
-def acknowledged_row(+seq: U32,+reported: U32,+expired: Bool,row: P.Segment,+tail: List<&2,P.Segment>) -> List<&2,P.Segment>:
-  match row:
-    case P.Segment{+id,+x,+y,+steps,+prior}:
-      +consumed = U32.max(prior,reported)
-      +aligned = U32.max(steps,consumed)
-      Bool.pick(List<&2,P.Segment>,Bool.pick(Bool,expired,U32.is_gt(id,seq),U32.is_ge(id,seq)),Bool.pick(P.Segment,U32.is_eq(id,seq),P.Segment{id,x,y,aligned,Bool.pick(U32,expired,aligned,consumed)},P.Segment{id,x,y,steps,prior}) <> tail,tail)
-def acknowledge_spec(rows: List<&2,P.Segment>,+seq: U32,+reported: U32,+expired: Bool) -> List<&2,P.Segment>:
-  match rows:
-    case []: []
-    case row <> rest: acknowledged_row(seq,reported,expired,row,acknowledge_spec(rest,seq,reported,expired))
-def move_steps_spec(fuel: Nat,+distance: F32,+dx: F32,+dy: F32,point: M.Point) -> M.Point:
-  match fuel point:
-    case 0n point: point
-    case 1n+rest M.Point{x,y}: move_steps_spec(rest,distance,dx,dy,M.move_point(x,y,distance,dx,dy))
-def replay_one(distance: F32,row: P.Segment,state: P.Replay) -> P.Replay:
-  match row state:
-    case P.Segment{_,x,y,+steps,consumed} P.Replay{point,+budget}:
-      +count = U32.min(budget,(steps - U32.min(steps,consumed) : U32))
-      P.Replay{move_steps_spec(U32.to_nat(count),distance,S.axis(x),S.axis(y),point),(budget - count : U32)}
-def replay_spec(rows: List<&2,P.Segment>,+distance: F32,state: P.Replay) -> P.Replay:
-  match rows:
-    case []: state
-    case row <> rest: replay_spec(rest,distance,replay_one(distance,row,state))
-def replay_result(+distance: F32,+rows: List<&2,P.Segment>,observation: U32,result: P.Replay) -> P.State:
-  match result:
-    case P.Replay{M.Point{x,y},left}: P.State{x,y,distance,True{},rows,(60 - left : U32),observation}
-def reconcile_active(state: P.State,observation: U32,x: F32,y: F32,+distance: F32,receipt: S.Receipt) -> P.State:
-  match state receipt:
-    case P.State{_,_,_,False{},_,_,_} _: P.State{x,y,distance,True{},[],0,observation}
-    case P.State{_,_,_,True{},segments,_,_} S.Receipt{seq,steps,_,_,expired}:
-      +rows = acknowledge_spec(segments,seq,steps,expired)
-      replay_result(distance,rows,observation,replay_spec(List.reverse(&2,P.Segment,rows),distance,P.Replay{M.Point{x,y},60}))
-def reconcile_selected(newer: Bool,+state: P.State,observation: U32,x: F32,y: F32,distance: F32,enabled: Bool,receipt: S.Receipt) -> P.State:
-  match newer state enabled:
-    case False{} _ _: state
-    case True{} _ False{}: P.State{x,y,distance,False{},[],0,observation}
-    case True{} state True{}: reconcile_active(state,observation,x,y,distance,receipt)
-def reconcile_spec(+state: P.State,+observation: U32,x: F32,y: F32,distance: F32,enabled: Bool,receipt: S.Receipt) -> P.State:
-  reconcile_selected(U32.is_gt(observation,observed(state)),state,observation,x,y,distance,enabled,receipt)
+# These statements pin the timing contract, not a second game simulation.
+# World time, packet identity and observation freshness are separate values.
 
-# Guarantees: the shared step uses precisely the existing F32 operation order.
-# Why it matters: predicting must not introduce a second movement implementation.
-law shared_movement_exact:
-  for +x: F32
-  for +y: F32
-  for +distance: F32
-  for +dx: F32
-  for +dy: F32
-  {M.move_point(x,y,distance,dx,dy) == M.Point{F32.clamp((x + dx * distance / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),F32.clamp((y + dy * distance / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max())} : M.Point}
-
-# Guarantees: axis codes describe exactly negative, neutral and positive input.
-# Why it matters: input replacement cannot be hidden behind an incorrect decoder.
-law axis_exact:
-  for +code: U32
-  {S.axis(code) == Bool.pick(F32,U32.is_eq(code,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(code,2),1.0,0.0)) : F32}
-
-# Guarantees: the speculative movement horizon is exactly sixty fixed steps.
-# Why it matters: the safety bound must not move with its implementation.
+# Guarantees: speculation spans at most the fixed sixty-world-tick window.
+# Why it matters: a missing observation cannot create an unbounded local future.
 law horizon_exact:
   {P.horizon() == 60 : U32}
 
-# Guarantees: only a connected living player in running phase may predict.
-# Why it matters: pause, death and disconnect cannot become local movement.
+# Guarantees: lead is ceiling(milliseconds*60/1000)+4, capped at54; the input
+# milliseconds are clipped before machine multiplication can overflow.
+# Why it matters: the Setup round trip includes observation delay and must leave
+# six world ticks of headroom inside the prediction window.
+law lead_exact:
+  for +roundTripMs:U32
+  {P.lead(roundTripMs) == U32.min(54,((U32.min(roundTripMs,1000) * 60 + 999) / 1000 + 4 : U32)) : U32}
+
+# Guarantees: advancing a world-clock value saturates at the U32 limit.
+# Why it matters: a cursor must not wrap into an earlier epoch near that limit.
+law after_exact:
+  for +tick:U32
+  for +amount:U32
+  {P.after(tick,amount) == (tick + U32.min(amount,(4294967295 - tick : U32)) : U32) : U32}
+
+# Guarantees: replay counts the bounded world-clock interval, not input rows.
+# Why it matters: neutral world ticks still advance cooldowns and projectiles.
+law world_count_exact:
+  for +anchor:U32
+  for +display:U32
+  {P.world_count(anchor,display) == U32.min(60,(display - U32.min(display,anchor) : U32)) : U32}
+
+# Guarantees: connected, running, living players are precisely those eligible.
+# Why it matters: a pause or death must not become speculative movement.
 law prediction_gate_exact:
-  for +phase: U32
-  for +hp: U32
-  for +connected: Bool
+  for +phase:U32
+  for +hp:U32
+  for +connected:Bool
   {P.allowed(phase,hp,connected) == Bool.and(connected,Bool.and(U32.is_eq(phase,0),U32.is_gt(hp,0))) : Bool}
 
-# Guarantees: every command insertion matches the independent bounded-history rule.
-# Why it matters: changes, releases and reversals replace the next step after
-# any existing history, while invalid or stale commands cannot replace input.
+# Guarantees: missing input for a world tick is neutral.
+# Why it matters: a packet for42 cannot fill an empty world tick39.
+law input_empty_neutral:
+  for tick:U32
+  {P.input_at([],tick) == P.Direction{1,1} : P.Direction}
+
+# Guarantees: lookup compares target world ticks and preserves the entire row's
+# direction; a nonmatching row delegates to the remaining history.
+# Why it matters: neither transport sequence nor list position assigns game time.
+law input_row_exact:
+  for seq:U32
+  for +target:U32
+  for +x:U32
+  for +y:U32
+  for +tail:List<&2,P.Input>
+  for +tick:U32
+  {P.input_at(P.Input{seq,target,x,y} <> tail,tick) == Bool.pick(P.Direction,U32.is_eq(target,tick),P.Direction{x,y},P.input_at(tail,tick)) : P.Direction}
+
+# Guarantees: a row assigned to this exact world tick supplies its axes.
+# Why it matters: a valid future input must not be replaced by a neutral gap.
+law assigned_input_selected:
+  for seq:U32
+  for +target:U32
+  for +x:U32
+  for +y:U32
+  for tail:List<&2,P.Input>
+  {P.input_at(P.Input{seq,target,x,y} <> tail,target) == P.Direction{x,y} : P.Direction}
+
+# Guarantees: duplicate-target detection uses the target clock, not packet IDs.
+# Why it matters: two commands cannot silently overwrite the same world slot.
+law target_present_exact:
+  for seq:U32
+  for +target:U32
+  for x:U32
+  for y:U32
+  for +tail:List<&2,P.Input>
+  for +tick:U32
+  {P.target_present(P.Input{seq,target,x,y} <> tail,tick) == Bool.or(U32.is_eq(target,tick),P.target_present(tail,tick)) : Bool}
+
+# Guarantees: a new local step is permitted only in the enabled sixty-tick
+# interval and while the world cursor can advance without wrapping.
+# Why it matters: a stalled connection must freeze instead of retargeting input.
+law can_tick_exact:
+  for x:F32
+  for y:F32
+  for distance:F32
+  for +enabled:Bool
+  for inputs:List<&2,P.Input>
+  for +anchor:U32
+  for +display:U32
+  for observation:U32
+  for last:U32
+  {P.can_tick(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last}) == Bool.and(enabled,Bool.and(U32.is_lt(P.world_count(anchor,display),60),U32.is_lt(display,4294967295))) : Bool}
+
+# Guarantees: local commands require a fresh packet ID, valid axes, room in the
+# window, and an unassigned next world tick.
+# Why it matters: repeat input cannot replace a slot that the host treats first-wins.
+law command_gate_exact:
+  for +px:F32
+  for +py:F32
+  for +distance:F32
+  for +enabled:Bool
+  for +inputs:List<&2,P.Input>
+  for +anchor:U32
+  for +display:U32
+  for +observation:U32
+  for +last:U32
+  for +seq:U32
+  for +x:U32
+  for +y:U32
+  {P.command_allowed(P.State{px,py,distance,enabled,inputs,anchor,display,observation,last},seq,x,y) == Bool.and(P.can_tick(P.State{px,py,distance,enabled,inputs,anchor,display,observation,last}),Bool.and(Bool.not(P.target_present(inputs,P.after(display,1))),Bool.and(U32.is_gt(seq,last),Bool.and(U32.is_le(x,2),U32.is_le(y,2))))) : Bool}
+
+# Guarantees: an accepted command retains its packet ID but is assigned exactly
+# cursor+1; it does not advance the cursor or compress any world-time gap.
+# Why it matters: a cooldown tick cannot acquire a later packet's movement.
+law command_assigns_next_world_tick:
+  for +px:F32
+  for +py:F32
+  for +distance:F32
+  for +enabled:Bool
+  for +inputs:List<&2,P.Input>
+  for +anchor:U32
+  for +display:U32
+  for +observation:U32
+  for last:U32
+  for +seq:U32
+  for +x:U32
+  for +y:U32
+  {P.command_selected(True{},P.State{px,py,distance,enabled,inputs,anchor,display,observation,last},seq,x,y) == P.State{px,py,distance,enabled,P.Input{seq,P.after(display,1),x,y} <> List.take(&2,P.Input,inputs,127n),anchor,display,observation,seq} : P.State}
+
+# Guarantees: refusal preserves every field of the local timeline.
+# Why it matters: a duplicate or invalid command cannot erase pending history.
+law command_refuses:
+  for +state:P.State
+  for seq:U32
+  for x:U32
+  for y:U32
+  {P.command_selected(False{},state,seq,x,y) == state : P.State}
+
+# Guarantees: the public command path uses the complete admission decision.
+# Why it matters: a correct helper must not be bypassed by the browser entrypoint.
 law command_exact:
-  for +state: P.State
-  for +seq: U32
-  for +x: U32
-  for +y: U32
-  {P.command(state,seq,x,y) == command_spec(state,seq,x,y) : P.State}
+  for +state:P.State
+  for +seq:U32
+  for +x:U32
+  for +y:U32
+  {P.command(state,seq,x,y) == P.command_selected(P.command_allowed(state,seq,x,y),state,seq,x,y) : P.State}
 
-# Guarantees: every local tick matches the stateful reference transition, including
-# counter progress, disabled states, empty history and every age at or beyond60.
-# Why it matters: no old input or accumulated pause time may control the next tick.
+# Guarantees: one accepted local tick advances exactly one world tick using
+# only the input assigned there, and preserves all retained input identities.
+# Why it matters: neither held input nor a FIFO head may shift into a missing tick.
+law tick_selected_exact:
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +enabled:Bool
+  for +inputs:List<&2,P.Input>
+  for +anchor:U32
+  for +display:U32
+  for +observation:U32
+  for +last:U32
+  {P.tick_selected(True{},P.State{x,y,distance,enabled,inputs,anchor,display,observation,last}) == P.placed(distance,enabled,inputs,anchor,P.after(display,1),observation,last,P.advance_point(M.Point{x,y},distance,P.input_at(inputs,P.after(display,1)))) : P.State}
+
+# Guarantees: a disabled or exhausted local tick preserves the timeline.
+# Why it matters: a pause must not move the cursor behind the server's back.
+law tick_refuses:
+  for +state:P.State
+  {P.tick_selected(False{},state) == state : P.State}
+
+# Guarantees: the public tick path always applies the complete window guard.
+# Why it matters: locally sending a tick that was not predicted causes another drift.
 law tick_exact:
-  for +state: P.State
-  {P.tick(state) == tick_spec(state) : P.State}
+  for +state:P.State
+  {P.tick(state) == P.tick_selected(P.can_tick(state),state) : P.State}
 
-# Guarantees: ACK filtering retains exactly seq>=ack, and its ACK segment uses
-# monotonic cumulative consumption and aligns counters when authority is ahead.
-# Why it matters: dropping all pending input or undoing an older ACK must fail.
-law acknowledgment_exact:
-  for +rows: List<&2,P.Segment>
-  for +seq: U32
-  for +steps: U32
-  for +expired: Bool
-  {P.acknowledge(rows,seq,steps,expired) == acknowledge_spec(rows,seq,steps,expired) : List<&2,P.Segment>}
+# Guarantees: history filtering keeps a row iff its assigned world tick is
+# beyond the committed anchor, without renumbering it.
+# Why it matters: an ACK resolves neutral holes as well as applied commands.
+law unresolved_row_exact:
+  for +seq:U32
+  for +target:U32
+  for +x:U32
+  for +y:U32
+  for +tail:List<&2,P.Input>
+  for +anchor:U32
+  {P.unresolved(P.Input{seq,target,x,y} <> tail,anchor) == Bool.pick(List<&2,P.Input>,U32.is_gt(target,anchor),P.Input{seq,target,x,y} <> P.unresolved(tail,anchor),P.unresolved(tail,anchor)) : List<&2,P.Input>}
 
-# Guarantees: replay consumes pending steps in the given chronological order,
-# with explicit remaining-budget subtraction and the shared movement arithmetic.
-# Why it matters: a replay ignoring input or reversing its order must fail.
-law replay_exact:
-  for +rows: List<&2,P.Segment>
-  for +distance: F32
-  for +state: P.Replay
-  {P.replay(rows,distance,state) == replay_spec(rows,distance,state) : P.Replay}
+# Guarantees: input at the committed tick is removed even if its packet was late.
+# Why it matters: a rejected old input cannot be replayed on a future world tick.
+law committed_input_removed:
+  for seq:U32
+  for +anchor:U32
+  for x:U32
+  for y:U32
+  for +tail:List<&2,P.Input>
+  {P.unresolved(P.Input{seq,anchor,x,y} <> tail,anchor) == P.unresolved(tail,anchor) : List<&2,P.Input>}
 
-# Guarantees: reconciliation starts at authority, replays only remaining history
-# oldest-first with budget60, ignores nonnew snapshots, clears disabled history,
-# and resumes from a fresh anchor rather than replaying pre-pause segments.
-# Why it matters: no correction may accumulate movement over an old local pose.
-law reconciliation_exact:
-  for +state: P.State
-  for +observation: U32
-  for +x: F32
-  for +y: F32
-  for +distance: F32
-  for +enabled: Bool
-  for +receipt: S.Receipt
-  {P.reconcile(state,observation,x,y,distance,enabled,receipt) == reconcile_spec(state,observation,x,y,distance,enabled,receipt) : P.State}
+# Guarantees: resync is required for a disabled prior timeline or when authority
+# reaches/passes the display cursor; ordinary earlier anchors do not request it.
+# Why it matters: an ACK must not silently alter the fixed future cursor.
+law resync_exact:
+  for x:F32
+  for y:F32
+  for distance:F32
+  for +enabled:Bool
+  for inputs:List<&2,P.Input>
+  for anchor:U32
+  for +display:U32
+  for observation:U32
+  for last:U32
+  for +incoming:U32
+  {P.resync_needed(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last},incoming) == Bool.or(Bool.not(enabled),U32.is_ge(incoming,display)) : Bool}
 
-# Guarantees: an accepted replacement controls the next eligible tick after any
-# existing history. The premises are the actual sequence, axis and horizon checks.
-# Why it matters: testing only an empty fresh state would miss delayed reversals.
-law next_tick_uses_replacement:
-  for +px: F32
-  for +py: F32
-  for +distance: F32
-  for +rows: List<&2,P.Segment>
-  for +age: U32
-  for +observation: U32
-  for +seq: U32
-  for +x: U32
-  for +y: U32
-  for fresh: {U32.is_gt(seq,newest(rows)) == True{} : Bool}
-  for validX: {U32.is_le(x,2) == True{} : Bool}
-  for validY: {U32.is_le(y,2) == True{} : Bool}
-  for budget: {U32.is_lt(age,60) == True{} : Bool}
-  {P.view(P.tick(P.command(P.State{px,py,distance,True{},rows,age,observation},seq,x,y))) == M.move_point(px,py,distance,S.axis(x),S.axis(y)) : M.Point}
+# Guarantees: cursor selection either preserves the existing display clock or
+# starts an explicit neutral lead after the incoming anchor, under that policy.
+# Why it matters: pending commands retain their original world tick assignments.
+law cursor_exact:
+  for x:F32
+  for y:F32
+  for distance:F32
+  for +enabled:Bool
+  for inputs:List<&2,P.Input>
+  for anchor:U32
+  for +display:U32
+  for observation:U32
+  for last:U32
+  for +incoming:U32
+  for +initialLead:U32
+  {P.cursor(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last},incoming,initialLead) == Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(incoming,display)),P.after(incoming,U32.min(initialLead,54)),display) : U32}
 
-# Guarantees: key-up selects zero direction on the next eligible tick even after
-# actual earlier motion. Its result is the shared zero-direction step, not a
-# false arithmetic claim about arbitrary NaN or out-of-arena F32 coordinates.
-# Why it matters: no historical held direction can survive neutral replacement.
-law neutral_replaces_history:
-  for +px: F32
-  for +py: F32
-  for +distance: F32
-  for +rows: List<&2,P.Segment>
-  for +age: U32
-  for +observation: U32
-  for +seq: U32
-  for fresh: {U32.is_gt(seq,newest(rows)) == True{} : Bool}
-  for budget: {U32.is_lt(age,60) == True{} : Bool}
-  {P.view(P.tick(P.command(P.State{px,py,distance,True{},rows,age,observation},seq,1,1))) == M.move_point(px,py,distance,0.0,0.0) : M.Point}
+# Guarantees: rejecting a stale observation preserves the complete timeline.
+# Why it matters: duplicate packets cannot rewind the display clock or pending inputs.
+law rejected_observation_preserves:
+  for +state:P.State
+  for observation:U32
+  for anchor:U32
+  for x:F32
+  for y:F32
+  for distance:F32
+  for enabled:Bool
+  for initialLead:U32
+  {P.reconcile_selected(False{},state,observation,anchor,x,y,distance,enabled,initialLead) == state : P.State}
 
-# Guarantees: processing an identical cumulative ACK again changes no history.
-# Why it matters: even a new observation carrying the same receipt cannot double-consume.
-law acknowledgment_idempotent:
-  for +rows: List<&2,P.Segment>
-  for +seq: U32
-  for +steps: U32
-  for +expired: Bool
-  {P.acknowledge(P.acknowledge(rows,seq,steps,expired),seq,steps,expired) == P.acknowledge(rows,seq,steps,expired) : List<&2,P.Segment>}
+# Guarantees: a newly observed pause/death clears speculation and aligns both
+# clocks to the committed anchor while retaining packet sequence freshness.
+# Why it matters: pre-pause history cannot run after a reward or death barrier.
+law disabled_reconcile_clears:
+  for px:F32
+  for py:F32
+  for priorDistance:F32
+  for priorEnabled:Bool
+  for inputs:List<&2,P.Input>
+  for oldAnchor:U32
+  for oldDisplay:U32
+  for oldObservation:U32
+  for +last:U32
+  for +observation:U32
+  for +anchor:U32
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for initialLead:U32
+  {P.reconcile_selected(True{},P.State{px,py,priorDistance,priorEnabled,inputs,oldAnchor,oldDisplay,oldObservation,last},observation,anchor,x,y,distance,False{},initialLead) == P.State{x,y,distance,False{},[],anchor,anchor,observation,last} : P.State}
 
-# Receipt specification is separate from prediction history: it records each
-# direction actually passed to an advanced authoritative step, not a receipt-only
-# network event. Worker call ordering is additionally checked at the IO boundary.
-def receipt_lane_spec(previous: S.Receipt,lane: S.Lane,+clock: U32,+enabled: Bool) -> S.Receipt:
-  match previous lane:
-    case S.Receipt{prior,+steps,_,_,_} S.Lane{_,+seq,_,_,+received,x,y}:
-      S.Receipt{seq,Bool.pick(U32,U32.is_eq(prior,seq),U32.min((steps + 1 : U32),65535),1),Bool.pick(U32,enabled,x,1),Bool.pick(U32,enabled,y,1),Bool.or(Bool.not(enabled),U32.is_ge((clock - received : U32),18))}
-def receipt_spec(previous: S.Receipt,state: S.State,+player: U32) -> S.Receipt:
-  match state:
-    case S.State{_,clock,host,guest,connected,+ended}: receipt_lane_spec(previous,Bool.pick(S.Lane,U32.is_eq(player,0),host,guest),clock,Bool.and(Bool.not(ended),Bool.or(U32.is_eq(player,0),connected)))
+# Guarantees: observations must be newer and their world anchor must not rewind.
+# Why it matters: a fresh packet ID cannot smuggle an older simulation state.
+law reconciliation_admission_exact:
+  for +state:P.State
+  for +observation:U32
+  for +anchor:U32
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +enabled:Bool
+  for +initialLead:U32
+  {P.reconcile(state,observation,anchor,x,y,distance,enabled,initialLead) == P.reconcile_selected(Bool.and(P.observation_newer(state,observation),U32.is_ge(anchor,P.anchor_world_tick(state))),state,observation,anchor,P.normalize(x),P.normalize(y),P.normalize(distance),enabled,initialLead) : P.State}
 
-# Guarantees: each consumed-step receipt reports the chosen sequence/direction,
-# increments exactly once, resets only for a changed sequence, and marks expiry.
-# Why it matters: received input alone cannot masquerade as elapsed simulation.
-law receipt_exact:
-  for +previous: S.Receipt
-  for +state: S.State
-  for +player: U32
-  {S.receipt_step(previous,state,player) == receipt_spec(previous,state,player) : S.Receipt}
-
-
-# Guarantees: expiry removes the expired ACK segment, rather than merely marking
-# its existing steps consumed. Only a later command can supply a new direction.
-# Why it matters: an old held direction cannot restart on every new snapshot.
-law expired_ack_removes_segment:
-  for +seq: U32
-  for x: U32
-  for y: U32
-  for steps: U32
-  for consumed: U32
-  for reported: U32
-  {P.acknowledge([P.Segment{seq,x,y,steps,consumed}],seq,reported,True{}) == [] : List<&2,P.Segment>}
-
-# Guarantees: after a newer expired-input observation with no later input,
-# the next local tick preserves the authoritative point exactly. The age counter
-# may still advance, so this is a position guarantee rather than state equality.
-# Why it matters: ongoing snapshots must not revive expired movement.
-law expired_input_does_not_move:
-  for oldX: F32
-  for oldY: F32
-  for +x: F32
-  for +y: F32
-  for +distance: F32
-  for age: U32
-  for +priorObservation: U32
-  for +observation: U32
-  for +seq: U32
-  for inputX: U32
-  for inputY: U32
-  for predicted: U32
-  for consumed: U32
-  for reported: U32
-  for newer: {U32.is_gt(observation,priorObservation) == True{} : Bool}
-  {P.view(P.tick(P.reconcile(P.State{oldX,oldY,distance,True{},[P.Segment{seq,inputX,inputY,predicted,consumed}],age,priorObservation},observation,x,y,distance,True{},S.Receipt{seq,reported,1,1,True{}}))) == M.Point{x,y} : M.Point}
-
-
-# Guarantees: observation admission is exactly a strictly increasing sequence
-# comparison against the stored observation, including duplicate rejection.
-# Why it matters: IO may check freshness through Bend before touching render or
-# timing state, using the same rule as reconciliation.
+# Guarantees: packet observation freshness is strict and independent of clocks.
+# Why it matters: a duplicate observation must never replace an accepted anchor.
 law observation_newer_exact:
-  for +state: P.State
-  for +observation: U32
-  {P.observation_newer(state,observation) == U32.is_gt(observation,observed(state)) : Bool}
+  for x:F32
+  for y:F32
+  for distance:F32
+  for enabled:Bool
+  for inputs:List<&2,P.Input>
+  for anchor:U32
+  for display:U32
+  for +prior:U32
+  for last:U32
+  for +observation:U32
+  {P.observation_newer(P.State{x,y,distance,enabled,inputs,anchor,display,prior,last},observation) == U32.is_gt(observation,prior) : Bool}
+
+# Guarantees: movement prediction uses the exact authoritative F32 operation order.
+# Why it matters: a second movement formula would drift independently of timing.
+law shared_movement_exact:
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +dx:F32
+  for +dy:F32
+  {M.move_point(x,y,distance,dx,dy) == M.Point{F32.clamp((x + dx * distance / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max()),F32.clamp((y + dy * distance / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32),A.player_min(),A.player_max())} : M.Point}
+
+# Guarantees: direction codes use the same negative/neutral/positive axis map.
+# Why it matters: correct target timing cannot compensate for a wrong axis decoder.
+law axis_exact:
+  for +code:U32
+  {S.axis(code) == Bool.pick(F32,U32.is_eq(code,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(code,2),1.0,0.0)) : F32}
+
+# Guarantees: a detached point step calls shared movement with the assigned axes.
+# Why it matters: timeline replay cannot use stale held input for this world tick.
+law point_step_exact:
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +dx:U32
+  for +dy:U32
+  {P.advance_point(M.Point{x,y},distance,P.Direction{dx,dy}) == M.move_point(x,y,distance,S.axis(dx),S.axis(dy)) : M.Point}
+
+# Guarantees: an empty position interval preserves its anchor point.
+# Why it matters: catching up to authority cannot manufacture a movement tick.
+law position_zero:
+  for tick:U32
+  for rows:List<&2,P.Input>
+  for distance:F32
+  for +point:M.Point
+  {P.replay_position(0n,tick,rows,distance,point) == point : M.Point}
+
+# Guarantees: each position replay step advances the world clock once and uses
+# precisely that tick's lookup, including neutral gaps.
+# Why it matters: the camera and combat replay must use the same time assignment.
+law position_successor:
+  for +fuel:Nat
+  for +tick:U32
+  for +rows:List<&2,P.Input>
+  for +distance:F32
+  for +point:M.Point
+  {P.replay_position(1n+fuel,tick,rows,distance,point) == P.replay_position(fuel,P.after(tick,1),rows,distance,P.advance_point(point,distance,P.input_at(rows,P.after(tick,1)))) : M.Point}
+
+def fresh_display(enabled:Bool,+anchor:U32,initialLead:U32) -> U32: Bool.pick(U32,enabled,P.after(anchor,U32.min(initialLead,54)),anchor)
+# Guarantees: startup prewarms the neutral interval up to anchor+lead, with
+# empty command history and unchanged packet/observation freshness counters.
+# Why it matters: the first keypress belongs to the future cursor, not to an
+# earlier cooldown tick in the received snapshot.
+law fresh_exact:
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +enabled:Bool
+  for +anchor:U32
+  for +initialLead:U32
+  {P.fresh(x,y,distance,enabled,anchor,initialLead) == P.placed(P.normalize(distance),enabled,[],anchor,fresh_display(enabled,anchor,initialLead),0,0,P.replay_position(U32.to_nat(P.world_count(anchor,fresh_display(enabled,anchor,initialLead))),anchor,[],P.normalize(distance),M.Point{P.normalize(x),P.normalize(y)})) : P.State}
+
+def running_spec(state:P.State,observation:U32,+anchor:U32,x:F32,y:F32,+distance:F32,initialLead:U32) -> P.State:
+  match state:
+    case P.State{_,_,_,enabled,inputs,_,+display,_,last}:
+      +cursor = Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(anchor,display)),P.after(anchor,U32.min(initialLead,54)),display)
+      +rows = P.unresolved(inputs,anchor)
+      P.placed(distance,True{},rows,anchor,cursor,observation,last,P.replay_position(U32.to_nat(P.world_count(anchor,cursor)),anchor,rows,distance,M.Point{x,y}))
+# Guarantees: accepted authority replaces the point anchor, filters resolved
+# target ticks, and replays the full retained world interval to the fixed cursor.
+# Why it matters: an ACK cannot replay commands from an old position or squeeze
+# neutral cooldown ticks out of the history.
+law running_reconcile_exact:
+  for +state:P.State
+  for +observation:U32
+  for +anchor:U32
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +initialLead:U32
+  {P.reconcile_running(state,observation,anchor,x,y,distance,initialLead) == running_spec(state,observation,anchor,x,y,distance,initialLead) : P.State}
+
+# Guarantees: enabled reconciliation invokes that complete authority replay.
+# Why it matters: the production branch cannot bypass a correct replay helper.
+law active_reconcile_exact:
+  for +state:P.State
+  for +observation:U32
+  for +anchor:U32
+  for +x:F32
+  for +y:F32
+  for +distance:F32
+  for +initialLead:U32
+  {P.reconcile_selected(True{},state,observation,anchor,x,y,distance,True{},initialLead) == P.reconcile_running(state,observation,anchor,x,y,distance,initialLead) : P.State}
+
+# Guarantees: a combat anchor is compatible exactly when its world clock equals
+# the prediction history's anchor, independently of packet sequence.
+# Why it matters: replaying correctly timed input from a different scene clock
+# would shift every cooldown and contact again.
+law anchor_match_exact:
+  for x:F32
+  for y:F32
+  for distance:F32
+  for enabled:Bool
+  for inputs:List<&2,P.Input>
+  for +anchor:U32
+  for display:U32
+  for observation:U32
+  for last:U32
+  for +tick:U32
+  {P.matches_anchor(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last},tick) == U32.is_eq(anchor,tick) : Bool}
+
+# Guarantees: a host-provided coordinate is decoded through the native F32 bits.
+# Why it matters: JSON parses decimal F32 text as binary64, which must not become
+# a different starting point for movement than the combat cohort receives.
+law normalize_exact:
+  for +value:F32
+  {P.normalize(value) == P.from_bits(F32.bits(value)) : F32}
+
+# Guarantees: decoding a 32-bit word preserves every bit in the resulting F32.
+# Why it matters: the normalization helper cannot silently scale or clamp the
+# exact native value that was encoded by the authoritative simulation.
+law from_bits_exact:
+  for +word:Word(32n)
+  {P.from_bits(U32{word}) == F32{word} : F32}

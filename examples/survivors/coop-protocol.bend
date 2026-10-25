@@ -1,4 +1,6 @@
 # Small canonical ASCII commands. World observations use a distinct bounded envelope.
+# For T commands the world tick field is the immutable assigned target tick,
+# independent of the transport sequence in the preceding field.
 import Base
 import ./coop-session.bend as S
 
