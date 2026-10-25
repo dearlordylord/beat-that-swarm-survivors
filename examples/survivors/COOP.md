@@ -107,5 +107,5 @@ The throwaway study and its local server have been removed.
 
 After the SEO/share-card work:
 
-- Fix touch movement choosing diagonals almost everywhere; verify cardinal and diagonal directions on mobile.
+- Completed: touch control now selects all eight keyboard directions with a neutral centre. `coop-touch-browser.mjs` checks actual mobile events and outgoing Iroh commands.
 - Revisit the two-player limit. It is currently in the session and one-peer transport adapter, not merely the Co-op hall. Support more guests and make the actual capacity clear in the UI. Remind the user after the touch-control task.

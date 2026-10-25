@@ -11,6 +11,17 @@ const time = ticks => `${Math.floor(ticks / 3600).toString().padStart(2, '0')}:$
 const catalogs = { character: CHARACTERS, arcana: ARCANA, stage: STAGES, mode: RUN_MODES };
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
 
+// Device IO: select the nearest of the keyboard's eight directions. Independent
+// axis signs turn virtually every off-centre thumb position into a diagonal.
+export function touchDirection(x, y, radius) {
+  if (Math.hypot(x,y) < radius * .2) return {x:0,y:0};
+  const diagonalThreshold = Math.SQRT2 - 1; // tan(22.5 degrees)
+  return {
+    x:Math.abs(x) > Math.abs(y) * diagonalThreshold ? Math.sign(x) : 0,
+    y:Math.abs(y) > Math.abs(x) * diagonalThreshold ? Math.sign(y) : 0,
+  };
+}
+
 export function invitationTicket(value, base = globalThis.location?.href) {
   const text = String(value || '').trim();
   try {
@@ -141,14 +152,16 @@ export class CoopUI {
     const pad = this.$('#coop-touch');
     const touchMove = event => {
       const rect = pad.getBoundingClientRect();
-      this.touch = { x: Math.sign(event.clientX - rect.left - rect.width / 2), y: Math.sign(event.clientY - rect.top - rect.height / 2) };
+      this.touch = touchDirection(event.clientX - rect.left - rect.width / 2,
+        event.clientY - rect.top - rect.height / 2,Math.min(rect.width,rect.height)/2);
+      pad.firstElementChild.style.transform = `translate(${this.touch.x*18}px,${this.touch.y*18}px)`;
       this.emitInput();
     };
     on(pad, 'pointerdown', event => {
       pad.setPointerCapture(event.pointerId); pad.dataset.active = 'true'; touchMove(event);
     });
     on(pad, 'pointermove', event => { if (pad.hasPointerCapture(event.pointerId)) touchMove(event); });
-    const touchEnd = () => { pad.dataset.active = 'false'; this.touch = { x: 0, y: 0 }; this.emitInput(); };
+    const touchEnd = () => { pad.dataset.active = 'false'; pad.firstElementChild.style.transform = ''; this.touch = { x: 0, y: 0 }; this.emitInput(); };
     on(pad, 'pointerup', touchEnd); on(pad, 'pointercancel', touchEnd); on(pad, 'lostpointercapture', touchEnd);
     this.animate = now => {
       const delta = Math.max(0, Math.min(100, now - (this.previous || now)));
