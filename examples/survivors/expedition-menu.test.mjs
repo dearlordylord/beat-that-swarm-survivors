@@ -42,3 +42,11 @@ test('closing the dossier leaves all eight choices and no stale detail controls'
   assert(!html.includes('data-unlock-details'));
   assert(!html.includes('aria-controls='));
 });
+
+test('starting weapons are icons with accessible names in cards and dossiers', () => {
+  const html = renderCoopSetup(state(5));
+  assert(!html.includes('<p>Starting weapon:'));
+  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Frost Needle" tabindex="0"/);
+  assert.match(html, /class="weapon-tooltip" aria-hidden="true">Frost Needle<\/span>/);
+  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Spark Wand" tabindex="0"/);
+});

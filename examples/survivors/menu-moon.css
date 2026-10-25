@@ -331,3 +331,9 @@
 .unlock-requirement progress{display:block;width:100%;height:6px;accent-color:#c9ad78;margin-bottom:7px}
 .unlock-requirement small{color:#bdafc3;font-size:11px}
 @media(max-width:600px){#app #menu .choice-pair>.choice{flex-direction:column;text-align:center;gap:6px;min-height:144px}.choice-pair>.choice .viewing-badge{margin-left:auto;margin-right:auto}.choice-pair>.choice>.choice-check{display:none}#app #menu .choice-pair>.unlock-inspector--row{padding:18px}.choice-pair .purchase-line{align-items:stretch;flex-direction:column}.choice-pair .purchase-line button{width:100%}}
+
+.starting-weapon{position:relative;display:inline-grid;place-items:center;min-width:38px;min-height:36px;border:1px solid #75634f;background:#211b29;color:var(--weapon-color);font:24px/1 system-ui,sans-serif;vertical-align:middle;cursor:help}
+.weapon-tooltip{position:absolute;z-index:10;bottom:calc(100% + 7px);left:0;display:none;padding:7px 10px;width:max-content;max-width:210px;background:#17121d;border:1px solid #aa9166;color:#f0dfbb;font:12px/1.4 Georgia,serif;pointer-events:none}
+.starting-weapon:hover>.weapon-tooltip,.starting-weapon:focus>.weapon-tooltip{display:block}
+.starting-weapon:focus-visible{outline:2px solid #f4d898;outline-offset:3px}
+.choice .starting-weapon{min-width:28px;min-height:28px;font-size:20px}
