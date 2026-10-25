@@ -1,4 +1,5 @@
 import Base
+import enemy-effects.bend as Effect
 import enemy-combat.bend as Enemy
 import game-components.bend as Components
 import projectile-state.bend as Shot
@@ -315,7 +316,7 @@ def recipient_hits_at(recipients:Recipients,+moved:Enemy.State) -> List<&2,G.Hit
     case Recipients{_,index,False{}} Enemy.State{_,_,identity,_,_}: BI.get(~List<&2,G.HitPlan>,index,identity,[])
 def empty_effects(rows:List<&2,G.HitPlan>,status:Components.Status) -> Bool:
   match rows status:
-    case [] Components.Status{slow,burn}: Bool.and(U32.is_eq(slow,0),U32.is_eq(burn,0))
+    case [] Components.Status{slow,burn}: Bool.and(Bool.not(Effect.slow_active(slow)),Bool.not(Effect.burn_active(burn)))
     case _ _: False{}
 def moved_enemy_selected(fast:Bool,+team:G.Team,enemy:Enemy.State) -> G.EntityRow:
   match fast:
