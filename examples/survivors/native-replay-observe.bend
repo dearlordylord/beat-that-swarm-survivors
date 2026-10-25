@@ -226,6 +226,19 @@ def store_body(result: Storage.Store & String) -> Storage.Store & String:
     case (owner,bs): store_vitals(bs,observed_column(~Components.Vitals,~Components.Vitals,~Storage.VitalRest,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~vitals,owner))
 def store(value: Storage.Store) -> Storage.Store & String:
   store_body(observed_column(~Components.Body,~Components.Body,~Storage.BodyRest,~Storage.take,~Storage.put,~Storage.project,~body,value))
+def player_record(value: Components.PlayerRecord) -> String:
+  match value:
+    case Components.PlayerRecord{id,RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives},connected}: array([U32.show(id),array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives)]),U32.show(Bool.to_u32(connected))])
+def store_players_text(players: String,result: Storage.Store & String) -> Storage.Store & String:
+  match result:
+    case (owner,text): (owner,"\"actorColumns\":" ++ text ++ ",\"players\":[" ++ players ++ "]")
+def store_players_done(rest: Storage.PlayerRest,result: Col.Column<Storage.Schema,Components.PlayerRecord> & String) -> Storage.Store & String:
+  match result:
+    case (column,text): store_players_text(text,store(Storage.put_players(rest,column)))
+def store_players_split(high: U32,result: Storage.PlayerRest & Col.Column<Storage.Schema,Components.PlayerRecord>) -> Storage.Store & String:
+  match result:
+    case (rest,column): store_players_done(rest,column_rows(~Components.PlayerRecord,~Components.PlayerRecord,~Storage.project_player,~player_record,U32.to_nat(high),1,column))
+def store_players(high: U32,owner: Storage.Store) -> Storage.Store & String: store_players_split(high,Storage.take_players(owner))
 def key(value: K.Key) -> String:
   match value:
     case K.EntityKey{id,generation}: array([U32.show(id),U32.show(generation)])
@@ -286,6 +299,12 @@ def world(value: Storage.World()) -> Storage.World() & String:
 def metadata_join(componentText: String,result: Storage.World() & String) -> Storage.World() & String:
   match result:
     case (owner,text): (owner,"\"components\":" ++ componentText ++ ",\"metadata\":" ++ text)
+def world_columns_done(namespace: U32,alloc: A.Allocator,resource: Unit,events: List<&2,Unit>,pending: List<Deferred.Command<Storage.World()>>,regs: List<&2,W.RegistrationMeta>,next: U32,time: Clock.State,result: Storage.Store & String) -> Storage.World() & String:
+  match result:
+    case (owner,text): (W.World{namespace,alloc,owner,resource,events,pending,regs,next,time},"{" ++ text ++ "}")
+def world_columns(value: Storage.World()) -> Storage.World() & String:
+  match value:
+    case W.World{namespace,A.Allocator{nextId,+high,rows,capacity,depth,free,order},owner,resource,events,pending,regs,next,time}: world_columns_done(namespace,A.Allocator{nextId,high,rows,capacity,depth,free,order},resource,events,pending,regs,next,time,store_players(high,owner))
 def world_components(result: Storage.World() & String) -> Storage.World() & String:
   match result:
     case (owner,text): metadata_join(text,world(owner))
@@ -294,7 +313,7 @@ def snapshot_finish(+runValue: G.Run,+rows: List<&2,Components.Body>,+off: List<
     case (owner,text): (G.State{owner,runValue,rows,off,shots,pending},"{\"run\":" ++ run(runValue) ++ ",\"bodies\":" ++ bodies(rows) ++ ",\"offers\":" ++ offers(off) ++ ",\"snapshots\":" ++ snapshots(shots) ++ ",\"pending\":" ++ u32s(pending) ++ "," ++ text ++ "}")
 def snapshot(value: G.State) -> G.State & String:
   match value:
-    case G.State{owner,runValue,rows,off,shots,pending}: snapshot_finish(runValue,rows,off,shots,pending,world_components(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~String,store,owner)))
+    case G.State{owner,runValue,rows,off,shots,pending}: snapshot_finish(runValue,rows,off,shots,pending,world_components(world_columns(owner)))
 
 # Nonserializing completion barrier used ONCE per timed window, never per tick.
 # Its rolling word value is observable but is not a correctness hash. Full exact
