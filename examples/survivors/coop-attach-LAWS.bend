@@ -4,7 +4,7 @@ import ./coop-attach.bend as A
 # Guarantees: a two-player attachment passes the original complete affine state
 # to the resume adapter and ignores every new setup field.
 # Why it matters: reload must not run the initial player allocation/setup again.
-# The production adapter is Core.quiet; its wiring is inspected and exercised
+# The production adapter is Core.completed; its wiring is inspected and exercised
 # against full-state equality. This law does not prove arbitrary adapter behavior.
 law returning_guest_uses_original_state:
   for ~State:Type

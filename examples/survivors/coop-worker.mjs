@@ -1,5 +1,6 @@
 // Browser scheduling and message IO only. Bend owns admission and the shared world.
 import Game from './dist/coop-core.mjs';
+import Encoder from './dist/coop-encoder.mjs';
 import Session from './dist/coop-session.mjs';
 import InputQueue from './dist/coop-input-queue.mjs';
 import Connection from './dist/coop-connection.mjs';
@@ -36,7 +37,8 @@ function packet(result) {
   if (result.state) core = result.state;
   if (result.$ === 'CoreFailed') throw Error(result.message);
   if (result.$ === 'CoreRejected') { postMessage({type:'rejected',message:result.message,connectionEpoch}); return null; }
-  const frame = result.frame ? JSON.parse(result.frame) : null;
+  const encoded = Encoder.encode(result.observation);
+  const frame = encoded.$ === 'Some' ? JSON.parse(encoded.value) : null;
   if (Number.isInteger(frame?.tick)) currentWorldTick = frame.tick;
   return frame;
 }

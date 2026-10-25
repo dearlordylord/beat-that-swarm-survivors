@@ -27,9 +27,9 @@ type Finished is Data:
 def simulate(+fuel: Nat,+ticks: U32,+index: U32,+seed: U32,+profile: U32,observed: Serial.BatchReady) -> Finished:
   match fuel observed:
     case _ Serial.BatchReady{_,Serial.Progress{_,G.Failed{error},_}}: Failed{error}
-    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,rows,_,_,_},_},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,rows)}
+    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,rows,_,_,_}},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,rows)}
     case 0n _: SafetyFuel{}
-    case 1n+rest Serial.BatchReady{False{},Serial.Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending},_},choices}}:
+    case 1n+rest Serial.BatchReady{False{},Serial.Progress{memory,G.Packet{G.State{world,+run,+rows,+offers,snapshots,pending}},choices}}:
       simulate(rest,ticks,index,seed,profile,Serial.gate(ticks,Serial.next(G.run_phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,choices)))
 # Parse profile names on the host once; mode 2 alternates by global job index.
 def profile_mode(name: String) -> U32:

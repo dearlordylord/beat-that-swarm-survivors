@@ -50,12 +50,13 @@ const $ = (s) => document.querySelector(s),
     setMuted(...args) { this.engine?.setMuted(...args); },
     setVolume(...args) { this.engine?.setVolume(...args); },
   };
-let Game, renderer, runtimeTask, starting = false;
+let Game, GameEncoder, renderer, runtimeTask, starting = false;
 function prepareRuntime() {
   if (!runtimeTask) runtimeTask = Promise.all([
-    import('./dist/game.mjs'), import('./renderer.mjs'), import('./audio.mjs'),
-  ]).then(([game, graphics, sound]) => {
+    import('./dist/game.mjs'), import('./renderer.mjs'), import('./audio.mjs'), import('./dist/game-encoder.mjs'),
+  ]).then(([game, graphics, sound, encoder]) => {
     Game = game.default;
+    GameEncoder = encoder.default;
     renderer = new graphics.Renderer(canvas);
     audio.engine = new sound.AudioEngine();
     if (audio.context) {
@@ -180,9 +181,10 @@ function consume(method, ...args) {
 function accept(packet) {
   if (packet.$ === "Failed") throw Error(packet.error);
   if (packet.$ !== "Packet") throw Error("Invalid simulation response");
-  state = packet.state;
+  const observed = GameEncoder.observe(packet.state);
+  state = observed.state;
   let old = frame;
-  frame = JSON.parse(packet.frame);
+  frame = JSON.parse(observed.frame);
   if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true;
   runHistory = observeRun(runHistory, { weapons: frame.weapons });
   frame.stage ??= stage;

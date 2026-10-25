@@ -14,12 +14,12 @@ type Completed is Type: Completed{state: G.State,step: U32,tick: U32,phase: U32}
 
 def apply_packet(action: F.Action,packet: G.Packet) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: C.apply(action,state)
+    case G.Packet{state}: C.apply(action,state)
     case G.Failed{error}: G.Failed{error}
 def warm_gate(+target: U32,cursor: Cursor) -> WarmReady:
   match cursor:
-    case Cursor{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},actions,step}:
-      WarmReady{U32.is_le(target,C.tick(run)),Cursor{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},actions,step}}
+    case Cursor{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},actions,step}:
+      WarmReady{U32.is_le(target,C.tick(run)),Cursor{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},actions,step}}
     case cursor: WarmReady{True{},cursor}
 def warm_loop(fuel: Nat,+target: U32,ready: WarmReady) -> Cursor:
   match fuel ready:
@@ -35,7 +35,7 @@ def execute(actions: List<&2,F.Action>,packet: G.Packet,step: U32) -> Cursor:
 def complete(cursor: Cursor) -> Result<&1,&1,String,Completed>:
   match cursor:
     case Cursor{G.Failed{error},_,_}: Fail{error}
-    case Cursor{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},_},_,step}:
+    case Cursor{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},_,step}:
       Done{Completed{G.State{world,run,rows,offers,snapshots,pending},step,C.tick(run),G.run_phase(run)}}
 def final_checkpoint(result: G.State & String,+fixture: String,+step: U32,+firstTick: U32,+actualEnd: U32,+finalPhase: U32) -> IO(Unit):
   match result:
@@ -80,10 +80,10 @@ def checkpoint_result(result: G.State & String,+fixture: String,+step: U32,+acti
     case (state,payload):
       do IO<Unit>:
         IO.print("{\"type\":\"checkpoint\",\"fixture\":\"" ++ C.escape(fixture) ++ "\",\"step\":" ++ U32.show(step) ++ ",\"payload\":" ++ payload ++ "}")
-        use(Cursor{G.Packet{state,""},actions,step})
+        use(Cursor{G.Packet{state},actions,step})
 def checkpoint(cursor: Cursor,+fixture: String,use: Cursor -> IO(Unit)) -> IO(Unit):
   match cursor:
-    case Cursor{G.Packet{state,_},+actions,+step}: checkpoint_result(O.snapshot(state),fixture,step,actions,use)
+    case Cursor{G.Packet{state},+actions,+step}: checkpoint_result(O.snapshot(state),fixture,step,actions,use)
     case Cursor{G.Failed{error},_,_}: IO.die(Unit,1,"Replay checkpoint failed: " ++ error)
 def checkpoint_if(enabled: Bool,cursor: Cursor,+fixture: String,use: Cursor -> IO(Unit)) -> IO(Unit):
   match enabled:

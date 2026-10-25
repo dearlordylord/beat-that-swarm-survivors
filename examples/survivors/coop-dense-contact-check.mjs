@@ -220,15 +220,17 @@ if (process.argv.includes('--journal-only')) {
   };
   const encodeStart = performance.now();
   const encodedPacket = Core.journal_clock(fullEvents, corePacket);
+  const { default: Encoder } = await import(moduleUrl('COOP_ENCODER_MODULE', './dist/web/dist/coop-encoder.mjs'));
+  const encodedFrame = Encoder.encode(encodedPacket.observation).value;
   const encodeMs = performance.now() - encodeStart;
   assert.deepEqual(encodedPacket.state, corePacket.state, 'journal serialization does not change Core state');
   const parseStart = performance.now();
-  const frame = JSON.parse(encodedPacket.frame);
+  const frame = JSON.parse(encodedFrame);
   const parseMs = performance.now() - parseStart;
   assert.equal(frame.tick, contactTick);
   assert.equal(frame.contactsOmitted, 7488);
   assert.deepEqual(array(frame.contacts), expectedSuffix, 'Core serializes the exact retained suffix');
-  assert.ok(Buffer.byteLength(encodedPacket.frame) < 200000, 'Core frame stays bounded before JSON.parse');
+  assert.ok(Buffer.byteLength(encodedFrame) < 200000, 'Core frame stays bounded before JSON.parse');
 
   const journalTimes = [];
   for (let index = 0; index < 7; index += 1) {
@@ -360,7 +362,7 @@ if (process.argv.includes('--journal-only')) {
     contactsBeforeCap: fullRows.length,
     contactsInFrame: array(frame.contacts).length,
     contactsOmitted: frame.contactsOmitted,
-    frameBytes: Buffer.byteLength(encodedPacket.frame),
+    frameBytes: Buffer.byteLength(encodedFrame),
     journalTeamMs: +journalMs.toFixed(3),
     journalClockMs: +encodeMs.toFixed(3),
     frameParseMs: +parseMs.toFixed(3),

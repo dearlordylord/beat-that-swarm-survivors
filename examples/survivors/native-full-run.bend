@@ -2,6 +2,7 @@
 # No injected clock, inventory, entity, health or terminal state.
 import Base
 import game.bend as G
+import game-encoder.bend as Encoder
 import offline-policy.bend as Policy
 
 type Stats is Data: Stats{boss: Bool,chest: Bool,level: Bool,decisions: U32}
@@ -156,7 +157,7 @@ def evolved(weapons: List<&2,U32>) -> Bool:
     case level <> rest: Bool.or(U32.is_le(9,level),evolved(rest))
 def build_observation(+run: G.Run,stats: Stats) -> String:
   match stats:
-    case Stats{boss,chest,seenLevel,decisions}: " boss=" ++ U32.show(Bool.to_u32(boss)) ++ " chest=" ++ U32.show(Bool.to_u32(chest)) ++ " seenLevel=" ++ U32.show(Bool.to_u32(seenLevel)) ++ " evolved=" ++ U32.show(Bool.to_u32(evolved(weapons(run)))) ++ " weapons=[" ++ G.nums_json(weapons(run)) ++ "] passives=[" ++ G.nums_json(passives(run)) ++ "]"
+    case Stats{boss,chest,seenLevel,decisions}: " boss=" ++ U32.show(Bool.to_u32(boss)) ++ " chest=" ++ U32.show(Bool.to_u32(chest)) ++ " seenLevel=" ++ U32.show(Bool.to_u32(seenLevel)) ++ " evolved=" ++ U32.show(Bool.to_u32(evolved(weapons(run)))) ++ " weapons=[" ++ Encoder.nums_json(weapons(run)) ++ "] passives=[" ++ Encoder.nums_json(passives(run)) ++ "]"
 def finish(ok: Bool,message: String) -> IO(Unit):
   match ok:
     case True{}: IO.print("PASS native full run " ++ message)
@@ -186,9 +187,9 @@ def reward_progress(log: Bool,+run: G.Run,offers: List<&2,G.Offer>) -> IO(Unit):
         return Unit{}
 def loop(fuel: Nat,active: Bool,controlled: Controlled,+stats: Stats) -> IO(Unit):
   match fuel active controlled:
-    case 0n _ Controlled{_,G.Packet{G.State{_,run,_,_,_,_},_}}: report(run,stats)
-    case _ False{} Controlled{_,G.Packet{G.State{_,run,_,_,_,_},_}}: report(run,stats)
-    case 1n+rest True{} Controlled{memory,G.Packet{G.State{world,+run,+rows,+offers,+snapshots,+pending},_}}:
+    case 0n _ Controlled{_,G.Packet{G.State{_,run,_,_,_,_}}}: report(run,stats)
+    case _ False{} Controlled{_,G.Packet{G.State{_,run,_,_,_,_}}}: report(run,stats)
+    case 1n+rest True{} Controlled{memory,G.Packet{G.State{world,+run,+rows,+offers,+snapshots,+pending}}}:
       do IO<Unit>:
         progress(Bool.and(U32.is_eq(phase(run),0),U32.is_eq((tick(run) % 3600 : U32),0)),run,stats)
         reward_progress(Bool.or(U32.is_eq(phase(run),1),U32.is_eq(phase(run),2)),run,offers)
@@ -196,6 +197,6 @@ def loop(fuel: Nat,active: Bool,controlled: Controlled,+stats: Stats) -> IO(Unit
     case _ _ _: IO.die(Unit,1,"Game packet failure")
 def configured(packet: G.Packet) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure(state,0,9)
+    case G.Packet{state}: G.configure(state,0,9)
     case packet: packet
 def main() -> IO(Unit): loop(42000n,True{},Controlled{Policy.initial(),configured(G.start(2,364304237))},Stats{False{},False{},False{},0})

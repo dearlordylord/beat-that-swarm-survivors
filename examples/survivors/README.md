@@ -11,6 +11,15 @@ query membership has [its own policy](movement-membership.bend) and
 [laws](movement-selection/LAWS.bend). Those sources define the implementation;
 this guide does not duplicate their component layouts or dispatch rules.
 
+Simulation returns typed results: solo `Packet` owns only its state; co-op
+`CorePacket` carries state and an immutable typed observation (a view, a step
+receipt, or no observation for commands). Native consumers use those values
+without generating JSON. Browser and bot boundaries explicitly call the Bend
+encoders in `game-encoder.bend` and `coop-encoder.bend`; combat-scene encoding
+lives in `coop-combat-encoder.bend`. Encoders depend on simulation types, and
+simulation does not import these encoders. There are no serialized/quiet
+variants of the simulation API.
+
 The authoritative pool layout and admission limits are in [`pools.bend`](pools.bend).
 Party-size difficulty belongs to [`party-difficulty.bend`](party-difficulty.bend):
 ordinary spawn slots scale by living, connected players, up to the existing

@@ -227,7 +227,8 @@ def player_family() -> C.Family<Schema,Store,PlayerRest,PlayerRecord,PlayerRecor
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
 type Snapshot is Data: Snapshot{body: Body,motion: Motion}
 type State is Type: State{world: World(),run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
-type Packet is Type: Packet{state: State,frame: String}
+type Observation is Data: Observation{run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>}
+type Packet is Type: Packet{state: State}
   Failed{error: String}
 def at(values: List<&2,U32>,index: U32) -> U32:
   ListIndex.at(values,index)
@@ -315,32 +316,6 @@ def routing_capture_visible(result: World() & List<&2,W.Handle<Schema>>) -> Worl
     case (world,handles): routing_capture_collect(handles,(world,RoutingCapture{[],[],[]}))
 def prepare_movement_roster(world: World()) -> World():
   routing_capture_visible(W.handles(~Schema,~Store,~Unit,~Unit,world))
-def body_json(body: Body) -> String:
-  match body:
-    case Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maxHp) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ "]"
-def rows_json(rows: List<&2,Body>) -> String:
-  match rows:
-    case []: ""
-    case body <> []: body_json(body)
-    case body <> rest: body_json(body) ++ "," ++ rows_json(rest)
-def nums_json(rows: List<&2,U32>) -> String:
-  match rows:
-    case []: ""
-    case n <> []: U32.show(n)
-    case n <> rest: U32.show(n) ++ "," ++ nums_json(rest)
-def offer_json(offer: Offer) -> String:
-  match offer:
-    case Offer{kind,id,level}: "{\"kind\":" ++ U32.show(kind) ++ ",\"id\":" ++ U32.show(id) ++ ",\"level\":" ++ U32.show(level) ++ "}"
-def offers_json(rows: List<&2,Offer>) -> String:
-  match rows:
-    case []: ""
-    case o <> []: offer_json(o)
-    case o <> rest: offer_json(o) ++ "," ++ offers_json(rest)
-def visible_bodies(rows: List<&2,Body>) -> List<&2,Body>:
-  match rows:
-    case []: []
-    case Body{_,_,8,_,_,_,_,_,_} <> rest: visible_bodies(rest)
-    case body <> rest: body <> visible_bodies(rest)
 def world_size() -> F32: A.size()
 def world_center() -> F32: A.center()
 def world_margin() -> F32: A.player_min()
@@ -351,11 +326,7 @@ def run_length(mode: U32) -> U32:
     case 3: 18000
     case _: 36000
 def wave_tick(+mode: U32,tick: U32) -> U32: (tick * (1 + Bool.to_u32(U32.is_eq(mode,3))) : U32)
-def packet_extra(state: State,extra: String) -> Packet:
-  match state:
-    case State{world,Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,+pending}:
-      Packet{State{world,Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending},"{\"worldSize\":" ++ F32.show(A.size()) ++ ",\"worldMargin\":" ++ F32.show(A.player_min()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "]" ++ extra ++ "}"}
-def packet(state: State) -> Packet: packet_extra(state,"")
+def packet(state: State) -> Packet: Packet{state}
 def meta_max(id: U32) -> U32:
   match id:
     case 3: 3
@@ -375,11 +346,10 @@ def configured(run: Run,+selectedStage: U32,+selectedArcana: U32) -> Run:
   match run:
     case Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,_,_,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
       Run{phase,tick,px,py,F32.to_u32((U32.to_f32(initial_health(character,meta)) * (1.0 - 0.30 * stat_bonus(selectedArcana,0) + 0.25 * stat_bonus(selectedArcana,9)) : F32)),F32.to_u32((U32.to_f32(initial_health(character,meta)) * (1.0 - 0.30 * stat_bonus(selectedArcana,0) + 0.25 * stat_bonus(selectedArcana,9)) : F32)),xp,need,level,kills,gold,character,weapons,passives,invuln,seed,U32.min(selectedStage,4),U32.min(selectedArcana,11),meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
-def configure_with(~emit: State -> Packet,state: State,+stageChoice: U32,+arcanaChoice: U32) -> Packet:
+def configure(state: State,+stageChoice: U32,+arcanaChoice: U32) -> Packet:
   match state:
-    case State{world,Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,configured(Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},stageChoice,arcanaChoice),bodies,offers,snapshots,pending})
-    case state: emit(state)
-def configure(state: State,stage: U32,arcana: U32) -> Packet: configure_with(~packet,state,stage,arcana)
+    case State{world,Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,configured(Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},stageChoice,arcanaChoice),bodies,offers,snapshots,pending})
+    case state: packet(state)
 def period(id: U32) -> U32:
   match id:
     case 0: 40
@@ -1111,17 +1081,16 @@ def offer_at(offers: List<&2,Offer>,index: U32) -> Offer:
     case Nil{} _: Offer{2,0,1}
     case Con{offer,_} 0: offer
     case Con{_,rest} index: offer_at(rest,(index - 1 : U32))
-def choose_unchecked_with(~emit: State -> Packet,state: State,+choice: U32) -> Packet:
+def choose_unchecked(state: State,+choice: U32) -> Packet:
   match state:
-    case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,Run{0,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
-    case State{world,run,+bodies,+offers,+snapshots,pending}: emit(State{world,upgrade(offer_at(offers,U32.min(choice,2)),run),bodies,[],snapshots,pending})
-def choose_raw_with(~emit: State -> Packet,state: State,+choice: U32) -> Packet:
+    case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{0,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
+    case State{world,run,+bodies,+offers,+snapshots,pending}: packet(State{world,upgrade(offer_at(offers,U32.min(choice,2)),run),bodies,[],snapshots,pending})
+def choose_raw(state: State,+choice: U32) -> Packet:
   match state:
-    case State{world,Run{3,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,Run{3,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
-    case State{world,Run{4,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,Run{4,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
-    case state: choose_unchecked_with(~emit,state,choice)
+    case State{world,Run{3,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{3,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
+    case State{world,Run{4,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{4,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
+    case state: choose_unchecked(state,choice)
 type Totals is Data: Totals{hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,kills: U32,bodies: List<&2,Body>,snapshots: List<&2,Snapshot>,relic: U32}
-def choose_raw(state: State,choice: U32) -> Packet: choose_raw_with(~packet,state,choice)
 def accumulate(rows: List<&2,EntityRow>,+hit: U32,+xp: U32,+gold: U32,+heal: U32,+chest: U32,+kills: U32,+bodies: List<&2,Body>,+snapshots: List<&2,Snapshot>,+relicTotal: U32) -> Totals:
   match rows:
     case []: Totals{hit,xp,gold,heal,chest,kills,bodies,snapshots,relicTotal}
@@ -1160,11 +1129,11 @@ def reward_extra(levelup: Bool,queue: List<&2,U32>) -> List<&2,U32>:
     case False{}: queue
 def reward_backlog(+chests: U32,levelup: Bool) -> List<&2,U32>:
   reward_extra(Bool.and(U32.is_lt(0,chests),levelup),reward_repeat(U32.to_nat(dec(chests)),2))
-def finish_run_with(~emit: State -> Packet,world: World(),run: Run,+bodies: List<&2,Body>,+offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: emit(State{world,run,bodies,offers,snapshots,pending})
-def finish_values_with(~emit: State -> Packet,world: World(),run: Run,+bodies: List<&2,Body>,+totalXp: U32,+health: U32,+wasHit: U32,+chest: U32,+killed: U32,+coins: U32,+bossKills: U32,+snapshots: List<&2,Snapshot>,+relicEvent: U32) -> Packet:
+def finish_run(world: World(),run: Run,+bodies: List<&2,Body>,+offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: packet(State{world,run,bodies,offers,snapshots,pending})
+def finish_values(world: World(),run: Run,+bodies: List<&2,Body>,+totalXp: U32,+health: U32,+wasHit: U32,+chest: U32,+killed: U32,+coins: U32,+bossKills: U32,+snapshots: List<&2,Snapshot>,+relicEvent: U32) -> Packet:
   match run:
     case Run{_,+tick,+px,+py,_,+maxHp,_,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}:
-      finish_run_with(~emit,world,Run{phase_for(Bool.and(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals))),Bool.or(U32.is_eq(mode,2),U32.is_lt(tick,run_length(mode)))),Bool.and(Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_le(run_length(mode),tick)),Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))),U32.is_lt(0,chest),U32.is_le(need,totalXp)),tick,px,py,revive_hp(revival_available(health,passives,meta,revivals),health,maxHp),maxHp,remainder_xp(totalXp,need),(need + Combat.lose(next_xp_need(level),need) * Bool.to_u32(U32.is_le(need,totalXp)) : U32),(level + Bool.to_u32(U32.is_le(need,totalXp)) : U32),(kills + killed : U32),(gold + 300 * Bool.to_u32(Bool.and(U32.is_eq(mode,3),U32.is_eq(18000,tick))) + (50 + level * 5 + kills / 20) * Bool.to_u32(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))) + coins * (100 + at(passives,15) * 15 + at(passives,14) * 10 + 50 * Bool.to_u32(U32.is_eq(mode,1)) + meta_rank(meta,8) * 10 + 25 * Bool.to_u32(U32.is_eq(arcana,6))) / 100 : U32),character,weapons,passives,U32.max(dec(invuln),(45 * wasHit + 180 * Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32)),(seed + 1 : U32),stage,arcana,meta,(revivals + Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32),(bosses + bossKills : U32),mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,U32.max(relicCollected,relicEvent)},bodies,filter_offers(phase_offers(U32.is_lt(0,chest),(seed + level * 13 : U32),weapons,passives),bannedWeapons,bannedPassives),snapshots,reward_backlog(chest,U32.is_le(need,totalXp)))
+      finish_run(world,Run{phase_for(Bool.and(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals))),Bool.or(U32.is_eq(mode,2),U32.is_lt(tick,run_length(mode)))),Bool.and(Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_le(run_length(mode),tick)),Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))),U32.is_lt(0,chest),U32.is_le(need,totalXp)),tick,px,py,revive_hp(revival_available(health,passives,meta,revivals),health,maxHp),maxHp,remainder_xp(totalXp,need),(need + Combat.lose(next_xp_need(level),need) * Bool.to_u32(U32.is_le(need,totalXp)) : U32),(level + Bool.to_u32(U32.is_le(need,totalXp)) : U32),(kills + killed : U32),(gold + 300 * Bool.to_u32(Bool.and(U32.is_eq(mode,3),U32.is_eq(18000,tick))) + (50 + level * 5 + kills / 20) * Bool.to_u32(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))) + coins * (100 + at(passives,15) * 15 + at(passives,14) * 10 + 50 * Bool.to_u32(U32.is_eq(mode,1)) + meta_rank(meta,8) * 10 + 25 * Bool.to_u32(U32.is_eq(arcana,6))) / 100 : U32),character,weapons,passives,U32.max(dec(invuln),(45 * wasHit + 180 * Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32)),(seed + 1 : U32),stage,arcana,meta,(revivals + Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32),(bosses + bossKills : U32),mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,U32.max(relicCollected,relicEvent)},bodies,filter_offers(phase_offers(U32.is_lt(0,chest),(seed + level * 13 : U32),weapons,passives),bannedWeapons,bannedPassives),snapshots,reward_backlog(chest,U32.is_le(need,totalXp)))
 def heal_after_damage(hp: U32,damage: U32,healing: U32,healingPercent: U32,maxHp: U32) -> U32:
   U32.min(maxHp,(Combat.lose(hp,damage) + healing * healingPercent / 100 : U32))
 def add_killed_kind(known: Bool,+kind: U32,kinds: List<&2,U32>) -> List<&2,U32>:
@@ -1179,13 +1148,13 @@ def killed_kinds(rows: List<&2,EntityRow>,+kinds: List<&2,U32>) -> List<&2,U32>:
 def run_kinds(run: Run) -> List<&2,U32>:
   match run:
     case Run{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,kinds,+relicCollected}: kinds
-def finish_stats_with(~emit: State -> Packet,world: World(),run: Run,totals: Totals,+bossKills: U32,+kinds: List<&2,U32>) -> Packet:
+def finish_stats(world: World(),run: Run,totals: Totals,+bossKills: U32,+kinds: List<&2,U32>) -> Packet:
   match run totals:
     case Run{_,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected} Totals{+hit,+earned,+coins,+heal,+chest,+killed,+bodies,+snapshots,+relic}:
-      finish_values_with(~emit,world,Run{0,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,kinds,relicCollected},bodies,(xp + earned_xp(earned,passives,meta,arcana) : U32),heal_after_damage(hp,(pressure_damage(hit,tick,mode,invuln,passives,meta,arcana,character) + E.hazard(stage,tick,px,py) * Bool.to_u32(U32.is_eq(invuln,0)) : U32),(heal + killed * Bool.to_u32(Bool.and(U32.is_eq((tick % 12 : U32),0),Bool.and(U32.is_eq(arcana,9),Bool.or(U32.is_lt(0,at(weapons,4)),U32.is_lt(0,at(weapons,19)))))) + (meta_rank(meta,2) + at(passives,11) + 2 * Bool.to_u32(U32.is_eq(arcana,9)) + Bool.to_u32(U32.is_eq(character,2))) * Bool.to_u32(U32.is_eq((tick % 60 : U32),0)) : U32),(100 + at(passives,17) * 20 + 30 * Bool.to_u32(U32.is_eq(arcana,10)) : U32),maxHp),Bool.to_u32(Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))),chest,killed,coins,bossKills,snapshots,relic)
-def executed_with(~emit: State -> Packet,+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Packet:
+      finish_values(world,Run{0,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,kinds,relicCollected},bodies,(xp + earned_xp(earned,passives,meta,arcana) : U32),heal_after_damage(hp,(pressure_damage(hit,tick,mode,invuln,passives,meta,arcana,character) + E.hazard(stage,tick,px,py) * Bool.to_u32(U32.is_eq(invuln,0)) : U32),(heal + killed * Bool.to_u32(Bool.and(U32.is_eq((tick % 12 : U32),0),Bool.and(U32.is_eq(arcana,9),Bool.or(U32.is_lt(0,at(weapons,4)),U32.is_lt(0,at(weapons,19)))))) + (meta_rank(meta,2) + at(passives,11) + 2 * Bool.to_u32(U32.is_eq(arcana,9)) + Bool.to_u32(U32.is_eq(character,2))) * Bool.to_u32(U32.is_eq((tick % 60 : U32),0)) : U32),(100 + at(passives,17) * 20 + 30 * Bool.to_u32(U32.is_eq(arcana,10)) : U32),maxHp),Bool.to_u32(Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))),chest,killed,coins,bossKills,snapshots,relic)
+def executed(+run: Run,result: Q.Executed<World(),Q.Error<Error>,EntityRow>) -> Packet:
   match result:
-    case Q.Executed{world,T.Success{},+rows}: finish_stats_with(~emit,world,run,accumulate(rows,0,0,0,0,0,0,[],[],0),boss_kills(rows),killed_kinds(rows,run_kinds(run)))
+    case Q.Executed{world,T.Success{},+rows}: finish_stats(world,run,accumulate(rows,0,0,0,0,0,0,[],[],0),boss_kills(rows),killed_kinds(rows,run_kinds(run)))
     case Q.Executed{_,T.Failure{_},_}: Failed{"ECS query failed"}
 type effect_Player is Data: effect_Player{id: U32,run: Run}
 type effect_EffectStats is Data: effect_EffectStats{tick: U32,x: F32,y: F32,passives: List<&2,U32>,arcana: U32,hp: U32}
@@ -1744,44 +1713,39 @@ def solo_team(+args: Args) -> Team:
   match args:
     case Args{+run,_,+dx,+dy,+snapshots,_}: Team{[PlayerView{0,run,dx,dy}],args,prepare_shot_plan(args),effect_origin_index(snapshots)}
 def execute(world: World(),+args: Args) -> Q.Executed<World(),Q.Error<Error>,EntityRow>: team_execute(world,solo_team(args))
-def advance_raw_with(~emit: State -> Packet,state: State,+dx: F32,+dy: F32) -> Packet:
+def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet:
   match state:
     case State{world,Run{0,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+snapshot,_,+snapshots,pending}:
-      executed_with(~emit,Run{0,(tick + 1 : U32),movement_x(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),movement_y(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
-    case state: emit(state)
-def started_with(~emit: State -> Packet,+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
+      executed(Run{0,(tick + 1 : U32),movement_x(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),movement_y(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},execute(world,combat_args(Run{0,(tick + 1 : U32),px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},snapshot,dx,dy,snapshots)))
+    case state: packet(state)
+def started(+character: U32,+meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet:
   match created:
-    case W.Created{_,world}: emit(State{prepare_movement_roster(W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{0,0,A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
+    case W.Created{_,world}: packet(State{prepare_movement_roster(W.barrier(~Schema,~Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{0,0,A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),0,20,1,0,0,character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,12345,0,0,meta,0,0,0,3,3,3,0,0,[],0},[],[],[],[]})
     case W.CreateRejected{_,_}: Failed{"World creation refused"}
-def started(character: U32,meta: U32,created: W.Creation<Schema,Store,Unit,Unit>) -> Packet: started_with(~packet,character,meta,created)
-def start_with(~emit: State -> Packet,character: U32,meta: U32) -> Packet: started_with(~emit,U32.min(character,7),meta,W.create(~Schema,~Store,~Unit,~Unit,~empty,W.factory(),Unit{}))
+def start(character: U32,meta: U32) -> Packet: started(U32.min(character,7),meta,W.create(~Schema,~Store,~Unit,~Unit,~empty,W.factory(),Unit{}))
 
-def start(character: U32,meta: U32) -> Packet: start_with(~packet,character,meta)
 def seeded_run(run: Run,+selectedSeed: U32) -> Run:
   match run:
     case Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,_,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: Run{phase,tick,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,selectedSeed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
-def seeded_packet_with(~emit: State -> Packet,packetValue: Packet,+selectedSeed: U32) -> Packet:
+def seeded_packet(packetValue: Packet,+selectedSeed: U32) -> Packet:
   match packetValue:
-    case Packet{State{world,run,bodies,offers,snapshots,pending},_}: emit(State{world,seeded_run(run,selectedSeed),bodies,offers,snapshots,pending})
+    case Packet{State{world,run,bodies,offers,snapshots,pending}}: packet(State{world,seeded_run(run,selectedSeed),bodies,offers,snapshots,pending})
     case Failed{error}: Failed{error}
-def start_seed_with(~emit: State -> Packet,character: U32,meta: U32,seed: U32) -> Packet: seeded_packet_with(~emit,start_with(~emit,character,meta),seed)
+def start_seed(character: U32,meta: U32,seed: U32) -> Packet: seeded_packet(start(character,meta),seed)
 
-def start_seed(character: U32,meta: U32,seed: U32) -> Packet: start_seed_with(~packet,character,meta,seed)
 def mode_configured(run: Run,+selected: U32) -> Run:
   match run:
     case Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: configured(Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,choose_id(U32.is_eq(selected,3),0,meta),revivals,bosses,U32.min(selected,3),rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},stage,arcana)
     case run: run
-def set_mode_with(~emit: State -> Packet,state: State,+selected: U32) -> Packet:
+def set_mode(state: State,+selected: U32) -> Packet:
   match state:
-    case State{world,Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,mode_configured(Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},selected),bodies,offers,snapshots,pending})
-    case state: emit(state)
-def set_mode(state: State,mode: U32) -> Packet: set_mode_with(~packet,state,mode)
-def configure_unlocks_with(~emit: State -> Packet,state: State,+unlockedMask: U32) -> Packet:
+    case State{world,Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,mode_configured(Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected},selected),bodies,offers,snapshots,pending})
+    case state: packet(state)
+def configure_unlocks(state: State,+unlockedMask: U32) -> Packet:
   match state:
-    case State{world,Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: emit(State{world,Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(unlockedMask,16777215))),bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
-    case state: emit(state)
+    case State{world,Run{+phase,0,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{phase,0,px,py,hp,maxHp,xp,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(unlockedMask,16777215))),bannedPassives,enemyKinds,relicCollected},bodies,offers,snapshots,pending})
+    case state: packet(state)
 
-def configure_unlocks(state: State,mask: U32) -> Packet: configure_unlocks_with(~packet,state,mask)
 def reroll_seed(seed: U32) -> U32: (seed + 41 : U32)
 def reroll(state: State) -> Packet:
   match state:
@@ -1825,56 +1789,40 @@ def terminal_queue(terminal: Bool,pending: List<&2,U32>) -> List<&2,U32>:
   match terminal:
     case True{}: []
     case False{}: pending
-# Native consumers keep typed state; presentation serializes only the final packet.
-def quiet_packet(state: State) -> Packet: Packet{state,""}
-def attach_pending_with(~emit: State -> Packet,result: Packet,pending: List<&2,U32>) -> Packet:
+# Simulation returns typed state; consumers choose whether to encode an observation.
+def attach_pending(result: Packet,pending: List<&2,U32>) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,offers,snapshots,newPending},_}: emit(State{world,run,bodies,offers,snapshots,terminal_queue(U32.is_le(3,run_phase(run)),pending_join(pending,newPending))})
+    case Packet{State{world,+run,bodies,offers,snapshots,newPending}}: packet(State{world,run,bodies,offers,snapshots,terminal_queue(U32.is_le(3,run_phase(run)),pending_join(pending,newPending))})
     case result: result
 def advance(state: State,dx: F32,dy: F32) -> Packet:
   match state:
-    case State{world,run,bodies,offers,snapshots,+pending}: attach_pending_with(~packet,advance_raw_with(~quiet_packet,State{world,run,bodies,offers,snapshots,[]},dx,dy),pending)
-def advance_quiet(state: State,dx: F32,dy: F32) -> Packet:
-  match state:
-    case State{world,run,bodies,offers,snapshots,+pending}: attach_pending_with(~quiet_packet,advance_raw_with(~quiet_packet,State{world,run,bodies,offers,snapshots,[]},dx,dy),pending)
+    case State{world,run,bodies,offers,snapshots,+pending}: attach_pending(advance_raw(State{world,run,bodies,offers,snapshots,[]},dx,dy),pending)
 def reward_offers(run: Run,chest: Bool) -> List<&2,Offer>:
   match run:
     case Run{_,_,_,_,_,_,_,_,+level,_,_,_,+weapons,+passives,_,+seed,_,_,_,_,_,_,_,_,_,+bannedWeapons,+bannedPassives,_,_}: filter_offers(phase_offers(chest,(seed + level * 13 : U32),weapons,passives),bannedWeapons,bannedPassives)
-def promote_ready_with(~emit: State -> Packet,ready: Bool,world: World(),+run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet:
+def promote_ready(ready: Bool,world: World(),+run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet:
   match ready pending:
-    case True{} +kind <> rest: emit(State{world,with_phase(run,kind),bodies,reward_offers(run,U32.is_eq(kind,2)),snapshots,rest})
-    case _ pending: emit(State{world,run,bodies,offers,snapshots,pending})
-def promote_with(~emit: State -> Packet,result: Packet) -> Packet:
+    case True{} +kind <> rest: packet(State{world,with_phase(run,kind),bodies,reward_offers(run,U32.is_eq(kind,2)),snapshots,rest})
+    case _ pending: packet(State{world,run,bodies,offers,snapshots,pending})
+def promote(result: Packet) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,offers,snapshots,pending},_}: promote_ready_with(~emit,U32.is_eq(run_phase(run),0),world,run,bodies,offers,snapshots,pending)
+    case Packet{State{world,+run,bodies,offers,snapshots,pending}}: promote_ready(U32.is_eq(run_phase(run),0),world,run,bodies,offers,snapshots,pending)
     case result: result
-def promote(result: Packet) -> Packet: promote_with(~packet,result)
 def choose(state: State,choice: U32) -> Packet: promote(choose_raw(state,choice))
 def skip(state: State) -> Packet: promote(skip_raw(state))
 def banish(state: State,choice: U32) -> Packet: promote(banish_raw(state,choice))
-def live_selected_with(~emit: State -> Packet,terminal: Bool,held: Bool,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: World(),+run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet:
+def live_selected(terminal: Bool,held: Bool,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: World(),+run: Run,bodies: List<&2,Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet:
   match terminal held:
-    case True{} _: emit(State{world,run,bodies,[],snapshots,[]})
-    case False{} True{}: emit(State{world,with_phase(run,oldPhase),bodies,oldOffers,snapshots,pending_add(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),pending,run_phase(run))})
-    case False{} False{}: emit(State{world,run,bodies,offers,snapshots,pending})
-def live_result_with(~emit: State -> Packet,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet:
+    case True{} _: packet(State{world,run,bodies,[],snapshots,[]})
+    case False{} True{}: packet(State{world,with_phase(run,oldPhase),bodies,oldOffers,snapshots,pending_add(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),pending,run_phase(run))})
+    case False{} False{}: packet(State{world,run,bodies,offers,snapshots,pending})
+def live_result(+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,+offers,snapshots,newPending},_}: live_selected_with(~emit,Bool.or(U32.is_eq(run_phase(run),3),U32.is_eq(run_phase(run),4)),Bool.or(U32.is_eq(oldPhase,1),U32.is_eq(oldPhase,2)),oldPhase,oldLevel,oldOffers,pending_join(pending,newPending),world,run,bodies,offers,snapshots)
+    case Packet{State{world,+run,bodies,+offers,snapshots,newPending}}: live_selected(Bool.or(U32.is_eq(run_phase(run),3),U32.is_eq(run_phase(run),4)),Bool.or(U32.is_eq(oldPhase,1),U32.is_eq(oldPhase,2)),oldPhase,oldLevel,oldOffers,pending_join(pending,newPending),world,run,bodies,offers,snapshots)
     case result: result
-def advance_live_with(~emit: State -> Packet,state: State,dx: F32,dy: F32) -> Packet:
+def advance_live(state: State,dx: F32,dy: F32) -> Packet:
   match state:
-    case State{world,+run,bodies,+offers,snapshots,pending}: live_result_with(~emit,run_phase(run),run_level(run),offers,pending,advance_raw_with(~quiet_packet,State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),bodies,offers,snapshots,[]},dx,dy))
-
-def advance_live(state: State,dx: F32,dy: F32) -> Packet: advance_live_with(~packet,state,dx,dy)
-def advance_live_quiet(state: State,dx: F32,dy: F32) -> Packet: advance_live_with(~quiet_packet,state,dx,dy)
-
-# Typed consumers omit presentation frames at every initialization/upgrade finish.
-def start_quiet(character: U32,meta: U32) -> Packet: start_with(~quiet_packet,character,meta)
-def start_seed_quiet(character: U32,meta: U32,seed: U32) -> Packet: start_seed_with(~quiet_packet,character,meta,seed)
-def configure_quiet(state: State,stage: U32,arcana: U32) -> Packet: configure_with(~quiet_packet,state,stage,arcana)
-def set_mode_quiet(state: State,mode: U32) -> Packet: set_mode_with(~quiet_packet,state,mode)
-def configure_unlocks_quiet(state: State,mask: U32) -> Packet: configure_unlocks_with(~quiet_packet,state,mask)
-def choose_quiet(state: State,choice: U32) -> Packet: promote_with(~quiet_packet,choose_raw_with(~quiet_packet,state,choice))
+    case State{world,+run,bodies,+offers,snapshots,pending}: live_result(run_phase(run),run_level(run),offers,pending,advance_raw(State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),bodies,offers,snapshots,[]},dx,dy))
 
 def xp_visual_radius(amount: U32) -> F32: LV.radius(amount)
 

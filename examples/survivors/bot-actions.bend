@@ -1,5 +1,6 @@
 import Base
 import game.bend as G
+import game-encoder.bend as Encoder
 import native-economy.bend as P
 import projectile.bend as Shots
 
@@ -82,11 +83,11 @@ def weapon_stats(rows: List<&2,U32>,+id: U32,+passives: List<&2,U32>,+meta: U32,
 def engine_stats(run: G.Run) -> String:
   match run:
     case G.Run{_,_,_,_,hp,maxHp,_,_,_,_,gold,+character,+weapons,+passives,_,_,_,+arcana,+meta,_,_,_,_,_,_,_,_,_,_}:
-      "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ G.nums_json(weapons) ++ "],\"passives\":[" ++ G.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"pickupRadius\":" ++ F32.show(G.pickup_radius(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
+      "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ Encoder.nums_json(weapons) ++ "],\"passives\":[" ++ Encoder.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"pickupRadius\":" ++ F32.show(G.pickup_radius(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
 
 def preview_stats(offer: G.Offer,run: G.Run) -> String: engine_stats(G.upgrade(offer,run))
 def preview_json(+index: U32,+offer: G.Offer,run: G.Run) -> String:
-  "{\"offerIndex\":" ++ U32.show(index) ++ ",\"offer\":" ++ G.offer_json(offer) ++ ",\"after\":" ++ preview_stats(offer,run) ++ "}"
+  "{\"offerIndex\":" ++ U32.show(index) ++ ",\"offer\":" ++ Encoder.offer_json(offer) ++ ",\"after\":" ++ preview_stats(offer,run) ++ "}"
 def preview_rows(offers: List<&2,G.Offer>,+index: U32,+run: G.Run) -> String:
   match offers:
     case []: ""
@@ -95,14 +96,14 @@ def preview_rows(offers: List<&2,G.Offer>,+index: U32,+run: G.Run) -> String:
 def mechanics(+run: G.Run,offers: List<&2,G.Offer>) -> String:
   "{\"source\":\"Bend game functions\",\"notes\":\"Immediate pure upgrade preview; baseHitDamage is not DPS; cooldown is ticks, not a combat rollout.\",\"current\":" ++ engine_stats(run) ++ ",\"offers\":[" ++ preview_rows(offers,0,run) ++ "]}"
 
-def observed_state(state: G.State,frame: String) -> Observed:
+def observed_state(state: G.State) -> Observed:
   match state:
     case G.State{world,+run,+bodies,+offers,snapshots,pending}:
-      Observed{G.State{world,run,bodies,offers,snapshots,pending},frame,catalog(run,bodies),mechanics(run,offers)}
+      Observed{G.State{world,run,bodies,offers,snapshots,pending},Encoder.encode(G.Observation{run,bodies,offers}),catalog(run,bodies),mechanics(run,offers)}
 
 def observed_packet(packet: G.Packet) -> Observed:
   match packet:
-    case G.Packet{state,frame}: observed_state(state,frame)
+    case G.Packet{state}: observed_state(state)
     case G.Failed{error}: ObserveFailed{error}
 
 def observe(state: G.State) -> Observed: observed_packet(G.packet(state))
@@ -119,15 +120,15 @@ def banish(state: G.State,index: U32) -> G.Packet: G.banish(state,index)
 
 def start_unlocks(packet: G.Packet,mask: U32) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure_unlocks(state,mask)
+    case G.Packet{state}: G.configure_unlocks(state,mask)
     case G.Failed{error}: G.Failed{error}
 def start_mode(packet: G.Packet,mode: U32) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.set_mode(state,mode)
+    case G.Packet{state}: G.set_mode(state,mode)
     case G.Failed{error}: G.Failed{error}
 def start_configured(packet: G.Packet,stage: U32,arcana: U32) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure(state,stage,arcana)
+    case G.Packet{state}: G.configure(state,stage,arcana)
     case G.Failed{error}: G.Failed{error}
 # Same fresh profile, stage and mode as the native UI. No profile injection.
 def fresh_start_seed(seed: U32) -> G.Packet:
@@ -139,21 +140,3 @@ def advanced_start_seed(seed: U32) -> G.Packet:
   start_mode(start_configured(G.start_seed(2,364304237,seed),0,9),0)
 
 def advanced_start() -> G.Packet: advanced_start_seed(12345)
-
-# Quiet presets share the presentation presets' exact parameters and operations.
-def start_unlocks_quiet(packet: G.Packet,mask: U32) -> G.Packet:
-  match packet:
-    case G.Packet{state,_}: G.configure_unlocks_quiet(state,mask)
-    case G.Failed{error}: G.Failed{error}
-def start_mode_quiet(packet: G.Packet,mode: U32) -> G.Packet:
-  match packet:
-    case G.Packet{state,_}: G.set_mode_quiet(state,mode)
-    case G.Failed{error}: G.Failed{error}
-def start_configured_quiet(packet: G.Packet,stage: U32,arcana: U32) -> G.Packet:
-  match packet:
-    case G.Packet{state,_}: G.configure_quiet(state,stage,arcana)
-    case G.Failed{error}: G.Failed{error}
-def fresh_start_seed_quiet(seed: U32) -> G.Packet:
-  start_unlocks_quiet(start_mode_quiet(start_configured_quiet(G.start_seed_quiet(0,P.meta(P.fresh()),seed),0,0),0),P.weapon_mask(P.fresh()))
-def advanced_start_seed_quiet(seed: U32) -> G.Packet:
-  start_mode_quiet(start_configured_quiet(G.start_seed_quiet(2,364304237,seed),0,9),0)

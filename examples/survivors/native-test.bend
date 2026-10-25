@@ -22,10 +22,10 @@ def expect(ok: Bool,label: String) -> IO(Unit):
     case False{}: IO.die(Unit,1,"FAIL " ++ label)
 def check(state: N.Native,test: Observation -> Bool,label: String) -> IO(N.Native):
   match state:
-    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending},frame},+u,+p}:
+    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending}},+u,+p}:
       do IO<N.Native>:
         expect(test(Observation{r,u,p}),label)
-        return N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},u,p}
+        return N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},u,p}
     case state: IO.die(N.Native,1,"Engine failure in " ++ label)
 def frames(fuel: Nat,state: N.Native) -> N.Native:
   match fuel:
@@ -39,8 +39,8 @@ def automatic(phase: U32,state: N.Native) -> N.Native:
     case _: state
 def busy_step(state: N.Native) -> N.Native:
   match state:
-    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending},frame},ui,profile}:
-      N.frame(automatic(N.run_phase(r),N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},ui,profile}))
+    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending}},ui,profile}:
+      N.frame(automatic(N.run_phase(r),N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},ui,profile}))
     case state: state
 def busy(fuel: Nat,state: N.Native) -> N.Native:
   match fuel:
@@ -52,17 +52,17 @@ def phase_run(run: G.Run,+newPhase: U32,+newGold: U32) -> G.Run:
     case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,+xp,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{newPhase,tick,px,py,hp,maxHp,xp,need,level,kills,newGold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
 def boundary(state: N.Native,phase: U32,gold: U32) -> N.Native:
   match state:
-    case N.Native{G.Packet{G.State{world,+run,rows,_,snapshots,_},frame},ui,profile}:
-      N.Native{G.Packet{G.State{world,phase_run(run,phase,gold),rows,[G.Offer{0,0,(G.at(N.run_weapons(run),0) + 1 : U32)},G.Offer{1,0,1},G.Offer{0,1,1}],snapshots,[]},frame},N.set_paused(ui,0),profile}
+    case N.Native{G.Packet{G.State{world,+run,rows,_,snapshots,_}},ui,profile}:
+      N.Native{G.Packet{G.State{world,phase_run(run,phase,gold),rows,[G.Offer{0,0,(G.at(N.run_weapons(run),0) + 1 : U32)},G.Offer{1,0,1},G.Offer{0,1,1}],snapshots,[]}},N.set_paused(ui,0),profile}
     case state: state
 def paid_run(run: G.Run) -> G.Run:
   match run:
     case G.Run{+phase,+tick,+px,+py,+hp,+maxHp,_,+need,+level,+kills,+gold,+character,+weapons,+passives,+invuln,+seed,+stage,+arcana,+meta,+revivals,+bosses,+mode,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives,+enemyKinds,+relicCollected}: G.Run{0,tick,px,py,hp,maxHp,need,need,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
 def earned_panel_test(state: N.Native) -> IO(Unit):
   match state:
-    case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},u,p}:
+    case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},u,p}:
       do IO<Unit>:
-        state : N.Native <- check(N.frame(N.Native{G.Packet{G.State{world,paid_run(r),rows,offers,snapshots,pending},frame},u,p}),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),2)),"seeded XP: actual ECS level automatically opens panel")
+        state : N.Native <- check(N.frame(N.Native{G.Packet{G.State{world,paid_run(r),rows,offers,snapshots,pending}},u,p}),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),2)),"seeded XP: actual ECS level automatically opens panel")
         return Unit{}
     case _: IO.die(Unit,1,"Automatic level engine failure")
 def automatic_test(state: N.Native) -> IO(N.Native):
@@ -72,9 +72,9 @@ def automatic_test(state: N.Native) -> IO(N.Native):
     return key(27,state)
 def pending_test(state: N.Native) -> IO(N.Native):
   match state:
-    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending},frame},u,p}:
+    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending}},u,p}:
       do IO<N.Native>:
-        state : N.Native <- check(key(49,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},N.set_screen(u,1),p}),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),N.run_phase(r)),U32.is_eq(G.at(N.run_weapons(run(o)),0),G.at(N.run_weapons(r),0))),"pending upgrade ignores numeric key before opening")
+        state : N.Native <- check(key(49,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},N.set_screen(u,1),p}),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),N.run_phase(r)),U32.is_eq(G.at(N.run_weapons(run(o)),0),G.at(N.run_weapons(r),0))),"pending upgrade ignores numeric key before opening")
         state : N.Native <- check(frames(1n,state),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),N.run_phase(r)),U32.is_eq(N.run_tick(run(o)),(N.run_tick(r) + 1 : U32))),"pending upgrade keeps battlefield ticking")
         state : N.Native <- check(key(101,state),o => U32.is_eq(N.ui_paused(ui(o)),2),"E deliberately opens upgrade panel")
         state : N.Native <- check(frames(2n,state),o => U32.is_eq(N.run_tick(run(o)),(N.run_tick(r) + 1 : U32)),"open upgrade panel freezes battlefield")
@@ -83,21 +83,21 @@ def pending_test(state: N.Native) -> IO(N.Native):
     case state: IO.die(N.Native,1,"Pending upgrade engine failure")
 def queued_test(state: N.Native) -> IO(N.Native):
   match state:
-    case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,_},frame},u,p}:
-      check(key(49,key(101,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,[1]},frame},u,p})),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),2)),"queued next level automatically opens after one choice")
+    case N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,_}},u,p}:
+      check(key(49,key(101,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,[1]}},u,p})),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),1),U32.is_eq(N.ui_paused(ui(o)),2)),"queued next level automatically opens after one choice")
     case state: IO.die(N.Native,1,"Queued upgrade engine failure")
 def choose_test(state: N.Native) -> IO(N.Native):
   match state:
-    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending},frame},ui,profile}:
-      check(key(49,key(101,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},ui,profile})),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),0),U32.is_eq(G.at(N.run_weapons(run(o)),0),(G.at(N.run_weapons(r),0) + 1 : U32))),"fabricated upgrade boundary: key1 increments actual weapon rank")
+    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending}},ui,profile}:
+      check(key(49,key(101,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},ui,profile})),+o => Bool.and(U32.is_eq(N.run_phase(run(o)),0),U32.is_eq(G.at(N.run_weapons(run(o)),0),(G.at(N.run_weapons(r),0) + 1 : U32))),"fabricated upgrade boundary: key1 increments actual weapon rank")
     case state: IO.die(N.Native,1,"Upgrade engine failure")
 def abandon_test(state: N.Native) -> IO(N.Native):
   match state:
-    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending},frame},u,+p}:
+    case N.Native{G.Packet{G.State{world,+r,rows,offers,snapshots,pending}},u,+p}:
       +expected = (P.gold(p) + N.run_gold(r) : U32)
       do IO<N.Native>:
         IO.print("Observed expedition Q bank amount: " ++ U32.show(N.run_gold(r)))
-        state : N.Native <- N.persist(N.settle(key(113,key(27,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending},frame},u,p}))))
+        state : N.Native <- N.persist(N.settle(key(113,key(27,N.Native{G.Packet{G.State{world,r,rows,offers,snapshots,pending}},u,p}))))
         state : N.Native <- check(state,+o => Bool.and(U32.is_eq(N.ui_screen(ui(o)),0),U32.is_eq(P.gold(profile(o)),expected)),"paused Q banks actual expedition gold and returns camp")
         state : N.Native <- N.persist(N.settle(key(113,state)))
         state : N.Native <- check(state,o => U32.is_eq(P.gold(profile(o)),expected),"repeated Q cannot bank expedition twice")

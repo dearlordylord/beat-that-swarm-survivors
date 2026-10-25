@@ -26,17 +26,17 @@ def report(+run: G.Run,stats: Stats) -> IO(Unit):
     case Stats{firstReward,decisions,maxLiving,firstDamage,hitEvents,minHp,_}: IO.print("OBSERVED fresh kiting tick=" ++ U32.show(F.tick(run)) ++ " phase=" ++ U32.show(F.phase(run)) ++ " hp=" ++ U32.show(F.hp(run)) ++ " level=" ++ U32.show(F.level(run)) ++ " kills=" ++ U32.show(F.kills(run)) ++ " firstRewardTick=" ++ U32.show(firstReward) ++ " decisions=" ++ U32.show(decisions) ++ " maxLiving=" ++ U32.show(maxLiving) ++ " firstDamageTick=" ++ U32.show(firstDamage) ++ " hitEvents=" ++ U32.show(hitEvents) ++ " minHp=" ++ U32.show(minHp))
 def loop(fuel: Nat,active: Bool,packet: G.Packet,+stats: Stats) -> IO(Unit):
   match fuel active packet:
-    case 0n _ G.Packet{G.State{_,+run,rows,_,_,_},_}: report(run,measured(stats,run,rows))
-    case _ False{} G.Packet{G.State{_,+run,rows,_,_,_},_}: report(run,measured(stats,run,rows))
-    case 1n+rest True{} G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending},_}:
+    case 0n _ G.Packet{G.State{_,+run,rows,_,_,_}}: report(run,measured(stats,run,rows))
+    case _ False{} G.Packet{G.State{_,+run,rows,_,_,_}}: report(run,measured(stats,run,rows))
+    case 1n+rest True{} G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending}}:
       loop(rest,Bool.and(U32.is_lt(F.tick(run),3599),U32.is_lt(F.phase(run),3)),step(F.phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers),measured(stats,run,rows))
     case _ _ _: IO.die(Unit,1,"Pacing diagnostic packet failure")
 def unlock(packet: G.Packet) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure_unlocks(state,P.weapon_mask(P.fresh()))
+    case G.Packet{state}: G.configure_unlocks(state,P.weapon_mask(P.fresh()))
     case packet: packet
 def configure(packet: G.Packet) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure(state,0,0)
+    case G.Packet{state}: G.configure(state,0,0)
     case packet: packet
 def main() -> IO(Unit): loop(5000n,True{},unlock(configure(G.start(0,P.meta(P.fresh())))),Stats{0,0,0,0,0,4294967295,4294967295})

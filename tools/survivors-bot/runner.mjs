@@ -51,10 +51,8 @@ export async function runBot(Game, {
   if(!Number.isSafeInteger(seed)||seed<0||seed>0xffffffff) throw new Error('Invalid U32 seed');
   const accept = (packet) => {
     if (packet.$ !== 'Packet') throw new Error('Bend simulation rejected a transition');
-    // Each transition already serialized this frame. Consume that Packet once
-    // instead of asking G.packet to serialize the same owned world again.
-    const observed = typeof Game.observed_packet === 'function'
-      ? Game.observed_packet(packet) : Game.observe(packet.state);
+    // Simulation returns typed state; the bot observation boundary encodes it.
+    const observed = Game.observed_packet(packet);
     if (observed.$ !== 'Observed') throw new Error('Bend observation failed');
     if (typeof observed.mechanics !== 'string') throw new Error('Rebuild bot facade: engine mechanics are required');
     const frame = JSON.parse(observed.frame);

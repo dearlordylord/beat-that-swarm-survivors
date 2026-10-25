@@ -166,7 +166,7 @@ def set_lag(ui: Ui,value: U32) -> Ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,value}
 
 def initial_ui() -> Ui: Ui{0,2,0,0,0,0,0,0,0,0,0,0,0,0,0n,0}
-def initial_game(profile: P.Profile) -> G.Packet: G.start_quiet(0,P.meta(profile))
+def initial_game(profile: P.Profile) -> G.Packet: G.start(0,P.meta(profile))
 def select_color(selected: Bool,yes: U32,no: U32) -> U32:
   match selected:
     case True{}: yes
@@ -448,8 +448,8 @@ def scene(+ui: Ui,profile: P.Profile,run: G.Run,rows: List<&2,G.Body>,offers: Li
 
 def view(state: Native) -> Native & Image:
   match state:
-    case Native{G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending},frame},+ui,+profile}:
-      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile},scene(ui,profile,run,rows,offers,snapshots))
+    case Native{G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending}},+ui,+profile}:
+      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},scene(ui,profile,run,rows,offers,snapshots))
     case Native{G.Failed{+error},ui,profile}:
       (Native{G.Failed{error},ui,profile},D.image(D.text("ENGINE ERROR",32.0,32.0,2.0,16348792,D.wrapped(error,32.0,80.0,32.0,480.0,450.0,15196103,[]))))
 
@@ -463,21 +463,21 @@ def scene_fps(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,rows: List<&2,G
     case _: D.image(fps_overlay(ready,value,menu_rows(ui,profile)))
 def view_fps(state: Native,ready: Bool,value: U32) -> Native & Image:
   match state:
-    case Native{G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending},frame},+ui,+profile}:
-      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile},scene_fps(ui_screen(ui),ui,profile,run,rows,offers,snapshots,ready,value))
+    case Native{G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending}},+ui,+profile}:
+      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},scene_fps(ui_screen(ui),ui,profile,run,rows,offers,snapshots,ready,value))
     case state: view(state)
 
 # Packet transformations retain explicit engine failures for the error screen.
 def apply_game(packet: G.Packet,change: G.State -> G.Packet) -> G.Packet:
   match packet:
-    case G.Packet{state,frame}: change(state)
+    case G.Packet{state}: change(state)
     case G.Failed{error}: G.Failed{error}
 def configured(packet: G.Packet,+ui: Ui,+profile: P.Profile) -> G.Packet:
-  apply_game(apply_game(apply_game(packet,state => G.configure_quiet(state,ui_stage(ui),ui_arcana(ui))),state => G.set_mode_quiet(state,ui_mode(ui))),state => G.configure_unlocks_quiet(state,P.weapon_mask(profile)))
+  apply_game(apply_game(apply_game(packet,state => G.configure(state,ui_stage(ui),ui_arcana(ui))),state => G.set_mode(state,ui_mode(ui))),state => G.configure_unlocks(state,P.weapon_mask(profile)))
 def begin(state: Native) -> Native:
   match state:
     case Native{game,+ui,+profile}:
-      Native{configured(G.start_quiet(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),1),0),0),P.begin(profile)}
+      Native{configured(G.start(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),1),0),0),P.begin(profile)}
 
 def active_category(screen: U32,tab: U32,+direction: U32) -> U32:
   match screen:
@@ -566,11 +566,11 @@ def upgrade_key(phase: U32,state: Native) -> Native:
     case p state: state
 def automatic_upgrade(state: Native) -> Native:
   match state:
-    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}: upgrade_key(run_phase(run),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
+    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},ui,profile}: upgrade_key(run_phase(run),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
     case state: state
 def choose_key(allowed: Bool,index: U32,state: Native) -> Native:
   match allowed state:
-    case True{} Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.choose_quiet(s,index)),set_paused(ui,0),profile})
+    case True{} Native{game,ui,profile}: automatic_upgrade(Native{apply_game(game,s => G.choose(s,index)),set_paused(ui,0),profile})
     case False{} state: state
 
 def offer_action(paused: U32,action: U32,state: Native) -> Native:
@@ -593,10 +593,10 @@ def game_key(code: U32,state: Native) -> Native:
     case 109 state: map_key(state)
     case 27 Native{game,+ui,profile}: Native{game,set_keys(set_paused(ui,Bool.to_u32(U32.is_eq(ui_paused(ui),0))),0),profile}
     case 32 Native{game,+ui,profile}: Native{game,set_keys(set_paused(ui,Bool.to_u32(U32.is_eq(ui_paused(ui),0))),0),profile}
-    case 49 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),0,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
-    case 50 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),1,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
-    case 51 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),2,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
-    case 101 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}: upgrade_key(run_phase(run),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
+    case 49 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),0,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
+    case 50 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),1,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
+    case 51 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}: choose_key(U32.is_eq(ui_paused(ui),2),2,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
+    case 101 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},ui,profile}: upgrade_key(run_phase(run),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
     case 118 Native{game,+ui,profile}: Native{game,set_frames(ui,((ui_frames(ui) + 1) % 2 : U32)),profile}
     case 114 Native{game,+ui,profile}: offer_action(ui_paused(ui),0,Native{game,ui,profile})
     case 107 Native{game,+ui,profile}: offer_action(ui_paused(ui),1,Native{game,ui,profile})
@@ -613,9 +613,9 @@ def abandoned_run(run: G.Run) -> G.Run:
     case G.Run{phase,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}: G.Run{3,tick,px,py,hp,maxHp,xp,xpNeed,level,kills,gold,character,weapons,passives,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,enemyKinds,relicCollected}
 def abandon(paused: U32,state: Native) -> Native:
   match paused state:
-    case 1 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}:
+    case 1 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},ui,profile}:
       +terminal = abandoned_run(run)
-      Native{G.Packet{G.State{world,terminal,rows,offers,snapshots,pending},frame},set_dirty(set_recorded(set_keys(set_paused(set_screen(set_tab(set_selected(set_page(ui,0),0),2),0),0),0),1),1),ProfileIO.record(profile,terminal)}
+      Native{G.Packet{G.State{world,terminal,rows,offers,snapshots,pending}},set_dirty(set_recorded(set_keys(set_paused(set_screen(set_tab(set_selected(set_page(ui,0),0),2),0),0),0),1),1),ProfileIO.record(profile,terminal)}
     case p state: state
 
 def command_play(code: U32,+ui: Ui,run: G.Run,state: Native) -> Native:
@@ -625,8 +625,8 @@ def command_play(code: U32,+ui: Ui,run: G.Run,state: Native) -> Native:
     case _: game_key(code,state)
 def command(screen: U32,code: U32,state: Native) -> Native:
   match screen state:
-    case 1 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,+profile}:
-      command_play(code,ui,run,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
+    case 1 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,+profile}:
+      command_play(code,ui,run,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
     case 1 state: state
     case _ state: menu_key(code,state)
 def key_pressed(down: Bool,code: U32,state: Native) -> Native:
@@ -644,8 +644,8 @@ def clicked_offer(valid: Bool,+y: U32,state: Native) -> Native:
     case True{} state: choose_key(True{},U32.min(2,(U32.sub(y,U32.min(y,116)) / 58 : U32)),state)
 def clicked_play(+x: U32,+y: U32,state: Native) -> Native:
   match state:
-    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}:
-      clicked_offer(Bool.and(U32.is_eq(ui_paused(ui),2),Bool.and(Bool.and(U32.is_le(42,x),U32.is_lt(x,470)),Bool.and(U32.is_le(116,y),U32.is_lt(y,286)))),y,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
+    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}:
+      clicked_offer(Bool.and(U32.is_eq(ui_paused(ui),2),Bool.and(Bool.and(U32.is_le(42,x),U32.is_lt(x,470)),Bool.and(U32.is_le(116,y),U32.is_lt(y,286)))),y,Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
     case state: state
 def clicked_menu(in_cards: Bool,+y: U32,state: Native) -> Native:
   match in_cards state:
@@ -679,7 +679,7 @@ def new_reward(previousPhase: U32,state: Native) -> Native:
     case _: state
 def simulate(active: Bool,state: Native) -> Native:
   match active state:
-    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},s => G.advance_live_quiet(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile})
+    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}: new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,rows,offers,snapshots,pending}},s => G.advance_live(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile})
     case _ state: state
 
 def frame(state: Native) -> Native:
@@ -688,12 +688,12 @@ def frame(state: Native) -> Native:
 def settled(terminal: Bool,state: Native) -> Native:
   match terminal state:
     case False{} state: state
-    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}: Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},set_dirty(set_recorded(ui,1),1),ProfileIO.record(profile,run)}
+    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},ui,profile}: Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},set_dirty(set_recorded(ui,1),1),ProfileIO.record(profile,run)}
     case True{} state: state
 
 def settle(state: Native) -> Native:
   match state:
-    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}: settled(Bool.and(U32.is_eq(ui_recorded(ui),0),U32.is_le(3,run_phase(run))),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile})
+    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}: settled(Bool.and(U32.is_eq(ui_recorded(ui),0),U32.is_le(3,run_phase(run))),Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile})
     case state: state
 
 def save_dirty(dirty: U32,state: Native) -> IO(Native):
@@ -773,8 +773,8 @@ def session_view(state: Session) -> Session & Image:
 
 def metrics(state: Native) -> Native & (U32 & U32 & U32 & U32):
   match state:
-    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},+ui,profile}:
-      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile},(run_kills(run),run_level(run),run_hp(run),ui_frames(ui)))
+    case Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},+ui,profile}:
+      (Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},(run_kills(run),run_level(run),run_hp(run),ui_frames(ui)))
     case Native{G.Failed{error},ui,profile}: (Native{G.Failed{error},ui,profile},(0,0,0,0))
 def sound_cue(muted: U32,damaged: Bool,levelled: Bool,killed: Bool) -> U32:
   match muted damaged levelled killed:
@@ -793,10 +793,10 @@ def music_observation(due: Bool,+run: G.Run,rows: List<&2,G.Body>,cached: U32) -
     case False{}: cached
 def session_sound(+now: Nat,audio: Maybe<Audio>,+music: Sound.Track,kills: U32,level: U32,health: U32,fps: Fps,cue: U32,native: Native) -> IO(Maybe<Session>):
   match native:
-    case Native{G.Packet{G.State{world,+run,+rows,offers,snapshots,pending},frame},+ui,profile}:
+    case Native{G.Packet{G.State{world,+run,+rows,offers,snapshots,pending}},+ui,profile}:
       +active = Bool.and(U32.is_eq(ui_screen(ui),1),Bool.and(U32.is_eq(ui_paused(ui),0),Bool.and(U32.is_eq(ui_frames(ui),0),U32.is_le(run_phase(run),2))))
       +track = Sound.reset_if(Bool.or(Bool.not(U32.is_eq(ui_screen(ui),1)),U32.is_eq(run_tick(run),0)),music)
-      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},ui,profile},kills,level,health,fps))
+      IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,active,run_stage(run),music_observation(Bool.and(active,Sound.observation_due(now,track)),run,rows,Sound.cached_raw(track)),track),(cue * Bool.to_u32(Bool.and(U32.is_eq(ui_screen(ui),1),U32.is_lt(0,run_tick(run)))) : U32)),session_with_audio(Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},ui,profile},kills,level,health,fps))
     case native: IO.bind(Maybe<Audio> & Sound.Track,Maybe<Session>,Sound.dispatch(audio,Sound.transport_at(now,False{},0,0,Sound.initial()),0),session_with_audio(native,kills,level,health,fps))
 def session_metrics(now: Nat,audio: Maybe<Audio>,music: Sound.Track,oldKills: U32,oldLevel: U32,oldHealth: U32,fps: Fps,result: Native & (U32 & U32 & U32 & U32)) -> IO(Maybe<Session>):
   (native,(+kills,+level,+health,muted)) = result

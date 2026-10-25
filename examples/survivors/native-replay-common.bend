@@ -40,7 +40,7 @@ def choose_valid(valid: Bool,state: G.State,choice: U32) -> G.Packet:
 def apply_checked(valid: Bool,action: F.Action,state: G.State,offers: List<&2,G.Offer>) -> G.Packet:
   match valid action:
     case False{} _: G.Failed{"Replay action tick/phase differs from actual game state"}
-    case True{} F.ReplayMove{_,_,dx,dy}: G.advance_quiet(state,F.from_bits(dx),F.from_bits(dy))
+    case True{} F.ReplayMove{_,_,dx,dy}: G.advance(state,F.from_bits(dx),F.from_bits(dy))
     case True{} F.ReplayUpgrade{_,_,+choice}: choose_valid(Nat.is_lt(U32.to_nat(choice),List.length(&2,G.Offer,offers)),state,choice)
 def apply(+action: F.Action,state: G.State) -> G.Packet:
   match state:
