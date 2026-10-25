@@ -5,6 +5,7 @@ import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
 import projectile-state.bend as Shot
 import run-state.bend as RS
+import enemy-effects.bend as Effect
 import Base
 import game-components.bend as Components
 import game.bend as G
@@ -32,7 +33,7 @@ def batch_reachable(states: List<&2,Pickup.State>) -> Bool:
 def run() -> G.Run:
   G.Run{RS.Session{0,1,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{1000.0,1000.0,100,100,0,[],[],0,0,0,0,3,3,3,0,0}}
 def enemy(x:F32,seed:U32) -> G.Snapshot:
-  G.EnemySnapshot{Enemy.State{Space.Spatial{x,1000.0,0,6.0},17,seed,Components.Vitals{100,100},Components.Status{0,0}}}
+  G.EnemySnapshot{Enemy.State{Space.Spatial{x,1000.0,0,6.0},17,seed,Components.Vitals{100,100},Components.Status{Effect.Slow{0,False{}},Effect.Burn{0,None{}}}}}
 def shot() -> G.Snapshot:
   G.ProjectileSnapshot{Shot.State{Space.Spatial{1000.0,1000.0,0,1.0},PL.player_start(),Shot.PlayerShot{},Components.ShotPayload{1,10,True{}},Components.Trajectory{100.0,0.0,10,1,[],0,0,Some{0}}}}
 def team(rows:List<&2,G.Snapshot>) -> G.Team:

@@ -1,7 +1,10 @@
 import enemy-spawn.bend as EnemySpawn
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
-# Execute the runner's actual counter on real Game.Body values, natively.
+# Execute the runner's actual counter on typed actor snapshots, natively.
+import enemy-effects.bend as Effect
+import projectile-state.bend as Shot
+import pickup-state.bend as Pickup
 import Base
 import game-components.bend as Components
 import game.bend as G
@@ -15,8 +18,11 @@ def pair_matches(expectedOrdinary:U32,expectedBoss:U32,pair:U32 & U32) -> Bool:
   Bool.and(U32.is_eq(ordinary,expectedOrdinary),U32.is_eq(boss,expectedBoss))
 def metric_snapshot(kind: U32,variant: U32,+hp: U32) -> G.Snapshot:
   match kind:
-    case 0: G.EnemySnapshot{Enemy.State{Space.Spatial{0.0,0.0,0,1.0},variant,1,Components.Vitals{hp,hp},Components.Status{0,0}}}
-    case _: G.Snapshot{Components.Body{0.0,0.0,kind,variant,hp,hp,0,1,1.0},G.empty_motion()}
+    case 0: G.EnemySnapshot{Enemy.State{Space.Spatial{0.0,0.0,0,1.0},variant,1,Components.Vitals{hp,hp},Components.Status{Effect.Slow{0,False{}},Effect.Burn{0,None{}}}}}
+    case 2: G.PickupSnapshot{Pickup.State{Space.Spatial{0.0,0.0,0,1.0},Pickup.Payload{Pickup.Xp{hp,False{}},0,True{}},1}}
+    case 8: G.EnemySnapshot{Enemy.State{Space.Spatial{0.0,0.0,0,1.0},variant,1,Components.Vitals{0,hp},Components.Status{Effect.Slow{0,False{}},Effect.Burn{0,None{}}}}}
+    case 7: G.ProjectileSnapshot{Shot.dormant(0.0,0.0,1,Shot.HostileShot{})}
+    case _: G.ProjectileSnapshot{Shot.dormant(0.0,0.0,1,Shot.PlayerShot{})}
 def case_matches(value:MetricCase) -> Bool:
   match value:
     case MetricCase{kind,variant,+hp,ordinary,boss}: pair_matches(ordinary,boss,Batch.population_go([metric_snapshot(kind,variant,hp)],0,0))
