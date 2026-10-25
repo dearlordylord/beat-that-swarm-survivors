@@ -1,0 +1,1001 @@
+{
+  "status": "complete",
+  "objective": "Replace JavaScript checks of Bend business logic and sample-only Bend programs with meaningful law-driven reliability contracts, remove test-only runtime paths, and enforce proof plus semantic-mutation gates.",
+  "branch": "survivors-proved-core",
+  "base": {
+    "branch": "master",
+    "commit": "11c0a2b6b6a7efc06e815bf38d6802cf8b7c1ceb"
+  },
+  "validatedSnapshot": {
+    "kind": "dirty working-tree snapshot before final commit",
+    "sourceFingerprintSha256": "00a18d4d5ba6a4f950526924a47e169b4173381bc5619290e49b24f18fad6611",
+    "sourceFiles": {
+      ".github/workflows/check.yml": "1a4d47d2a07a007d7dfb7d19d4cacf8409b6af983fbd10858609ca35c0a57dfc",
+      ".gitmodules": "1e3502ee446a4b6003a8abdd1852c15c0a670a19c770a7d8d0680ab3ece623c0",
+      "bendhub-dependencies.json": "a4746d8f8047dfb40f71545908f0df9d1b19bc33adb9e29eaa12b6998529d27a",
+      "examples/survivors/.gitignore": "fe56da5f27d174b011ca65d2c1c9be83ca19ce1428e1594f8ed3ca037e8814ed",
+      "examples/survivors/BALANCE.md": "b26c647500e425e9ab1eb5aedebcabea7ce68e73ba97b4a93689483d1d6bc270",
+      "examples/survivors/COOP.md": "e028ab2a3f7923cf23b9c19dc6f53b3f47d514d9a17cd4e47fd5e65e622a94e7",
+      "examples/survivors/GAME_SPEC.md": "aa25ea4f95cb3739ad2ad9a65e53e37b7e6aad00cfd33bd577ec61158f5f8c88",
+      "examples/survivors/README.md": "644758e991eda51e6fcf9336dc82d6f10341984a82d1fb4863edd5c6af6f1a8e",
+      "examples/survivors/REFERENCE_SCOPE.md": "1a78eaf2faec48d6c2c235fe93ee895ca3c1fbdde057f72f92f4eb89d6f40ba4",
+      "examples/survivors/VALIDATION.md": "be3236f2da65f0fe7c6f8b156583562432c6bb2bcf7dd8bb8e1828e27f2d98fc",
+      "examples/survivors/arena.bend": "a1b2c6860655f79aad69bf0e2b8a4e3998a483b652e0ce6c379e8d2424a20600",
+      "examples/survivors/audio.mjs": "6196eeb0845986068316c2ffabd940fb7eadc27fa076d0d6f2dcd595b86b66d0",
+      "examples/survivors/audio.test.mjs": "e63c519b9a8b644671f1a36ee55c6aefcfeecf646119179622f1ca24f067edd2",
+      "examples/survivors/body-index.bend": "bef8f6a1ca81ff9815742ed111b60eef243403bf9b6963436eff71bd6ac1fdca",
+      "examples/survivors/body-index/LAWS.bend": "2673c3ba67606e65d25a66bd49c104032b295ead45e58a9fdeec4da9a786f3c9",
+      "examples/survivors/body-index/PROOF.bend": "eb3fa8b6dccb287362ba4cf5337f658cdb6b874194ac037d0f64fff0f4930ac9",
+      "examples/survivors/body-index/SPEC.bend": "29a38f46db0ac78b77e4a121b4cdd8211237c54eb1ec1f182d6ff9406693778b",
+      "examples/survivors/bot-actions.bend": "e5a09e1aff49da2d2d6e27a525fdcecad35c6028f5cf2306c65f7366e60eb1bc",
+      "examples/survivors/browser-smoke.mjs": "1154ba445350407052b6b94eac147c23f6a8c419bdfb89bf8dc6cab2166c3f1b",
+      "examples/survivors/browser.mjs": "f49ea91c404bbc7087ace7fdc7941da02ba31d8ef133133d24318f295d52df81",
+      "examples/survivors/build-web.sh": "b707eaff6e1f0d6b7b806b5d157deb3ba42f8cbc9f6113de42186a89700481c5",
+      "examples/survivors/build.sh": "919499a648ea52c1c36092fb1d9772726310818630da8e1882bce7ce20dd7e45",
+      "examples/survivors/capability-controls.test.py": "26dbcc10139c6594a898140a2188db3e7aa3af699c817fd8e9d5247b25f5aa30",
+      "examples/survivors/check-browser.sh": "81cd61c3a39ebe723daadede9a53e219a573cb3de0b223029d471b95347fc81f",
+      "examples/survivors/check-native-full.sh": "2eec0e6fe0e6c10ae678333c32ca88bb5b483c50b56f09374ae6a7d1cbddbd5b",
+      "examples/survivors/check-native-pacing.sh": "86d9b25b9e51e8cf08b02141431ad5372c039d86ee590089f0598d560cffb4e8",
+      "examples/survivors/check-native.sh": "bd14e02b29b5a290c0a97c5be89c5c4c8cbe6e07637143b4e07edc30658b7fd2",
+      "examples/survivors/check.sh": "6525ab6349015dbf82fcba9f838c83268fd121a7e842adb30dcf7c498e54a8a5",
+      "examples/survivors/combat-policy.bend": "42fba8aab719bdaf3bfc0622ceb61fd279a7b4c7c9b892e7b57ef76a863ec4cf",
+      "examples/survivors/combat-policy/LAWS.bend": "270be89bf99d8f532f6dd51fc04d3a351182a60118bad9f6b33d5ae94996d3eb",
+      "examples/survivors/combat-policy/PROOF.bend": "a0ad55bfdb9898e7e7e55fcde4866d711175e07813f2dce96a322949e1ae5b47",
+      "examples/survivors/content.mjs": "1379367f4638685c0351f895cdf91b5b927cfbfabbb08632dbccc89d74d9f1df",
+      "examples/survivors/coop-browser-smoke.mjs": "1693f8c8620496634181b13328ee2c1ac100877ea0a817031fea8c82e3240cb6",
+      "examples/survivors/coop-browser.mjs": "8ecd71a39dcae9e3c28ca27c3ea3ef1b3a23d4cf22cc6b3217ed451e88cda34d",
+      "examples/survivors/coop-core.bend": "0300e88bdc79eec1a672341feebcc0115d6cf34074fa17ddd07347e36d07a036",
+      "examples/survivors/coop-game-LAWS.bend": "d22cf2f3809f566c3ae9b71c3c85f512337cee714128b13808072e241a2e1ada",
+      "examples/survivors/coop-game-PROOF.bend": "ba3f11710e1baaed61b5f4bad3f618b527f983bc864f49826b1e7250beac8a49",
+      "examples/survivors/coop-orchestration.test.mjs": "32df6957eddd6bfb47e9aeb8241ffbe3d307badd7c6dcfb655c16b07fb9455b7",
+      "examples/survivors/coop-presentation.mjs": "d9c1b54e28922b56351290b02cfe89f2eb106faebaae3504663bb6fd3179088e",
+      "examples/survivors/coop-presentation.test.mjs": "572828b802553d8156917f5f4ae5b4b2b7686220aa0e75945c75e160b49e05ee",
+      "examples/survivors/coop-profile.test.mjs": "cf429714f32313264781b177b76a9c3e44210efbdd25660c81d0c4807dad87fa",
+      "examples/survivors/coop-protocol-LAWS.bend": "afd14b8b53316f5d1ea1ef6cdd2cd496f6f5e26e9e8fd4e62093a3407919a84a",
+      "examples/survivors/coop-protocol-PROOF.bend": "a375b47bcbb2d79cad67ff1dd8635a477d15ec229b53a633f1e7a1d3da3a365b",
+      "examples/survivors/coop-protocol.bend": "b7f28cbf4458a21585b776d9fa996cf8c230bd45e91e97389e98e0ffb658f0aa",
+      "examples/survivors/coop-reward-policy-LAWS.bend": "f814c7bff0abc7a5ae2e5a057a8cab92def5f2931c8a66515394c2b9fa6a12fe",
+      "examples/survivors/coop-reward-policy-PROOF.bend": "168c9867b7560bc0f9f9aba609f461a4e83fee66ee87593233cdea155e060580",
+      "examples/survivors/coop-reward-policy.bend": "0d23abdfe61e8da4082e4d7a64d54a90b2ee0d7f16894e2302d385d45ca06ba8",
+      "examples/survivors/coop-session-LAWS.bend": "7a1d0d6cbd0af44d21c3c243a803b3822457fcd0d2bd94f08a0d3c4957331d82",
+      "examples/survivors/coop-session-PROOF.bend": "66827b624fe072a7b84f9117cedc6b9a30f670e29e7c22e3fd05ee862692cb34",
+      "examples/survivors/coop-session-README.md": "ae66ba4eb525115bebfaa8b21bcad2a8021659476e42996d3bea7092f859e2ba",
+      "examples/survivors/coop-session.bend": "a9266e7dcafc922112f87383df11f4e336470b874038335a4708ebbcb94ed731",
+      "examples/survivors/coop-transport.mjs": "4033ea3cd185a60f4efd54a6de0ae9d3c30cc4689f08a3b464c84f788e370bbe",
+      "examples/survivors/coop-transport.test.mjs": "13b39025f08e01c9f4ac7d610943373f34cb5a209b0fda3d8b44828400dd0924",
+      "examples/survivors/coop-ui.mjs": "e60c59ad9065af515434f7ac6ad512f9618b60902147fd064a461497c6e3f029",
+      "examples/survivors/coop-worker.mjs": "4eed7be9d44d5f7352d124a5b6f68ad76757c0eaa1c924e8b3f0874fb56cc801",
+      "examples/survivors/coop.css": "1d0bcaed8bbaad31590d080b8f02bd9a59e5736f953fb6d418f9fb978cec87ab",
+      "examples/survivors/coop.html": "b94555179d734e3091676875ed60cc79f896d6c559a42c59cfd5d1f999f2d6e5",
+      "examples/survivors/encounters.bend": "f84041fb053d4658adf32c76e6a9e5e21d1f155ed602f0b57629a56a15cb9200",
+      "examples/survivors/entity-role.bend": "aebf2b7facca71049bef15fade307666b79698b238285fe2836a65de97b6b614",
+      "examples/survivors/entity-role/LAWS.bend": "ee0871bc9990a3e49312e4cf62fc2674274503b59bbab669f998404b55bfc281",
+      "examples/survivors/entity-role/PROOF.bend": "e056a18e4ec17416e00ac6012cf87aff9d4ef31ad4e2be910125436c6908d562",
+      "examples/survivors/expedition-menu.mjs": "91b652decf8ee2bccf399fc4c01a4566a87d906675842c04da0c4c5cc5c0fc7e",
+      "examples/survivors/favicon.svg": "101ac747549b58be7f734906159080690f9036cc0d1d1a2115dae474c0fb309c",
+      "examples/survivors/game.bend": "ebdea4ccdc8cbc865f8692e8e900946669f86f82db31c943f4594f03105872b4",
+      "examples/survivors/generate-menu-content.mjs": "5dcc3a0d374b738561d1abfdc52f5e35ed33cb1eb6b3b8bae40be26390f0799c",
+      "examples/survivors/index.html": "b2fc9c595aa64e6548ef474208b9d50c7be323e856733361d15286e141e679a6",
+      "examples/survivors/launch.mjs": "b1bbe2e729ce9c3cd7cec01d6d100be5198723035872f539f95b237c8d34d9e7",
+      "examples/survivors/launcher.test.mjs": "4cd2e4ba77be1758ffe4fa250b59950607c19c2ba3b685e831eb87cfd4dbd865",
+      "examples/survivors/loot-visual.bend": "d28fdd2a3b60ce28682dd6925c3447cb1eab349ea037c9c1d6b91d7855ea9cf1",
+      "examples/survivors/loot-visual/LAWS.bend": "d6af9bbaefd08ffb3209791dff48150d4665f93ef3b4c0c7c7f0481d36d25d3d",
+      "examples/survivors/loot-visual/PROOF.bend": "4296c67bd229f08ae53c5ce2b361e42b38c9d579a2722affa8c2c8d47a553b65",
+      "examples/survivors/menu-a.css": "3d21b06fbe817175e4be08dba63cafda90d794b5bc148a440273c8aecd29479c",
+      "examples/survivors/menu-catalog.bend": "2fcd899849f0e94863949943841c06e26d4f0762bd8f9c10e4928292c4fef9c9",
+      "examples/survivors/menu-controls.mjs": "ddfc032e0e72ef5ce67c7cbe1bdada5155e895abf27007e65ed44b9ad43e8226",
+      "examples/survivors/menu-moon.css": "801042c3c5108e4ebe289938c94815916d0bb96f16c30fd7d6b782a4ac57ba8d",
+      "examples/survivors/menu-progression.bend": "30748eb4097134f0858d6881196efac5706b584654845d90dab0afe15bb32418",
+      "examples/survivors/menu-progression/LAWS.bend": "240a74d92ffb802e131c56e5d6235c5bf4ebc282264348bb76a6ef94cc9cea07",
+      "examples/survivors/menu-progression/PROOF.bend": "87975938c7a9bfbee5f0bad9b70a3af958d6532f0bee07da863b1318e6c8f9ea",
+      "examples/survivors/menu-progression/README.md": "3c200fe714004fe1dda52c2ae9ee5377e857821f90e22e040309e5ba952224ba",
+      "examples/survivors/movement-membership.bend": "5bd248d44e3295ac1e63b94d97bd0d4fe1abb45e6e2fae0f100eab86bccfe31c",
+      "examples/survivors/movement-selection/LAWS.bend": "22f36d7b4a339316830e4a2ada3c60c98589919ed65c5449023d2ff7f3f58fba",
+      "examples/survivors/movement-selection/PROOF.bend": "93535dbf42e278e4d7c3d2372354b64bf53bb4f35548e90006e4d14bc51c3d8d",
+      "examples/survivors/music.bend": "00ca1c2bcfc498b8ffda160e099439c11d7f9c3a3b4fded3881e91e4a5a2e6df",
+      "examples/survivors/music/LAWS.bend": "dd80ef32338ca6613cdebda85423b5b725ed4fd76263cf04a89ae94a2a7f9bb7",
+      "examples/survivors/music/PROOF.bend": "7e6b7cfef3946cb6c3477acff7d4c26fec1f4167c68be8a6c4b584d58175272f",
+      "examples/survivors/music/README.md": "09106d35b9a441214b89d775b26c396114b91efe812327e441024146ddd29f6d",
+      "examples/survivors/native-audio-bench.bend": "312b01f0ca31c4b59ef53d964e6dc07cb95d7aa9d15e3f14a99ab1c27cef1441",
+      "examples/survivors/native-audio/LAWS.bend": "4eeadb2391a7f78767e1be6f10afd2b6ef642913cdb312524767d7cf2b219432",
+      "examples/survivors/native-audio/PROOF.bend": "1ce591e6d469cc3c27d1bd3654327e3e0f23f4e2d8a8bcde681456aee94203a4",
+      "examples/survivors/native-bot.bend": "6b5abe8fd1c64329115cbb7f5f3cdd17f10b875d64ed048cb2d85e637898994f",
+      "examples/survivors/native-capture.bend": "08850f3622971a63628cb9bfd5227b26e4d963c6c6ad68d166f3e9ab9bf7026c",
+      "examples/survivors/native-content-policy.bend": "0cfd9a9d5cab04ae57fa0405c96a39b4fe25528aa1e72d7d7f67070e27d65f6e",
+      "examples/survivors/native-content.bend": "8f38f6cb6655ba4740f5879ead1ec86f198173543a1fe0aab5c442349b269f72",
+      "examples/survivors/native-economy.bend": "1f1230ab52497e4d78f36428bded321c7efe5f90c3ea26baf088d507a1087441",
+      "examples/survivors/native-economy/LAWS.bend": "ef3ed4a760bfe4e4bded3137a7bac97f5ef26b8e7c26f3b3482ee4aeb2edda99",
+      "examples/survivors/native-economy/PROOF.bend": "2ceda9716d3a398d99c9562e7ab5576c50d5d54f567ebfa392f866dab605e4a3",
+      "examples/survivors/native-full-run.bend": "60ad6da8e10d856d0f203ca246517fc96501c5cdf1a3591a21a2dbfac6e7925c",
+      "examples/survivors/native-healthbars-test.bend": "635ac5cae6c8beb9f60f090fb5d7387c461bfcc3f228162ea3278341639db6b8",
+      "examples/survivors/native-launcher.test.sh": "9d8c1740b12e9e5c6f962bea2138dc341f50b54df0546bd00e9cef9e39372ffd",
+      "examples/survivors/native-loot-test.bend": "a6a410697a807bc16d9745a083700cc0557cf1eceb28415f78f3982436a18df6",
+      "examples/survivors/native-pacing-run.bend": "9199231fd0d9d31a9887350b0f9a173aee8f30839e66cb8b180bfe19f0a79a6b",
+      "examples/survivors/native-profile-codec.bend": "660bc6d18b17b65004d1e3823da2778f2d65f878ebcfe99d003ca84232ae8f86",
+      "examples/survivors/native-profile-io-check.bend": "5a0c2f8c2dfcfe8a240dbb7a6351fcbe065093c57847a7dfe3092f863f60d691",
+      "examples/survivors/native-profile.bend": "e0609f3f799a6be884852900f48b86788b7951ee24191e28c614cf7176c59efc",
+      "examples/survivors/native-record.bend": "bd6a844479a7bb838a3a063cca0275fe7ffdb0d86736a1068909079f4c947432",
+      "examples/survivors/native-record/LAWS.bend": "83a8201d135e810831bf8266b0698cacf42e412db2c0026c78eae7681c494a9b",
+      "examples/survivors/native-record/PROOF.bend": "312bc14e0d3a09ba2d22f1c0e5b8e7221a68ff3f3c0638fa6b0be4ea602e7170",
+      "examples/survivors/native-replay-common.bend": "b22dd2e7de8e4b85a8a210d3a22baaeb86ed6bce1e5e08b525d6a0f94d9a5825",
+      "examples/survivors/native-replay-format.bend": "0ee216f7e3bb59db81eafd905ca22c99d1cac30831c2c847ee52948db4c55e50",
+      "examples/survivors/native-replay-laws.bend": "0fb032fe84662167175e8da43d4bf4219e2f8e3ceb30e1094861c31d86dc800c",
+      "examples/survivors/native-replay-observe.bend": "f7252bd7cf4f7ba3303e79d2fb6ca99104d5bce7427731835cfcdecb6817019c",
+      "examples/survivors/native-replay-proof.bend": "2f9abcd410b9847b3f258821883a6324624962d1ea7b6f0e433db2322877e976",
+      "examples/survivors/native-replay-record.bend": "e6b490d3102b93cce29e473452f3bdc0588887d7b18f27f4ee4a53d730100250",
+      "examples/survivors/native-replay.bend": "65b37740a0fdab9db18ab5a2b7ece70421981f15e968a5616d7c0d173edf2ae4",
+      "examples/survivors/native-test.bend": "ebede2e31cd1bc7c53e5cb27cc8d79b79941285abe6b559ba04f9b5a30e5f156",
+      "examples/survivors/native-window-smoke.sh": "ee82ad81fde2ee8d80c6d36084689d2e1ee7bb2493ff2591e644389d81ed7a90",
+      "examples/survivors/native.bend": "29fb090fe2147d89a7b48e120c1fad80f1589dbbadbf6f716574e3abe494f927",
+      "examples/survivors/native_art.bend": "2d2cf999a5663c54b144db0c84b3fe97867b85e18f3727f4d6876e59ec994471",
+      "examples/survivors/native_audio.bend": "74bd5c0fbd0a625a5192d15ee6a857b3cccbf05d620837cc787bc20dae827419",
+      "examples/survivors/native_draw.bend": "3aa2dfc65751b5542d76f73d4d1c0df49291204b096f29a9d57fe13c56001c9e",
+      "examples/survivors/offline-batch.bend": "38910d3dfc87b427234087e0ebdfc4d1721a4e74dd272740be5b143be02bbcdb",
+      "examples/survivors/offline-gpu.bend": "dd98dc3a6f7fe120090f2a5d1410a5233bf04a79abf14e37fb50eb83b0289272",
+      "examples/survivors/offline-parallel.bend": "8617c8454a5969467c61f03f9c7c6e39f46b2225c9845ddafaa320e4a2926c07",
+      "examples/survivors/offline-policy.bend": "85be197a2ba0a5f74e10e669684dc08bb6d0300cfb22e68af838c015f73b4dae",
+      "examples/survivors/offline-policy/LAWS.bend": "57c2f0f4e6b67328463e9921357e83d2d6c96414f0306bea5dfed011301fbaf3",
+      "examples/survivors/offline-policy/PROOF.bend": "9111d0e59a61e3c1bfdfd461a1a049216450e1a16d0f7fefb92c4ff7f02ae5e8",
+      "examples/survivors/offline-policy/primitives.bend": "8bd3a8cc9d7e1a33d25a2178255658330e2b039eaa4b593f04b22f2b48d884c9",
+      "examples/survivors/offline-policy/risk-grid.bend": "b9a8437dd6c00b916a1751425645f10c5844b01f9f11404760e9bcd29b693e95",
+      "examples/survivors/parallel/LAWS.bend": "26aa8ab5cec31c8e358c1f06e5dca422fc465a2fbfbc06ff79ac0365013df122",
+      "examples/survivors/parallel/PROOF.bend": "e5c939603826505be7bc15dc7b8c590e2f6d454ebdbe06bc7cc17cd743c6e9e6",
+      "examples/survivors/parallel/README.md": "34723528847ebc7880b6f0607523571656f3e9d25b3fc7506e8a1597074dded2",
+      "examples/survivors/parallel/scheduler.bend": "2ab5ea0e9cc251b451023e6e59628500e5ea9f2ba8710154e021e75d4d4475f2",
+      "examples/survivors/persistent-xp.bend": "7c721cf9f7a2c6872df70056f204c1782440462236f003e85871bf56c7612a2d",
+      "examples/survivors/persistent-xp/LAWS.bend": "19d31d8494fa1005d73c88c71c1cec66ee39120fab3911d28fe58fe9680156ad",
+      "examples/survivors/persistent-xp/PROOF.bend": "5abddb36b69bde13a51575d4fca51aa33fd5c053c3106b7d9f724c6f94478acf",
+      "examples/survivors/pickup-policy.bend": "ae75dddb2c399fa3998188abe937b99a0009316f7c50166c4bb05abf5a683c78",
+      "examples/survivors/pickup-selection-LAWS.bend": "ca65fbced35aad8e0ad8135a768dc9bf6e7c7af8ee1cc05b2b5ca40760f3771c",
+      "examples/survivors/pickup-selection-PROOF.bend": "52e2a9ea1f2dbbb6fa1d582728fe18e893f116e94b8692ac43a92d2d34fb1873",
+      "examples/survivors/pools.bend": "3b6e36891fad7d2bcb07a22fd93f1c4bd91ddfcd498b26f59177aed1696f9c2c",
+      "examples/survivors/pools/LAWS.bend": "9541e8378e6d64749b641fca0cbba973bf3a88f2fb95a178cdc0862ec4ac855e",
+      "examples/survivors/pools/PROOF.bend": "e726af96ec0bd14084dc12fd120d08b2140a360e19f47edbdbff338e21b77080",
+      "examples/survivors/pools/README.md": "f61ee2dc06e952a3e71dc7fc41c6660420ce436560b16f9538364207997c497e",
+      "examples/survivors/pools/SPEC.bend": "b04442c17687bf5181b21b088130cb1dee12816cf6d445e824af299ec1b10e35",
+      "examples/survivors/progression.mjs": "82d526ea1b18c1d28cc9deb5006c68c6a3cb885da51a6bacb5848a37ec9447e4",
+      "examples/survivors/projectile-pool.bend": "57732f24fac62082747c81ba777564651487e2751386225693f47d1874bff93f",
+      "examples/survivors/projectile-pool/LAWS.bend": "9f187d833cbfb8d3e7356d05cdd656745d75254801d50625072fc9e5e2c7a85d",
+      "examples/survivors/projectile-pool/PROOF.bend": "8dffe19f63fa65925f605bee1a8dbe6d0b84d9b99050fdeb531b1c61626079f1",
+      "examples/survivors/projectile-pool/README.md": "b5c47694d6d6563a77b07da014b5ceeb8baac353b71ffd1c20b8ddc74b80dd4a",
+      "examples/survivors/projectile.bend": "26d2aac48b3c2cac231545975c9b0ce57cd1029516b80b46f7f7a6cede2d317f",
+      "examples/survivors/proof-facts.bend": "4ba02631e91b9a6b0159f3bf7ad749ad59174eba29aa16833cff7ded0ab7a554",
+      "examples/survivors/renderer-healthbars.test.mjs": "8362bc27ffb8fba947eaed6aa1798c76eb98ac0e9548fb98b4c00c17fcc8fa6d",
+      "examples/survivors/renderer-map.test.mjs": "fc34af6125b6e3b67304f7cfe7414e66e78cd8654157763193e1ceefc71620dc",
+      "examples/survivors/renderer-players.test.mjs": "21a09bebe9b2576e84b9eb03233bfbf9ecc463b998da5c358534a7f59d30658b",
+      "examples/survivors/renderer.mjs": "3a974f5bada5c08c3f0c52ffa536c2b6f7fc6d7c7e708874e272fee8c876aedb",
+      "examples/survivors/run.command": "5cee5fcc2c9acaabb90d640c0c3ae0dffaadcb92eecc937bf406f247525c87f7",
+      "examples/survivors/spawn-lifecycle.bend": "058d40d297a4a9665c10667acca0cfbee5458bff1ca3ab0d5bd2b5a538d9f06e",
+      "examples/survivors/spawn-policy.bend": "604f498dd9e2fd91804bab715321043281e96fa99617459a32f591c751ebca24",
+      "examples/survivors/spawn-policy/LAWS.bend": "0e64dea6119c97694cbbd55607753929843f0c4eadd0f8ee7175ab806b961674",
+      "examples/survivors/spawn-policy/PROOF.bend": "7c5d68aff4c65402a513ecdbd1053c22a0e927f8aed447f5edf08a48ad626b7d",
+      "examples/survivors/spawn-policy/README.md": "f02b9f87699d25ebbcb9306e16c09055fd4eeb645136d94589ccaa0e177f9d5f",
+      "examples/survivors/style.css": "b7e39eb38ea4591657c24f84cf10d7af5a5d397aad09b22af1e349a28fc86c5f",
+      "examples/survivors/viewport.bend": "4d56c57305462f51dfd906c00cc768c7524fc1b969ebe080e877751d033bee2f",
+      "examples/survivors/web-smoke.mjs": "c0670b0331cac468bb67bd730ee4f485fa802969f440c3ec6654552ecb209495",
+      "examples/survivors/web/.gitignore": "853e19fb559c1d9d8df469c8dce09df4c37d495c02dc09fef40de174572a36e9",
+      "examples/survivors/web/astro.config.mjs": "aacae1a7902e8a0edb0ac0d0eff208e8ad39c446d72daf0387a33496432a1427",
+      "examples/survivors/web/package-lock.json": "200f79e43d059e471c08a1baec684882d0f491cbe26ffd9b78f46674ab780257",
+      "examples/survivors/web/package.json": "197b1c4681305134439ff798fc5f04989c228817db7e6ff7949485d13b13ba09",
+      "examples/survivors/web/src/pages/index.astro": "04f7966772d44e524ac671e35bcb643451c0efadb9d7c042941f7209e62fc2cc",
+      "scripts/check-bend-laws.py": "85cce95512889afc368d23a2304f80e135cc89f03dc95a14efbd0194e8c16ddd",
+      "scripts/check-bend-mutants.py": "0d082ad6d35e29c49d017a0365fe0ebbe5ae1c2c077aa4bcf01b69e61820f921",
+      "scripts/check-dependencies.py": "2a9334bcef24cab5f75a35a618bf94d98481d366771e13669470d5495fdd69e3",
+      "scripts/law-mutants/allocation-xp.json": "e30cea9fdb4f5d5f20695698d4ce8a470256fd8737015b4e32755013424d67fb",
+      "scripts/law-mutants/combat.json": "ea4c9ee42d67dec15ad88b95b20b22aaf2810058e49762619fff19489416c744",
+      "scripts/law-mutants/economy.json": "11926bf1655b9ca4beccd399843d22d8f3197e40f742ee3941e1bdcae0c992f3",
+      "scripts/law-mutants/loot.json": "c28f301e0123684b413b1d865ed1c0d15490661005752e09778078aa5a10e891",
+      "scripts/law-mutants/music.json": "09e277570f017205a694a56a41b539e34b25cd1794caec6ce0f53c6447d26dff",
+      "scripts/law-mutants/network.json": "aed26015de7dd805957fb07477e7446387f9637a6c93260272cccdeff8771e4c",
+      "scripts/law-mutants/physical.json": "547d5feea014f46be2d66643c98e147d1e419db17c5a83538b6941f1370f97c0",
+      "scripts/prepare-survivors-site.mjs": "3585c756a942aea5ceafd221424e2fb01a21064fccd632cefc858e8578319cbe",
+      "scripts/survivors-publication.mjs": "f9d900047871bbdec0f4bc596bdf29a0891ae310fa6154c90ee254e3f8004a6d",
+      "scripts/survivors-site.test.mjs": "4f7d8e4ea90acc6c011fee5093e6e705bc9495e26c6644155701ded5a370429e",
+      "scripts/verify-survivors-site.mjs": "75e16208836a153641f498a0ac01f07ba86259b549fd032b01597c1177811790",
+      "tools/survivors-bot/README.md": "abbe11f14704e12d52ea2deb6678bcd604a06ac958e950e8445068ed241bf6ce",
+      "tools/survivors-bot/VALIDATION.md": "8d2d5713bbbb94f1b32787c24227ffe3901b10b3149818dbd87d2fad8bbe338a",
+      "tools/survivors-bot/batch-worker.mjs": "cbd7009c2d600d337e9c735142f5db7219d04413b3656d0df02d58f2631cdd13",
+      "tools/survivors-bot/batch.mjs": "0b9892683f20d8d2dc1dae6e97c1ba56a10d08e35aecfb27423f6b21602dbe03",
+      "tools/survivors-bot/batch.sh": "b7f2d9d8092323a39fe5407acb27c29cdc1914f8432c359cedcfad29afa7cceb",
+      "tools/survivors-bot/batch.test.mjs": "385a374057c2530d9dbced89345d2e0ed3c18aa74d7de0fc59a6af2a65a21521",
+      "tools/survivors-bot/check-monsters.sh": "b7606281fceb4bb31bc58f42172be4b50e09097383dc73ba8e7615788e3a12ac",
+      "tools/survivors-bot/check-visible.sh": "e3669d7e0f487f7be9af82ed74980c2dc306944a8ba0e5ce242666cf51656338",
+      "tools/survivors-bot/check.sh": "ee010ec21bc285f3624f37a011ea15186612a9ec6cd7aee6d9b32754194ba3e3",
+      "tools/survivors-bot/compare-native-parallel.py": "a1a813022d511a1d69367f9abb21e2faf7f63f737e633c7521c9d2ec6f0f949d",
+      "tools/survivors-bot/compare-native-parallel_test.py": "6c2325017f3da3bf1cac2ecfd6a2a7c98c55b00e15b9a4bc10f295809498f32d",
+      "tools/survivors-bot/context.mjs": "43450ef58f99b95a2d7efacca7293942c72281d5d0114e9c246c8c35df425f58",
+      "tools/survivors-bot/context.test.mjs": "9003f9282e13ea766f35c3948d30846dfe08739b38301f822840f8b614940300",
+      "tools/survivors-bot/ecs_migration_compare.py": "78972f696ff9634d5018b40ac84aa7cf29d21d52d19a5d8b682fbd16d7c6bf22",
+      "tools/survivors-bot/ecs_migration_compare_test.py": "684724d6299037206aacf73fac8fc12341778bc0c65e542e55d5d4b0222d0f41",
+      "tools/survivors-bot/fixtures/metal-host-2.0.38.c": "c7f32be9987ee745fc80bee9d2f41a7912d90855376c4ca4987db25ac007997f",
+      "tools/survivors-bot/integration.test.mjs": "8d103a3b6fd109768d20fc3dcbb18f430f6f7642c38d287c0a47e3b88f855a62",
+      "tools/survivors-bot/journal.html": "f2ea125aae0c06c6b9d3c15da4ed2eaf20cd653289a12a72eb74b4517ba69e96",
+      "tools/survivors-bot/journal.mjs": "63f56906ba268b858440b817e140be9d90a68bcfbcd581c7a47279a5f934bfaa",
+      "tools/survivors-bot/journal.test.mjs": "6760cebc98c5aa7e8f8d06339daf8c8500b8697b57200953566a4f4f7ac47da8",
+      "tools/survivors-bot/measure-native-step.py": "4dcb6c518127b0d0703eb002e32fa2f68e977578cd001b0a6be6862af9f5eeac",
+      "tools/survivors-bot/metal-diagnose.py": "24868c964a0b85777cc8d01651db5ef81c9fa77ba6c75871af9d39cc27d83aff",
+      "tools/survivors-bot/metal-diagnose.sh": "7542f3225dd063a84e2c2aac932123c1c8d2df9d34cc185341dc0ee54c0ec3a9",
+      "tools/survivors-bot/metal-diagnose.test.py": "c9bd5373f2c85eadf847be57fdfa192e71148df883d2c7e24d1c0acb4c1bb4be",
+      "tools/survivors-bot/metal-experiment.py": "f6f427561427b06c965e28fded5ccc18c96cf9efbbeb52e49bfd13effbe80a49",
+      "tools/survivors-bot/metal-experiment.sh": "fe15f7098adc0dd0d3af34a623a43e07e439fccfba8f8a3c2aa45e40a6b1dbb0",
+      "tools/survivors-bot/metal-experiment.test.py": "bcb079db36bdb073f51ff974fc431e494c3d6c22281126f535527105c128e3f3",
+      "tools/survivors-bot/metal-probes/LAWS.bend": "93d029fa7248976e0d95a6644d6ceb078d39314d83fd911f6526a31727bdc7c1",
+      "tools/survivors-bot/metal-probes/PROOF.bend": "cc46c5d53fe466a3a5e70c634fbace2a58c31c4a7eb78b8abf22e8c1d7c9d24b",
+      "tools/survivors-bot/metal-probes/arithmetic-core.bend": "6b3faf0a57e47c391408b2e97a5957c9e0d35eb5ecba6ce0464727d128d6129e",
+      "tools/survivors-bot/metal-probes/arithmetic.bend": "13f23e1be799e88b8b821c1d03e2fbd81f72b8f18202f8d96d0cddf0a68bbb3f",
+      "tools/survivors-bot/metal-probes/columns.bend": "7eb62326320239afeba0454432189d3280ea6e0f41536657a3e09f166d2802bf",
+      "tools/survivors-bot/metal-probes/common.bend": "231d4d8ecfbdc55acb2f805ca4dd68cd6a9087f4be50efd57ba47f66ede3da00",
+      "tools/survivors-bot/metal_segments.py": "4d15a219bfe4d6b493c2ba859601518d0b3066c6766ea75991010315ba72d99a",
+      "tools/survivors-bot/native-batch-interruption.test.py": "6664393ba63d3b3392b16c1361f067f6cb5d4dadddafb4526e53e05ce1ca3581",
+      "tools/survivors-bot/native-batch-result.test.py": "b258a76eaf9d03b3bbe6515ee607b864e74769ac1d165fe59ef86f623ffcc115",
+      "tools/survivors-bot/native-batch.sh": "846551a0ef2e23aa0b48a254d90c2fd2bb1681fa6dae853646f0056aa224dacd",
+      "tools/survivors-bot/native-batch.test.sh": "ccaf1459927d1af12138f1683201bf3bf2a6cbc133848ad2a8b2beb1bcb76632",
+      "tools/survivors-bot/package-lock.json": "a6213d9deddd9fd2e8a1e06d8f77b2c53de63a63e784bf0b2fe24a7003fe006d",
+      "tools/survivors-bot/package.json": "aee9d4143a7f1e66f463eca96c904b652cb599b14f5149a32737e7965406f18b",
+      "tools/survivors-bot/planner.mjs": "25616bfbcf337a63676680e5eb4278892e43a39516d922e04dedeee7780e5990",
+      "tools/survivors-bot/planner.test.mjs": "937d7c47375fc318ac32cea32abfa8c3946de96539549bcacb1b9fd476e9c3f3",
+      "tools/survivors-bot/provider.mjs": "dbf95773c9db59d937c9df57513e31feb032e6ca483f92ec24e8f43f81d36e19",
+      "tools/survivors-bot/provider.test.mjs": "fbaed7ef403902ce2bfb16604e3639a2647537ac93bf422d877e5d0e296075eb",
+      "tools/survivors-bot/replay_check.py": "c11a59e142f908fa2fbdfa59f4b95322908aa10356551b1733e9bc19aff9a2ee",
+      "tools/survivors-bot/replay_compare.py": "a63ee5aa18c078f89f4975eea2c80410fea079be898c5ee46045de1f6ef1e103",
+      "tools/survivors-bot/replay_compare_test.py": "d7dd0d77638f3552575d1c0976795f6caf54999e86d7602437a74b0433dbdbb9",
+      "tools/survivors-bot/replay_measure_test.py": "f149c37613dd9fbc782451d6f245320ece757293a6ab8473dd81c51f43d33c76",
+      "tools/survivors-bot/run.mjs": "bf4a94b0bfebd911758ce76ceff4110c471ddbf1944f9d2f9b62df4185f44651",
+      "tools/survivors-bot/run.sh": "d2493494716ec648cd208863b80121d9caaefc02660d6bc343adb5052a1a5241",
+      "tools/survivors-bot/runner.mjs": "9268c60795949f5bcac152ae3b2b356006cda250d700765c27860eb79a0d93c2",
+      "tools/survivors-bot/runner.test.mjs": "db57b533b2f76520a64f97a392dc971a0c3b3103d4f300f29dfe6fa5af3159aa",
+      "tools/survivors-bot/seed-cli.test.mjs": "8d9b175ad8ff006b4faeff2464b3e248f23fb1b31598a7442ed390d69346d6e4",
+      "tools/survivors-bot/visible-controller.mjs": "dc79711164ccb9836e2a7150746327d135d49b1a67f7eea9ff6948b51220c310",
+      "tools/survivors-bot/visible-controller.test.mjs": "2a13688af5175e4a3967e82c8cb0553c8ca0fd6218473a84f0ded93f2df3b10c",
+      "tools/survivors-bot/visible-process.test.mjs": "68789d5af7067c0b9ebec7e3a7bdfdf9fd036793c22987c7c2419e682a8506a9",
+      "tools/survivors-bot/visible-window-smoke.sh": "cab84d7d4d379efd004ef00bc9309df2398f7f8d46b33ba7896c585fdd786cbd",
+      "tools/survivors-bot/visible.mjs": "550abcf4ac11333b6b229e5dcfc07fd2fdfd8873279c8dcae3c07699a766b114",
+      "tools/survivors-bot/visible.sh": "f861bbfbd93d5b896cba4e3b74f9aacd6bc906ad0e9f2fca543b75d75f02d714"
+    },
+    "proofDependencyCommit": "a51756c3f84571868ad68c191a16046dbe53559c"
+  },
+  "acceptance": [
+    {
+      "criterion": "Isolated branch/worktree from master; parallel network checkout preserved",
+      "status": "passed"
+    },
+    {
+      "criterion": "Remove JavaScript scenario tests whose subject is Bend business logic",
+      "status": "passed",
+      "removed": [
+        "examples/survivors/api.test.mjs",
+        "examples/survivors/arena.test.mjs",
+        "examples/survivors/balance.test.mjs",
+        "examples/survivors/body-index/behavior.test.mjs",
+        "examples/survivors/builds.test.mjs",
+        "examples/survivors/catalog.test.mjs",
+        "examples/survivors/coop-effects.test.mjs",
+        "examples/survivors/coop-game-replay.test.mjs",
+        "examples/survivors/coop-mechanics.test.mjs",
+        "examples/survivors/coop-session-mutations.mjs",
+        "examples/survivors/coop-session.test.mjs",
+        "examples/survivors/coop-solo-equivalence.test.mjs",
+        "examples/survivors/defeat.test.mjs",
+        "examples/survivors/dormant-differential.test.mjs",
+        "examples/survivors/full-run.mjs",
+        "examples/survivors/live-quiet.test.mjs",
+        "examples/survivors/loot-visual.test.mjs",
+        "examples/survivors/menu-progression/contract.test.mjs",
+        "examples/survivors/menu-progression/mutants.test.mjs",
+        "examples/survivors/movement-selection.test.mjs",
+        "examples/survivors/music.test.mjs",
+        "examples/survivors/native-draw.test.mjs",
+        "examples/survivors/objectives.test.mjs",
+        "examples/survivors/offline-policy/parity.test.mjs",
+        "examples/survivors/offline-policy/risk-grid.test.mjs",
+        "examples/survivors/persistent-xp.test.mjs",
+        "examples/survivors/pickup-component.test.mjs",
+        "examples/survivors/pools.test.mjs",
+        "examples/survivors/progression.test.mjs",
+        "examples/survivors/projectile-pool/allocator.test.mjs",
+        "examples/survivors/projectiles.test.mjs",
+        "examples/survivors/quiet-step.test.mjs",
+        "examples/survivors/shared-pools.test.mjs",
+        "examples/survivors/smoke.mjs",
+        "examples/survivors/spawn-lifecycle.test.mjs",
+        "examples/survivors/spawn-policy.test.mjs",
+        "tools/survivors-bot/actions.test.mjs"
+      ],
+      "retained": "JavaScript host, transport, browser presentation, persistence-adapter and development-tool checks."
+    },
+    {
+      "criterion": "Audit sample-only Bend programs and production consumers",
+      "status": "passed",
+      "removed": [
+        "examples/survivors/args-carrier/LAWS.bend",
+        "examples/survivors/args-carrier/PROOF.bend",
+        "examples/survivors/coop-effects.bend",
+        "examples/survivors/coop-network-emulator.bend",
+        "examples/survivors/coop-solo-oracle.bend",
+        "examples/survivors/native-audio-test.bend",
+        "examples/survivors/native-bot-test.bend",
+        "examples/survivors/native-fps-test.bend",
+        "examples/survivors/native-full-controller-test.bend",
+        "examples/survivors/native-profile-test.bend",
+        "examples/survivors/offline-parallel-test.bend",
+        "examples/survivors/quiet-boundary-test.bend",
+        "examples/survivors/spawn-lifecycle-test.bend"
+      ],
+      "retained": "Real native UI/image/file/audio integrations and input-only complete-run consumer. Native bot check compiles the real endpoint."
+    },
+    {
+      "criterion": "Strengthen actual production contracts",
+      "status": "passed",
+      "areas": [
+        "command admission and public lane updates, expiry, acknowledgements, replay refusal",
+        "reward admission and obligation consumption",
+        "canonical numeric protocol admission and bounded refusal",
+        "living pickup selection, distance ties and physical collection",
+        "exact saturating damage and invulnerability",
+        "ordered projectile allocation, free-source provenance, isolated counter updates",
+        "natural pickup accounting and consumed-pile no-recredit",
+        "browser/native purchase decisions and exact wallet credit",
+        "public browser/native receipt idempotence and receipt persistence",
+        "general musical boundary decisions and native audio state",
+        "single-source pool capacities and complete serial/parallel job results"
+      ]
+    },
+    {
+      "criterion": "One complete bounded kernel gate and type-correct semantic mutation gate in CI",
+      "status": "passed",
+      "remoteActionsRun": "not executed; workflow YAML and shell syntax validated and local functional commands passed"
+    },
+    {
+      "criterion": "Keep game logic in Bend, published Bendvy pin and native launch without Node",
+      "status": "passed",
+      "dependencyAudit": "local and --registry PASS",
+      "proofOnlyMathlib": "Runtime graph cannot import proof modules or mathlib; four negative/positive dependency controls passed."
+    }
+  ],
+  "proofGate": {
+    "command": "python3 scripts/check-bend-laws.py",
+    "proofFiles": 23,
+    "laws": 149,
+    "allPassed": true,
+    "cpuSecondsPerProof": 10,
+    "wallSecondsPerProof": 60,
+    "requiredVerdict": "ALL PROOFS CHECK",
+    "controls": [
+      "forced independent-kernel refusal",
+      "unsafe-proof refusal",
+      "orphan law/pair/import/unfilled-proof discovery controls"
+    ],
+    "discoveryControls": [
+      {
+        "control": "orphan laws",
+        "passed": true
+      },
+      {
+        "control": "unimported paired laws",
+        "passed": true
+      },
+      {
+        "control": "unproved paired laws",
+        "passed": true
+      },
+      {
+        "control": "filled paired laws",
+        "passed": true
+      }
+    ],
+    "finalLog": "/tmp/survivors-proof-pairing-final.log",
+    "modules": [
+      {
+        "path": "examples/survivors/body-index/LAWS.bend",
+        "laws": [
+          "empty_falls_back",
+          "empty_insert_roundtrip",
+          "first_insert_wins",
+          "insertion_preserves_key_source"
+        ],
+        "sha256": "2673c3ba67606e65d25a66bd49c104032b295ead45e58a9fdeec4da9a786f3c9"
+      },
+      {
+        "path": "examples/survivors/combat-policy/LAWS.bend",
+        "laws": [
+          "lethal_hit_exhausts_health",
+          "surviving_hit_debits_exactly",
+          "invulnerable_contact_does_no_damage",
+          "absent_contact_does_no_damage",
+          "vulnerable_contact_applies_damage"
+        ],
+        "sha256": "270be89bf99d8f532f6dd51fc04d3a351182a60118bad9f6b33d5ae94996d3eb"
+      },
+      {
+        "path": "examples/survivors/coop-game-LAWS.bend",
+        "laws": [
+          "physical_pickup_exact",
+          "physical_close_exact"
+        ],
+        "sha256": "d22cf2f3809f566c3ae9b71c3c85f512337cee714128b13808072e241a2e1ada"
+      },
+      {
+        "path": "examples/survivors/coop-protocol-LAWS.bend",
+        "laws": [
+          "oversized_refused",
+          "parsed_number_exact",
+          "malformed_number_refused"
+        ],
+        "sha256": "afd14b8b53316f5d1ea1ef6cdd2cd496f6f5e26e9e8fd4e62093a3407919a84a"
+      },
+      {
+        "path": "examples/survivors/coop-reward-policy-LAWS.bend",
+        "laws": [
+          "admission_exact",
+          "removal_exact",
+          "denied_preserves",
+          "accepted_removes",
+          "removal_consumes_player"
+        ],
+        "sha256": "f814c7bff0abc7a5ae2e5a057a8cab92def5f2931c8a66515394c2b9fa6a12fe"
+      },
+      {
+        "path": "examples/survivors/coop-session-LAWS.bend",
+        "laws": [
+          "departed_guest_denied",
+          "ended_denied",
+          "receive_accepts_exactly",
+          "action_domain_exact",
+          "policy_exact",
+          "public_denied_preserves",
+          "public_accepted_updates",
+          "expiry_exact",
+          "host_lane_isolated",
+          "guest_lane_isolated",
+          "applied_exact",
+          "public_update_exact",
+          "host_replay_refused",
+          "guest_replay_refused"
+        ],
+        "sha256": "7a1d0d6cbd0af44d21c3c243a803b3822457fcd0d2bd94f08a0d3c4957331d82"
+      },
+      {
+        "path": "examples/survivors/entity-role/LAWS.bend",
+        "laws": [
+          "relic_retains_enemy_storage",
+          "projectile_assignment",
+          "enemy_assignment",
+          "pool_assignment",
+          "disjoint_responsibilities",
+          "allocated_enemy",
+          "allocated_projectile",
+          "allocated_pool",
+          "reserved_relic",
+          "relic_assignment",
+          "pickup_assignment",
+          "player_identity",
+          "hostile_identity",
+          "allocation_adapter"
+        ],
+        "sha256": "ee0871bc9990a3e49312e4cf62fc2674274503b59bbab669f998404b55bfc281"
+      },
+      {
+        "path": "examples/survivors/loot-visual/LAWS.bend",
+        "laws": [
+          "capped_public_radius",
+          "blue_tier",
+          "green_tier",
+          "red_tier",
+          "accumulator_always_red",
+          "ordinary_pile_color_preserved"
+        ],
+        "sha256": "d6af9bbaefd08ffb3209791dff48150d4665f93ef3b4c0c7c7f0481d36d25d3d"
+      },
+      {
+        "path": "examples/survivors/menu-progression/LAWS.bend",
+        "laws": [
+          "recorded_run_unchanged",
+          "arcana_catalog_membership",
+          "upgrade_admission_exact",
+          "unlock_admission_exact",
+          "upgrade_success_exact",
+          "unlock_success_exact",
+          "upgrade_decision_exact",
+          "unlock_decision_exact",
+          "rank_replacement_preserves_other_slots",
+          "object_field_roundtrip",
+          "recorded_receipt_retained",
+          "public_record_idempotent",
+          "object_other_field_preserved",
+          "public_record_gold_exact",
+          "wallet_credit_exact",
+          "receipt_stamp_retained",
+          "receipt_decision_exact"
+        ],
+        "sha256": "240a74d92ffb802e131c56e5d6235c5bf4ebc282264348bb76a6ef94cc9cea07"
+      },
+      {
+        "path": "examples/survivors/movement-selection/LAWS.bend",
+        "laws": [
+          "roster_batch_order",
+          "roster_retains_active",
+          "exact_role_scope",
+          "assigned_role_equivalence"
+        ],
+        "sha256": "22f36d7b4a339316830e4a2ada3c60c98589919ed65c5449023d2ff7f3f58fba"
+      },
+      {
+        "path": "examples/survivors/music/LAWS.bend",
+        "laws": [
+          "theme_in_range",
+          "opposite_pairs_differ",
+          "commit_at_any_boundary",
+          "commit_between_any_boundaries",
+          "latest_supersedes_any_previous_commit",
+          "public_emergency_bypasses_ramp"
+        ],
+        "sha256": "dd80ef32338ca6613cdebda85423b5b725ed4fd76263cf04a89ae94a2a7f9bb7"
+      },
+      {
+        "path": "examples/survivors/native-audio/LAWS.bend",
+        "laws": [
+          "paused_clock",
+          "uninterrupted_voices",
+          "paused_voices",
+          "resumed_voices",
+          "reset_clears_track",
+          "no_reset_preserves_track",
+          "paused_preparation_preserves_track",
+          "taken_voices_bounded",
+          "installed_voices_bounded",
+          "paused_block_preserves_track",
+          "active_block_advances_exactly"
+        ],
+        "sha256": "4eeadb2391a7f78767e1be6f10afd2b6ef642913cdb312524767d7cf2b219432"
+      },
+      {
+        "path": "examples/survivors/native-economy/LAWS.bend",
+        "laws": [
+          "purchase_admission_exact",
+          "purchase_rejected",
+          "upgrade_success_exact",
+          "begin_clears_only_guard",
+          "wallet_credit_exact",
+          "settlement_decision_exact"
+        ],
+        "sha256": "ef3ed4a760bfe4e4bded3137a7bac97f5ef26b8e7c26f3b3482ee4aeb2edda99"
+      },
+      {
+        "path": "examples/survivors/native-record/LAWS.bend",
+        "laws": [
+          "receipt_stamp_exact",
+          "public_record_idempotent",
+          "nonterminal_preserves",
+          "payment_gold_exact",
+          "fresh_terminal_records"
+        ],
+        "sha256": "83a8201d135e810831bf8266b0698cacf42e412db2c0026c78eae7681c494a9b"
+      },
+      {
+        "path": "examples/survivors/native-replay-laws.bend",
+        "laws": [
+          "exact_float_bit_roundtrip"
+        ],
+        "sha256": "0fb032fe84662167175e8da43d4bf4219e2f8e3ceb30e1094861c31d86dc800c"
+      },
+      {
+        "path": "examples/survivors/offline-policy/LAWS.bend",
+        "laws": [
+          "evolution_priority",
+          "union_priority"
+        ],
+        "sha256": "57c2f0f4e6b67328463e9921357e83d2d6c96414f0306bea5dfed011301fbaf3"
+      },
+      {
+        "path": "examples/survivors/parallel/LAWS.bend",
+        "laws": [
+          "parallel_matches_serial",
+          "serial_executes_each_planned_job"
+        ],
+        "sha256": "26aa8ab5cec31c8e358c1f06e5dca422fc465a2fbfbc06ff79ac0365013df122"
+      },
+      {
+        "path": "examples/survivors/persistent-xp/LAWS.bend",
+        "laws": [
+          "untouched_credit",
+          "untouched_preserved",
+          "pickup_credits_whole_pile",
+          "pickup_consumes_pile",
+          "merge_preserves_value",
+          "pickup_conserves_natural_value",
+          "consumed_pile_cannot_credit_again",
+          "merge_order_independent"
+        ],
+        "sha256": "19d31d8494fa1005d73c88c71c1cec66ee39120fab3911d28fe58fe9680156ad"
+      },
+      {
+        "path": "examples/survivors/pickup-selection-LAWS.bend",
+        "laws": [
+          "distance_order_exact",
+          "dead_candidate_refused",
+          "living_replaces_dead",
+          "equal_distance_lower_id",
+          "contact_exact",
+          "preference_exact"
+        ],
+        "sha256": "ca65fbced35aad8e0ad8135a768dc9bf6e7c7af8ee1cc05b2b5ca40760f3771c"
+      },
+      {
+        "path": "examples/survivors/pools/LAWS.bend",
+        "laws": [
+          "exact_role_classification",
+          "contiguous_layout",
+          "exact_traversal",
+          "bounded_weapon_cap",
+          "generated_caps_match_queries",
+          "generated_caps_have_requested_length",
+          "exported_caps_cover_catalogue",
+          "configured_caps_are_positive"
+        ],
+        "sha256": "9541e8378e6d64749b641fca0cbba973bf3a88f2fb95a178cdc0862ec4ac855e"
+      },
+      {
+        "path": "examples/survivors/projectile-pool/LAWS.bend",
+        "laws": [
+          "rejected_request_preserves_state",
+          "accepted_request_consumes_free_head",
+          "saturated_plan_is_preserved",
+          "bump_updates_owner_count",
+          "bump_preserves_table_length",
+          "bump_preserves_other_owners",
+          "exact_admission",
+          "public_admission",
+          "invalid_owner_is_refused",
+          "complete_ordered_plan",
+          "whole_plan_uses_only_free_source"
+        ],
+        "sha256": "9f187d833cbfb8d3e7356d05cdd656745d75254801d50625072fc9e5e2c7a85d"
+      },
+      {
+        "path": "examples/survivors/spawn-policy/LAWS.bend",
+        "laws": [
+          "admission_matches_geometry",
+          "fitting_side_selected",
+          "newborn_payload_and_status",
+          "newborn_is_fresh",
+          "routing_preserves_payload",
+          "admission_survives_newborn",
+          "rejected_dormant_is_not_newborn",
+          "accepted_newborn_is_outside",
+          "existing_zero_age_is_not_newborn"
+        ],
+        "sha256": "0e64dea6119c97694cbbd55607753929843f0c4eadd0f8ee7175ab806b961674"
+      }
+    ]
+  },
+  "semanticMutations": {
+    "command": "python3 scripts/check-bend-mutants.py",
+    "typeCorrectMutants": 73,
+    "rejected": 73,
+    "weakerFailureLocations": [
+      {
+        "label": "allocator-skips-first-request",
+        "targetLaw": "complete_ordered_plan",
+        "failsIn": "saturated_plan_is_preserved"
+      },
+      {
+        "label": "allocator-table-increment-is-noop",
+        "targetLaw": "bump_updates_owner_count",
+        "failsIn": "bumped_count_go"
+      },
+      {
+        "label": "index-new-leaf-uses-foreign-key",
+        "targetLaw": "insertion_preserves_key_source",
+        "failsIn": "empty_insert_roundtrip"
+      },
+      {
+        "label": "pool-enemy-slot-routes-to-shot",
+        "targetLaw": "exact_role_classification",
+        "failsIn": "enemy_decision"
+      },
+      {
+        "label": "native-voice-budget-ignored",
+        "targetLaw": "taken_voices_bounded",
+        "failsIn": "taken_bound"
+      },
+      {
+        "label": "session-movement-sequence-not-advanced",
+        "targetLaw": "public_update_exact",
+        "failsIn": "update_exact"
+      }
+    ],
+    "manifests": [
+      "scripts/law-mutants/allocation-xp.json",
+      "scripts/law-mutants/combat.json",
+      "scripts/law-mutants/economy.json",
+      "scripts/law-mutants/loot.json",
+      "scripts/law-mutants/music.json",
+      "scripts/law-mutants/network.json",
+      "scripts/law-mutants/physical.json"
+    ]
+  },
+  "proofGarbageCollection": {
+    "definitions": 218,
+    "reachable": 218,
+    "lawRoots": 149,
+    "unreachable": [],
+    "alphaEquivalentHelperGroups": [],
+    "method": "Conservative lexical reference graph resolves local defs, imported aliases and filled law exports. Alpha comparison normalizes parameter/pattern/lambda binders and import aliases; qualified law proof defs are roots, not duplicate candidates.",
+    "controls": "Planted unreachable/renamed-duplicate helpers detected; deleting dead helpers preserved kernel pass, deleting a used imported helper was rejected."
+  },
+  "runtimeCleanup": {
+    "retiredDeadGameDefinitions": [
+      "body_system",
+      "carried_args",
+      "carried_body_system",
+      "carried_move_system",
+      "carried_projectile_system",
+      "effect_apply",
+      "effect_credited_killer",
+      "effect_player_id",
+      "effect_player_stats",
+      "enemy_system",
+      "enemy_update_role",
+      "execute_movement",
+      "move_body_observed",
+      "move_status_observed",
+      "move_system",
+      "movement_roster_opened",
+      "movement_scoped",
+      "normal_regular_entity",
+      "observed_enemy",
+      "observed_status",
+      "observed_vitals",
+      "open_projectile_carrier",
+      "pickup_observed",
+      "pickup_payload_observed",
+      "pickup_system",
+      "pool_dispatch",
+      "pool_role_observed",
+      "projectile_body_observed",
+      "projectile_carrier_opened",
+      "projectile_role_observed",
+      "projectile_system_planned",
+      "projectile_trajectory_observed",
+      "projectile_update_role",
+      "regular_routed",
+      "regular_updated",
+      "shot_spawn_assigned",
+      "shot_spawn_planned",
+      "shot_step_planned"
+    ],
+    "movedPolicies": {
+      "lose": "combat-policy.bend",
+      "closer": "pickup-policy.bend"
+    },
+    "removedPoolExports": [
+      "enemy_flag",
+      "hostile_flag",
+      "outside_flag",
+      "is_enemy_pool",
+      "is_hostile"
+    ],
+    "singleSourceCapacities": "pools.caps is generated from weapon_cap; layout endpoints derive from counts.",
+    "restoredLiveConsumer": "xp_amount retained for bot-actions and offline-policy after complete-run build exposed the cleanup error."
+  },
+  "falsification": {
+    "tool": "pinned bendlib lawcheck 0.3.2",
+    "files": 22,
+    "statuses": {
+      "pass": 113,
+      "skip": 36
+    },
+    "counterexamples": 0,
+    "compatibilityWorkaround": "Temporary snapshot changes hyphenated file basenames/import paths to underscores because lawcheck otherwise emits invalid Bend aliases. No production source changes.",
+    "skipsArePasses": false,
+    "skipHandling": "Template, premise and F32 cases were additionally exercised through bounded literal/native probes and planted controls. Skips are not counted as lawcheck passes; every stated law passed the kernel gate.",
+    "details": "/tmp/survivors-lawcheck-safe-results/summary.json"
+  },
+  "qualification": [
+    {
+      "name": "dependencies",
+      "command": [
+        "python3",
+        "scripts/check-dependencies.py"
+      ],
+      "returncode": 0,
+      "wallSeconds": 0.24,
+      "log": "/tmp/survivors-final-qualification/dependencies.log"
+    },
+    {
+      "name": "bounded-runner",
+      "command": [
+        "node",
+        "examples/run-bounded.test.mjs"
+      ],
+      "returncode": 0,
+      "wallSeconds": 5.137,
+      "log": "/tmp/survivors-final-qualification/bounded-runner.log"
+    },
+    {
+      "name": "publication-guards",
+      "command": [
+        "node",
+        "--test",
+        "scripts/survivors-site.test.mjs"
+      ],
+      "returncode": 0,
+      "wallSeconds": 2.797,
+      "log": "/tmp/survivors-final-qualification/publication-guards.log"
+    },
+    {
+      "name": "build",
+      "command": [
+        "bash",
+        "examples/survivors/build.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 3.926,
+      "log": "/tmp/survivors-final-qualification/build.log"
+    },
+    {
+      "name": "laws-mutants-hosts",
+      "command": [
+        "bash",
+        "examples/survivors/check.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 78.096,
+      "log": "/tmp/survivors-final-qualification/laws-mutants-hosts.log"
+    },
+    {
+      "name": "native-ui-io-build",
+      "command": [
+        "bash",
+        "examples/survivors/check-native.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 144.479,
+      "log": "/tmp/survivors-final-qualification/native-ui-io-build.log"
+    },
+    {
+      "name": "native-complete-run",
+      "command": [
+        "bash",
+        "examples/survivors/check-native-full.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 414.648,
+      "log": "/tmp/survivors-final-qualification/native-complete-run.log"
+    },
+    {
+      "name": "bot-hosts",
+      "command": [
+        "bash",
+        "tools/survivors-bot/check.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 20.788,
+      "log": "/tmp/survivors-final-qualification/bot-hosts.log"
+    },
+    {
+      "name": "native-bot-host",
+      "command": [
+        "bash",
+        "tools/survivors-bot/check-visible.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 59.931,
+      "log": "/tmp/survivors-final-qualification/native-bot-host.log"
+    },
+    {
+      "name": "native-health-display",
+      "command": [
+        "bash",
+        "tools/survivors-bot/check-monsters.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 9.304,
+      "log": "/tmp/survivors-final-qualification/native-health-display.log"
+    },
+    {
+      "name": "browser-build",
+      "command": [
+        "bash",
+        "examples/survivors/build-web.sh"
+      ],
+      "returncode": 0,
+      "wallSeconds": 32.663,
+      "log": "/tmp/survivors-final-qualification/browser-build.log"
+    },
+    {
+      "name": "launcher",
+      "command": [
+        "node",
+        "examples/survivors/launcher.test.mjs"
+      ],
+      "returncode": 0,
+      "wallSeconds": 0.429,
+      "log": "/tmp/survivors-final-qualification/launcher.log"
+    },
+    {
+      "name": "static-browser",
+      "command": [
+        "node",
+        "examples/survivors/web-smoke.mjs"
+      ],
+      "returncode": 0,
+      "wallSeconds": 1.1,
+      "log": "/tmp/survivors-final-qualification/static-browser-ready-env.log",
+      "previousAttempts": [
+        {
+          "name": "static-browser",
+          "command": [
+            "node",
+            "examples/survivors/web-smoke.mjs"
+          ],
+          "returncode": 1,
+          "wallSeconds": 0.274,
+          "log": "/tmp/survivors-final-qualification/static-browser.log"
+        }
+      ]
+    },
+    {
+      "name": "browser-ui",
+      "command": [
+        "node",
+        "examples/survivors/browser-smoke.mjs"
+      ],
+      "returncode": 0,
+      "wallSeconds": 6.584,
+      "log": "/tmp/survivors-final-qualification/browser-ui-ready-env.log"
+    },
+    {
+      "name": "browser-coop-iroh",
+      "command": [
+        "node",
+        "examples/survivors/coop-browser-smoke.mjs"
+      ],
+      "returncode": 0,
+      "wallSeconds": 5.325,
+      "log": "/tmp/survivors-final-qualification/browser-coop-iroh.log"
+    }
+  ],
+  "nativeCompleteRun": {
+    "source": "examples/survivors/native-full-run.bend",
+    "observation": "PASS native full run tick=36828 phase=4 hp=0 level=21 kills=1343 gold=653 decisions=25 boss=1 chest=1 seenLevel=1 evolved=1 weapons=[1,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] passives=[0,1,0,0,0,0,1,0,0,0,0,2,0,0,0,0,0,0]",
+    "interpretation": "One input-only advanced-loadout complete-run witness, not a win-rate or all-build balance guarantee."
+  },
+  "environment": {
+    "platform": "Linux-7.0.14-orbstack-00380-ga7e0a2dc9535-aarch64-with-glibc2.36",
+    "machine": "aarch64",
+    "bend": "2.0.38",
+    "clang": "19.1.7",
+    "node": "24.20.0",
+    "rust": "1.94.0",
+    "wasmBindgen": "0.2.122",
+    "browserAutomation": "existing Playwright 1.63.0 with cached Chromium and existing shared libraries; no browser dependency installed in the project"
+  },
+  "proofBoundaries": [
+    "Contracts cover the stated pure transitions, not a universal theorem of the complete ECS simulation or every gameplay recipe/achievement/statistic.",
+    "Universal ASCII encode/decode roundtrip is not proved; protocol laws cover canonical-number admission and bounded refusal. Wire encoding was unchanged.",
+    "Arbitrary Patricia lookup correctness and unique allocation cardinality are not proved; the full plan obeys its ordered specification and result keys come from permitted free sources.",
+    "Whole pickup conserves its natural value; U32 merges/wallet arithmetic retain machine wrap semantics. Full death-to-pool-to-player Nat conservation is not claimed.",
+    "Music laws pin arrangement/transport decisions and voice budgets; every note parameter, physical playback deadline and subjective output quality are not universally proved.",
+    "Browser record_run consumes completed receipts supplied by its host adapter; exact credit/idempotence laws are not an added terminal-phase validator.",
+    "Native UI checks exercise actual event handlers, rendered images and file IO headlessly; opening a physical window and speaker audition were not performed.",
+    "Real co-op browser qualification used isolated contexts on one machine with real Iroh relays; arbitrary physical networks and cross-backend floating-point determinism are not proved."
+  ],
+  "confidenceAssessment": "Above the requested engineering-confidence threshold based on independent-kernel proofs, type-correct semantic faults, source-consumer audit and native/browser qualification; not a measured probability or a percentage of all game behavior.",
+  "artifacts": "Generated binaries, browser profiles, captures and detailed logs remain outside tracked source under /tmp or ignored build directories.",
+  "postValidationFormatting": [
+    {
+      "path": "examples/survivors/native-content-policy.bend",
+      "validatedSha256": "0cfd9a9d5cab04ae57fa0405c96a39b4fe25528aa1e72d7d7f67070e27d65f6e",
+      "finalSha256": "16a69513572f38b346eb9471f88297940f8dc1c1668e1911ead501cde0b2f742",
+      "change": "Remove an extra blank line at EOF; Bend tokens unchanged."
+    },
+    {
+      "path": "examples/survivors/native-profile-codec.bend",
+      "validatedSha256": "660bc6d18b17b65004d1e3823da2778f2d65f878ebcfe99d003ca84232ae8f86",
+      "finalSha256": "43c178b8bad8615cc98018c8909661efb9d8eb7fd19388ceedc9c4b5853fa550",
+      "change": "Remove an extra blank line at EOF; Bend tokens unchanged."
+    }
+  ],
+  "finalSourceFingerprintSha256": "066a598153b281e036a735cefb7eaff1b53ec62572f98c79eae2537304c7f797"
+}

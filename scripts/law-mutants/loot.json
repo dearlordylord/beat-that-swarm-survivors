@@ -1,0 +1,26 @@
+[
+  {
+    "label": "loot-accumulator-loses-marker",
+    "source": "examples/survivors/loot-visual.bend",
+    "old": "case True{}: tier_color(2)",
+    "new": "case True{}: color(amount)",
+    "proof": "examples/survivors/loot-visual/PROOF.bend",
+    "law": "accumulator_always_red"
+  },
+  {
+    "label": "loot-large-pile-shrinks",
+    "source": "examples/survivors/loot-visual.bend",
+    "old": "case True{}: maximum_radius()",
+    "new": "case True{}: minimum_radius()",
+    "proof": "examples/survivors/loot-visual/PROOF.bend",
+    "law": "capped_public_radius"
+  },
+  {
+    "label": "loot-ordinary-pile-always-red",
+    "source": "examples/survivors/loot-visual.bend",
+    "old": "case False{}: color(amount)",
+    "new": "case False{}: tier_color(2)",
+    "proof": "examples/survivors/loot-visual/PROOF.bend",
+    "law": "ordinary_pile_color_preserved"
+  }
+]

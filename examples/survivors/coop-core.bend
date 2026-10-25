@@ -1,4 +1,5 @@
 import Base
+import coop-reward-policy.bend as RP
 import game.bend as G
 import coop-prediction.bend as Prediction
 import arena.bend as A
@@ -442,10 +443,6 @@ def core_step(state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: F32) -> CorePacke
   match state:
     case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: step_allowed(U32.is_eq(run_phase(shared),0),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},dx0,dy0,dx1,dy1)
 
-def remove_id(ids: List<&2,U32>,+id: U32) -> List<&2,U32>:
-  match ids:
-    case []: []
-    case +head <> rest: G.free_slot(U32.is_ne(head,id),head,remove_id(rest,id))
 def remove_offers(offers: List<&2,PlayerOffers>,+id: U32) -> List<&2,PlayerOffers>:
   match offers:
     case []: []
@@ -459,17 +456,18 @@ def resume_control(remaining: List<&2,U32>,world: G.World(),+shared: G.Run,refs:
     case []: open_rewards_go(pending,world,shared,refs,bodies,snapshots,round,players)
     case remaining: quiet(CoreState{world,shared,refs,bodies,snapshots,round,remaining,offers,pending})
 def choice_upgraded(+id: U32,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: G.World(),+players: List<&2,G.PlayerRecord>,+upgraded: G.Run) -> CorePacket:
-  resume_control(remove_id(required,id),save_players(refs,replace_run(players,id,upgraded),world),with_gold(shared,run_gold(upgraded)),refs,bodies,snapshots,round,replace_run(players,id,upgraded),remove_offers(offers,id),pending)
+  resume_control(required,save_players(refs,replace_run(players,id,upgraded),world),with_gold(shared,run_gold(upgraded)),refs,bodies,snapshots,round,replace_run(players,id,upgraded),remove_offers(offers,id),pending)
 def choice_loaded(+id: U32,choice: U32,+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,+offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
   match result:
     case (world,+players): choice_upgraded(id,shared,refs,bodies,snapshots,round,required,offers,pending,world,players,G.upgrade(G.offer_at(offers_for(offers,id),choice),projection(shared,find_player(players,id,shared))))
-def choice_allowed(allowed: Bool,state: CoreState,id: U32,choice: U32) -> CorePacket:
-  match allowed state:
-    case False{} state: CoreRejected{state,"Stale, duplicate, ineligible or invalid reward choice"}
-    case True{} CoreState{world,shared,+refs,bodies,snapshots,round,required,offers,pending}: choice_loaded(id,choice,shared,refs,bodies,snapshots,round,required,offers,pending,load_players(refs,[],world))
+def choice_decided(decision: RP.Decision,state: CoreState,id: U32,choice: U32) -> CorePacket:
+  match decision state:
+    case RP.Decision{False{},_} state: CoreRejected{state,"Stale, duplicate, ineligible or invalid reward choice"}
+    case RP.Decision{True{},remaining} CoreState{world,shared,+refs,bodies,snapshots,round,_,offers,pending}:
+      choice_loaded(id,choice,shared,refs,bodies,snapshots,round,remaining,offers,pending,load_players(refs,[],world))
 def core_choose(state: CoreState,+id: U32,+requestedRound: U32,+choice: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,refs,bodies,snapshots,+round,+required,+offers,pending}: choice_allowed(Bool.and(Bool.and(U32.is_eq(round,requestedRound),G.contains(required,id)),U32.is_lt(choice,U32.from_nat(List.length(&2,G.Offer,offers_for(offers,id))))),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},id,choice)
+    case CoreState{world,+shared,refs,bodies,snapshots,+round,+required,+offers,pending}: choice_decided(RP.decide(round,requestedRound,id,choice,U32.from_nat(List.length(&2,G.Offer,offers_for(offers,id))),required),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},id,choice)
 def disconnect_players(players: List<&2,G.PlayerRecord>,+id: U32) -> List<&2,G.PlayerRecord>:
   match players:
     case []: []
@@ -481,7 +479,7 @@ def disconnect_phase(+shared: G.Run) -> U32:
 def disconnect_terminal(terminal: Bool,+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: G.World(),players: List<&2,G.PlayerRecord>,+id: U32) -> CorePacket:
   match terminal:
     case True{}: quiet(CoreState{world,with_phase(shared,disconnect_phase(shared)),refs,bodies,snapshots,round,[],[],[]})
-    case False{}: resume_control(remove_id(required,id),world,shared,refs,bodies,snapshots,round,players,remove_offers(offers,id),pending)
+    case False{}: resume_control(RP.remove(required,id),world,shared,refs,bodies,snapshots,round,players,remove_offers(offers,id),pending)
 def disconnected(+id: U32,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,world: G.World(),+players: List<&2,G.PlayerRecord>) -> CorePacket:
   disconnect_terminal(Bool.or(U32.is_le(3,run_phase(shared)),Bool.or(U32.is_eq(id,0),Nat.is_eq(List.length(&2,U32,living_ids(players)),0n))),shared,refs,bodies,snapshots,round,required,offers,pending,save_players(refs,players,world),players,id)
 def disconnect_loaded(+id: U32,+shared: G.Run,+refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:

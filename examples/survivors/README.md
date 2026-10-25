@@ -114,7 +114,10 @@ validation scope are linked from the [music guide](music/README.md).
 
 ## Multiplayer exploration
 
-The game currently remains single-player. The [multiplayer work map](../../research/survivors-multiplayer-plan.md) separates the Bend/Iroh transport adapter from the shared-world gameplay model and records unresolved co-op decisions. See the linked feasibility study for evidence and platform limits.
+[Browser co-op](COOP.md) uses the shared Bend world and Iroh transport. Its
+[command boundary](coop-session-README.md) documents admission, application and
+proof scope. Historical design research is linked from the
+[multiplayer work map](../../research/survivors-multiplayer-plan.md).
 
 ## Checks
 
@@ -122,13 +125,11 @@ Checks require Node.js, Bend, a C compiler and platform audio/window development
 
 ```sh
 bash examples/survivors/check-native.sh
-bash examples/survivors/check-native-draw.sh
 bash examples/survivors/check-native-full.sh
-bash examples/survivors/check-quiet-boundary.sh
 ```
 
 The ordinary suite includes [capability controls](capability-controls.test.py)
-and same-schema state comparisons. Comparing a replay from the former component
+and checks of the replay-comparison tools. Comparing a replay from the former component
 schema requires the explicit [migration verifier](../../tools/survivors-bot/ecs_migration_compare.py);
 its receipt lists the representation changes excluded from gameplay equality.
 For same-schema comparisons, the [exact replay verifier](../../tools/survivors-bot/replay_compare.py)
@@ -143,10 +144,6 @@ bash examples/survivors/check-native-pacing.sh
 
 This diagnostic initializes the fresh native UI loadout and uses input-only control. Its outcome is a scenario observation, not a full-run balance qualification or frame-rate measurement.
 
-`check-quiet-boundary.sh` uses the Bend JavaScript backend for a development-only comparison of complete authoritative state across frame-producing and quiet bot initialization, reward choices and natural runs. Native bot execution uses Bend/C.
-
-`check-native-draw.sh` compares every pixel of its scenes against an independent display-list oracle, including fractional geometry, sprite layering, fonts and health bars.
-
 `check-native.sh` checks the launcher, native profile, real UI event flow and exact Bend-rendered frame captures, then compiles the windowed application. `check-native-full.sh` drives a full native run using public gameplay inputs. Native `run.command` does not require Node.js or the test helpers. The native application was qualified with Clang 19.1.7 on Linux arm64; set `CC` to select your compiler. macOS compilation uses the local Apple toolchain.
 
 An optional actual-window diagnostic also uses Xvfb and xdotool. With those installed system-wide on Linux, build the native executable first, then run:
@@ -157,15 +154,25 @@ NIGHTFALL_X11_SYSROOT=/ bash examples/survivors/native-window-smoke.sh
 
 `NIGHTFALL_X11_SYSROOT`, `XVFB`, `XDOTOOL` and `NIGHTFALL_BINARY` can point at an isolated development fixture. This diagnostic does not install packages.
 
-The optional emitted-backend regression suite:
+The proof and host checks:
 
 ```sh
 bash examples/survivors/build.sh
 bash examples/survivors/check.sh
-bash examples/survivors/check-full.sh
 ```
 
-The ordinary suite covers catalogs, saves, projectiles, recipes, public commands, artifacts and unlocks. The [full-run controller](native-full-run.bend) defines its input fixture and success condition. Its witness qualifies that build; it does not establish fresh-profile win rates or every build. See [VALIDATION.md](VALIDATION.md) for dated witness results and the [ECS refactor receipt](../../research/ecs-refactor-results.json) for the recorded checks and measurement limits. The later [legacy cleanup receipt](../../research/ecs-legacy-cleanup-results.json) records the removal audit and its validation.
+Pure Bend behavior is checked by universal laws, not JavaScript scenario tests.
+The [proof gate](../../scripts/check-bend-laws.py) discovers the proof modules;
+the [mutation gate](../../scripts/check-bend-mutants.py) checks that type-correct
+semantic faults are rejected. Their executable manifests live in
+[scripts/law-mutants](../../scripts/law-mutants). JavaScript checks exercise the
+browser hosts, transport, rendering and persistence adapters. Native programs
+retain actual file, image, audio and application integration checks.
+
+The [full-run controller](native-full-run.bend) drives public inputs for a native
+functional observation. A scenario observation does not prove balance or every
+build. Historical validation is recorded in [VALIDATION.md](VALIDATION.md) and
+the [legacy cleanup receipt](../../research/ecs-legacy-cleanup-results.json).
 
 Browser checks reuse an already installed Playwright; they never install packages:
 

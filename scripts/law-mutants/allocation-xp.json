@@ -1,0 +1,175 @@
+[
+  {
+    "label": "allocator-all-deny",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "Bool.and(U32.is_lt(owner,24),U32.is_lt(at(counts,owner),at(caps,owner)))",
+    "new": "False{}",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "exact_admission"
+  },
+  {
+    "label": "allocator-admits-owner-24",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "U32.is_lt(owner,24)",
+    "new": "U32.is_le(owner,24)",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "exact_admission"
+  },
+  {
+    "label": "allocator-admits-saturated-owner",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "U32.is_lt(at(counts,owner),at(caps,owner))",
+    "new": "U32.is_le(at(counts,owner),at(caps,owner))",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "exact_admission"
+  },
+  {
+    "label": "allocator-does-not-increment-count",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "Pending{free,bump(counts,owner),caps",
+    "new": "Pending{free,counts,caps",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "accepted_request_consumes_free_head"
+  },
+  {
+    "label": "allocator-inserts-wrong-identity",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "BI.insert(~Request,index,seed,Request{owner,slot,level})",
+    "new": "BI.insert(~Request,index,(seed + 1 : U32),Request{owner,slot,level})",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "accepted_request_consumes_free_head"
+  },
+  {
+    "label": "allocator-skips-first-request",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "allocate_go(rest,step(request,state))",
+    "new": "allocate_go(rest,state)",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "complete_ordered_plan",
+    "fails_in": "saturated_plan_is_preserved"
+  },
+  {
+    "label": "xp-drops-merged-amount",
+    "source": "examples/survivors/persistent-xp.bend",
+    "old": "def merge(amount: U32,incoming: U32) -> U32: (amount + incoming : U32)",
+    "new": "def merge(amount: U32,incoming: U32) -> U32: amount",
+    "proof": "examples/survivors/persistent-xp/PROOF.bend",
+    "law": "merge_preserves_value"
+  },
+  {
+    "label": "xp-pickup-awards-nothing",
+    "source": "examples/survivors/persistent-xp.bend",
+    "old": "def credited(touching: Bool,amount: U32) -> U32:\n  match touching:\n    case True{}: amount",
+    "new": "def credited(touching: Bool,amount: U32) -> U32:\n  match touching:\n    case True{}: 0",
+    "proof": "examples/survivors/persistent-xp/PROOF.bend",
+    "law": "pickup_credits_whole_pile"
+  },
+  {
+    "label": "xp-pile-not-consumed",
+    "source": "examples/survivors/persistent-xp.bend",
+    "old": "def remaining(touching: Bool,amount: U32) -> U32:\n  match touching:\n    case True{}: 0",
+    "new": "def remaining(touching: Bool,amount: U32) -> U32:\n  match touching:\n    case True{}: amount",
+    "proof": "examples/survivors/persistent-xp/PROOF.bend",
+    "law": "pickup_consumes_pile"
+  },
+  {
+    "label": "allocator-table-increment-is-noop",
+    "source": "examples/survivors/projectile-pool.bend",
+    "old": "case head <> rest True{}: (head + 1 : U32) <> rest",
+    "new": "case head <> rest True{}: head <> rest",
+    "proof": "examples/survivors/projectile-pool/PROOF.bend",
+    "law": "bump_updates_owner_count",
+    "fails_in": "bumped_count_go"
+  },
+  {
+    "label": "index-new-leaf-uses-foreign-key",
+    "source": "examples/survivors/body-index.bend",
+    "old": "case _ Empty{} _ _: Item{key,value}",
+    "new": "case _ Empty{} _ _: Item{(key + 1 : U32),value}",
+    "proof": "examples/survivors/body-index/PROOF.bend",
+    "law": "insertion_preserves_key_source",
+    "fails_in": "empty_insert_roundtrip"
+  },
+  {
+    "label": "pool-all-outside",
+    "source": "examples/survivors/pools.bend",
+    "old": "enemy_role(U32.is_lt(seed,enemy_end()),seed)",
+    "new": "Outside{}",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "exact_role_classification"
+  },
+  {
+    "label": "pool-enemy-slot-routes-to-shot",
+    "source": "examples/survivors/pools.bend",
+    "old": "case True{}: Enemy{}",
+    "new": "case True{}: PlayerShot{}",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "exact_role_classification",
+    "fails_in": "enemy_decision"
+  },
+  {
+    "label": "pool-capacity-generator-empty",
+    "source": "examples/survivors/pools.bend",
+    "old": "case 1n+rest: weapon_cap(base) <> caps_go(rest,(base + 1 : U32))",
+    "new": "case 1n+rest: []",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "generated_caps_match_queries"
+  },
+  {
+    "label": "pool-capacity-generator-wrong-owner",
+    "source": "examples/survivors/pools.bend",
+    "old": "weapon_cap(base) <> caps_go(rest,(base + 1 : U32))",
+    "new": "weapon_cap((base + 1 : U32)) <> caps_go(rest,(base + 1 : U32))",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "generated_caps_match_queries"
+  },
+  {
+    "label": "pool-capacity-export-empty",
+    "source": "examples/survivors/pools.bend",
+    "old": "def caps() -> List<&2,U32>: caps_go(U32.to_nat(owner_count()),0)",
+    "new": "def caps() -> List<&2,U32>: []",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "exported_caps_cover_catalogue"
+  },
+  {
+    "label": "pool-entire-weapon-table-zero",
+    "source": "examples/survivors/pools.bend",
+    "old": "def capacity_value(capacity:Capacity) -> U32:\n  match capacity:\n    case Cap0{}: 0\n    case Cap40{}: 40\n    case Cap50{}: 50\n    case Cap60{}: 60\n    case Cap70{}: 70\n",
+    "new": "def capacity_value(capacity:Capacity) -> U32: 0\n",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "configured_caps_are_positive"
+  },
+  {
+    "label": "pool-adjacent-layout-gap",
+    "source": "examples/survivors/pools.bend",
+    "old": "def player_start() -> U32: enemy_end()",
+    "new": "def player_start() -> U32: (enemy_end() + 1 : U32)",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "contiguous_layout"
+  },
+  {
+    "label": "pool-traversal-is-empty",
+    "source": "examples/survivors/pools.bend",
+    "old": "def total_nat() -> Nat: U32.to_nat(total_count())",
+    "new": "def total_nat() -> Nat: 0n",
+    "proof": "examples/survivors/pools/PROOF.bend",
+    "law": "exact_traversal"
+  },
+  {
+    "label": "scheduler-both-executors-drop-job-results",
+    "source": "examples/survivors/parallel/scheduler.bend",
+    "old": "case Job{index}: Value{job(context,index)}",
+    "new": "case Job{index}: NoResults{}",
+    "occurrences": 2,
+    "proof": "examples/survivors/parallel/PROOF.bend",
+    "law": "serial_executes_each_planned_job"
+  },
+  {
+    "label": "scheduler-flatten-reverses-left-right-order",
+    "source": "examples/survivors/parallel/scheduler.bend",
+    "old": "List.append(&2,T,to_list(~T,left),to_list(~T,right))",
+    "new": "List.append(&2,T,to_list(~T,right),to_list(~T,left))",
+    "proof": "examples/survivors/parallel/PROOF.bend",
+    "law": "serial_executes_each_planned_job"
+  }
+]

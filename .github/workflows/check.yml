@@ -16,6 +16,8 @@ jobs:
       CC: clang-19
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v4
         with:
           node-version: '24.20.0'
@@ -43,6 +45,18 @@ jobs:
           "$RUNNER_TEMP/elan-installer/elan-init" -y --no-modify-path --default-toolchain leanprover/lean4:v4.34.0
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
           "$HOME/.elan/bin/lean" --version
+      - name: Prepare the independent Bend proof kernel
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          # Build/cache Lean infrastructure before the bounded project proof gates.
+          probe="$RUNNER_TEMP/bend-kernel-setup.bend"
+          cat > "$probe" <<'BEND'
+          import Base
+          law kernel_ready: {0n == 0n : Nat}
+          def kernel_ready(): {==}
+          BEND
+          "$BEND" "$probe" --verdict
       - name: Install native build dependencies
         timeout-minutes: 6
         run: |
@@ -58,11 +72,23 @@ jobs:
         run: node examples/run-bounded.test.mjs
       - name: Check local publication guards
         run: node --test scripts/survivors-site.test.mjs
+      - name: Install the Iroh browser build toolchain
+        shell: bash
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.94.0
+          bindgen_version="$(python3 - <<'PYTHON'
+          import pathlib, tomllib
+          manifest = tomllib.loads(pathlib.Path('tools/iroh-transport/Cargo.toml').read_text())
+          print(manifest['target']['cfg(target_arch = "wasm32")']['dependencies']['wasm-bindgen'].removeprefix('='))
+          PYTHON
+          )"
+          cargo install wasm-bindgen-cli --version "$bindgen_version" --locked
       - name: Install pinned Astro build dependencies
         run: npm ci --prefix examples/survivors/web --no-audit --no-fund
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
-      - name: Check gameplay and browser-side progression
+      - name: Check Bend laws, semantic mutants and browser hosts
         run: bash examples/survivors/check.sh
       - name: Build the prerendered browser page
         run: |

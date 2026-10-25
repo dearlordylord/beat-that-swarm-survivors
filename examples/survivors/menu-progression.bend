@@ -136,21 +136,25 @@ def get(+object: Value,+key: String) -> Value:
   match object:
     case JObject{keys,values}: get_rows(keys,values,key)
     case _: JNull{}
-def prepend_object(+name: String,+old: Value,+value: Value) -> Value:
+# Object updates carry their shape in the type, so lookup laws need no malformed-value premise.
+type ObjectRows is Data: ObjectRows{keys: List<&2,String>,values: List<&2,Value>}
+def prepend_object(+name: String,+old: Value,+value: ObjectRows) -> ObjectRows:
   match value:
-    case JObject{keys,values}: JObject{name <> keys,old <> values}
-    case _: JNull{}
-def set_head(+test: Bool,+name: String,+restKeys: List<&2,String>,+old: Value,+restValues: List<&2,Value>,+value: Value,+next: Value) -> Value:
+    case ObjectRows{keys,values}: ObjectRows{name <> keys,old <> values}
+def set_head(+test: Bool,+name: String,+restKeys: List<&2,String>,+old: Value,+restValues: List<&2,Value>,+value: Value,+next: ObjectRows) -> ObjectRows:
   match test:
-    case True{}: JObject{name <> restKeys,value <> restValues}
+    case True{}: ObjectRows{name <> restKeys,value <> restValues}
     case False{}: prepend_object(name,old,next)
-def set_rows(+keys: List<&2,String>,+values: List<&2,Value>,+key: String,+value: Value) -> Value:
+def set_rows(+keys: List<&2,String>,+values: List<&2,Value>,+key: String,+value: Value) -> ObjectRows:
   match keys values:
     case Con{+name,+restKeys} Con{old,+restValues}: set_head(String.eq(name,key),name,restKeys,old,restValues,value,set_rows(restKeys,restValues,key,value))
-    case _ _: JObject{[key],[value]}
+    case _ _: ObjectRows{[key],[value]}
+def object_value(rows: ObjectRows) -> Value:
+  match rows:
+    case ObjectRows{keys,values}: JObject{keys,values}
 def set(+object: Value,+key: String,+value: Value) -> Value:
   match object:
-    case JObject{keys,values}: set_rows(keys,values,key,value)
+    case JObject{keys,values}: object_value(set_rows(keys,values,key,value))
     case _: JObject{[key],[value]}
 def is_sequence(+value: Value) -> Bool:
   match value:
@@ -226,10 +230,9 @@ def at(+values: List<&2,Value>,+index: Nat) -> Value:
     case Con{head,_} 0n: head
     case Con{_,tail} 1n+p: at(tail,p)
     case _ _: JNull{}
+def value_equal(a: Value,b: Value) -> Bool: equal(a,b)
 def contains(+values: List<&2,Value>,+value: Value) -> Bool:
-  match values:
-    case Nil{}: False{}
-    case Con{head,tail}: Bool.or(equal(head,value),contains(tail,value))
+  List.contains(~Value,~value_equal,values,value)
 def append_unique_if(+test: Bool,+values: List<&2,Value>,+value: Value) -> List<&2,Value>:
   match test:
     case True{}: values
@@ -429,21 +432,16 @@ def collection_add(+profile: Value,+key: String,+values: List<&2,Value>) -> Valu
 def record_signature(+frame: Value) -> Value:
   +runId = get(frame,"runId")
   pick(is_null(runId),JText{Nat.show(integer(get(frame,"character"))) ++ ":" ++ Nat.show(integer(get(frame,"stage"))) ++ ":" ++ Nat.show(integer(get(frame,"tick"))) ++ ":" ++ Nat.show(integer(get(frame,"kills"))) ++ ":" ++ Nat.show(integer(get(frame,"gold"))) ++ ":" ++ Nat.show(integer(get(frame,"phase")))},runId)
-def drop(+rows: List<&2,Value>,+count: Nat) -> List<&2,Value>:
-  match rows count:
-    case Con{_,tail} 1n+p: drop(tail,p)
-    case _ _: rows
-def recent(+rows: List<&2,Value>) -> List<&2,Value>: drop(rows,Nat.sub(List.length(&2,Value,rows),100n))
+def recent(+rows: List<&2,Value>) -> List<&2,Value>:
+  List.drop(&2,Value,rows,Nat.sub(List.length(&2,Value,rows),100n))
 def newly_awarded(+rows: List<&2,Value>,+old: List<&2,Value>) -> List<&2,Value>:
   match rows:
     case Nil{}: []
     case Con{+head,tail}:
       List.append(&2,Value,sequence(pick(contains(old,head),JSequence{[]},JSequence{[head]})),newly_awarded(tail,old))
-def recording(+profile: Value,+frame: Value,+catalog: Value) -> Value:
+def run_awards(+profile: Value,+frame: Value,+catalog: Value) -> Value:
   +gained = whole(get(frame,"gold"))
-  +p0 = set(profile,"recorded",JSequence{recent(List.append(&2,Value,sequence(get(profile,"recorded")),[record_signature(frame)]))})
-  +p1 = set(p0,"gold",add(get(p0,"gold"),gained))
-  +p2 = add_stat(add_stat(p1,"totalgold",gained),"kills",get(frame,"kills"))
+  +p2 = add_stat(add_stat(profile,"totalgold",gained),"kills",get(frame,"kills"))
   +p3 = max_stat(p2,"survive",JNumber{integer(get(frame,"tick")),60n,False{}})
   +p4 = max_stat(p3,"levels",pick(is_null(get(frame,"level")),one(),get(frame,"level")))
   +p5 = add_stat(add_stat(p4,"revivals",get(frame,"revivalsUsed")),"bosskills",get(frame,"bossesKilled"))
@@ -455,10 +453,20 @@ def recording(+profile: Value,+frame: Value,+catalog: Value) -> Value:
   +p9 = collection_add(collection_add(collection_add(p8,"weapons",used),"evolutions",evolved),"enemies",sequence(get(frame,"enemiesKilled")))
   +p10 = add_stat(p9,"evolutions",natural(List.length(&2,Value,evolved)))
   +p11 = set_stat(set_stat(refresh_counts(p10),"weapons",length(get(get(p10,"collection"),"weapons"))),"characterwins",length(get(p10,"wonCharacters")))
-  +result = award(p11,catalog)
+  award(p11,catalog)
+def pay_wallet(awards: Value,old: Value,gained: Value) -> Value:
+  set(awards,"gold",add(old,gained))
+def run_payment(+profile: Value,+frame: Value,+catalog: Value) -> Value:
+  pay_wallet(run_awards(profile,frame,catalog),get(profile,"gold"),whole(get(frame,"gold")))
+def stamp_receipt(awards: Value,history: List<&2,Value>,signature: Value) -> Value:
+  set(awards,"recorded",JSequence{recent(List.append(&2,Value,history,[signature]))})
+def recording(+profile: Value,+frame: Value,+catalog: Value) -> Value:
+  +result = stamp_receipt(run_payment(profile,frame,catalog),sequence(get(profile,"recorded")),record_signature(frame))
   JObject{["profile","added"],[result,JSequence{newly_awarded(sequence(get(result,"achievements")),sequence(get(profile,"achievements")))}]}
+def record_decided(seen: Bool,+profile: Value,paid: Value) -> Value:
+  pick(seen,JObject{["profile","added"],[profile,JSequence{[]}]},paid)
 def record_run(+profile: Value,+frame: Value,+catalog: Value) -> Value:
-  pick(contains(sequence(get(profile,"recorded")),record_signature(frame)),JObject{["profile","added"],[profile,JSequence{[]}]},recording(profile,frame,catalog))
+  record_decided(contains(sequence(get(profile,"recorded")),record_signature(frame)),profile,recording(profile,frame,catalog))
 def setup_id(+profile: Value,+setup: Value,+catalog: Value,+kind: String) -> Value:
   +id = get(setup,kind)
   pick(Bool.and(Bool.not(is_null(item(catalog,kind,id))),unlocked(profile,kind,id,catalog)),id,zero())

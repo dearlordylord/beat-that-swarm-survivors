@@ -2,7 +2,7 @@ import Base
 import game.bend as G
 import bot-actions.bend as B
 import native.bend as N
-import native-profile.bend as P
+import native-economy.bend as P
 
 # Optional visible experiment. The single native-owned World is both rendered
 # and advanced. External inference pauses simulation, but not window events.

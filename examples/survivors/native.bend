@@ -6,7 +6,9 @@ import native_art.bend as Art
 import loot-visual.bend as LV
 import native_audio.bend as Sound
 import native-content.bend as C
-import native-profile.bend as P
+import native-content-policy.bend as Catalog
+import native-economy.bend as P
+import native-profile.bend as ProfileIO
 import viewport.bend as V
 
 type Ui is Data: Ui{screen: U32,tab: U32,page: U32,selected: U32,character: U32,stage: U32,arcana: U32,mode: U32,paused: U32,keys: U32,quit: U32,dirty: U32,recorded: U32,frames: U32,clock: Nat,lag: U32}
@@ -203,7 +205,7 @@ def select_label(yes: Bool,a: String,b: String) -> String:
     case False{}: b
 def status(+profile: P.Profile,+category: U32,+id: U32) -> String:
   match category:
-    case 5: "RANK " ++ U32.show(P.rank(profile,id)) ++ "/" ++ U32.show(C.meta_max(id)) ++ "  COST " ++ U32.show(P.cost(profile,category,id))
+    case 5: "RANK " ++ U32.show(P.rank(profile,id)) ++ "/" ++ U32.show(Catalog.meta_max(id)) ++ "  COST " ++ U32.show(P.cost(profile,category,id))
     case 7: select_label(P.achievement(profile,id),"COMPLETE","NOT YET EARNED")
     case _: select_label(P.allowed(profile,category,id),"AVAILABLE","LOCKED  COST " ++ U32.show(P.cost(profile,category,id)))
 
@@ -220,14 +222,14 @@ def cards(fuel: Nat,+index: U32,+ui: Ui,+profile: P.Profile,tail: List<&2,D.Rect
 
 def menu_rows(+ui: Ui,+profile: P.Profile) -> List<&2,D.Rect>:
   +category = ui_tab(ui)
-  +selected = U32.min(ui_selected(ui),(C.count(category) - 1 : U32))
+  +selected = U32.min(ui_selected(ui),(Catalog.count(category) - 1 : U32))
   D.text("NIGHTFALL",18.0,16.0,3.0,15584891,
   D.text(C.name(2,ui_character(ui)) ++ " / " ++ C.name(3,ui_stage(ui)),20.0,44.0,1.0,15196103,
   D.text(C.name(4,ui_arcana(ui)) ++ " / " ++ C.name(9,ui_mode(ui)),20.0,56.0,1.0,9874884,
   D.text("SPACE START  M POWER UPS  C COLLECTION",20.0,68.0,1.0,7985384,
   D.text("GOLD " ++ U32.show(P.gold(profile)),350.0,20.0,1.0,15584891,
-  D.text(title(category) ++ "  " ++ U32.show((ui_page(ui) + 1 : U32)) ++ "/" ++ U32.show(((C.count(category) + 3) / 4 : U32)),20.0,82.0,1.0,15584891,
-  cards(U32.to_nat(U32.min(4,(C.count(category) - ui_page(ui) * 4 : U32))),0,ui,profile,
+  D.text(title(category) ++ "  " ++ U32.show((ui_page(ui) + 1 : U32)) ++ "/" ++ U32.show(((Catalog.count(category) + 3) / 4 : U32)),20.0,82.0,1.0,15584891,
+  cards(U32.to_nat(U32.min(4,(Catalog.count(category) - ui_page(ui) * 4 : U32))),0,ui,profile,
   D.wrapped(C.description(category,selected) ++ " / " ++ C.hint(category,selected) ++ " / " ++ C.recipe(category,selected),20.0,278.0,20.0,486.0,324.0,15196103,
   D.text("ARROWS SELECT  ENTER EQUIP / BUY",20.0,336.0,1.0,15196103,
   D.text("LEFT/RIGHT CATEGORY  [ ] PAGE  ESC BACK",20.0,352.0,1.0,9874884,
@@ -495,7 +497,7 @@ def category_index(category: U32) -> U32:
 def change_category(+ui: Ui,direction: U32) -> Ui:
   set_selected(set_page(set_tab(ui,active_category(ui_screen(ui),category_index(ui_tab(ui)),direction)),0),0)
 def move_selection(+ui: Ui,direction: U32) -> Ui:
-  +id = ((ui_selected(ui) + C.count(ui_tab(ui)) + direction) % C.count(ui_tab(ui)) : U32)
+  +id = ((ui_selected(ui) + Catalog.count(ui_tab(ui)) + direction) % Catalog.count(ui_tab(ui)) : U32)
   set_page(set_selected(ui,id),(id / 4 : U32))
 def equip(allowed: Bool,category: U32,+id: U32,ui: Ui) -> Ui:
   match allowed category:
@@ -531,8 +533,8 @@ def menu_key(code: U32,state: Native) -> Native:
     case 63235 Native{game,ui,profile}: Native{game,change_category(ui,1),profile}
     case 65361 Native{game,ui,profile}: Native{game,change_category(ui,4294967295),profile}
     case 65363 Native{game,ui,profile}: Native{game,change_category(ui,1),profile}
-    case 91 Native{game,+ui,profile}: Native{game,set_selected(set_page(ui,((ui_page(ui) + (C.count(ui_tab(ui)) + 3) / 4 - 1) % ((C.count(ui_tab(ui)) + 3) / 4) : U32)),(((ui_page(ui) + (C.count(ui_tab(ui)) + 3) / 4 - 1) % ((C.count(ui_tab(ui)) + 3) / 4)) * 4 : U32)),profile}
-    case 93 Native{game,+ui,profile}: Native{game,set_selected(set_page(ui,((ui_page(ui) + 1) % ((C.count(ui_tab(ui)) + 3) / 4) : U32)),(((ui_page(ui) + 1) % ((C.count(ui_tab(ui)) + 3) / 4)) * 4 : U32)),profile}
+    case 91 Native{game,+ui,profile}: Native{game,set_selected(set_page(ui,((ui_page(ui) + (Catalog.count(ui_tab(ui)) + 3) / 4 - 1) % ((Catalog.count(ui_tab(ui)) + 3) / 4) : U32)),(((ui_page(ui) + (Catalog.count(ui_tab(ui)) + 3) / 4 - 1) % ((Catalog.count(ui_tab(ui)) + 3) / 4)) * 4 : U32)),profile}
+    case 93 Native{game,+ui,profile}: Native{game,set_selected(set_page(ui,((ui_page(ui) + 1) % ((Catalog.count(ui_tab(ui)) + 3) / 4) : U32)),(((ui_page(ui) + 1) % ((Catalog.count(ui_tab(ui)) + 3) / 4)) * 4 : U32)),profile}
     case code state: state
 
 def key_bit(code: U32) -> U32:
@@ -613,7 +615,7 @@ def abandon(paused: U32,state: Native) -> Native:
   match paused state:
     case 1 Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}:
       +terminal = abandoned_run(run)
-      Native{G.Packet{G.State{world,terminal,rows,offers,snapshots,pending},frame},set_dirty(set_recorded(set_keys(set_paused(set_screen(set_tab(set_selected(set_page(ui,0),0),2),0),0),0),1),1),P.record(profile,terminal)}
+      Native{G.Packet{G.State{world,terminal,rows,offers,snapshots,pending},frame},set_dirty(set_recorded(set_keys(set_paused(set_screen(set_tab(set_selected(set_page(ui,0),0),2),0),0),0),1),1),ProfileIO.record(profile,terminal)}
     case p state: state
 
 def command_play(code: U32,+ui: Ui,run: G.Run,state: Native) -> Native:
@@ -648,7 +650,7 @@ def clicked_play(+x: U32,+y: U32,state: Native) -> Native:
 def clicked_menu(in_cards: Bool,+y: U32,state: Native) -> Native:
   match in_cards state:
     case False{} state: state
-    case True{} Native{game,+ui,profile}: buy_or_equip(Native{game,set_selected(ui,U32.min((C.count(ui_tab(ui)) - 1 : U32),(ui_page(ui) * 4 + (y - 96) / 44 : U32))),profile})
+    case True{} Native{game,+ui,profile}: buy_or_equip(Native{game,set_selected(ui,U32.min((Catalog.count(ui_tab(ui)) - 1 : U32),(ui_page(ui) * 4 + (y - 96) / 44 : U32))),profile})
 def clicked(screen: U32,+x: U32,+y: U32,state: Native) -> Native:
   match screen:
     case 1: clicked_play(x,y,state)
@@ -686,7 +688,7 @@ def frame(state: Native) -> Native:
 def settled(terminal: Bool,state: Native) -> Native:
   match terminal state:
     case False{} state: state
-    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}: Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},set_dirty(set_recorded(ui,1),1),P.record(profile,run)}
+    case True{} Native{G.Packet{G.State{world,+run,rows,offers,snapshots,pending},frame},ui,profile}: Native{G.Packet{G.State{world,run,rows,offers,snapshots,pending},frame},set_dirty(set_recorded(ui,1),1),ProfileIO.record(profile,run)}
     case True{} state: state
 
 def settle(state: Native) -> Native:
@@ -699,7 +701,7 @@ def save_dirty(dirty: U32,state: Native) -> IO(Native):
     case 0 state: IO.pure(Native,state)
     case d Native{game,ui,+profile}:
       do IO<Native>:
-        Unit <- P.save(profile)
+        Unit <- ProfileIO.save(profile)
         IO.pure(Native,Native{game,set_dirty(ui,0),profile})
 def persist(state: Native) -> IO(Native):
   match state:
@@ -815,6 +817,6 @@ def session_tick(events: List<Event>,state: Session) -> IO(Maybe<Session>):
         session_next(now,audio,music,kills,level,health,fps_sample(now,fps),result)
 def main() -> IO(Unit):
   do IO<Unit>:
-    profile : P.Profile <- P.load()
+    profile : P.Profile <- ProfileIO.load()
     audio : Maybe<Audio> <- Sound.open()
     App.run(~Session,~App{session_view,session_tick},"Nightfall Survivors - Bend",1024,768,Session{initial(profile),audio,0,1,100,Sound.initial(),fps_initial()})

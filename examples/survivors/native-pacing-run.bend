@@ -3,7 +3,7 @@
 import Base
 import game.bend as G
 import native-full-run.bend as F
-import native-profile.bend as P
+import native-economy.bend as P
 
 type Stats is Data: Stats{firstReward: U32,decisions: U32,maxLiving: U32,firstDamage: U32,hitEvents: U32,minHp: U32,lastHp: U32}
 def living(rows: List<&2,G.Body>) -> U32:

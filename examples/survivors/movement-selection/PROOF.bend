@@ -1,4 +1,5 @@
 import Base
+import ../pools/SPEC.bend as PoolSpec
 import ../movement-membership.bend as M
 import ../pools.bend as P
 import LAWS.bend as L
@@ -8,7 +9,7 @@ import ../entity-role/PROOF.bend as RP
 
 def L.exact_role_scope(role,kind): {==}
 def L.assigned_role_equivalence(kind,seed):
-  Equal.cong(Bool,Bool,flag => Bool.and(flag,U32.is_eq(kind,0)),R.enemy(R.assigned(seed)),P.is_enemy_pool(seed),RL.allocated_enemy(seed))
+  Equal.cong(Bool,Bool,flag => Bool.and(flag,U32.is_eq(kind,0)),R.enemy(R.assigned(seed)),PoolSpec.is_enemy_pool(seed),RL.allocated_enemy(seed))
 def L.roster_retains_active(H,handle): {==}
 def L.roster_batch_order(H,left,right):
   match left:

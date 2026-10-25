@@ -1,0 +1,34 @@
+[
+  {
+    "label": "combat-lethal-wrap",
+    "source": "examples/survivors/combat-policy.bend",
+    "old": "case True{}: (hp - damage : U32)\n    case False{}: 0",
+    "new": "case True{}: (hp - damage : U32)\n    case False{}: (hp - damage : U32)",
+    "proof": "examples/survivors/combat-policy/PROOF.bend",
+    "law": "lethal_hit_exhausts_health"
+  },
+  {
+    "label": "combat-survivor-free-hit",
+    "source": "examples/survivors/combat-policy.bend",
+    "old": "case True{}: (hp - damage : U32)",
+    "new": "case True{}: hp",
+    "proof": "examples/survivors/combat-policy/PROOF.bend",
+    "law": "surviving_hit_debits_exactly"
+  },
+  {
+    "label": "combat-ignore-invulnerability",
+    "source": "examples/survivors/combat-policy.bend",
+    "old": "Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))",
+    "new": "U32.is_lt(0,hit)",
+    "proof": "examples/survivors/combat-policy/PROOF.bend",
+    "law": "invulnerable_contact_does_no_damage"
+  },
+  {
+    "label": "combat-deny-all-contact",
+    "source": "examples/survivors/combat-policy.bend",
+    "old": "case True{}: amount",
+    "new": "case True{}: 0",
+    "proof": "examples/survivors/combat-policy/PROOF.bend",
+    "law": "vulnerable_contact_applies_damage"
+  }
+]

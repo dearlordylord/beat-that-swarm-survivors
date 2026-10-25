@@ -17,6 +17,9 @@ def audit(online=False):
     errors = []
     files = sorted((ROOT / 'examples').rglob('*.bend'))
     graph, external = {}, set()
+    mathlib = ROOT / 'vendor/bendlib/packages/bend-mathlib'
+    def proof_source(path):
+        return 'proof' in path.stem.lower() or 'laws' in path.stem.lower()
     for source in files:
         graph[source] = []
         for match in IMPORT.finditer(source.read_text()):
@@ -31,6 +34,10 @@ def audit(online=False):
                 external.add(source)
                 continue
             local = (source.parent / target).resolve()
+            if local.is_relative_to(mathlib) and local.is_file() and 'proof' in source.stem.lower():
+                # Only proof modules may consume the pinned theorem library.
+                graph[source].append(local)
+                continue
             if not local.is_relative_to(ROOT / 'examples') or not local.is_file():
                 errors.append(f'{source.relative_to(ROOT)}: use a declared BendHub package or local example module: {target}')
             else:
@@ -41,7 +48,15 @@ def audit(online=False):
         if source in seen:
             return False
         return any(reaches_hub(child, seen | {source}) for child in graph.get(source, []))
+    def reaches_proof(source, seen):
+        if proof_source(source) or source.is_relative_to(mathlib):
+            return True
+        if source in seen:
+            return False
+        return any(reaches_proof(child, seen | {source}) for child in graph.get(source, []))
     for source in files:
+        if not proof_source(source) and reaches_proof(source, set()):
+            errors.append(f'{source.relative_to(ROOT)}: runtime modules must not import proofs or mathlib')
         # Art/content helpers may use only Base; each example as a whole must consume Hub ECS.
         if source.parent.name == 'ecs':
             errors.append(f'Vendored ECS directory: {source.parent.relative_to(ROOT)}')

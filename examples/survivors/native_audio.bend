@@ -139,9 +139,13 @@ def block(active: Bool,count: U32,cursor: U32,voices: List<&2,Voice>) -> List<&2
     case False{}: silence(U32.to_nat(count))
 def chunk_size(+cursor: U32,queued: U32) -> U32:
   U32.min((3072 - U32.min(3072,queued) : U32),U32.min(1024,(step_start((step_at(cursor) + 1 : U32)) - cursor : U32)))
+def block_cursor(active: Bool,count: U32,cursor: U32) -> U32:
+  match active:
+    case True{}: (cursor + count : U32)
+    case False{}: cursor
 def after_block(count: U32,track: Track) -> Track:
   match track:
-    case Track{clock,time,carry,+cursor,step,voices,+active,stage,band,seed}: Track{clock,time,carry,(cursor + count * Bool.to_u32(active) : U32),step,voices,active,stage,band,seed}
+    case Track{clock,time,carry,+cursor,step,voices,+active,stage,band,seed}: Track{clock,time,carry,block_cursor(active,count,cursor),step,voices,active,stage,band,seed}
 def feed_written(track: Track,result: Audio & U32) -> IO(Feed):
   (audio,queued) = result
   IO.pure(Feed,Feed{audio,track,queued})

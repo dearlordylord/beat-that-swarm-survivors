@@ -6,16 +6,20 @@ type Request is Data: Request{owner:U32,slot:U32,level:U32}
 type Plan is Data: Plan{assignments:BI.Index<Request>,count:U32}
 type Pending is Data:
   Pending{free:List<&2,U32>,counts:List<&2,U32>,caps:List<&2,U32>,assignments:BI.Index<Request>,count:U32}
-def at(rows:List<&2,U32>,index:U32) -> U32:
-  match rows index:
+def at_go(rows:List<&2,U32>,+index:U32,atHead:Bool) -> U32:
+  match rows atHead:
     case [] _: 0
-    case head <> _ 0: head
-    case _ <> rest index: at(rest,(index - 1 : U32))
-def bump(rows:List<&2,U32>,index:U32) -> List<&2,U32>:
-  match rows index:
+    case head <> _ True{}: head
+    case _ <> rest False{}: at_go(rest,(index - 1 : U32),U32.is_eq((index - 1 : U32),0))
+def at(rows:List<&2,U32>,+index:U32) -> U32:
+  at_go(rows,index,U32.is_eq(index,0))
+def bump_go(rows:List<&2,U32>,+index:U32,atHead:Bool) -> List<&2,U32>:
+  match rows atHead:
     case [] _: []
-    case head <> rest 0: (head + 1 : U32) <> rest
-    case head <> rest index: head <> bump(rest,(index - 1 : U32))
+    case head <> rest True{}: (head + 1 : U32) <> rest
+    case head <> rest False{}: head <> bump_go(rest,(index - 1 : U32),U32.is_eq((index - 1 : U32),0))
+def bump(rows:List<&2,U32>,+index:U32) -> List<&2,U32>:
+  bump_go(rows,index,U32.is_eq(index,0))
 def allowed(+owner:U32,counts:List<&2,U32>,caps:List<&2,U32>) -> Bool:
   Bool.and(U32.is_lt(owner,24),U32.is_lt(at(counts,owner),at(caps,owner)))
 def assign(accepted:Bool,+request:Request,state:Pending) -> Pending:
