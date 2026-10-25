@@ -330,5 +330,4 @@
 .unlock-requirement .requirement{margin:0 0 8px}
 .unlock-requirement progress{display:block;width:100%;height:6px;accent-color:#c9ad78;margin-bottom:7px}
 .unlock-requirement small{color:#bdafc3;font-size:11px}
-.unlock-equipped-note{padding-top:12px;border-top:1px solid #58445d;color:#bdafc5;font-size:12px}
 @media(max-width:600px){#app #menu .choice-pair>.choice{flex-direction:column;text-align:center;gap:6px;min-height:144px}.choice-pair>.choice .viewing-badge{margin-left:auto;margin-right:auto}.choice-pair>.choice>.choice-check{display:none}#app #menu .choice-pair>.unlock-inspector--row{padding:18px}.choice-pair .purchase-line{align-items:stretch;flex-direction:column}.choice-pair .purchase-line button{width:100%}}

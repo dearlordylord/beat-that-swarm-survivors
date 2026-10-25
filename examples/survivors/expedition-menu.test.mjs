@@ -21,7 +21,7 @@ test('every locked survivor opens one full-width dossier beneath its own card pa
     assert(row.indexOf('data-unlock-details') > row.indexOf(`data-character="${selectedPair * 2 + 1}"`));
     assert.match(html, new RegExp(`is-inspecting[^>]*data-character="${id}" aria-pressed="false" aria-expanded="true" aria-controls="unlock-details-character-${id}"`));
     assert.match(html, /data-character="0" aria-pressed="true"/);
-    assert.match(html, /Next run: <strong>Mira<\/strong> remains equipped/);
+    assert(!html.includes("remains equipped"));
     assert.equal((html.match(/data-close-unlock/g) || []).length, 1);
     assert(!html.includes('Inspecting'));
   }
