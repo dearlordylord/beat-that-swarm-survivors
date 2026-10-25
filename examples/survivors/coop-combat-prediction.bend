@@ -49,8 +49,6 @@ def normalize_players(rows:List<&2,G.PlayerSnapshot>) -> List<&2,G.PlayerSnapsho
     case G.PlayerSnapshot{id,run,connected} <> tail: G.PlayerSnapshot{id,normalize_run(run),connected} <> normalize_players(tail)
 def normalize_snapshot(value:G.Snapshot) -> G.Snapshot:
   match value:
-    case G.Snapshot{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},G.Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}}:
-      G.Snapshot{Components.Body{Policy.normalize(x),Policy.normalize(y),kind,variant,hp,maximum,age,seed,Policy.normalize(radius)},G.Motion{Policy.normalize(vx),Policy.normalize(vy),life,pierce,visited,slow,burn,owner,slot}}
     case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}}: G.ProjectileSnapshot{Shot.State{Space.Spatial{Policy.normalize(x),Policy.normalize(y),age,Policy.normalize(radius)},identity,side,payload,Components.Trajectory{Policy.normalize(vx),Policy.normalize(vy),life,pierce,visited,owner,slot,sourcePlayer}}}
     case G.EnemySnapshot{Enemy.State{Space.Spatial{x,y,age,radius},archetype,identity,vitals,status}}: G.EnemySnapshot{Enemy.State{Space.Spatial{Policy.normalize(x),Policy.normalize(y),age,Policy.normalize(radius)},archetype,identity,vitals,status}}
     case G.PickupSnapshot{pickup}: G.PickupSnapshot{pickup}
@@ -68,9 +66,6 @@ def diagnostic_history(enabled:Bool,contacts:List<&2,Policy.Witness>) -> List<&2
 def with_diagnostics(scene:Scene,+enabled:Bool) -> Scene:
   match scene:
     case Scene{own,players,snapshots,births,directions,contacts,tick,_}: Scene{own,players,snapshots,births,directions,diagnostic_history(enabled,contacts),tick,enabled}
-def body_seed(body:Components.Body) -> U32:
-  match body:
-    case Components.Body{_,_,_,_,_,_,_,seed,_}: seed
 def find_run(players:List<&2,G.PlayerSnapshot>,+id:U32) -> Maybe<&2,G.Run>:
   match players:
     case []: None{}
@@ -191,7 +186,7 @@ def prepared_next(state:Prepared) -> BI.Index<Projectile.Shot>:
     case Prepared{_,_,_,next}: next
 def row_snapshot(row:G.EntityRow,tail:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
   match row:
-    case G.EntityRow{G.Row{+body,_,_,_,_,_,_,_},+motion}: add_snapshot(active(G.Snapshot{body,motion}),G.Snapshot{body,motion},tail)
+    case G.NoEntityRow{}: tail
     case G.ProjectileRow{Shot.Outcome{+state,_}}: add_snapshot(active(G.ProjectileSnapshot{state}),G.ProjectileSnapshot{state},tail)
     case G.EnemyRow{outcome,_}: G.enemy_snapshot(outcome,tail)
     case G.PickupRow{_}: tail

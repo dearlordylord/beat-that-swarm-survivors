@@ -125,7 +125,7 @@ const personalRun = {...observed.game.run,
   player:{...players[0].player, hp:1, revivals:2, invuln:0}};
 const outcome = Game.finish_personal_tick(personalRun, {$:'Totals',
   hit:1, xp:999, gold:999, heal:0, chest:1, kills:0,
-  bodies:list([]), snapshots:list([]), relic:1});
+   snapshots:list([]), relic:1});
 assert.equal(outcome.$, 'PlayerState');
 assert.equal(outcome.hp, 0);
 assert.equal(outcome.invuln, 45);

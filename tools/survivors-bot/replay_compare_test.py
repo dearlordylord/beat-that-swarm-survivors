@@ -36,7 +36,7 @@ class CompareTest(unittest.TestCase):
                    lambda p:p['components']['actorColumns']['vitals'].pop(),
                    lambda p:p['components']['actorColumns']['shots'][1].__setitem__(1,[0,1,1]),
                    lambda p:p['components']['actorColumns']['projectileCandidates'].reverse(),
-                   lambda p:p['components']['actorColumns']['bodies'][0].__setitem__(1,[0]*9),
+                   lambda p:p['components']['actorColumns'].__setitem__('bodies',[]),
                    lambda p:p['components']['players'][0].__setitem__(1,[0,[],0]),
                    lambda p:p['metadata'].__setitem__('pendingCommands',1),
                    lambda p:p['metadata']['allocator'][5].pop(),
@@ -46,6 +46,12 @@ class CompareTest(unittest.TestCase):
         for change in mutations:
             a=F.replay();change(a[2]['payload']);self.write(a,a)
             with self.assertRaises((R.ReplayError,ValueError)):self.compare()
+    def test_removed_legacy_contracts_are_rejected(self):
+        for change in (lambda p:p.__setitem__('bodies',[]),
+                       lambda p:p['components']['actorColumns'].__setitem__('bodies',[]),
+                       lambda p:p['snapshots'].append({'body':[]})):
+            a=F.replay();change(a[2]['payload']);self.write(a,a)
+            with self.assertRaises(R.ReplayError):self.compare()
     def test_bool_is_not_u32_even_when_both_equal(self):
         a=F.replay();a[2]['payload']['run'][4]=False;self.write(a,a)
         with self.assertRaises(R.ReplayError):self.compare()

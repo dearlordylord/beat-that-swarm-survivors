@@ -21,7 +21,7 @@ def steer_nearest(rows: List<&2,Threats.Threat>,+run: G.Run,aim: G.Aim) -> F32 &
 def moved(state: G.State,direction: F32 & F32) -> G.Packet:
   (dx,dy) = direction
   G.advance(state,dx,dy)
-def step(phase: U32,state: G.State,+run: G.Run,+rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,+snapshots: List<&2,G.Snapshot>) -> G.Packet:
+def step(phase: U32,state: G.State,+run: G.Run,offers: List<&2,G.Offer>,+snapshots: List<&2,G.Snapshot>) -> G.Packet:
   match phase:
     case 1: G.choose(state,F.best_offer(offers,run,0,0,0))
     case 2: G.choose(state,F.best_offer(offers,run,0,0,0))
@@ -31,10 +31,10 @@ def report(+run: G.Run,stats: Stats) -> IO(Unit):
     case Stats{firstReward,decisions,maxLiving,firstDamage,hitEvents,minHp,_}: IO.print("OBSERVED fresh kiting tick=" ++ U32.show(F.tick(run)) ++ " phase=" ++ U32.show(F.phase(run)) ++ " hp=" ++ U32.show(F.hp(run)) ++ " level=" ++ U32.show(F.level(run)) ++ " kills=" ++ U32.show(F.kills(run)) ++ " firstRewardTick=" ++ U32.show(firstReward) ++ " decisions=" ++ U32.show(decisions) ++ " maxLiving=" ++ U32.show(maxLiving) ++ " firstDamageTick=" ++ U32.show(firstDamage) ++ " hitEvents=" ++ U32.show(hitEvents) ++ " minHp=" ++ U32.show(minHp))
 def loop(fuel: Nat,active: Bool,packet: G.Packet,+stats: Stats) -> IO(Unit):
   match fuel active packet:
-    case 0n _ G.Packet{G.State{_,+run,_,_,snapshots,_}}: report(run,measured(stats,run,G.enemy_observations(snapshots)))
-    case _ False{} G.Packet{G.State{_,+run,_,_,snapshots,_}}: report(run,measured(stats,run,G.enemy_observations(snapshots)))
-    case 1n+rest True{} G.Packet{G.State{world,+run,+rows,+offers,+snapshots,pending}}:
-      loop(rest,Bool.and(U32.is_lt(F.tick(run),3599),U32.is_lt(F.phase(run),3)),step(F.phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,snapshots),measured(stats,run,G.enemy_observations(snapshots)))
+    case 0n _ G.Packet{G.State{_,+run,_,snapshots,_}}: report(run,measured(stats,run,G.enemy_observations(snapshots)))
+    case _ False{} G.Packet{G.State{_,+run,_,snapshots,_}}: report(run,measured(stats,run,G.enemy_observations(snapshots)))
+    case 1n+rest True{} G.Packet{G.State{world,+run,+offers,+snapshots,pending}}:
+      loop(rest,Bool.and(U32.is_lt(F.tick(run),3599),U32.is_lt(F.phase(run),3)),step(F.phase(run),G.State{world,run,offers,snapshots,pending},run,offers,snapshots),measured(stats,run,G.enemy_observations(snapshots)))
     case _ _ _: IO.die(Unit,1,"Pacing diagnostic packet failure")
 def unlock(packet: G.Packet) -> G.Packet:
   match packet:

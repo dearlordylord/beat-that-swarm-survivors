@@ -9,7 +9,6 @@ import struct
 import replay_compare as R
 import current_replay_schema as C
 import qualification_coop_players as P
-import typed_qualification as T
 
 def data(value,ctor,fields):
     C.exact_keys(value,{'$',*fields},ctor)
@@ -119,11 +118,11 @@ def snapshot(v):
 
 def extract(row):
     P.validate_row(row)
-    core=data(row['physical'],'CoreState',{'world','shared','refs','bodies','snapshots','round','required','offers','pending'})
-    if core['shared']!=row['shared'] or P.array(core['refs'])!=row['refs'] or P.array(core['bodies']):raise R.ReplayError('Actual Core observations/refs incoherent or Body transport remains')
+    core=data(row['physical'],'CoreState',{'world','shared','refs','snapshots','round','required','offers','pending'})
+    if core['shared']!=row['shared'] or P.array(core['refs'])!=row['refs']:raise R.ReplayError('Actual Core observations/refs incoherent')
     world=core['world'];m=metadata(world);now=tuple(m['clock'][0]);total=C.DEFAULT_LAYOUT['totalCount']
-    store=data(world['store'],'Store',{'bodies','vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots'})
-    converters=dict(bodies=absent,vitals=vitals,motions=trajectory,statuses=status,pickups=pickup,roles=role,spaces=spatial,enemyPhases=phase,identities=identity,shots=shot)
+    store=data(world['store'],'Store',{'vitals','motions','statuses','pickups','roles','movement','candidates','players','spaces','enemyPhases','identities','shots'})
+    converters=dict(vitals=vitals,motions=trajectory,statuses=status,pickups=pickup,roles=role,spaces=spatial,enemyPhases=phase,identities=identity,shots=shot)
     c={('trajectories' if name=='motions' else name):column(store[name],convert,total,now) for name,convert in converters.items()}
     movement=store['movement'];candidates=store['candidates']
     if movement=={'$':'MovementCold'}:c['movementCandidates']=[]
@@ -151,11 +150,7 @@ def progress(core):
 
 def facts(row):
     payload,refs=extract(row)
-    es,snapshots=T.snapshot_facts(payload)
-    pool=T.canonical(dict(entities=es,snapshots=snapshots,visible=[],lootItems=T.loot_items(payload),identity=dict(namespace=payload['metadata']['namespace'],allocator=payload['metadata']['allocator'])))
-    c=payload['components']['actorColumns']
-    pool['phases']=sorted([dict(identity=identity,phase=phase[0],archetype=phase[1]) for (_,identity,_),(_,phase,_) in zip(c['identities'],c['enemyPhases']) if phase is not None],key=lambda value:value['identity'])
-    return dict(players=P.validate_row(row),pool=pool,progress=progress(row['physical']))
+    return dict(players=P.validate_row(row),pool=payload,progress=progress(row['physical']))
 
 def controls(row):
     """Change actual raw component values and coherent cached observations."""
@@ -212,20 +207,34 @@ def controls(row):
         if label in ('future-stamp','routing-order') or result==original:raise AssertionError('Undetected raw co-op '+label)
     return ['raw-coop-'+name for name in ('damage','xp','generation','status','identity','source-player','pickup-age','pickup-accumulator','loot-amount','future-stamp','routing-order')]
 
+def validate_capture(document):
+    C.exact_keys(document,{'scenario','rows'},'co-op capture')
+    if type(document['scenario']) is not str or not document['scenario']:raise R.ReplayError('Missing co-op scenario')
+    rows=C.sequence(document['rows'],'co-op checkpoints')
+    if len(rows)<2:raise R.ReplayError('At least two co-op checkpoints required')
+    previous_clock=None;previous_tick=-1;previous_system=-1
+    for row in rows:
+        C.exact_keys(row,{'label','tick','shared','players','refs','frame','physical'},'co-op checkpoint')
+        facts(row)
+        clock=tuple(P.time(row['physical']['world']['clock']['now']));system=row['physical']['world']['nextSystemId']
+        if (previous_clock is not None and clock<previous_clock) or row['tick']<previous_tick or system<previous_system:raise R.ReplayError('Co-op World clock/tick/system counter regressed')
+        previous_clock,previous_tick,previous_system=clock,row['tick'],system
+    return rows
+
+def compare(reference,candidate):
+    import json
+    expected=json.loads(reference.read_text(),object_pairs_hook=R._pairs,parse_constant=R._constant)
+    actual=json.loads(candidate.read_text(),object_pairs_hook=R._pairs,parse_constant=R._constant)
+    left=validate_capture(expected);right=validate_capture(actual)
+    if expected!=actual:raise R.ReplayError('Current co-op captures differ: '+R.first_difference(expected,actual))
+    return dict(status='passed',checkpoints=len(right),referenceSha256=R.file_sha(reference),candidateSha256=R.file_sha(candidate),scope='Strict current-schema raw co-op captures; every physical, presentation and routing field compared exactly with no migration projection or exclusions.')
+
 if __name__=='__main__':
     import argparse,json,sys
     from pathlib import Path
     sys.setrecursionlimit(100000)
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('capture',type=Path);parser.add_argument('frozen_facts',type=Path);parser.add_argument('--receipt',type=Path)
-    args=parser.parse_args();rows=json.loads(args.capture.read_text(),object_pairs_hook=R._pairs,parse_constant=R._constant)['rows']
-    actual=[];previous_clock=None;previous_tick=-1;previous_system=-1
-    for row in rows:
-        value=facts(row);clock=tuple(P.time(row['physical']['world']['clock']['now']));system=row['physical']['world']['nextSystemId']
-        if (previous_clock is not None and clock<previous_clock) or row['tick']<previous_tick or system<previous_system:raise R.ReplayError('Co-op World clock/tick/system counter regressed')
-        previous_clock,previous_tick,previous_system=clock,row['tick'],system;actual.append(value)
-    expected=json.loads(args.frozen_facts.read_text(),object_pairs_hook=R._pairs,parse_constant=R._constant)
-    if actual!=expected:raise R.ReplayError('Full co-op qualification differs: '+R.first_difference(expected,actual))
-    negative=controls(rows[2]);receipt=dict(status='passed',checkpoints=len(actual),captureSha256=R.file_sha(args.capture),frozenFactsSha256=R.file_sha(args.frozen_facts),rawSourceControls=negative,scope='Complete actual co-op pooled World and player authorities, lifecycle/allocator/clock/routing validation, exact named facts and ordered active snapshots; no tolerances or age/generation exclusions.')
+    parser.add_argument('reference',type=Path);parser.add_argument('candidate',type=Path);parser.add_argument('--receipt',type=Path)
+    args=parser.parse_args();receipt=compare(args.reference,args.candidate)
     if args.receipt:args.receipt.write_text(json.dumps(receipt,indent=2)+'\n')
     print(json.dumps(receipt))

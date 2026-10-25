@@ -105,7 +105,6 @@ export class Renderer {
     this.ground();
     this.boundary();
     this.hazards();
-    const bodies = Array.isArray(frame.bodies) ? frame.bodies : [];
     // A forecast may reconcile a volley into another physical pool slot.
     // Heading belongs to its semantic lifetime, and expires with that lifetime.
     const projectiles = frame.projectiles;
@@ -113,10 +112,8 @@ export class Renderer {
     const shotKeys = new Set(projectiles.concat(localProjectiles).map(shotIdentity));
     for (const key of this.shotPositions?.keys() || [])
       if (!shotKeys.has(key)) this.shotPositions.delete(key);
-    for (const b of bodies) if (b[2] === 6) this.effect(b, true);
     const pickups = new Map(frame.pickups.map(pickup => [pickup.slot, pickup]));
     const enemies = frame.enemies;
-    const bodyByIdentity = new Map(bodies.map(body => [body[7], body]));
     const enemyByIdentity = new Map(enemies.map(enemy => [enemy.identity, enemy]));
     const enemyFades = frame.enemyFades || [];
     const fadeByLifetime = new Map(enemyFades.map(enemy => [enemy.lifetime, enemy]));
@@ -145,10 +142,8 @@ export class Renderer {
         const projectile = localByLifetime.get(reference.localProjectile);
         return {kind: "projectile", value: projectile, y: projectile.y};
       }
-      const body = bodyByIdentity.get(reference.body);
-      return {kind: "body", value: body, y: body[1]};
-    }).filter(actor => actor.kind !== "body" || actor.value[2] !== 6)
-      .sort((left, right) => left.y - right.y);
+      throw Error("Unknown actor reference.");
+    }).sort((left, right) => left.y - right.y);
     const players = framePlayers(frame).slice().sort((a, b) => a.py - b.py || a.id - b.id);
     let playerIndex = 0;
     for (const actor of ordered) {
@@ -160,7 +155,6 @@ export class Renderer {
     }
     while (playerIndex < players.length)
       this.observedPlayer(players[playerIndex++], players.length > 1);
-    for (const b of bodies) if (b[2] === 6) this.effect(b, false);
     for (const enemy of enemies) this.enemyHealthBar(enemy);
     if (options.showDamage !== false) this.damage(enemies.concat(enemyFades), dt);
     this.contactEffects(frame.combatImpacts || []);
@@ -1053,23 +1047,7 @@ export class Renderer {
     }
     c.restore();
   }
-  effect(b, under) {
-    // Legacy hit particles are cosmetic points, never additional damage areas.
-    if (under) return;
-    const c = this.ctx,
-      [x, y] = this.xy(b[0], b[1]),
-      r = Math.min(6, Math.max(1, Number(b[8]) || 3));
-    c.save();
-    c.strokeStyle = COLORS[(b[3] || 0) % 24];
-    this.setAlpha(0.5);
-    c.beginPath();
-    c.moveTo(x - r, y);
-    c.lineTo(x + r, y);
-    c.moveTo(x, y - r);
-    c.lineTo(x, y + r);
-    c.stroke();
-    c.restore();
-  }
+
   damage(enemies, dt) {
     const c = this.ctx,
       next = new Map();

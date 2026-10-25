@@ -8,7 +8,6 @@ bash examples/survivors/check-coop-reliability.sh
 bash examples/survivors/check-geometry.sh
 bash examples/survivors/check-native-coop-metrics.sh
 example_timeout 60 python3 -B examples/survivors/capability-controls.test.py
-example_timeout 30 python3 -B tools/survivors-bot/ecs_migration_compare_test.py
 example_timeout 30 python3 -B tools/survivors-bot/replay_compare_test.py
 example_timeout 30 python3 -B tools/survivors-bot/replay_measure_test.py
 example_timeout 30 python3 -B tools/survivors-bot/balance_report_test.py

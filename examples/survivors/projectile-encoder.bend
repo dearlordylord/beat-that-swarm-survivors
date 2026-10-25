@@ -10,10 +10,6 @@ def hostile(side: Shot.Side) -> Bool:
   match side:
     case Shot.PlayerShot{}: False{}
     case Shot.HostileShot{}: True{}
-def kind(side: Shot.Side) -> U32:
-  match side:
-    case Shot.PlayerShot{}: 1
-    case Shot.HostileShot{}: 7
 def active(state: Shot.State) -> Bool:
   match state:
     case Shot.State{_,_,_,Components.ShotPayload{_,_,active},_}: active
@@ -40,4 +36,4 @@ def native_state(state: Shot.State) -> String:
 def visual(+tick: U32,+born: U32,state: Shot.State) -> String:
   match state:
     case Shot.State{Space.Spatial{x,y,age,radius},+identity,+side,Components.ShotPayload{weapon,damage,_},Components.Trajectory{vx,vy,life,pierce,_,+owner,+slot,+sourcePlayer}}:
-      "{\"identity\":" ++ U32.show(identity) ++ ",\"hostile\":" ++ Bool.pick(String,hostile(side),"true","false") ++ ",\"weapon\":" ++ U32.show(weapon) ++ ",\"damage\":" ++ U32.show(damage) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"age\":" ++ U32.show(age) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"vx\":" ++ F32.show(vx) ++ ",\"vy\":" ++ F32.show(vy) ++ ",\"life\":" ++ U32.show(life) ++ ",\"pierce\":" ++ U32.show(pierce) ++ ",\"sourcePlayer\":" ++ visual_source(sourcePlayer) ++ ",\"weaponOwner\":" ++ U32.show(owner) ++ ",\"logicalSlot\":" ++ U32.show(slot) ++ ",\"birthTick\":" ++ U32.show(born) ++ ",\"lifetime\":\"" ++ Playback.generation(kind(side),identity,born,owner,slot,sourcePlayer) ++ "\",\"tick\":" ++ U32.show(tick) ++ "}"
+      "{\"identity\":" ++ U32.show(identity) ++ ",\"hostile\":" ++ Bool.pick(String,hostile(side),"true","false") ++ ",\"weapon\":" ++ U32.show(weapon) ++ ",\"damage\":" ++ U32.show(damage) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"age\":" ++ U32.show(age) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"vx\":" ++ F32.show(vx) ++ ",\"vy\":" ++ F32.show(vy) ++ ",\"life\":" ++ U32.show(life) ++ ",\"pierce\":" ++ U32.show(pierce) ++ ",\"sourcePlayer\":" ++ visual_source(sourcePlayer) ++ ",\"weaponOwner\":" ++ U32.show(owner) ++ ",\"logicalSlot\":" ++ U32.show(slot) ++ ",\"birthTick\":" ++ U32.show(born) ++ ",\"lifetime\":\"" ++ Playback.projectile_generation(hostile(side),identity,born,owner,slot,sourcePlayer) ++ "\",\"tick\":" ++ U32.show(tick) ++ "}"

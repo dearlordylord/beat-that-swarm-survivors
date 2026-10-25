@@ -39,7 +39,7 @@ assert.deepEqual(codes(impact),[1]);assert.equal(impact.state.impactTick,3);asse
 // Use a real solo Run, real encoder and the browser producer. No Body DTO exists.
 const packet=G.start_seed(0,0,12345);assert.equal(packet.$,'Packet');
 const typedEnemy={$:'State',spatial:{$:'Spatial',x:7200,y:7200,age:10,radius:8},archetype:1,identity:7,vitals:{$:'Vitals',health:10,maximum:10},status:{$:'Status',slow:{$:'Slow',ticks:0,frozen:false},burn:{$:'Burn',ticks:0,sourcePlayer:{$:'None'}}}};
-const encode=(tick,age,health=10)=>JSON.parse(GE.encode({$:'Observation',run:{...packet.state.run,session:{...packet.state.run.session,tick}},bodies:list([]),offers:list([]),enemies:list([{...typedEnemy,spatial:{...typedEnemy.spatial,age},vitals:{...typedEnemy.vitals,health}}]),order:list([{$:'EnemyRef',identity:7}]),projectiles:list([]),pickups:list([])}));
+const encode=(tick,age,health=10)=>JSON.parse(GE.encode({$:'Observation',run:{...packet.state.run,session:{...packet.state.run.session,tick}},offers:list([]),enemies:list([{...typedEnemy,spatial:{...typedEnemy.spatial,age},vitals:{...typedEnemy.vitals,health}}]),order:list([{$:'EnemyRef',identity:7}]),projectiles:list([]),pickups:list([])}));
 const frame=encode(5,10);assert.equal(frame.enemies[0].lifetime,'enemy:7:0');assert.equal(encode(20,10).enemies[0].lifetime,'enemy:7:10');
 let source=await readFile(new URL('./audio.mjs',import.meta.url),'utf8');
 source=source.replace('"./dist/game.mjs"',JSON.stringify(url('game'))).replace('"./dist/audio-events.mjs"',JSON.stringify(url('audio-events')));

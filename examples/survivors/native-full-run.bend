@@ -144,11 +144,11 @@ def move(state: G.State,result: Policy.Memory & (F32 & F32)) -> Controlled:
   (memory,direction) = result
   (dx,dy) = direction
   Controlled{memory,G.advance(state,dx,dy)}
-def step(phase: U32,state: G.State,+run: G.Run,rows: List<&2,Components.Body>,offers: List<&2,G.Offer>,memory: Policy.Memory,snapshots: List<&2,G.Snapshot>) -> Controlled:
+def step(phase: U32,state: G.State,+run: G.Run,offers: List<&2,G.Offer>,memory: Policy.Memory,snapshots: List<&2,G.Snapshot>) -> Controlled:
   match phase:
     case 1: Controlled{memory,apply_reward(state,reward_action(offers,run))}
     case 2: Controlled{memory,apply_reward(state,reward_action(offers,run))}
-    case _: move(state,Policy.movement(memory,run,rows,movement_snapshots(chest_ready(run),snapshots)))
+    case _: move(state,Policy.movement(memory,run,movement_snapshots(chest_ready(run),snapshots)))
 def saw_boss(rows: List<&2,Enemy.State>) -> Bool: EnemyView.boss_seen(rows)
 def observe(stats: Stats,+run: G.Run,rows: List<&2,Enemy.State>) -> Stats:
   match stats:
@@ -189,13 +189,13 @@ def reward_progress(log: Bool,+run: G.Run,offers: List<&2,G.Offer>) -> IO(Unit):
         return Unit{}
 def loop(fuel: Nat,active: Bool,controlled: Controlled,+stats: Stats) -> IO(Unit):
   match fuel active controlled:
-    case 0n _ Controlled{_,G.Packet{G.State{_,run,_,_,_,_}}}: report(run,stats)
-    case _ False{} Controlled{_,G.Packet{G.State{_,run,_,_,_,_}}}: report(run,stats)
-    case 1n+rest True{} Controlled{memory,G.Packet{G.State{world,+run,+rows,+offers,+snapshots,+pending}}}:
+    case 0n _ Controlled{_,G.Packet{G.State{_,run,_,_,_}}}: report(run,stats)
+    case _ False{} Controlled{_,G.Packet{G.State{_,run,_,_,_}}}: report(run,stats)
+    case 1n+rest True{} Controlled{memory,G.Packet{G.State{world,+run,+offers,+snapshots,+pending}}}:
       do IO<Unit>:
         progress(Bool.and(U32.is_eq(phase(run),0),U32.is_eq((tick(run) % 3600 : U32),0)),run,stats)
         reward_progress(Bool.or(U32.is_eq(phase(run),1),U32.is_eq(phase(run),2)),run,offers)
-        loop(rest,Bool.not(Bool.or(U32.is_eq(phase(run),3),U32.is_eq(phase(run),4))),step(phase(run),G.State{world,run,rows,offers,snapshots,pending},run,rows,offers,memory,snapshots),observe(stats,run,G.enemy_observations(snapshots)))
+        loop(rest,Bool.not(Bool.or(U32.is_eq(phase(run),3),U32.is_eq(phase(run),4))),step(phase(run),G.State{world,run,offers,snapshots,pending},run,offers,memory,snapshots),observe(stats,run,G.enemy_observations(snapshots)))
     case _ _ _: IO.die(Unit,1,"Game packet failure")
 def configured(packet: G.Packet) -> G.Packet:
   match packet:

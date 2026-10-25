@@ -12,8 +12,8 @@ import unittest
 from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
-spec = importlib.util.spec_from_file_location("oracle_fixtures", HERE / "replay_compare_test.py")
-F = importlib.util.module_from_spec(spec); spec.loader.exec_module(F)
+import current_replay_fixture as F
+import replay_compare as R
 
 class MeasurementControls(unittest.TestCase):
     def setUp(self):
@@ -23,7 +23,7 @@ class MeasurementControls(unittest.TestCase):
         for row in rows:row["fixture"] = "seed100-profile0-warm0-end1"
         rows[0].update(seed=100,profile=0,warmup=0,endTick=1)
         rows[-1].update(actions=1,firstTick=0,endTick=1,phase=0)
-        rows.insert(-2, {"type":"replay-summary", "windowMs":10})
+        rows.insert(-2, {"type":"replay-summary", "fixture":rows[0]["fixture"], "windowMs":10, "windowActions":1, "firstTick":0, "endTick":1, "phase":0, "stateDigest32":7})
         self.payload = self.root / "records.jsonl"
         self.payload.write_text("".join(json.dumps(r)+"\n" for r in rows))
         self.trace = self.root / "fixture.trace"; self.trace.write_text("1313231410 1 0 100 0 1 1 0 1\n0 0 0 0 0\n")
@@ -33,9 +33,12 @@ class MeasurementControls(unittest.TestCase):
         p.write_text("#!/usr/bin/env python3\nimport pathlib,sys,time,os\nassert sys.argv[1:]==['+RTS','--threads','1','-RTS']\nassert 'BENDRTS' not in os.environ\n" + body + "\n")
         p.chmod(0o700); return p
     def command(self, ref, candidate, output, **options):
+        layout = options.get("layout")
+        if layout is None:
+            layout = self.root / "current-layout.json"
+            layout.write_text(json.dumps(F.LAYOUT))
         command = ["python3",str(HERE/"measure-native-step.py"),"--reference",str(ref),"--candidate",str(candidate),"--fixtures",str(self.fixtures),"--output",str(output),"--rounds","1","--timeout",str(options.get("timeout",1)),"--max-seconds","5"]
-        if options.get("layout") is not None:
-            command.extend(["--layout", str(options["layout"])])
+        command.extend(["--layout", str(layout)])
         return command
     def output_binary(self,name):
         return self.binary(name, f"sys.stdout.write(pathlib.Path({str(self.payload)!r}).read_text())")
@@ -60,13 +63,12 @@ class MeasurementControls(unittest.TestCase):
         self.assertEqual(result["exitCode"], 0)
 
     def sparse_fixture(self):
-        import ecs_migration_compare_test as S
-        rows = S.replay(True)
+        rows = F.replay()
         rows.insert(-2, {"type": "replay-summary", "fixture": rows[0]["fixture"],
                          "windowMs": 10, "windowActions": 1, "firstTick": 0,
                          "endTick": 1, "phase": 0, "stateDigest32": 7})
         self.payload.write_text("".join(json.dumps(row) + "\n" for row in rows))
-        layout = self.root / "layout.json"; layout.write_text(json.dumps(S.LAYOUT))
+        layout = self.root / "layout.json"; layout.write_text(json.dumps(F.LAYOUT))
         return layout
 
     def test_sparse_layout_forwarding_and_evaluator_bindings(self):
@@ -75,9 +77,9 @@ class MeasurementControls(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         plan = json.loads((out / "plan.json").read_text())
         evaluator_hashes = plan["bindings"]["evaluators"]
-        self.assertEqual(evaluator_hashes[str(layout)], F.R.file_sha(layout))
-        validator = HERE / "ecs_migration_compare.py"
-        self.assertEqual(evaluator_hashes[str(validator)], F.R.file_sha(validator))
+        self.assertEqual(evaluator_hashes[str(layout)], R.file_sha(layout))
+        validator = HERE / "current_replay_schema.py"
+        self.assertEqual(evaluator_hashes[str(validator)], R.file_sha(validator))
         pair = json.loads((out / "pairs.jsonl").read_text())
         self.assertEqual(pair["oracle"]["comparison"], "exact-sparse-ecs")
         self.assertNotIn("exclusions", pair["oracle"])

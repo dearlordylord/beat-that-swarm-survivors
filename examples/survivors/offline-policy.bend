@@ -189,7 +189,6 @@ def threats(rows: List<&2,G.Snapshot>) -> List<&2,Threats.Threat>:
     case []: []
     case G.EnemySnapshot{Enemy.State{Space.Spatial{x,y,_,radius},_,_,Components.Vitals{health,_},_}} <> rest:
       Threats.keep(U32.is_lt(0,health),Threats.Threat{x,y,radius,False{}},threats(rest))
-    case G.Snapshot{Components.Body{x,y,7,_,_,_,_,_,radius},_} <> rest: Threats.Threat{x,y,radius,True{}} <> threats(rest)
     case _ <> rest: threats(rest)
 def danger(+rows: List<&2,Threats.Threat>,+point: Point,+blocked: Bool,+risk: F32) -> Bool & F32:
   match rows:
@@ -570,7 +569,7 @@ def invalidated(+old: Maybe<&2,Choice>,+fresh: Maybe<&2,Choice>) -> Bool:
   match old fresh:
     case Some{_} None{}: True{}
     case _ _: False{}
-def movement(+memory: Memory,+run: G.Run,+bodies: List<&2,Components.Body>,+snapshots: List<&2,G.Snapshot>) -> Memory & (F32 & F32):
+def movement(+memory: Memory,+run: G.Run,+snapshots: List<&2,G.Snapshot>) -> Memory & (F32 & F32):
   match memory run:
     case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
       +dangerRows = threats(snapshots)

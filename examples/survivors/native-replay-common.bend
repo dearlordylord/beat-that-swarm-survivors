@@ -45,8 +45,8 @@ def apply_checked(valid: Bool,action: F.Action,state: G.State,offers: List<&2,G.
     case True{} F.ReplayUpgrade{_,_,+choice}: choose_valid(Nat.is_lt(U32.to_nat(choice),List.length(&2,G.Offer,offers)),state,choice)
 def apply(+action: F.Action,state: G.State) -> G.Packet:
   match state:
-    case G.State{world,+run,rows,+offers,snapshots,pending}:
-      apply_checked(Bool.and(U32.is_eq(action_tick(action),tick(run)),U32.is_eq(action_phase(action),G.run_phase(run))),action,G.State{world,run,rows,offers,snapshots,pending},offers)
+    case G.State{world,+run,+offers,snapshots,pending}:
+      apply_checked(Bool.and(U32.is_eq(action_tick(action),tick(run)),U32.is_eq(action_phase(action),G.run_phase(run))),action,G.State{world,run,offers,snapshots,pending},offers)
 
 def loaded_length(valid: Bool,text: String) -> IO(String):
   match valid:

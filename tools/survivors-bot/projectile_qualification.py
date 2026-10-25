@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Validate actual projectile columns and export the frozen named shot facts.
+"""Validate current projectile columns and expose their explicit named facts.
 
-This is one part of the migration oracle, not a replacement for the complete
-current-schema replay validator. Every caller must validate all other columns
-and actual allocator/identity/order metadata independently as well.
+Complete World validation remains in current_replay_schema.
 """
 import replay_compare as R
 import current_replay_schema as M
@@ -64,7 +62,7 @@ def fact(value, role):
 def validate_and_project(components, metadata, layout):
     total = layout['totalCount']
     columns = {name: column(components, name, total)
-               for name in ('shots', 'spaces', 'trajectories', 'bodies', 'roles', 'identities')}
+               for name in ('shots', 'spaces', 'trajectories', 'roles', 'identities')}
     now = M.actual_tick(metadata['clock'][0], 'World clock')
     facts = []
     for index in range(total):
@@ -81,9 +79,6 @@ def validate_and_project(components, metadata, layout):
             if shot[1] is not None:
                 raise R.ReplayError('Non-projectile has a projectile payload')
             continue
-        M.stamp_valid(columns['bodies'][index][2], False, now)
-        if columns['bodies'][index][1] is not None:
-            raise R.ReplayError('Projectile retains a second Body authority')
         identity = columns['identities'][index]
         if identity[1] >= total or sum(row[1] == identity[1] for row in columns["identities"]) != 1:
             raise R.ReplayError('Actual projectile slot identity changed')

@@ -14,7 +14,7 @@ from pathlib import Path
 
 SCHEMA_VERSION = 1
 TIMING_FIELDS = frozenset({"wallMs", "windowMs", "elapsedMs", "timingMs"})
-PAYLOAD_KEYS = frozenset({"run", "bodies", "offers", "snapshots", "pending", "components", "metadata"})
+PAYLOAD_KEYS = frozenset({"run", "offers", "snapshots", "pending", "components", "metadata"})
 
 class ReplayError(ValueError):
     pass
@@ -54,13 +54,6 @@ def tick(value):
 def validate_payload(payload, checkpoint_tick):
     import current_replay_schema as current
     return current.validate_payload(payload, checkpoint_tick)
-
-def validate_motion(value):
-    if not isinstance(value, list) or len(value) != 9 or not isinstance(value[4], list):
-        raise ReplayError("Invalid Motion")
-    for index, entry in enumerate(value):
-        for word in (entry if index == 4 else [entry]):
-            u32(word, "Motion word/F32 bits")
 
 def semantic(record):
     # Restrict timing removal to outer record fields, never arbitrary nested

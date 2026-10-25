@@ -11,13 +11,13 @@ class EnemyQualification(unittest.TestCase):
         self.layout = dict(enemyCount=2, relicSeed=1, playerStart=2, hostileStart=3, xpStart=4, totalCount=5)
         self.metadata = {'clock': [[0, 10]]}
         identities = [4, 2, 1, 0, 3]  # Issued slots deliberately differ from handles.
-        self.components = {key: [] for key in ('enemyPhases', 'vitals', 'statuses', 'spaces', 'bodies', 'roles', 'identities')}
+        self.components = {key: [] for key in ('enemyPhases', 'vitals', 'statuses', 'spaces', 'roles', 'identities')}
         for handle, slot in enumerate(identities, 1):
             role = E.M.assigned(slot, self.layout)
             values = dict(enemyPhases=[1, 9] if role == 'EnemySlot' else [0, 0] if role == 'RelicSlot' else None,
                           vitals=[50, 100] if role == 'EnemySlot' else None,
                           statuses=dict(slow=dict(ticks=7,frozen=False),burn=dict(ticks=11,sourcePlayer=1)) if role == 'EnemySlot' else None,
-                          spaces=[0, 0, 20, 0], bodies=None, roles=role, identities=slot)
+                          spaces=[0, 0, 20, 0], roles=role, identities=slot)
             for key, value in values.items():
                 self.components[key].append([handle, value, [[0, 1], [0, 2]] if value is not None else [None, None]])
 
@@ -32,7 +32,7 @@ class EnemyQualification(unittest.TestCase):
     def test_bad_membership_identity_phase_and_clock_rejected(self):
         original = copy.deepcopy(self.components)
         mutations = [
-            ('bodies', 3, [0] * 9), ('vitals', 0, [1, 2]),
+            ('vitals', 0, [1, 2]),
             ('identities', 0, 0), ('enemyPhases', 3, [3, 9]),
             ('statuses',3,[7,11]),
             ('statuses',3,dict(slow=dict(ticks=7,frozen=1),burn=dict(ticks=0,sourcePlayer=None))),

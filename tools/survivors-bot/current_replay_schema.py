@@ -151,7 +151,7 @@ def strict_records(path, max_bytes):
     yield from R.records(path, max_bytes)
 
 
-FAMILIES = {'bodies','vitals','trajectories','statuses','pickups','roles','spaces','shots','enemyPhases','identities'}
+FAMILIES = {'vitals','trajectories','statuses','pickups','roles','spaces','shots','enemyPhases','identities'}
 ROSTERS = {'movementCandidates','projectileCandidates','poolCandidates'}
 
 def column(records,total,label):
@@ -176,7 +176,6 @@ def validate_payload(payload,checkpoint_tick,layout=None):
     validate_layout(layout)
     exact_keys(payload,R.PAYLOAD_KEYS,'payload')
     validate_run(payload['run'],checkpoint_tick)
-    if payload['bodies'] != []: raise ReplayError('Untyped Body observations are forbidden')
     for offer in sequence(payload['offers'],'offers'): R.words(offer,3,'Offer')
     for reward in sequence(payload['pending'],'pending'):
         if R.u32(reward,'pending reward') not in (1,2): raise ReplayError('Invalid reward')
@@ -228,7 +227,7 @@ def validate_pool(components,metadata,snapshots,checkpoint_tick,layout=None,play
         role=c['roles'][offset][1]
         if role!=assigned(identity,layout): raise ReplayError('Role differs from actual semantic slot identity')
         roles[physical]=role
-        membership={'bodies':False,'vitals':role=='EnemySlot','statuses':role=='EnemySlot',
+        membership={'vitals':role=='EnemySlot','statuses':role=='EnemySlot',
                     'trajectories':role in PROJECTILES,'shots':role in PROJECTILES,
                     'pickups':role in ENEMIES or role=='XpSlot','enemyPhases':role in ENEMIES,
                     'roles':True,'spaces':True,'identities':True}

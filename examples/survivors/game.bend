@@ -18,7 +18,6 @@ import projectile.bend as P
 import projectile-state.bend as Shot
 import encounters.bend as E
 import spawn-policy.bend as S
-import spawn-lifecycle.bend as SL
 import persistent-xp.bend as X
 import body-index.bend as BI
 import pools.bend as PL
@@ -47,11 +46,9 @@ import bendvy-ecs-core@0.1.0.1/capabilities.bend as Cap
 # Components.Vitals and Components.Pickup are their independent authoritative components.
 # Detached update payload shared by the live pure helpers and snapshots.
 # Authoritative storage separates projectile trajectory from enemy status.
-type Motion is Data: Motion{vx: F32,vy: F32,life: U32,pierce: U32,visited: List<&2,U32>,slow: U32,burn: U32,ownerBase: U32,logicalSlot: U32}
 # Derived routing metadata contains only issued identities, never gameplay data.
 # Enemy/relic position, age and collision radius have one authoritative column.
 # Movement advances age once; birth and loot lifecycle may reset it explicitly.
-def empty_motion() -> Motion: Motion{0.0,0.0,0,0,[],0,0,0,0}
 def empty_trajectory() -> Components.Trajectory: Components.Trajectory{0.0,0.0,0,0,[],0,0,None{}}
 def empty_status() -> Components.Status: Components.Status{Effect.empty_slow(),Effect.empty_burn()}
 def routing_world(result: Storage.World() & Unit) -> Storage.World():
@@ -125,8 +122,6 @@ def spawn_finish(result: T.Tx<Storage.World(),Unit> & W.Reservation<Storage.Sche
 def spawn(world: Storage.World(),slot: U32) -> Storage.World():
   spawn_finish(Cmd.tx_spawn(~Storage.Schema,~Storage.Store,~Unit,~Unit,~U32,~populate,T.begin(~Storage.World(),~Unit,world),slot))
 # Enemy slots recycle independently of the persistent XP pool.
-# Detached kind2 Components.Body transports baseXP/generation for frame and pure helpers;
-# the live Components.Pickup component supplies those values before behavior executes.
 # Weapons and progression are immutable run data; entity updates use checked queries.
 type Run is Data: Run{session: RS.Session,player: RS.PlayerState}
 # Player records are authoritative ECS payloads, separate from pooled actors.
@@ -141,7 +136,6 @@ def run_player(value: Run) -> RS.PlayerState:
 type PlayerSnapshot is Data: PlayerSnapshot{id: U32,run: Run,connected: Bool}
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
 type Snapshot is Data:
-  Snapshot{body: Components.Body,motion: Motion}
   EnemySnapshot{enemy: Enemy.State}
   ProjectileSnapshot{projectile: Shot.State}
   PickupSnapshot{pickup: Pickup.State}
@@ -149,7 +143,6 @@ type Snapshot is Data:
 type SnapshotGeometry is Data: SnapshotGeometry{identity: U32,x: F32,y: F32,age: U32,radius: F32}
 def snapshot_geometry(snapshot: Snapshot) -> SnapshotGeometry:
   match snapshot:
-    case Snapshot{Components.Body{x,y,_,_,_,_,age,identity,radius},_}: SnapshotGeometry{identity,x,y,age,radius}
     case ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,_,_,_}}: SnapshotGeometry{identity,x,y,age,radius}
     case EnemySnapshot{Enemy.State{Space.Spatial{x,y,age,radius},_,identity,_,_}}: SnapshotGeometry{identity,x,y,age,radius}
     case PickupSnapshot{Pickup.State{Space.Spatial{x,y,age,radius},_,identity}}: SnapshotGeometry{identity,x,y,age,radius}
@@ -171,8 +164,8 @@ def pickup_observations(snapshots: List<&2,Snapshot>) -> List<&2,Pickup.State>:
     case []: []
     case PickupSnapshot{+pickup} <> rest: List.filter.put(Pickup.State,pickup,pickup_observations(rest),Pickup.active(pickup))
     case _ <> rest: pickup_observations(rest)
-type State is Type: State{world: Storage.World(),run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
-type ActorRef is Data: EnemyRef{identity: U32} BodyRef{identity: U32} ProjectileRef{identity: U32} PickupRef{identity: U32}
+type State is Type: State{world: Storage.World(),run: Run,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>}
+type ActorRef is Data: EnemyRef{identity: U32} ProjectileRef{identity: U32} PickupRef{identity: U32}
 def snapshot_render_ref(snapshot: Snapshot) -> Maybe<&2,ActorRef>:
   match snapshot:
     case EnemySnapshot{Enemy.State{_,_,identity,_,_}}: Some{EnemyRef{identity}}
@@ -180,8 +173,6 @@ def snapshot_render_ref(snapshot: Snapshot) -> Maybe<&2,ActorRef>:
     case ProjectileSnapshot{_}: None{}
     case PickupSnapshot{Pickup.State{_,Pickup.Payload{_,_,True{}},identity}}: Some{PickupRef{identity}}
     case PickupSnapshot{_}: None{}
-    case Snapshot{Components.Body{_,_,8,_,_,_,_,_,_},_}: None{}
-    case Snapshot{Components.Body{_,_,_,_,_,_,_,identity,_},_}: Some{BodyRef{identity}}
 def keep_render_ref(reference: Maybe<&2,ActorRef>,tail: List<&2,ActorRef>) -> List<&2,ActorRef>:
   match reference:
     case Some{reference}: reference <> tail
@@ -199,7 +190,7 @@ def projectile_observations(snapshots: List<&2,Snapshot>) -> List<&2,Shot.State>
     case []: []
     case ProjectileSnapshot{+projectile} <> rest: keep_projectile_observation(Shot.present(projectile),projectile,projectile_observations(rest))
     case _ <> rest: projectile_observations(rest)
-type Observation is Data: Observation{run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,enemies: List<&2,Enemy.State>,order: List<&2,ActorRef>,projectiles: List<&2,Shot.State>,pickups: List<&2,Pickup.State>}
+type Observation is Data: Observation{run: Run,offers: List<&2,Offer>,enemies: List<&2,Enemy.State>,order: List<&2,ActorRef>,projectiles: List<&2,Shot.State>,pickups: List<&2,Pickup.State>}
 
 type Packet is Type: Packet{state: State}
   Failed{error: String}
@@ -219,17 +210,6 @@ def dec(+value: U32) -> U32: U32.sub(value,U32.min(value,1))
 def distance2(+x: F32,+y: F32,+px: F32,+py: F32) -> F32: ((x - px) * (x - px) + (y - py) * (y - py) : F32)
 def close(x: F32,y: F32,px: F32,py: F32,+radius: F32) -> Bool: F32.is_le(distance2(x,y,px,py),(radius * radius : F32))
 # Music observes the world at host audio cadence, never in the ECS tick.
-def music_weight(+variant: U32) -> U32:
-  (1 + 3 * Bool.to_u32(U32.is_le(20,variant)) + 32 * Bool.to_u32(U32.is_eq(variant,30)) + Bool.to_u32(Bool.or(U32.is_eq(variant,4),Bool.or(U32.is_eq(variant,12),U32.is_eq(variant,19)))) : U32)
-def music_body_pressure(kind: U32,+variant: U32,+range: F32) -> U32:
-  match kind:
-    case 0: (music_weight(variant) * (3 * Bool.to_u32(F32.is_le(range,102400.0)) + 27 * Bool.to_u32(F32.is_le(range,10000.0))) : U32)
-    case 7: ((1 + 7 * Bool.to_u32(U32.is_eq(variant,30))) * (35 * Bool.to_u32(F32.is_le(range,57600.0)) + 80 * Bool.to_u32(F32.is_le(range,6400.0))) : U32)
-    case _: 0
-def music_pressure(rows: List<&2,Components.Body>,+px: F32,+py: F32) -> U32:
-  match rows:
-    case []: 0
-    case Components.Body{x,y,kind,variant,_,_,_,_,_} <> rest: U32.min(1000,(music_body_pressure(kind,variant,distance2(x,y,px,py)) + music_pressure(rest,px,py) : U32))
 def projectile_threats(rows: List<&2,Shot.State>) -> List<&2,Music.ProjectileThreat>:
   match rows:
     case []: []
@@ -252,33 +232,30 @@ def boot_pool(remaining: Nat,+slot: U32,world: Storage.World()) -> Storage.World
 # Lifecycle later refreshes active membership during its existing traversal.
 def movement_roster_store(handles: List<&2,W.Handle<Storage.Schema>>,store: Storage.Store) -> Storage.Store & Unit:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities,shots},Unit{})
+    case Storage.Store{vitals,motions,statuses,pickups,roles,_,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{handles},candidates,players,spaces,enemyPhases,identities,shots},Unit{})
 def movement_roster_save(world: Storage.World(),handles: List<&2,W.Handle<Storage.Schema>>) -> Storage.World():
   routing_world(W.with_store(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Unit,movement_roster_store(handles),world))
 def movement_roster_keep(selected: Bool,handle: W.Handle<Storage.Schema>,reversed: List<&2,W.Handle<Storage.Schema>>) -> List<&2,W.Handle<Storage.Schema>>:
   match selected:
     case True{}: handle <> reversed
     case False{}: reversed
-def role_active(role: Role.Role,body: Components.Body) -> Bool:
-  match body:
-    case Components.Body{_,_,kind,_,_,_,_,_,_}: MM.active_role(role,kind)
 type RoutingCapture is Data: RoutingCapture{projectiles: List<&2,W.Handle<Storage.Schema>>,pool: List<&2,W.Handle<Storage.Schema>>,active: List<&2,W.Handle<Storage.Schema>>}
 def routing_capture_store(capture: RoutingCapture,store: Storage.Store) -> Storage.Store & Unit:
   match capture store:
-    case RoutingCapture{projectiles,pool,active} Storage.Store{bodies,vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities,shots},Unit{})
+    case RoutingCapture{projectiles,pool,active} Storage.Store{vitals,motions,statuses,pickups,roles,_,_,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,Storage.MovementPrepared{List.reverse(&2,W.Handle<Storage.Schema>,active)},Storage.CandidatesPrepared{List.reverse(&2,W.Handle<Storage.Schema>,projectiles),List.reverse(&2,W.Handle<Storage.Schema>,pool)},players,spaces,enemyPhases,identities,shots},Unit{})
 def routing_capture_keep(+role: Role.Role,+handle: W.Handle<Storage.Schema>,active: Bool,capture: RoutingCapture) -> RoutingCapture:
   match capture:
     case RoutingCapture{projectiles,pool,movement}: RoutingCapture{movement_roster_keep(Role.projectile(role),handle,projectiles),movement_roster_keep(Role.pool(role),handle,pool),movement_roster_keep(active,handle,movement)}
-def routing_capture_body_active(role: Role.Role,result: C.Access<Components.Body>) -> Bool:
+def routing_capture_phase_active(role: Role.Role,result: C.Access<Enemy.Phase>) -> Bool:
   match result:
-    case C.Found{body}: role_active(role,body)
+    case C.Found{phase}: Bool.and(Role.enemy(role),Enemy.active(phase))
     case _: False{}
-def routing_capture_body(+role: Role.Role,handle: W.Handle<Storage.Schema>,capture: RoutingCapture,result: Storage.World() & C.Access<Components.Body>) -> Storage.World() & RoutingCapture:
+def routing_capture_phase(+role: Role.Role,handle: W.Handle<Storage.Schema>,capture: RoutingCapture,result: Storage.World() & C.Access<Enemy.Phase>) -> Storage.World() & RoutingCapture:
   match result:
-    case (world,body): (world,routing_capture_keep(role,handle,routing_capture_body_active(role,body),capture))
+    case (world,phase): (world,routing_capture_keep(role,handle,routing_capture_phase_active(role,phase),capture))
 def routing_capture_role(+handle: W.Handle<Storage.Schema>,capture: RoutingCapture,result: Storage.World() & C.Access<Role.Role>) -> Storage.World() & RoutingCapture:
   match result:
-    case (world,C.Found{role}): routing_capture_body(role,handle,capture,C.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,Storage.family(),world,handle))
+    case (world,C.Found{+role}): routing_capture_phase(role,handle,capture,C.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,Storage.phase_family(),world,handle))
     case (world,_): (world,capture)
 def routing_capture_collect(handles: List<&2,W.Handle<Storage.Schema>>,state: Storage.World() & RoutingCapture) -> Storage.World():
   match handles state:
@@ -321,7 +298,7 @@ def configured(run: Run,+selectedStage: U32,+selectedArcana: U32) -> Run:
       Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,U32.min(selectedStage,4),bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,F32.to_u32((U32.to_f32(initial_health(character,meta)) * (1.0 - 0.30 * stat_bonus(selectedArcana,0) + 0.25 * stat_bonus(selectedArcana,9)) : F32)),F32.to_u32((U32.to_f32(initial_health(character,meta)) * (1.0 - 0.30 * stat_bonus(selectedArcana,0) + 0.25 * stat_bonus(selectedArcana,9)) : F32)),character,weapons,passives,invuln,U32.min(selectedArcana,11),meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def configure(state: State,+stageChoice: U32,+arcanaChoice: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,configured(Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},stageChoice,arcanaChoice),bodies,offers,snapshots,pending})
+    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,configured(Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},stageChoice,arcanaChoice),offers,snapshots,pending})
     case state: packet(state)
 def period(id: U32) -> U32:
   match id:
@@ -358,8 +335,7 @@ def loot_kind(+seed: U32,+variant: U32) -> U32:
 type HitPlan is Data: HitPlan{shot: U32,weapon: U32,damage: U32,x: F32,y: F32,radius: F32,area: Bool,targets: List<&2,U32>}
 type Args is Data: Args{run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
-type Row is Data: Row{body: Components.Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32}
-type Error is Data: MissingBody{}
+type Error is Data: MissingComponent{}
 type Ops<-H: Type> is Type: Ops{vitals: Cap.Write<H,Components.Vitals,Components.Vitals>,status: Cap.Write<H,Components.Status,Components.Status>,spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,phase: Cap.Write<H,Enemy.Phase,Enemy.Phase>,identity: Cap.Read<H,Components.Identity>}
 def OpsType(H: Type) -> Type: Ops<H>
 def vital_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Vitals,Components.Vitals>:
@@ -368,19 +344,11 @@ def vital_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Vitals,Components.
 def status_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Status,Components.Status>:
   match ops:
     case Ops{_,status,_,_,_}: status
-def loot_collected(found: Bool,+body: Components.Body,+kind: U32,+amount: U32) -> Row:
-  match found body:
-    case False{} body: Row{body,0,0,0,0,0,0,0}
-    case True{} Components.Body{+x,+y,_,+variant,_,+maxHp,_,+seed,_}: Row{Components.Body{x,y,8,variant,X.remaining(True{},amount),maxHp,0,seed,0.0},0,X.credited(U32.is_eq(kind,2),amount),(amount * Bool.to_u32(U32.is_eq(kind,3)) : U32),(25 * Bool.to_u32(U32.is_eq(kind,4)) : U32),Bool.to_u32(U32.is_eq(kind,5)),0,0}
 def pickup_radius(+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> F32:
   (24.0 * (1.0 + U32.to_f32(at(passives,8)) * 0.25 + U32.to_f32(meta_rank(meta,6)) * 0.15 + stat_bonus(arcana,6) + 0.50 * U32.to_f32(Bool.to_u32(U32.is_eq(character,7)))) : F32)
 # Age and item kind never authorize collection: only physical reach does.
 def pickup_admission(x: F32,y: F32,px: F32,py: F32,radius: F32,age: U32,kind: U32) -> Bool:
   PickupPolicy.admission(x,y,px,py,radius,age,kind)
-def loot_update(body: Components.Body,run: Run) -> Row:
-  match body run:
-    case Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{RS.Session{_,_,_,_,_,_,_,_,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,+character,_,+passives,_,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
-      loot_collected(pickup_admission(x,y,px,py,pickup_radius(passives,meta,arcana,character),age,kind),Components.Body{x,y,kind,variant,hp,maxHp,(age + 1 : U32),seed,radius},kind,Bool.pick(U32,U32.is_eq(kind,2),hp,(2 + U32.min(4,(variant / 4 : U32)) : U32)))
 def enemy_spatial_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
   match ops:
     case Ops{_,_,spatial,_,_}: spatial
@@ -393,7 +361,7 @@ def enemy_identity_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Components.Identity>:
 # Spawn cadence rejects five of six slots before evaluating wave limits or
 # passive ranks. Variant and curse are only materialized for admitted spawns.
 type EntityRow is Data:
-  EntityRow{row: Row,motion: Motion}
+  NoEntityRow{}
   EnemyRow{outcome: Enemy.Outcome,credit: Enemy.Credit}
   ProjectileRow{outcome: Shot.Outcome}
   PickupRow{outcome: Pickup.Outcome}
@@ -445,7 +413,6 @@ def duration_bonus(+passives: List<&2,U32>,+arcana: U32) -> F32: (1.0 + U32.to_f
 def projectile_speed(+passives: List<&2,U32>,+arcana: U32) -> F32: ((1.0 + U32.to_f32(at(passives,12)) * 0.15 + 0.50 * stat_bonus(arcana,8)) * (1.0 - 0.20 * stat_bonus(arcana,7)) : F32)
 def weapon_damage(+id: U32,+level: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
   F32.to_u32((U32.to_f32((5 + level * 3 + id % 4 * 2 : U32)) * (1.0 + U32.to_f32(at(passives,0)) * 0.10 + U32.to_f32(meta_rank(meta,0)) * 0.05 + 0.35 * stat_bonus(arcana,0) + 0.15 * stat_bonus(arcana,8) + 0.10 * U32.to_f32(Bool.to_u32(U32.is_eq(character,0))) + 0.20 * U32.to_f32(Bool.to_u32(U32.is_eq(character,6)))) * (1.0 - 0.15 * stat_bonus(arcana,4)) * (1.0 + (0.20 + U32.to_f32(at(passives,14)) * 0.05) * U32.to_f32(Bool.to_u32(Bool.and(U32.is_eq(arcana,5),Bool.or(U32.is_eq(id,9),U32.is_eq(id,11)))))) * (1.0 + 1.2 * U32.to_f32(Bool.to_u32(U32.is_le(9,level)))) : F32))
-def dormant_entity(+x: F32,+y: F32,+seed: U32) -> EntityRow: EntityRow{Row{Components.Body{x,y,8,0,0,0,0,seed,0.0},0,0,0,0,0,0,0},empty_motion()}
 def direction_x(+dx: F32,+dy: F32) -> F32: ((dx + U32.to_f32(Bool.to_u32(F32.is_lt((dx * dx + dy * dy : F32),0.01)))) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32)
 def direction_y(+dx: F32,+dy: F32) -> F32: (dy / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32)
 def union_base(+id: U32) -> U32: at([0,1,2,3,4,6],id)
@@ -553,7 +520,7 @@ def prepare_shot_plan(args: Args) -> SP.Plan:
 def shot_spawn_ready(fire: Bool,sourcePlayer: U32,+seed: U32,+base: U32,+slot: U32,+level: U32,args: Args) -> EntityRow:
   match fire args:
     case False{} _: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
-    case True{} Args{+run,bodies,dx,dy,_,_}: shot_spawn_aim(base,sourcePlayer,True{},seed,effective_weapon(base,level,slot),slot,level,shot_spawn_input(effective_weapon(base,level,slot),level,run,dx,dy,bodies))
+    case True{} Args{+run,targets,dx,dy,_,_}: shot_spawn_aim(base,sourcePlayer,True{},seed,effective_weapon(base,level,slot),slot,level,shot_spawn_input(effective_weapon(base,level,slot),level,run,dx,dy,targets))
 def shot_step_input(run: Run,aim: Aim) -> Shot.StepInput:
   match run aim:
     case Run{_,RS.PlayerState{px,py,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_}} Aim{tx,ty,_,_}: Shot.StepInput{px,py,tx,ty,U32.is_eq(arcana,8)}
@@ -562,7 +529,7 @@ def shot_step_aim(+projectile: Shot.State,args: Args,aim: Aim) -> EntityRow:
     case Args{run,_,_,_,_,hits}: ProjectileRow{Shot.step(projectile,shot_step_input(run,aim),hit_targets(hits,Shot.identity(projectile)))}
 def nearest_from_args(args: Args,+x: F32,+y: F32) -> Aim:
   match args:
-    case Args{_,bodies,_,_,+snapshots,+hits}: nearest(bodies,x,y,Aim{(x + 180.0 : F32),y,0,10000000.0})
+    case Args{_,targets,_,_,+snapshots,+hits}: nearest(targets,x,y,Aim{(x + 180.0 : F32),y,0,10000000.0})
 type Collision is Data: Collision{damage: U32,slow: Effect.Slow,burn: U32,pull: U32,knock: U32,pullX: F32,pullY: F32}
 def collision_add(hit: Bool,+id: U32,+damage: U32,+cx: F32,+cy: F32,tail: Collision) -> Collision:
   match hit tail:
@@ -585,21 +552,6 @@ def immune_collision(immune: Bool,collision: Collision) -> Collision:
   match immune collision:
     case True{} Collision{damage,_,burn,_,_,_,_}: Collision{damage,Effect.empty_slow(),burn,0,0,0.0,0.0}
     case False{} collision: collision
-def relic_result(collected: Bool,+stage: U32,+px: F32,+py: F32) -> EntityRow:
-  match collected:
-    case True{}: EntityRow{Row{Components.Body{px,py,8,0,0,0,0,PL.relic_seed(),0.0},0,50,75,0,0,0,1},empty_motion()}
-    case False{}: EntityRow{Row{Components.Body{relic_x(stage),relic_y(stage),9,stage,0,0,0,PL.relic_seed(),18.0},0,0,0,0,0,0,0},empty_motion()}
-def relic_run(run: Run) -> EntityRow:
-  match run:
-    case Run{RS.Session{_,_,_,_,_,_,_,_,+stage,_,_,_,0},RS.PlayerState{+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: relic_result(close(px,py,relic_x(stage),relic_y(stage),30.0),stage,px,py)
-    case _: dormant_entity(0.0,0.0,PL.relic_seed())
-def relic_entity(args: Args) -> EntityRow:
-  match args:
-    case Args{run,_,_,_,_,_}: relic_run(run)
-# A reused slot starts a new incarnation: old slows, burns and hits belong
-# to the previous occupant and must never move or damage the admitted spawn.
-
-
 def intent_fire(intent: E.Intent) -> Bool:
   match intent:
     case E.Intent{_,_,fire}: fire
@@ -623,7 +575,7 @@ def hostile_advance(alive: Bool,+projectile: Shot.State,args: Args) -> EntityRow
     case True{} Args{Run{_,RS.PlayerState{px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}},_,_,_,_,_}: ProjectileRow{Shot.hostile_step(projectile,px,py)}
 def hostile_step(+projectile: Shot.State,args: Args) -> EntityRow: hostile_advance(Shot.hostile_active(projectile),projectile,args)
 # Each pass has an independently checked access contract. Read capabilities cannot write.
-def missing_row() -> EntityRow: EntityRow{Row{Components.Body{0.0,0.0,8,0,0,0,0,0,0.0},0,0,0,0,0,0,0},empty_motion()}
+def missing_row() -> EntityRow: NoEntityRow{}
 def Frame() -> Type: Q.Frame<Storage.Schema,Storage.Store,Unit,Unit>
 def selected_role(mode: U32,role: Role.Role) -> Bool:
   match mode:
@@ -668,7 +620,7 @@ def projectile_role_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Read<H,Role.Role>
 def projectile_write(~H: Type,~ops: ProjectileOps<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
     case ProjectileRow{Shot.Outcome{Shot.State{+space,+identity,+side,+payload,+trajectory},+contact}}: (Cap.set(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),Cap.set(~H,~Components.ShotPayload,~Components.ShotPayload,~projectile_payload_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~projectile_spatial_cap(~H,ops),ctx,space),payload),trajectory),(T.Success{},ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,trajectory},contact}}))
-    case _: (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case _: (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def projectile_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~Storage.shot_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~Storage.trajectory_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family())},selected_projectile}
 
 # Movement writes only spatial state, including the once-per-step age increment.
@@ -688,7 +640,7 @@ def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q
 
 def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},movement)
+    case Storage.Store{vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},movement)
 type PickupCall is Data: PickupCall{team: Team,advance: Bool,relic: Bool} XpPoolCall{team: Team}
 type PickupOps<-H: Type> is Type: PickupOps{spatial: Cap.Read<H,Space.Spatial>,pickup: Cap.Read<H,Pickup.Payload>,identity: Cap.Read<H,Components.Identity>}
 def PickupOpsType(H: Type) -> Type: PickupOps<H>
@@ -714,7 +666,7 @@ def pool_pickup_caps(~H: Type,ops: PoolOps<H>) -> PickupOps<H>:
     case PoolOps{_,_,pickup}: pickup
 def plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,PoolOpsType>: Q.Plan{PoolOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),Ops{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~Storage.vital_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())},PickupOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())}},selected_pool}
 # Lifecycle dispatch keeps enemy geometry and XP payload grants separate while
-# executing both bodies in the original enclosing transaction and row order.
+# executing both callbacks in the original enclosing transaction and row order.
 type LifecycleOps<-H: Type> is Type: LifecycleOps{phase: Cap.Write<H,Enemy.Phase,Enemy.Phase>,spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,pickup: Cap.Write<H,Pickup.Payload,Pickup.Payload>,handle: Cap.ValueRead<H,W.Handle<Storage.Schema>>,identity: Cap.Read<H,Components.Identity>}
 def LifecycleOpsType(H: Type) -> Type: LifecycleOps<H>
 def loot_phase_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.Write<H,Enemy.Phase,Enemy.Phase>:
@@ -775,11 +727,11 @@ def enemy_lifecycle_planned(~H: Type,~ops: LifecycleOps<H>,phase: Enemy.Phase,pl
 def enemy_lifecycle_phase(~H: Type,~ops: LifecycleOps<H>,planned: Maybe<&2,Pickup.State>,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
     case (ctx,C.Found{phase}): enemy_lifecycle_planned(~H,~ops,phase,planned,ctx)
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
 def enemy_lifecycle_identified(~H: Type,~ops: LifecycleOps<H>,index: BI.Index<Pickup.State>,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
     case (ctx,C.Found{Components.Identity{identity}}): enemy_lifecycle_phase(~H,~ops,BI.find(~Pickup.State,index,identity),Cap.get(~H,~Enemy.Phase,~Enemy.Phase,~loot_phase_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
 def enemy_lifecycle(~H: Type,~ops: LifecycleOps<H>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): enemy_lifecycle_identified(~H,~ops,index,Cap.read(~H,~Components.Identity,~loot_identity_cap(~H,ops),ctx))
 def pickup_lifecycle_write(~H: Type,~ops: PickupLifecycleOps<H>,planned: Maybe<&2,Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match planned:
@@ -788,7 +740,7 @@ def pickup_lifecycle_write(~H: Type,~ops: PickupLifecycleOps<H>,planned: Maybe<&
 def pickup_lifecycle_identified(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Pickup.State>,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
     case (ctx,C.Found{Components.Identity{identity}}): pickup_lifecycle_write(~H,~ops,BI.find(~Pickup.State,index,identity),ctx)
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
 def pickup_lifecycle(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): pickup_lifecycle_identified(~H,~ops,index,Cap.read(~H,~Components.Identity,~pickup_lifecycle_identity_cap(~H,ops),ctx))
 def loot_dispatch(~H: Type,~ops: LootOps<H>,role: Role.Role,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match role:
@@ -797,14 +749,14 @@ def loot_dispatch(~H: Type,~ops: LootOps<H>,role: Role.Role,index: BI.Index<Pick
 def loot_role_observed(~H: Type,~ops: LootOps<H>,index: BI.Index<Pickup.State>,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
     case (ctx,C.Found{role}): loot_dispatch(~H,~ops,role,index,ctx)
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},None{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
 def loot_system(~H: Type,~ops: LootOps<H>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): loot_role_observed(~H,~ops,index,Cap.read(~H,~Role.Role,~loot_role_cap(~H,ops),ctx))
 def loot_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),LifecycleOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),Q.handle_read(~Storage.Schema,~Storage.Store,~Unit,~Unit),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())},PickupLifecycleOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())}},selected_pool}
 
 def movement_roster_outputs(rows: List<&2,Maybe<&2,W.Handle<Storage.Schema>>>) -> List<&2,W.Handle<Storage.Schema>>:
   MM.outputs(~W.Handle<Storage.Schema>,rows)
-# Publish membership only after the Components.Body transaction succeeds. Failed traversal
-# rolls back Components.Body and retains the old roster; no partial output becomes a roster.
+# Publish membership only after the typed spatial transaction succeeds. Failed traversal
+# retains the old components and roster; no partial output becomes a roster.
 def lifecycle_done(+rows: List<&2,EntityRow>,result: Q.Executed<Storage.World(),Q.Error<Error>,Maybe<&2,W.Handle<Storage.Schema>>>) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
   match result:
     case Q.Executed{world,T.Success{},handles}: Q.Executed{movement_roster_save(world,movement_roster_outputs(handles)),T.Success{},rows}
@@ -865,7 +817,7 @@ def xp_route_args(rows: List<&2,EntityRow>,args: Args) -> List<&2,EntityRow>:
 # transaction finish, rollback and mixed allocator order remain the public query's.
 def candidate_roster_read(store: Storage.Store) -> Storage.Store & Storage.CandidateRoster:
   match store:
-    case Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{bodies,vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},candidates)
+    case Storage.Store{vitals,motions,statuses,pickups,roles,movement,+candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Store{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots},candidates)
 def candidate_roster_handles(projectile: Bool,roster: Storage.CandidateRoster) -> List<&2,W.Handle<Storage.Schema>>:
   match projectile roster:
     case True{} Storage.CandidatesPrepared{projectiles,_}: projectiles
@@ -953,26 +905,26 @@ def offer_at(offers: List<&2,Offer>,index: U32) -> Offer:
     case Con{_,rest} index: offer_at(rest,(index - 1 : U32))
 def choose_unchecked(state: State,+choice: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{0,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{0,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
-    case State{world,run,+bodies,+offers,+snapshots,pending}: packet(State{world,upgrade(offer_at(offers,U32.min(choice,2)),run),bodies,[],snapshots,pending})
+    case State{world,Run{RS.Session{0,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{0,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},offers,snapshots,pending})
+    case State{world,run,+offers,+snapshots,pending}: packet(State{world,upgrade(offer_at(offers,U32.min(choice,2)),run),[],snapshots,pending})
 def choose_raw(state: State,+choice: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{3,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{3,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
-    case State{world,Run{RS.Session{4,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{4,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
+    case State{world,Run{RS.Session{3,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{3,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},offers,snapshots,pending})
+    case State{world,Run{RS.Session{4,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{4,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},offers,snapshots,pending})
     case state: choose_unchecked(state,choice)
-type Totals is Data: Totals{hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,kills: U32,bodies: List<&2,Components.Body>,snapshots: List<&2,Snapshot>,relic: U32}
+type Totals is Data: Totals{hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,kills: U32,snapshots: List<&2,Snapshot>,relic: U32}
 def enemy_snapshot(outcome: Enemy.Outcome,tail: List<&2,Snapshot>) -> List<&2,Snapshot>:
   match outcome:
     case Enemy.Alive{enemy,_}: EnemySnapshot{enemy} <> tail
     case Enemy.Born{newborn}: EnemySnapshot{Enemy.newborn_state(newborn)} <> tail
     case _: tail
-def accumulate(rows: List<&2,EntityRow>,+hit: U32,+xp: U32,+gold: U32,+heal: U32,+chest: U32,+kills: U32,+bodies: List<&2,Components.Body>,+snapshots: List<&2,Snapshot>,+relicTotal: U32) -> Totals:
+def accumulate(rows: List<&2,EntityRow>,+hit: U32,+xp: U32,+gold: U32,+heal: U32,+chest: U32,+kills: U32,+snapshots: List<&2,Snapshot>,+relicTotal: U32) -> Totals:
   match rows:
-    case []: Totals{hit,xp,gold,heal,chest,kills,bodies,snapshots,relicTotal}
-    case PickupRow{Pickup.Outcome{state,Pickup.Reward{x,g,he,c,r}}} <> rest: accumulate(rest,hit,(xp + x : U32),(gold + g : U32),(heal + he : U32),(chest + c : U32),kills,bodies,PickupSnapshot{state} <> snapshots,(relicTotal + r : U32))
-    case EntityRow{Row{+body,+h,+x,+g,+he,+c,+k,+relic},+motion} <> rest: accumulate(rest,(hit + h : U32),(xp + x : U32),(gold + g : U32),(heal + he : U32),(chest + c : U32),(kills + k : U32),body <> bodies,Snapshot{body,motion} <> snapshots,(relicTotal + relic : U32))
-    case ProjectileRow{Shot.Outcome{+projectile,h}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,kills,bodies,ProjectileSnapshot{projectile} <> snapshots,relicTotal)
-    case EnemyRow{outcome,Enemy.Credit{h,k}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,(kills + k : U32),bodies,enemy_snapshot(outcome,snapshots),relicTotal)
+    case NoEntityRow{} <> rest: accumulate(rest,hit,xp,gold,heal,chest,kills,snapshots,relicTotal)
+    case []: Totals{hit,xp,gold,heal,chest,kills,snapshots,relicTotal}
+    case PickupRow{Pickup.Outcome{state,Pickup.Reward{x,g,he,c,r}}} <> rest: accumulate(rest,hit,(xp + x : U32),(gold + g : U32),(heal + he : U32),(chest + c : U32),kills,PickupSnapshot{state} <> snapshots,(relicTotal + r : U32))
+    case ProjectileRow{Shot.Outcome{+projectile,h}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,kills,ProjectileSnapshot{projectile} <> snapshots,relicTotal)
+    case EnemyRow{outcome,Enemy.Credit{h,k}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,(kills + k : U32),enemy_snapshot(outcome,snapshots),relicTotal)
 def phase_for(dead: Bool,won: Bool,chest: Bool,levelup: Bool) -> U32:
   match dead won chest levelup:
     case True{} _ _ _: 3
@@ -987,7 +939,6 @@ def boss_kills(rows: List<&2,EntityRow>) -> U32:
   match rows:
     case []: 0
     case PickupRow{_} <> rest: boss_kills(rest)
-    case EntityRow{Row{Components.Body{_,_,_,+variant,_,_,_,_,_},_,_,_,_,_,+killed,+relic},_} <> rest: (killed * Bool.to_u32(U32.is_le(20,variant)) + boss_kills(rest) : U32)
     case EnemyRow{outcome,Enemy.Credit{_,k}} <> rest: (k * Bool.to_u32(U32.is_le(20,enemy_archetype(Enemy.state(outcome)))) + boss_kills(rest) : U32)
     case _ <> rest: boss_kills(rest)
 def earned_xp(+earned: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32) -> U32: (earned * (100 + at(passives,9) * 10 + at(passives,14) * 10 + meta_rank(meta,7) * 5 + 30 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32)
@@ -1013,11 +964,11 @@ def reward_extra(levelup: Bool,queue: List<&2,U32>) -> List<&2,U32>:
     case False{}: queue
 def reward_backlog(+chests: U32,levelup: Bool) -> List<&2,U32>:
   reward_extra(Bool.and(U32.is_lt(0,chests),levelup),reward_repeat(U32.to_nat(dec(chests)),2))
-def finish_run(world: Storage.World(),run: Run,+bodies: List<&2,Components.Body>,+offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: packet(State{world,run,bodies,offers,snapshots,pending})
-def finish_values(world: Storage.World(),run: Run,+bodies: List<&2,Components.Body>,+totalXp: U32,+health: U32,+wasHit: U32,+chest: U32,+killed: U32,+coins: U32,+bossKills: U32,+snapshots: List<&2,Snapshot>,+relicEvent: U32) -> Packet:
+def finish_run(world: Storage.World(),run: Run,+offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet: packet(State{world,run,offers,snapshots,pending})
+def finish_values(world: Storage.World(),run: Run,+totalXp: U32,+health: U32,+wasHit: U32,+chest: U32,+killed: U32,+coins: U32,+bossKills: U32,+snapshots: List<&2,Snapshot>,+relicEvent: U32) -> Packet:
   match run:
     case Run{RS.Session{_,+tick,_,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
-      finish_run(world,Run{RS.Session{phase_for(Bool.and(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals))),Bool.or(U32.is_eq(mode,2),U32.is_lt(tick,run_length(mode)))),Bool.and(Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_le(run_length(mode),tick)),Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))),U32.is_lt(0,chest),U32.is_le(need,totalXp)),tick,remainder_xp(totalXp,need),(need + Combat.lose(next_xp_need(level),need) * Bool.to_u32(U32.is_le(need,totalXp)) : U32),(level + Bool.to_u32(U32.is_le(need,totalXp)) : U32),(kills + killed : U32),(gold + 300 * Bool.to_u32(Bool.and(U32.is_eq(mode,3),U32.is_eq(18000,tick))) + (50 + level * 5 + kills / 20) * Bool.to_u32(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))) + coins * (100 + at(passives,15) * 15 + at(passives,14) * 10 + 50 * Bool.to_u32(U32.is_eq(mode,1)) + meta_rank(meta,8) * 10 + 25 * Bool.to_u32(U32.is_eq(arcana,6))) / 100 : U32),(seed + 1 : U32),stage,(bosses + bossKills : U32),mode,enemyKinds,U32.max(relicCollected,relicEvent)},RS.PlayerState{px,py,revive_hp(revival_available(health,passives,meta,revivals),health,maxHp),maxHp,character,weapons,passives,U32.max(dec(invuln),(45 * wasHit + 180 * Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32)),arcana,meta,(revivals + Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32),rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,filter_offers(phase_offers(U32.is_lt(0,chest),(seed + level * 13 : U32),weapons,passives),bannedWeapons,bannedPassives),snapshots,reward_backlog(chest,U32.is_le(need,totalXp)))
+      finish_run(world,Run{RS.Session{phase_for(Bool.and(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals))),Bool.or(U32.is_eq(mode,2),U32.is_lt(tick,run_length(mode)))),Bool.and(Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_le(run_length(mode),tick)),Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))),U32.is_lt(0,chest),U32.is_le(need,totalXp)),tick,remainder_xp(totalXp,need),(need + Combat.lose(next_xp_need(level),need) * Bool.to_u32(U32.is_le(need,totalXp)) : U32),(level + Bool.to_u32(U32.is_le(need,totalXp)) : U32),(kills + killed : U32),(gold + 300 * Bool.to_u32(Bool.and(U32.is_eq(mode,3),U32.is_eq(18000,tick))) + (50 + level * 5 + kills / 20) * Bool.to_u32(Bool.and(U32.is_eq(health,0),Bool.not(revival_available(health,passives,meta,revivals)))) + coins * (100 + at(passives,15) * 15 + at(passives,14) * 10 + 50 * Bool.to_u32(U32.is_eq(mode,1)) + meta_rank(meta,8) * 10 + 25 * Bool.to_u32(U32.is_eq(arcana,6))) / 100 : U32),(seed + 1 : U32),stage,(bosses + bossKills : U32),mode,enemyKinds,U32.max(relicCollected,relicEvent)},RS.PlayerState{px,py,revive_hp(revival_available(health,passives,meta,revivals),health,maxHp),maxHp,character,weapons,passives,U32.max(dec(invuln),(45 * wasHit + 180 * Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32)),arcana,meta,(revivals + Bool.to_u32(revival_available(health,passives,meta,revivals)) : U32),rerolls,banishes,skips,bannedWeapons,bannedPassives}},filter_offers(phase_offers(U32.is_lt(0,chest),(seed + level * 13 : U32),weapons,passives),bannedWeapons,bannedPassives),snapshots,reward_backlog(chest,U32.is_le(need,totalXp)))
 def heal_after_damage(hp: U32,damage: U32,healing: U32,healingPercent: U32,maxHp: U32) -> U32:
   U32.min(maxHp,(Combat.lose(hp,damage) + healing * healingPercent / 100 : U32))
 def add_killed_kind(known: Bool,+kind: U32,kinds: List<&2,U32>) -> List<&2,U32>:
@@ -1028,7 +979,6 @@ def killed_kinds(rows: List<&2,EntityRow>,+kinds: List<&2,U32>) -> List<&2,U32>:
   match rows:
     case []: kinds
     case PickupRow{_} <> rest: killed_kinds(rest,kinds)
-    case EntityRow{Row{Components.Body{_,_,_,+variant,_,_,_,_,_},_,_,_,_,_,1,+relic},_} <> rest: killed_kinds(rest,add_killed_kind(contains(kinds,variant),variant,kinds))
     case EnemyRow{+outcome,Enemy.Credit{_,1}} <> rest: killed_kinds(rest,add_killed_kind(contains(kinds,enemy_archetype(Enemy.state(outcome))),enemy_archetype(Enemy.state(outcome)),kinds))
     case _ <> rest: killed_kinds(rest,kinds)
     case _ <> rest: killed_kinds(rest,kinds)
@@ -1045,14 +995,14 @@ def personal_invulnerability_after_tick(+invuln: U32,hit: U32) -> U32:
   U32.max(dec(invuln),(45 * Bool.to_u32(Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))) : U32))
 def finish_personal_tick(+run: Run,totals: Totals) -> RS.PlayerState:
   match totals:
-    case Totals{+hit,_,_,heal,_,killed,_,_,_}: RS.player_with_invuln(RS.player_with_hp(run_player(run),personal_health_after_tick(run,hit,heal,killed)),personal_invulnerability_after_tick(RS.player_invuln(run_player(run)),hit))
+    case Totals{+hit,_,_,heal,_,killed,_,_}: RS.player_with_invuln(RS.player_with_hp(run_player(run),personal_health_after_tick(run,hit,heal,killed)),personal_invulnerability_after_tick(RS.player_invuln(run_player(run)),hit))
 def finish_stats(world: Storage.World(),+run: Run,totals: Totals,+bossKills: U32,+kinds: List<&2,U32>) -> Packet:
   match run totals:
-    case Run{RS.Session{_,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}} Totals{+hit,+earned,+coins,+heal,+chest,+killed,+bodies,+snapshots,+relic}:
-      finish_values(world,Run{RS.Session{0,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,kinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,(xp + earned_xp(earned,passives,meta,arcana) : U32),personal_health_after_tick(run,hit,heal,killed),Bool.to_u32(Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))),chest,killed,coins,bossKills,snapshots,relic)
+    case Run{RS.Session{_,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}} Totals{+hit,+earned,+coins,+heal,+chest,+killed,+snapshots,+relic}:
+      finish_values(world,Run{RS.Session{0,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,kinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},(xp + earned_xp(earned,passives,meta,arcana) : U32),personal_health_after_tick(run,hit,heal,killed),Bool.to_u32(Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))),chest,killed,coins,bossKills,snapshots,relic)
 def executed(+run: Run,result: Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>) -> Packet:
   match result:
-    case Q.Executed{world,T.Success{},+rows}: finish_stats(world,run,accumulate(rows,0,0,0,0,0,0,[],[],0),boss_kills(rows),killed_kinds(rows,run_kinds(run)))
+    case Q.Executed{world,T.Success{},+rows}: finish_stats(world,run,accumulate(rows,0,0,0,0,0,0,[],0),boss_kills(rows),killed_kinds(rows,run_kinds(run)))
     case Q.Executed{_,T.Failure{_},_}: Failed{"ECS query failed"}
 type effect_Player is Data: effect_Player{id: U32,run: Run,eligible: Bool}
 type effect_EffectStats is Data: effect_EffectStats{tick: U32,x: F32,y: F32,passives: List<&2,U32>,arcana: U32,hp: U32,eligible: Bool}
@@ -1306,7 +1256,7 @@ def view_id(view: PlayerView) -> U32:
     case PlayerView{id,_,_,_,_}: id
 def view_args(view: PlayerView,base: Args) -> Args:
   match view base:
-    case PlayerView{_,run,dx,dy,_} Args{_,bodies,_,_,snapshots,hits}: Args{run,bodies,dx,dy,snapshots,hits}
+    case PlayerView{_,run,dx,dy,_} Args{_,targets,_,_,snapshots,hits}: Args{run,targets,dx,dy,snapshots,hits}
 def nearest_view(views: List<&2,PlayerView>,+x: F32,+y: F32,+best: PlayerView) -> PlayerView:
   match views:
     case []: best
@@ -1393,23 +1343,23 @@ def team_projectile_role(role: Role.Role,+team: Team,+projectile: Shot.State) ->
 def team_projectile_trajectory(~H: Type,~ops: ProjectileOps<H>,+role: Role.Role,team: Team,identity: U32,space: Space.Spatial,payload: Components.ShotPayload,result: H & C.Access<Components.Trajectory>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{trajectory}): projectile_write(~H,~ops,ctx,team_projectile_role(role,team,Shot.State{space,identity,projectile_side(role),payload,trajectory}))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_projectile_payload(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,identity: U32,space: Space.Spatial,result: H & C.Access<Components.ShotPayload>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{payload}): team_projectile_trajectory(~H,~ops,role,team,identity,space,payload,Cap.get(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_projectile_spatial(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{space}): team_projectile_payload(~H,~ops,role,team,identity,space,Cap.get(~H,~Components.ShotPayload,~Components.ShotPayload,~projectile_payload_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_projectile_identity(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{Components.Identity{identity}}): team_projectile_spatial(~H,~ops,role,team,identity,Cap.get(~H,~Space.Spatial,~Space.Spatial,~projectile_spatial_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_projectile_observed(~H: Type,~ops: ProjectileOps<H>,team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{role}): team_projectile_identity(~H,~ops,role,team,Cap.read(~H,~Components.Identity,~projectile_identity_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_projectile_system(~H: Type,~ops: ProjectileOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_projectile_observed(~H,~ops,team,Cap.read(~H,~Role.Role,~projectile_role_cap(~H,ops),ctx))
 def move_space_toward(space: Space.Spatial,variant: U32,slow: Effect.Slow,+run: Run) -> Space.Spatial:
   Space.step(space,variant,slow,run_tick(run),run_px(run),run_py(run))
@@ -1419,15 +1369,15 @@ def team_move_space(team: Team,+space: Space.Spatial,variant: U32,slow: Effect.S
 def team_move_status(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,variant: U32,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & Unit):
   match result:
     case (ctx,C.Found{Components.Status{slow,_}}): (Cap.set(~H,~Space.Spatial,~Space.Spatial,~move_spatial_cap(~H,ops),ctx,team_move_space(team,space,variant,slow)),(T.Success{},Unit{}))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},Unit{}))
 def team_move_metadata(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Unit):
   match result:
     case (ctx,C.Found{Enemy.ActiveEnemy{archetype}}): team_move_status(~H,~ops,team,space,archetype,Cap.read(~H,~Components.Status,~move_status_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},Unit{}))
 def team_move_spatial(~H: Type,~ops: MoveOps<H>,team: Team,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & Unit):
   match result:
     case (ctx,C.Found{space}): team_move_metadata(~H,~ops,team,space,Cap.read(~H,~Enemy.Phase,~move_phase_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},Unit{}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},Unit{}))
 def team_move_system(~H: Type,~ops: MoveOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & Unit): team_move_spatial(~H,~ops,team,Cap.get(~H,~Space.Spatial,~Space.Spatial,~move_spatial_cap(~H,ops),ctx))
 
 def team_spawn_view(+team: Team,+id: U32) -> PlayerView:
@@ -1595,23 +1545,23 @@ def write_enemy_decision(~H: Type,~ops: Ops<H>,ctx: H,decision: Enemy.Decision) 
 def team_enemy_status(~H: Type,~ops: Ops<H>,+team: Team,+phase: Enemy.Phase,+space: Space.Spatial,+identity: U32,vitals: Components.Vitals,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
     case (ctx,C.Found{status}): write_enemy_decision(~H,~ops,ctx,team_enemy_updated(team,phase,Enemy.State{space,Enemy.archetype(phase),identity,vitals,status},EnemySpawn.propose(identity,Enemy.dormant(phase),enemy_spawn_context(team,view_run(team_enemy_view(phase,team,space,identity))))))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
 def team_enemy_vitals(~H: Type,~ops: Ops<H>,team: Team,phase: Enemy.Phase,space: Space.Spatial,identity: U32,result: H & C.Access<Components.Vitals>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
     case (ctx,C.Found{vitals}): team_enemy_status(~H,~ops,team,phase,space,identity,vitals,Cap.get(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
 def team_enemy_spatial(~H: Type,~ops: Ops<H>,team: Team,phase: Enemy.Phase,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
     case (ctx,C.Found{space}): team_enemy_vitals(~H,~ops,team,phase,space,identity,Cap.get(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
 def team_enemy_phase(~H: Type,~ops: Ops<H>,team: Team,identity: U32,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
     case (ctx,C.Found{phase}): team_enemy_spatial(~H,~ops,team,phase,identity,Cap.get(~H,~Space.Spatial,~Space.Spatial,~enemy_spatial_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
 def team_enemy_identity(~H: Type,~ops: Ops<H>,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
     case (ctx,C.Found{Components.Identity{identity}}): team_enemy_phase(~H,~ops,team,identity,Cap.get(~H,~Enemy.Phase,~Enemy.Phase,~enemy_phase_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},EnemyReady{missing_row()}))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
 type TeamEnemy is Data: TeamEnemy{role: Role.Role,team: Team}
 def team_enemy_system(~H: Type,~ops: Ops<H>,call: TeamEnemy,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match call:
@@ -1646,15 +1596,15 @@ def pickup_turn(call: PickupCall,state: Pickup.State) -> Pickup.Outcome:
 def team_pickup_identified(~H: Type,call: PickupCall,spatial: Space.Spatial,payload: Pickup.Payload,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{Components.Identity{identity}}): (ctx,(T.Success{},PickupRow{pickup_turn(call,Pickup.State{spatial,payload,identity})}))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_pickup_payload(~H: Type,~ops: PickupOps<H>,call: PickupCall,spatial: Space.Spatial,result: H & C.Access<Pickup.Payload>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{payload}): team_pickup_identified(~H,call,spatial,payload,Cap.read(~H,~Components.Identity,~pickup_identity_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_pickup_spatial(~H: Type,~ops: PickupOps<H>,call: PickupCall,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,C.Found{spatial}): team_pickup_payload(~H,~ops,call,spatial,Cap.read(~H,~Pickup.Payload,~pickup_payload_cap(~H,ops),ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_pickup_system(~H: Type,~ops: PickupOps<H>,call: PickupCall,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pickup_spatial(~H,~ops,call,Cap.read(~H,~Space.Spatial,~pickup_spatial_cap(~H,ops),ctx))
 def pool_enemy_done(~H: Type,~ops: PoolOps<H>,team: Team,result: H & (T.Outcome<Error> & EnemyQueryResult)) -> H & (T.Outcome<Error> & EntityRow):
   match result:
@@ -1666,7 +1616,7 @@ def team_pool_role(~H: Type,~ops: PoolOps<H>,+team: Team,result: H & C.Access<Ro
     case (ctx,C.Found{Role.XpSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),XpPoolCall{team},ctx)
     case (ctx,C.Found{Role.RelicSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),PickupCall{team,True{},True{}},ctx)
     case (ctx,C.Found{role}): pool_enemy_done(~H,~ops,team,Cap.invoke(~OpsType,~TeamEnemy,~(T.Outcome<Error> & EnemyQueryResult),~team_enemy_system,~H,~pool_enemy_caps(~H,ops),TeamEnemy{role,team},ctx))
-    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+    case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
 def team_pool_system(~H: Type,~ops: PoolOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pool_role(~H,~ops,team,Cap.read(~H,~Role.Role,~pool_role_cap(~H,ops),ctx))
 def team_combat_done(+team: Team,projectiles: List<&2,EntityRow>,result: Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
   match result:
@@ -1720,11 +1670,11 @@ def contact_plans(rows: List<&2,Snapshot>,+team: Team,+targets: List<&2,Contact.
     case _ <> rest: contact_plans(rest,team,targets)
 def contact_team_ready(team: Team,hits: List<&2,HitPlan>) -> Team:
   match team:
-    case Team{players,Args{run,bodies,dx,dy,snapshots,_},plan,origins}: Team{players,Args{run,bodies,dx,dy,snapshots,hits},plan,origins}
+    case Team{players,Args{run,targets,dx,dy,snapshots,_},plan,origins}: Team{players,Args{run,targets,dx,dy,snapshots,hits},plan,origins}
 def contact_team(+team: Team) -> Team:
   match team:
-    case Team{+players,Args{+run,+bodies,+dx,+dy,+snapshots,_},+plan,+origins}:
-      contact_team_ready(Team{players,Args{run,bodies,dx,dy,snapshots,[]},plan,origins},contact_plans(snapshots,Team{players,Args{run,bodies,dx,dy,snapshots,[]},plan,origins},contact_targets(snapshots,Team{players,Args{run,bodies,dx,dy,snapshots,[]},plan,origins})))
+    case Team{+players,Args{+run,+targets,+dx,+dy,+snapshots,_},+plan,+origins}:
+      contact_team_ready(Team{players,Args{run,targets,dx,dy,snapshots,[]},plan,origins},contact_plans(snapshots,Team{players,Args{run,targets,dx,dy,snapshots,[]},plan,origins},contact_targets(snapshots,Team{players,Args{run,targets,dx,dy,snapshots,[]},plan,origins})))
 def team_execute_contacts(world: Storage.World(),+team: Team) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
   team_projectiles_done(team,candidate_query(~ProjectileOpsType,~Team,~EntityRow,~projectile_plan(),~team_projectile_system,True{},team,world))
 def team_execute(world: Storage.World(),team: Team) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
@@ -1749,12 +1699,12 @@ def solo_team(+args: Args) -> Team:
 def execute(world: Storage.World(),+args: Args) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>: team_execute(world,solo_team(args))
 def advance_raw(state: State,+dx: F32,+dy: F32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{0,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+snapshot,_,+snapshots,pending}:
+    case State{world,Run{RS.Session{0,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},_,+snapshots,pending}:
       executed(Run{RS.Session{0,(tick + 1 : U32),xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{movement_x(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),movement_y(move_point(px,py,(2.5 * speed_bonus(passives,meta,arcana,character) : F32),dx,dy)),hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},execute(world,combat_args(Run{RS.Session{0,(tick + 1 : U32),xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},dx,dy,snapshots)))
     case state: packet(state)
 def started(+character: U32,+meta: U32,created: W.Creation<Storage.Schema,Storage.Store,Unit,Unit>) -> Packet:
   match created:
-    case W.Created{_,world}: packet(State{prepare_movement_roster(W.barrier(~Storage.Schema,~Storage.Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{RS.Session{0,0,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,0,meta,0,3,3,3,0,0}},[],[],[],[]})
+    case W.Created{_,world}: packet(State{prepare_movement_roster(W.barrier(~Storage.Schema,~Storage.Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{RS.Session{0,0,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,0,meta,0,3,3,3,0,0}},[],[],[]})
     case W.CreateRejected{_,_}: Failed{"Storage.World creation refused"}
 def start(character: U32,meta: U32) -> Packet: started(U32.min(character,7),meta,W.create(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.empty,W.factory(),Unit{}))
 
@@ -1763,7 +1713,7 @@ def seeded_run(run: Run,+selectedSeed: U32) -> Run:
     case Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,_,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: Run{RS.Session{phase,tick,xp,need,level,kills,gold,selectedSeed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
 def seeded_packet(packetValue: Packet,+selectedSeed: U32) -> Packet:
   match packetValue:
-    case Packet{State{world,run,bodies,offers,snapshots,pending}}: packet(State{world,seeded_run(run,selectedSeed),bodies,offers,snapshots,pending})
+    case Packet{State{world,run,offers,snapshots,pending}}: packet(State{world,seeded_run(run,selectedSeed),offers,snapshots,pending})
     case Failed{error}: Failed{error}
 def start_seed(character: U32,meta: U32,seed: U32) -> Packet: seeded_packet(start(character,meta),seed)
 
@@ -1773,24 +1723,24 @@ def mode_configured(run: Run,+selected: U32) -> Run:
     case run: run
 def set_mode(state: State,+selected: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,mode_configured(Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},selected),bodies,offers,snapshots,pending})
+    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,mode_configured(Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},selected),offers,snapshots,pending})
     case state: packet(state)
 def configure_unlocks(state: State,+unlockedMask: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(unlockedMask,16777215))),bannedPassives}},bodies,offers,snapshots,pending})
+    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(unlockedMask,16777215))),bannedPassives}},offers,snapshots,pending})
     case state: packet(state)
 
 def reroll_seed(seed: U32) -> U32: (seed + 41 : U32)
 def reroll(state: State) -> Packet:
   match state:
-    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,0,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,0,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
-    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,_,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,reroll_seed(seed),stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,dec(rerolls),banishes,skips,bannedWeapons,bannedPassives}},bodies,filter_offers(make_offers(reroll_seed(seed),weapons,passives),bannedWeapons,bannedPassives),snapshots,pending})
+    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,0,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,0,banishes,skips,bannedWeapons,bannedPassives}},offers,snapshots,pending})
+    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},_,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,reroll_seed(seed),stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,dec(rerolls),banishes,skips,bannedWeapons,bannedPassives}},filter_offers(make_offers(reroll_seed(seed),weapons,passives),bannedWeapons,bannedPassives),snapshots,pending})
     case state: packet(state)
 
 def skip_raw(state: State) -> Packet:
   match state:
-    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,0,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,0,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
-    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,_,+snapshots,pending}: packet(State{world,Run{RS.Session{0,tick,xp,need,level,kills,(gold + 10 : U32),seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,dec(skips),bannedWeapons,bannedPassives}},bodies,[],snapshots,pending})
+    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,0,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,0,bannedWeapons,bannedPassives}},offers,snapshots,pending})
+    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},_,+snapshots,pending}: packet(State{world,Run{RS.Session{0,tick,xp,need,level,kills,(gold + 10 : U32),seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,dec(skips),bannedWeapons,bannedPassives}},[],snapshots,pending})
     case state: packet(state)
 
 def banish_offer(run: Run,offer: Offer) -> Run:
@@ -1801,8 +1751,8 @@ def banish_offer(run: Run,offer: Offer) -> Run:
 
 def banish_raw(state: State,+choice: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,0,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,0,skips,bannedWeapons,bannedPassives}},bodies,offers,snapshots,pending})
-    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,+offers,+snapshots,pending}: packet(State{world,banish_offer(Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},offer_at(offers,U32.min(choice,2))),bodies,[],snapshots,pending})
+    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,0,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,0,skips,bannedWeapons,bannedPassives}},offers,snapshots,pending})
+    case State{world,Run{RS.Session{1,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,banish_offer(Run{RS.Session{1,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},offer_at(offers,U32.min(choice,2))),[],snapshots,pending})
     case state: packet(state)
 
 # Deferred rewards are owned by the game state. The advance entry pauses;
@@ -1826,37 +1776,37 @@ def terminal_queue(terminal: Bool,pending: List<&2,U32>) -> List<&2,U32>:
 # Simulation returns typed state; consumers choose whether to encode an observation.
 def attach_pending(result: Packet,pending: List<&2,U32>) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,offers,snapshots,newPending}}: packet(State{world,run,bodies,offers,snapshots,terminal_queue(U32.is_le(3,run_phase(run)),pending_join(pending,newPending))})
+    case Packet{State{world,+run,offers,snapshots,newPending}}: packet(State{world,run,offers,snapshots,terminal_queue(U32.is_le(3,run_phase(run)),pending_join(pending,newPending))})
     case result: result
 def advance(state: State,dx: F32,dy: F32) -> Packet:
   match state:
-    case State{world,run,bodies,offers,snapshots,+pending}: attach_pending(advance_raw(State{world,run,bodies,offers,snapshots,[]},dx,dy),pending)
+    case State{world,run,offers,snapshots,+pending}: attach_pending(advance_raw(State{world,run,offers,snapshots,[]},dx,dy),pending)
 def reward_offers(run: Run,chest: Bool) -> List<&2,Offer>:
   match run:
     case Run{RS.Session{_,_,_,_,+level,_,_,+seed,_,_,_,_,_},RS.PlayerState{_,_,_,_,_,+weapons,+passives,_,_,_,_,_,_,_,+bannedWeapons,+bannedPassives}}: filter_offers(phase_offers(chest,(seed + level * 13 : U32),weapons,passives),bannedWeapons,bannedPassives)
-def promote_ready(ready: Bool,world: Storage.World(),+run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet:
+def promote_ready(ready: Bool,world: Storage.World(),+run: Run,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>,pending: List<&2,U32>) -> Packet:
   match ready pending:
-    case True{} +kind <> rest: packet(State{world,with_phase(run,kind),bodies,reward_offers(run,U32.is_eq(kind,2)),snapshots,rest})
-    case _ pending: packet(State{world,run,bodies,offers,snapshots,pending})
+    case True{} +kind <> rest: packet(State{world,with_phase(run,kind),reward_offers(run,U32.is_eq(kind,2)),snapshots,rest})
+    case _ pending: packet(State{world,run,offers,snapshots,pending})
 def promote(result: Packet) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,offers,snapshots,pending}}: promote_ready(U32.is_eq(run_phase(run),0),world,run,bodies,offers,snapshots,pending)
+    case Packet{State{world,+run,offers,snapshots,pending}}: promote_ready(U32.is_eq(run_phase(run),0),world,run,offers,snapshots,pending)
     case result: result
 def choose(state: State,choice: U32) -> Packet: promote(choose_raw(state,choice))
 def skip(state: State) -> Packet: promote(skip_raw(state))
 def banish(state: State,choice: U32) -> Packet: promote(banish_raw(state,choice))
-def live_selected(terminal: Bool,held: Bool,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: Storage.World(),+run: Run,bodies: List<&2,Components.Body>,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet:
+def live_selected(terminal: Bool,held: Bool,+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,world: Storage.World(),+run: Run,offers: List<&2,Offer>,snapshots: List<&2,Snapshot>) -> Packet:
   match terminal held:
-    case True{} _: packet(State{world,run,bodies,[],snapshots,[]})
-    case False{} True{}: packet(State{world,with_phase(run,oldPhase),bodies,oldOffers,snapshots,pending_add(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),pending,run_phase(run))})
-    case False{} False{}: packet(State{world,run,bodies,offers,snapshots,pending})
+    case True{} _: packet(State{world,run,[],snapshots,[]})
+    case False{} True{}: packet(State{world,with_phase(run,oldPhase),oldOffers,snapshots,pending_add(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),pending,run_phase(run))})
+    case False{} False{}: packet(State{world,run,offers,snapshots,pending})
 def live_result(+oldPhase: U32,+oldLevel: U32,oldOffers: List<&2,Offer>,pending: List<&2,U32>,result: Packet) -> Packet:
   match result:
-    case Packet{State{world,+run,bodies,+offers,snapshots,newPending}}: live_selected(Bool.or(U32.is_eq(run_phase(run),3),U32.is_eq(run_phase(run),4)),Bool.or(U32.is_eq(oldPhase,1),U32.is_eq(oldPhase,2)),oldPhase,oldLevel,oldOffers,pending_join(pending,newPending),world,run,bodies,offers,snapshots)
+    case Packet{State{world,+run,+offers,snapshots,newPending}}: live_selected(Bool.or(U32.is_eq(run_phase(run),3),U32.is_eq(run_phase(run),4)),Bool.or(U32.is_eq(oldPhase,1),U32.is_eq(oldPhase,2)),oldPhase,oldLevel,oldOffers,pending_join(pending,newPending),world,run,offers,snapshots)
     case result: result
 def advance_live(state: State,dx: F32,dy: F32) -> Packet:
   match state:
-    case State{world,+run,bodies,+offers,snapshots,pending}: live_result(run_phase(run),run_level(run),offers,pending,advance_raw(State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),bodies,offers,snapshots,[]},dx,dy))
+    case State{world,+run,+offers,snapshots,pending}: live_result(run_phase(run),run_level(run),offers,pending,advance_raw(State{world,with_phase(run,choose_id(Bool.or(U32.is_eq(run_phase(run),1),U32.is_eq(run_phase(run),2)),0,run_phase(run))),offers,snapshots,[]},dx,dy))
 
 def xp_visual_radius(amount: U32) -> F32: LV.radius(amount)
 

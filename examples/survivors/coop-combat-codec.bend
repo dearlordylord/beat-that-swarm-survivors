@@ -43,10 +43,6 @@ def native_run(value:G.Run) -> String:
   match value:
     case G.Run{session,personal}: "{\"$\":\"Run\",\"session\":" ++ native_session(session) ++ ",\"player\":" ++ native_personal(personal) ++ "}"
 
-def native_body(value:Components.Body) -> String:
-  match value:
-    case Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "{\"$\":\"Body\"" ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"kind\":" ++ U32.show(kind) ++ ",\"variant\":" ++ U32.show(variant) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"age\":" ++ U32.show(age) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"radius\":" ++ F32.show(radius) ++ "}"
-
 def native_births(index:BI.Index<U32>) -> String:
   match index:
     case BI.Empty{}: "{\"$\":\"Empty\"}"

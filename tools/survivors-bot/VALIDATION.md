@@ -68,7 +68,7 @@ Source and binary hashes are recorded at run start. These bind the observed work
 This historical revision changed offscreen admission and bot collection.
 Current geometry and lifecycle rules belong to
 [spawn-policy.bend](../../examples/survivors/spawn-policy.bend) and
-[spawn-lifecycle.bend](../../examples/survivors/spawn-lifecycle.bend).
+[enemy-lifecycle.bend](../../examples/survivors/enemy-lifecycle.bend).
 
 `spawn-policy/PROOF.bend --verdict` passed using the already installed kernel, with no new tooling. Its laws prove exact agreement of the admission adapter with its executable geometry predicate and selection of fitting sides. They do not prove all floating-point arithmetic or chooser totality. Two incorrect gate/side implementations were rejected in temporary mutation checks. Independent executable checks cover 42,532 actual placements, all 31 enemy radii, edge/corner/fractional player positions, extreme seeds/ticks, six-unit camera shifts, rejection of invalid candidates, actual dormant-to-active transitions, bosses and all four real admission directions.
 

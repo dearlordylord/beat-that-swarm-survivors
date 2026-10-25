@@ -52,7 +52,7 @@ def fact(value, role='EnemySlot', kind=0):
 
 def validate_and_project(components, metadata, layout):
     total = layout['totalCount']
-    names = ('enemyPhases', 'vitals', 'statuses', 'spaces', 'bodies', 'roles', 'identities')
+    names = ('enemyPhases', 'vitals', 'statuses', 'spaces', 'roles', 'identities')
     columns = {name: column(components, name, total) for name in names}
     now = M.actual_tick(metadata['clock'][0], 'World clock')
     facts, seen = [], set()

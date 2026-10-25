@@ -1,0 +1,100 @@
+{
+  "baseCommit": "449c6bdc7efc004a9e27e7b0f245161b7738ca8d",
+  "scope": "GH9 residual contract retirement; transport prefix already integrated, actor gameplay and pool layout unchanged.",
+  "archive": {
+    "path": "/tmp/survivors-final-oracle-449c6bd/source.tar",
+    "sha256": "5310ab1d385beff381856c2bfe67fb6530c8b0df08b4a8b4d04e31c95fe94f2a",
+    "files": 623,
+    "purpose": "Exact pre-retirement code/import closure, qualification recipes and receipts for independent final old/new qualification."
+  },
+  "laws": {
+    "wireSha256": "6de53dd9b817434a4e0f1be677561993088a86345febd199bbb7097a59e8d87c",
+    "spawnSha256": "27e6e80d2dd881f6a426caf2cef559d0285677f1ad8a11c7a035c51ac2de490a",
+    "independentTranslation": "Approved by root after independent blind translation before proof edits. Spawn guarantees only admission geometry and side choice; typed pickup projection preserves current identity semantics."
+  },
+  "validation": {
+    "ordinaryEntrypoints": {
+      "passed": 18,
+      "total": 18,
+      "receipt": "/tmp/survivors-contract-entrypoint-audit/receipt.json",
+      "wallSecondsPerFile": 60,
+      "cpuLimit": null,
+      "reason": "Ordinary compiler checks, distinct from proof kernels; previous CPU10 compile budget killed large application frontend without diagnostic, not OOM. All actual proof gates remain CPU10/wall60."
+    },
+    "kernelProofs": {
+      "passed": 2,
+      "total": 2,
+      "paths": [
+        "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+        "examples/survivors/spawn-policy/PROOF.bend"
+      ],
+      "cpuSeconds": 10,
+      "wallSeconds": 60,
+      "refusalControls": true
+    },
+    "typedSemanticMutants": {
+      "passed": 7,
+      "total": 7,
+      "manifest": "scripts/law-mutants/playback-wire-policy.json",
+      "allTypecheck": true,
+      "allNamedLawFailures": true
+    },
+    "freshWireActualAdapter": {
+      "assertions": 164,
+      "largeJoinActors": 24000,
+      "modules": "/tmp/survivors-contract-modules"
+    },
+    "currentPythonUnits": {
+      "replay_compare": 11,
+      "projectile_qualification": 3,
+      "enemy_qualification": 2,
+      "coop_world_qualification": 5,
+      "replay_measure": 8
+    },
+    "dependencyAudit": {
+      "examples": 1,
+      "modules": 227,
+      "publishedPinUnchanged": true
+    },
+    "directedImports": {
+      "pureActorClosureModules": 14,
+      "receipt": "/tmp/survivors-contract-cleanup/directed-import-audit.json"
+    },
+    "literalFalsification": {
+      "wire": {
+        "instancesPassed": 42,
+        "elapsedMilliseconds": 4949,
+        "tool": "cached bend-falsify",
+        "spec": "/tmp/survivors-contract-wire-falsify-isolated.json"
+      },
+      "limitations": [
+        "Initial combined spec importing open laws exceeded the tool five-second limit; parallel attempts are not counted as law failures or passes.",
+        "Spawn literal reflexivity cannot reduce the opaque F32 geometry comparison through gate. This is a literal reduction limitation, not a semantic counterexample; all three universal spawn laws pass the kernel proof.",
+        "Owner helper literal instances omitted from isolated spec; universal visual_owner_exact proof and owner mutant pass."
+      ]
+    },
+    "diffCheck": true
+  },
+  "lifecycleAudit": {
+    "authority": "Store retains exactly9actorcolumns plus role-derived movement/candidate rosters and actual players; no Body column, empty body cache, legacy Snapshot constructor or BodyRef.",
+    "snapshot": "Typed Enemy/Projectile/Pickup sum remains read-only phase data. Ordered typed render refs derive from snapshots; active shot/pickup filtering remains explicit.",
+    "candidateMembership": "Role-based projectile/pool cohorts retain dormant spawn and XP slots and relic role. Active enemy movement derives actual Enemy.Phase, replacing a formerly empty Body read.",
+    "absence": "NoEntityRow represents only failed callback/no contribution; it carries no fake actor payload. Error renamed MissingComponent. GenericTotals/typed aggregation preserved.",
+    "imports": "Actor rule closure excludes game assembler, storage world, encoders and native presentation. Encoders depend on simulation, simulation does not import encoders.",
+    "ordinaryReplay": "Version1 current schema has9physicalactorcolumns plus3rosters and actualPlayers. Unknown retired body fields rejected; same-schema native and co-op comparison remains exact for physical metadata, stamps, allocator, identity, ordering and clocks.",
+    "retired": "Old model migration/projection tools archived externally before deletion. Current-only enemy/projectile/pickup/replay/co-op validators retained.",
+    "proofRetirement": "Unused generic spawn-lifecycle payload/routing wrappers removed. Original admission geometry/side-choice retained; accepted-candidate-outside remains direct universal geometry statement. Actual birth safety remains in concrete enemy lifecycle proof and production fixture.",
+    "pickupEvidenceCorrection": "Gold/Healing/Chest generation comes from death tick through xp_route_rows_at, rather than constant0. Relic per-frame generation predates cleanup. No unrelated relic lifetime behavior change."
+  },
+  "limits": [
+    "This is structural cleanup evidence, not final whole-suite, gameplay parity or performance qualification. The integrator owns one final fresh full suite and archived old/new qualification.",
+    "Ordinary18entrypoint receipt precedes final narrow wire helper relocation; fresh wire emission and proof check cover the final changed wire graph."
+  ],
+  "pstack": {
+    "principles": [
+      "Model the Domain keeps typed item constructor projection.",
+      "Laziness Protocol deletes empty authority and dead adapters instead of introducing aliases."
+    ],
+    "independentReview": "Parent coordinates final independent Standards and Spec reviewers on frozen commit. No additional nested review fan-out in occupied agent slots."
+  }
+}

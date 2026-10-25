@@ -81,8 +81,8 @@ def apply_upgrade(valid: Bool,state: G.State,index: U32) -> G.Packet:
     case False{}: G.packet(state)
 def upgrade(state: G.State,+index: U32) -> G.Packet:
   match state:
-    case G.State{world,+run,rows,+offers,snapshots,pending}:
-      apply_upgrade(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,rows,offers,snapshots,pending},index)
+    case G.State{world,+run,+offers,snapshots,pending}:
+      apply_upgrade(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,offers,snapshots,pending},index)
 def command_move(valid: Bool,state: Bot,command: Command) -> Bot:
   match valid state command:
     case True{} Bot{game,directory,sequence,_,_,_,_,last} Command{_,x,y,_,horizon}: Bot{game,directory,sequence,1,horizon,axis(x),axis(y),last}
@@ -93,7 +93,7 @@ def command_upgrade_valid(valid: Bool,game: G.State,directory: String,sequence: 
     case False{}: Bot{G.packet(game),directory,sequence,published,0,0.0,0.0,last}
 def command_upgrade(state: G.State,directory: String,sequence: U32,published: U32,last: Nat,+index: U32) -> Bot:
   match state:
-    case G.State{world,+run,rows,+offers,snapshots,pending}: command_upgrade_valid(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,rows,offers,snapshots,pending},directory,sequence,published,last,index)
+    case G.State{world,+run,+offers,snapshots,pending}: command_upgrade_valid(Bool.and(Bool.or(U32.is_eq(N.run_phase(run),1),U32.is_eq(N.run_phase(run),2)),U32.is_lt(index,U32.from_nat(List.length(&2,G.Offer,offers)))),G.State{world,run,offers,snapshots,pending},directory,sequence,published,last,index)
 def command(state: Bot,+cmd: Command) -> Bot:
   match state cmd:
     case Bot{G.Packet{game},directory,sequence,published,0,_,_,last} Command{1,_,_,index,_}: command_upgrade(game,directory,sequence,published,last,index)
@@ -114,8 +114,8 @@ def finish_step(active: Bool,packet: G.Packet,directory: String,sequence: U32,le
 
 def after_step(packet: G.Packet,directory: String,sequence: U32,left: U32,dx: F32,dy: F32,last: Nat) -> Bot:
   match packet:
-    case G.Packet{G.State{world,+run,rows,offers,snapshots,pending}}:
-      finish_step(U32.is_eq(N.run_phase(run),0),G.Packet{G.State{world,run,rows,offers,snapshots,pending}},directory,sequence,left,dx,dy,last)
+    case G.Packet{G.State{world,+run,offers,snapshots,pending}}:
+      finish_step(U32.is_eq(N.run_phase(run),0),G.Packet{G.State{world,run,offers,snapshots,pending}},directory,sequence,left,dx,dy,last)
     case packet: Bot{packet,directory,(sequence + 1 : U32),0,0,dx,dy,last}
 def step_ready(ready: Bool,state: Bot,now: Nat) -> Bot:
   match ready state:
@@ -150,8 +150,8 @@ def rendering_run(run: G.Run,packet: G.Packet) -> N.Native:
     case G.Run{RS.Session{+phase,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,_,_,character,_,_,_,_,_,_,_,_,_,_,_}}: N.Native{packet,N.set_character(N.set_paused(N.set_screen(N.initial_ui(),1),(Bool.to_u32(Bool.or(U32.is_eq(phase,1),U32.is_eq(phase,2))) * 2 : U32)),character),P.fresh()}
 def rendering_native(packet: G.Packet) -> N.Native:
   match packet:
-    case G.Packet{G.State{world,+run,rows,offers,snapshots,pending}}:
-      rendering_run(run,G.Packet{G.State{world,run,rows,offers,snapshots,pending}})
+    case G.Packet{G.State{world,+run,offers,snapshots,pending}}:
+      rendering_run(run,G.Packet{G.State{world,run,offers,snapshots,pending}})
     case packet: N.Native{packet,N.set_screen(N.initial_ui(),1),P.fresh()}
 def bot_view_return(directory: String,sequence: U32,published: U32,left: U32,dx: F32,dy: F32,last: Nat,native: N.Native,image: Image) -> Bot & Image:
   match native:

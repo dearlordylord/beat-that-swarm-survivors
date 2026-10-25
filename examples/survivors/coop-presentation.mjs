@@ -37,35 +37,28 @@ function actorMetadata(actor, frame) {
     if (!pickup) throw Error('A pickup actor has no named render metadata.');
     return {type:'pickup',value:{...pickup,x:actor.x,y:actor.y,lifetime:actor.generation,tick:frame.tick}};
   }
-  const body = frame.bodies.find(value => value[7] === actor.key);
-  if (!body) throw Error('An item actor has no render metadata.');
-  const value=body.slice(); value[0]=actor.x; value[1]=actor.y;
-  value[9]=actor.generation; value[10]=actor.owner; value[11]=frame.tick;
-  return {type:'body',value};
+  throw Error('Unknown authoritative actor kind.');
 }
 function positionedMetadata(metadata, point) {
-  if (metadata.type === 'body') {
-    const value=metadata.value.slice(); value[0]=point.x; value[1]=point.y;
-    return {type:'body',value};
-  }
   return {type:metadata.type,value:{...metadata.value,x:point.x,y:point.y}};
 }
 function observations(records, order) {
-  const bodies=[],enemies=[],projectiles=[],pickups=[];
+  const enemies=[],projectiles=[],pickups=[];
   for(const record of records) {
-    if(record.type==='body') bodies.push(record.value);
-    else if(record.type==='enemy') enemies.push(record.value);
+    if(record.type==='enemy') enemies.push(record.value);
     else if(record.type==='pickup') pickups.push(record.value);
     else projectiles.push(record.value);
   }
-  const bodyIds=new Set(bodies.map(value=>value[7]));
   const enemyIds=new Set(enemies.map(value=>value.identity));
   const pickupIds=new Set(pickups.map(value=>value.slot));
   const projectileIds=new Set(projectiles.map(value=>value.identity));
-  const actorOrder=order.filter(reference=>Object.hasOwn(reference,'enemy')?enemyIds.has(reference.enemy):
-    Object.hasOwn(reference,'projectile')?projectileIds.has(reference.projectile):
-    Object.hasOwn(reference,'pickup')?pickupIds.has(reference.pickup):bodyIds.has(reference.body));
-  return {bodies,enemies,projectiles,pickups,actorOrder};
+  const actorOrder=order.filter(reference=>{
+    if(Object.hasOwn(reference,'enemy')) return enemyIds.has(reference.enemy);
+    if(Object.hasOwn(reference,'projectile')) return projectileIds.has(reference.projectile);
+    if(Object.hasOwn(reference,'pickup')) return pickupIds.has(reference.pickup);
+    throw Error('Unknown authoritative actor reference.');
+  });
+  return {enemies,projectiles,pickups,actorOrder};
 }
 export class ObservationPresentation {
   constructor() { this.reset(); }
@@ -79,10 +72,6 @@ export class ObservationPresentation {
       throw Error('The authoritative frame is missing its combat state or observation identity.');
     if (!this.frames.size) this.state = Playback.fresh_for(frame.ownPlayerId);
     const extras = [];
-    for (const body of frame.bodies || []) {
-      const projected = Wire.extra_actor(body[7],body[2],body[3],body[0],body[1],body[6],body[4],frame.tick);
-      if (projected.$ === 'Some') extras.push(projected.value);
-    }
     for (const pickup of frame.pickups) {
       const item=pickup.item;
       const payload=item.kind==='xp'?{$:'Xp',amount:item.amount,accumulator:item.accumulator}:

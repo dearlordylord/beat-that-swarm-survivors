@@ -13,7 +13,7 @@ import native-economy.bend as Economy
 import offline-policy.bend as Policy
 import offline-coop-control.bend as Control
 
-type Observed is Type: Observed{state:Core.CoreState,shared:RS.Session,p0:G.Run,p1:G.Run,rows:List<&2,Components.Body>,snapshots:List<&2,G.Snapshot>,round:U32,required:List<&2,U32>,offers:List<&2,Core.PlayerOffers>}
+type Observed is Type: Observed{state:Core.CoreState,shared:RS.Session,p0:G.Run,p1:G.Run,snapshots:List<&2,G.Snapshot>,round:U32,required:List<&2,U32>,offers:List<&2,Core.PlayerOffers>}
 type Checked is Type: CoopReady{observed:Observed} CoopBroken{message:String}
 type Progress is Type: Progress{packet:Core.CorePacket,m0:Policy.Memory,m1:Policy.Memory,choices0:U32,choices1:U32}
 
@@ -49,16 +49,16 @@ def start(seed:U32,+advanced:Bool,character0:U32,character1:U32,arcana0:U32,arca
   unlock_profile(advanced,join(configure(Core.core_start(character0,profile_meta(advanced),seed),arcana0),character1,profile_meta(advanced),arcana1))
 
 # C.get returns the same affine world alongside read-only copied records.
-def observed_players(state: Core.CoreState,+shared: RS.Session,rows: List<&2,Components.Body>,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,Core.PlayerOffers>,p0: Maybe<&2,RS.PlayerState>,p1: Maybe<&2,RS.PlayerState>) -> Checked:
+def observed_players(state: Core.CoreState,+shared: RS.Session,snapshots: List<&2,G.Snapshot>,round: U32,required: List<&2,U32>,offers: List<&2,Core.PlayerOffers>,p0: Maybe<&2,RS.PlayerState>,p1: Maybe<&2,RS.PlayerState>) -> Checked:
   match p0 p1:
-    case Some{p0} Some{p1}: CoopReady{Observed{state,shared,Core.player_step_context(shared,p0),Core.player_step_context(shared,p1),rows,snapshots,round,required,offers}}
+    case Some{p0} Some{p1}: CoopReady{Observed{state,shared,Core.player_step_context(shared,p0),Core.player_step_context(shared,p1),snapshots,round,required,offers}}
     case _ _: CoopBroken{"native co-op requires both player records"}
-def observed_loaded(+shared:RS.Session,+refs:List<&2,Core.PlayerRef>,+rows:List<&2,Components.Body>,+snapshots:List<&2,G.Snapshot>,+round:U32,+required:List<&2,U32>,+offers:List<&2,Core.PlayerOffers>,pending:List<&2,Core.Reward>,result:Storage.World() & List<&2,Components.PlayerRecord>) -> Checked:
+def observed_loaded(+shared:RS.Session,+refs:List<&2,Core.PlayerRef>,+snapshots:List<&2,G.Snapshot>,+round:U32,+required:List<&2,U32>,+offers:List<&2,Core.PlayerOffers>,pending:List<&2,Core.Reward>,result:Storage.World() & List<&2,Components.PlayerRecord>) -> Checked:
   match result:
-    case (world,+players): observed_players(Core.CoreState{world,shared,refs,rows,snapshots,round,required,offers,pending},shared,rows,snapshots,round,required,offers,Core.find_player(players,0),Core.find_player(players,1))
+    case (world,+players): observed_players(Core.CoreState{world,shared,refs,snapshots,round,required,offers,pending},shared,snapshots,round,required,offers,Core.find_player(players,0),Core.find_player(players,1))
 def observe(packet:Core.CorePacket) -> Checked:
   match packet:
-    case Core.CorePacket{Core.CoreState{world,+shared,+refs,+rows,snapshots,+round,+required,+offers,pending},_}: observed_loaded(shared,refs,rows,snapshots,round,required,offers,pending,Core.load_players(refs,[],world))
+    case Core.CorePacket{Core.CoreState{world,+shared,+refs,snapshots,+round,+required,+offers,pending},_}: observed_loaded(shared,refs,snapshots,round,required,offers,pending,Core.load_players(refs,[],world))
     case Core.CoreRejected{_,message}: CoopBroken{"Co-op command rejected: " ++ message}
     case Core.CoreFailed{message}: CoopBroken{"Co-op game failed: " ++ message}
 
@@ -74,10 +74,10 @@ def moved_right(state:Core.CoreState,m0:Policy.Memory,choices0:U32,choices1:U32,
 def moved(state:Core.CoreState,choices0:U32,choices1:U32,move0:Policy.Memory & (F32 & F32),move1:Policy.Memory & (F32 & F32)) -> Progress:
   (m0,d0) = move0
   moved_right(state,m0,choices0,choices1,d0,move1)
-def choose_or_move(required:List<&2,U32>,state:Core.CoreState,shared:RS.Session,+p0:G.Run,+p1:G.Run,+rows:List<&2,Components.Body>,+snapshots:List<&2,G.Snapshot>,round:U32,offers:List<&2,Core.PlayerOffers>,m0:Policy.Memory,m1:Policy.Memory,+choices0:U32,+choices1:U32) -> Progress:
+def choose_or_move(required:List<&2,U32>,state:Core.CoreState,shared:RS.Session,+p0:G.Run,+p1:G.Run,+snapshots:List<&2,G.Snapshot>,round:U32,offers:List<&2,Core.PlayerOffers>,m0:Policy.Memory,m1:Policy.Memory,+choices0:U32,+choices1:U32) -> Progress:
   match required:
     case +id <> _: Progress{Core.core_choose(state,id,round,Policy.upgrade(Bool.pick(G.Run,U32.is_eq(id,0),p0,p1),Core.offers_for(offers,id))),m0,m1,(choices0 + Bool.to_u32(U32.is_eq(id,0)) : U32),(choices1 + Bool.to_u32(U32.is_eq(id,1)) : U32)}
-    case []: moved(state,choices0,choices1,Policy.movement(m0,p0,rows,snapshots),Policy.movement(m1,p1,rows,snapshots))
+    case []: moved(state,choices0,choices1,Policy.movement(m0,p0,snapshots),Policy.movement(m1,p1,snapshots))
 
 def population_go(rows:List<&2,G.Snapshot>,+boss:U32,+ordinary:U32) -> U32 & U32:
   match rows:
@@ -131,19 +131,19 @@ def sampled(emit:Bool,text:String,nextSample:Nat,progress:Progress,next:Progress
 def next_sample(emit:Bool,tick:U32,current:Nat) -> Nat: Bool.pick(Nat,emit,Nat.add(U32.to_nat(tick),60n),current)
 def run_observed(stopped:Bool,+outcome:Control.Outcome,+seed:U32,index:U32,+ticks:U32,started:Nat,+nextSample:Nat,m0:Policy.Memory,m1:Policy.Memory,+choices0:U32,+choices1:U32,observed:Observed,next:Progress -> Nat -> IO(Unit)) -> IO(Unit):
   match stopped observed:
-    case True{} Observed{_,+shared,p0,p1,rows,snapshots,_,_,_}:
+    case True{} Observed{_,+shared,p0,p1,snapshots,_,_,_}:
       do IO<Unit>:
         now : Nat <- IO.now()
         IO.print("{\"type\":\"summary\"," ++ fields(seed,index,ticks,shared,p0,p1,snapshots,choices0,choices1) ++ ",\"outcome\":\"" ++ Control.name(outcome) ++ "\",\"wallMs\":" ++ Nat.show(Nat.sub(now,started)) ++ "}")
         IO.print_err("Completed native co-op seed " ++ U32.show(seed) ++ " at tick " ++ U32.show(RS.session_tick(shared)))
-    case False{} Observed{state,+shared,+p0,+p1,+rows,+snapshots,round,+required,offers}:
+    case False{} Observed{state,+shared,+p0,+p1,+snapshots,round,+required,offers}:
       +emit = Nat.is_ge(U32.to_nat(RS.session_tick(shared)),nextSample)
-      sampled(emit,fields(seed,index,ticks,shared,p0,p1,snapshots,choices0,choices1),next_sample(emit,RS.session_tick(shared),nextSample),choose_or_move(required,state,shared,p0,p1,rows,snapshots,round,offers,m0,m1,choices0,choices1),next)
+      sampled(emit,fields(seed,index,ticks,shared,p0,p1,snapshots,choices0,choices1),next_sample(emit,RS.session_tick(shared),nextSample),choose_or_move(required,state,shared,p0,p1,snapshots,round,offers,m0,m1,choices0,choices1),next)
 def inspect(seed:U32,index:U32,+ticks:U32,started:Nat,nextSample:Nat,m0:Policy.Memory,m1:Policy.Memory,choices0:U32,choices1:U32,observed:Observed,next:Progress -> Nat -> IO(Unit)) -> IO(Unit):
   match observed:
-    case Observed{state,+shared,p0,p1,rows,snapshots,round,required,offers}:
+    case Observed{state,+shared,p0,p1,snapshots,round,required,offers}:
       +result = Control.outcome(RS.session_phase(shared),RS.session_tick(shared),ticks)
-      run_observed(Control.stopped(result),result,seed,index,ticks,started,nextSample,m0,m1,choices0,choices1,Observed{state,shared,p0,p1,rows,snapshots,round,required,offers},next)
+      run_observed(Control.stopped(result),result,seed,index,ticks,started,nextSample,m0,m1,choices0,choices1,Observed{state,shared,p0,p1,snapshots,round,required,offers},next)
 def inspect_ready(ready:Checked,seed:U32,index:U32,ticks:U32,started:Nat,nextSample:Nat,m0:Policy.Memory,m1:Policy.Memory,choices0:U32,choices1:U32,next:Progress -> Nat -> IO(Unit)) -> IO(Unit):
   match ready:
     case CoopBroken{message}: IO.die(Unit,1,message)

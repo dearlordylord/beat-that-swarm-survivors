@@ -106,7 +106,7 @@ def main():
     layout_path = None
     layout_sha = None
     if args.layout:
-        from ecs_migration_compare import validate_layout
+        from current_replay_schema import validate_layout
         layout_path = args.layout.resolve(strict=True)
         layout_sha = file_sha(layout_path)
         # Use the oracle's strict JSON hooks so duplicate layout keys fail closed.
@@ -132,9 +132,9 @@ def main():
         parser.error("Fixtures must be a nonempty unique list")
     reference, candidate = args.reference.resolve(strict=True), args.candidate.resolve(strict=True)
     args.output.mkdir(parents=True, exist_ok=False)
-    evaluators = [Path(__file__).resolve(), Path(__file__).with_name("replay_compare.py").resolve(), args.fixtures.resolve()]
+    evaluators = [Path(__file__).resolve(), args.fixtures.resolve(), *[Path(__file__).with_name(name).resolve() for name in ("replay_compare.py", "current_replay_schema.py", "enemy_qualification.py", "projectile_qualification.py", "pickup_qualification.py")]]
     if layout_path is not None:
-        evaluators.extend([layout_path, Path(__file__).with_name("ecs_migration_compare.py").resolve()])
+        evaluators.append(layout_path)
     bindings = {"reference": file_sha(reference), "candidate": file_sha(candidate),
                 "evaluators": {str(path): file_sha(path) for path in evaluators},
                 "fixtures": {str(path): file_sha(path) for path in fixtures}}

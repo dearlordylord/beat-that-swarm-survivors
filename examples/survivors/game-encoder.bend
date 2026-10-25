@@ -19,14 +19,6 @@ def players_json(rows: List<&2,Players.Player>) -> String:
     case []: ""
     case player <> []: player_json(player)
     case player <> rest: player_json(player) ++ "," ++ players_json(rest)
-def body_json(body: Components.Body) -> String:
-  match body:
-    case Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maxHp) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ "]"
-def rows_json(rows: List<&2,Components.Body>) -> String:
-  match rows:
-    case []: ""
-    case body <> []: body_json(body)
-    case body <> rest: body_json(body) ++ "," ++ rows_json(rest)
 def enemy_json(enemy: Enemy.State,+tick: U32) -> String:
   match enemy:
     case Enemy.State{Space.Spatial{x,y,+age,radius},archetype,+identity,Components.Vitals{health,maximum},_}:
@@ -41,7 +33,6 @@ def actor_ref_json(reference: G.ActorRef) -> String:
     case G.EnemyRef{identity}: "{\"enemy\":" ++ U32.show(identity) ++ "}"
     case G.ProjectileRef{identity}: "{\"projectile\":" ++ U32.show(identity) ++ "}"
     case G.PickupRef{identity}: "{\"pickup\":" ++ U32.show(identity) ++ "}"
-    case G.BodyRef{identity}: "{\"body\":" ++ U32.show(identity) ++ "}"
 def actor_order_json(rows: List<&2,G.ActorRef>) -> String:
   match rows:
     case []: ""
@@ -65,19 +56,14 @@ def offers_json(rows: List<&2,G.Offer>) -> String:
     case []: ""
     case o <> []: offer_json(o)
     case o <> rest: offer_json(o) ++ "," ++ offers_json(rest)
-def visible_bodies(rows: List<&2,Components.Body>) -> List<&2,Components.Body>:
-  match rows:
-    case []: []
-    case Components.Body{_,_,8,_,_,_,_,_,_} <> rest: visible_bodies(rest)
-    case body <> rest: body <> visible_bodies(rest)
 def encode_extra(observation: G.Observation,players: List<&2,Players.Player>,extra: String) -> String:
   match observation:
-    case G.Observation{G.Run{RS.Session{phase,+tick,xp,need,level,kills,gold,seed,+stage,bosses,+mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},bodies,offers,enemies,order,projectiles,pickups}:
-      "{\"worldSize\":" ++ F32.show(G.world_size()) ++ ",\"worldMargin\":" ++ F32.show(G.world_margin()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(G.relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(G.relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(G.run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"bodies\":[" ++ rows_json(visible_bodies(bodies)) ++ "],\"enemies\":[" ++ enemies_json(enemies,tick) ++ "],\"actorOrder\":[" ++ actor_order_json(order) ++ "],\"projectiles\":[" ++ projectiles_json(projectiles,tick) ++ "],\"players\":[" ++ players_json(players) ++ "]" ++ extra ++ "}"
+    case G.Observation{G.Run{RS.Session{phase,+tick,xp,need,level,kills,gold,seed,+stage,bosses,+mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},offers,enemies,order,projectiles,pickups}:
+      "{\"worldSize\":" ++ F32.show(G.world_size()) ++ ",\"worldMargin\":" ++ F32.show(G.world_margin()) ++ ",\"relicCollected\":" ++ U32.show(relicCollected) ++ ",\"relicX\":" ++ F32.show(G.relic_x(stage)) ++ ",\"relicY\":" ++ F32.show(G.relic_y(stage)) ++ ",\"runLength\":" ++ U32.show(G.run_length(mode)) ++ ",\"enemiesKilled\":[" ++ nums_json(enemyKinds) ++ "],\"mode\":" ++ U32.show(mode) ++ ",\"rerolls\":" ++ U32.show(rerolls) ++ ",\"banishes\":" ++ U32.show(banishes) ++ ",\"skips\":" ++ U32.show(skips) ++ ",\"stage\":" ++ U32.show(stage) ++ ",\"arcana\":" ++ U32.show(arcana) ++ ",\"revivalsUsed\":" ++ U32.show(revivals) ++ ",\"bossesKilled\":" ++ U32.show(bosses) ++ ",\"phase\":" ++ U32.show(phase) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"px\":" ++ F32.show(px) ++ ",\"py\":" ++ F32.show(py) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(need) ++ ",\"level\":" ++ U32.show(level) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"character\":" ++ U32.show(character) ++ ",\"weapons\":[" ++ nums_json(weapons) ++ "],\"passives\":[" ++ nums_json(passives) ++ "],\"offers\":[" ++ offers_json(offers) ++ "],\"enemies\":[" ++ enemies_json(enemies,tick) ++ "],\"actorOrder\":[" ++ actor_order_json(order) ++ "],\"projectiles\":[" ++ projectiles_json(projectiles,tick) ++ "],\"players\":[" ++ players_json(players) ++ "]" ++ extra ++ "}"
 def encode(+observation: G.Observation) -> String:
   match observation:
-    case G.Observation{run,_,_,_,_,_,_}: encode_extra(observation,Players.solo(G.run_player(run)),"")
+    case G.Observation{run,_,_,_,_,_}: encode_extra(observation,Players.solo(G.run_player(run)),"")
 type Encoded is Type: Encoded{state: G.State,frame: String}
 def observe(state: G.State) -> Encoded:
   match state:
-    case G.State{world,+run,+bodies,+offers,+snapshots,pending}: Encoded{G.State{world,run,bodies,offers,snapshots,pending},encode(G.Observation{run,bodies,offers,G.enemy_observations(snapshots),G.render_order(snapshots),G.projectile_observations(snapshots),G.pickup_observations(snapshots)})}
+    case G.State{world,+run,+offers,+snapshots,pending}: Encoded{G.State{world,run,offers,snapshots,pending},encode(G.Observation{run,offers,G.enemy_observations(snapshots),G.render_order(snapshots),G.projectile_observations(snapshots),G.pickup_observations(snapshots)})}

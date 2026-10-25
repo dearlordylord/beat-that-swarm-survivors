@@ -18,8 +18,8 @@ def apply_packet(action: F.Action,packet: G.Packet) -> G.Packet:
     case G.Failed{error}: G.Failed{error}
 def warm_gate(+target: U32,cursor: Cursor) -> WarmReady:
   match cursor:
-    case Cursor{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},actions,step}:
-      WarmReady{U32.is_le(target,C.tick(run)),Cursor{G.Packet{G.State{world,run,rows,offers,snapshots,pending}},actions,step}}
+    case Cursor{G.Packet{G.State{world,+run,offers,snapshots,pending}},actions,step}:
+      WarmReady{U32.is_le(target,C.tick(run)),Cursor{G.Packet{G.State{world,run,offers,snapshots,pending}},actions,step}}
     case cursor: WarmReady{True{},cursor}
 def warm_loop(fuel: Nat,+target: U32,ready: WarmReady) -> Cursor:
   match fuel ready:
@@ -35,8 +35,8 @@ def execute(actions: List<&2,F.Action>,packet: G.Packet,step: U32) -> Cursor:
 def complete(cursor: Cursor) -> Result<&1,&1,String,Completed>:
   match cursor:
     case Cursor{G.Failed{error},_,_}: Fail{error}
-    case Cursor{G.Packet{G.State{world,+run,rows,offers,snapshots,pending}},_,step}:
-      Done{Completed{G.State{world,run,rows,offers,snapshots,pending},step,C.tick(run),G.run_phase(run)}}
+    case Cursor{G.Packet{G.State{world,+run,offers,snapshots,pending}},_,step}:
+      Done{Completed{G.State{world,run,offers,snapshots,pending},step,C.tick(run),G.run_phase(run)}}
 def final_checkpoint(result: G.State & String,+fixture: String,+step: U32,+firstTick: U32,+actualEnd: U32,+finalPhase: U32) -> IO(Unit):
   match result:
     case (_,payload):

@@ -9,7 +9,7 @@ def payload(tick=0):
     identities=[2,0,6,1,4,3,5]; c={k:[] for k in C.FAMILIES}
     for handle,identity in enumerate(identities,1):
         role=C.assigned(identity,LAYOUT)
-        values=dict(bodies=None,vitals=[0,0] if role=='EnemySlot' else None,statuses=dict(slow=dict(ticks=0,frozen=False),burn=dict(ticks=0,sourcePlayer=None)) if role=='EnemySlot' else None,
+        values=dict(vitals=[0,0] if role=='EnemySlot' else None,statuses=dict(slow=dict(ticks=0,frozen=False),burn=dict(ticks=0,sourcePlayer=None)) if role=='EnemySlot' else None,
                     trajectories=[0,0,0,0,[],0,0,None] if role in C.PROJECTILES else None,
                     shots=[0,0,0] if role in C.PROJECTILES else None,
                     pickups=[[0,0,0],0,0] if role in C.ENEMIES|{'XpSlot'} else None,
@@ -28,7 +28,7 @@ def payload(tick=0):
         for handle,identity in reversed(list(enumerate(identities,1))):
             role=C.assigned(identity,LAYOUT)
             if role in C.PROJECTILES:snapshots.append(dict(projectile=dict(spatial=c['spaces'][handle-1][1],identity=identity,side='player' if role=='PlayerProjectileSlot' else 'hostile',payload=c['shots'][handle-1][1],trajectory=c['trajectories'][handle-1][1])))
-    return dict(run=run,bodies=[],offers=[],snapshots=snapshots,pending=[],components=dict(actorColumns=c,players=[[i,None,[None,None]] for i in range(1,total+1)]),
+    return dict(run=run,offers=[],snapshots=snapshots,pending=[],components=dict(actorColumns=c,players=[[i,None,[None,None]] for i in range(1,total+1)]),
                 metadata=dict(namespace=1,allocator=[8,7,8,3,[],[[i,0] for i in range(1,8)],[[0,0]]+[[0,2] for _ in range(7)]],clock=[[0,1],[]],events=0,pendingCommands=0,registrations=[],nextSystemId=0))
 def replay():
     fixture='seed100-profile0-warm0-end1'
