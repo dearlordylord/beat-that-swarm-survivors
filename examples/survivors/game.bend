@@ -158,8 +158,8 @@ def populate_enemy_slot(world: Storage.World(),+handle: W.Handle<Storage.Schema>
     case Components.Body{_,_,kind,archetype,_,_,_,_,_}: phase_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,Storage.phase_family(),populate_enemy(world,handle,body),handle,Some{initial_enemy_phase(kind,archetype)}))
 def populate_components(role: Role.Role,world: Storage.World(),+handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
   match role:
-    case Role.EnemySlot{}: populate_pickup(populate_enemy(world,handle,body),handle)
-    case Role.RelicSlot{}: populate_pickup(populate_enemy(world,handle,body),handle)
+    case Role.EnemySlot{}: populate_pickup(populate_enemy_slot(world,handle,body),handle)
+    case Role.RelicSlot{}: populate_pickup(populate_enemy_slot(world,handle,body),handle)
     case Role.PlayerProjectileSlot{}: populate_projectile(world,handle,body)
     case Role.HostileProjectileSlot{}: populate_projectile(world,handle,body)
     case Role.XpSlot{}: populate_pickup(populate_spatial(world,handle,body),handle)
@@ -665,9 +665,6 @@ def relic_entity(args: Args) -> EntityRow:
     case Args{run,_,_,_,_,_}: relic_run(run)
 # A reused slot starts a new incarnation: old slows, burns and hits belong
 # to the previous occupant and must never move or damage the admitted spawn.
-def newborn_entity(result: Row & Motion) -> EntityRow:
-  (row,motion) = result
-  EntityRow{row,motion}
 
 
 def intent_fire(intent: E.Intent) -> Bool:
@@ -1717,7 +1714,7 @@ def team_pickup_spatial(~H: Type,~ops: PickupOps<H>,call: PickupCall,result: H &
 def team_pickup_system(~H: Type,~ops: PickupOps<H>,call: PickupCall,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pickup_spatial(~H,~ops,call,Cap.read(~H,~Space.Spatial,~pickup_spatial_cap(~H,ops),ctx))
 def pool_enemy_done(~H: Type,~ops: PoolOps<H>,team: Team,result: H & (T.Outcome<Error> & EnemyQueryResult)) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,(T.Success{},Ready{row})): (ctx,(T.Success{},row))
+    case (ctx,(T.Success{},EnemyReady{row})): (ctx,(T.Success{},row))
     case (ctx,(T.Success{},LootRequest{advance})): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),PickupCall{team,advance,False{}},ctx)
     case (ctx,(T.Failure{error},_)): (ctx,(T.Failure{error},missing_row()))
 def team_pool_role(~H: Type,~ops: PoolOps<H>,+team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
