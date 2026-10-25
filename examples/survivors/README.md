@@ -57,6 +57,8 @@ The Lunar Stone menu uses Moon Seal controls, with Start at the top and in a res
 
 The shared browser decoration uses header banners over rectangular panels. `menu-crenellations.mjs` fits N full square teeth and N−1 equal gaps into width W: side length `s = W / (2N − 1)`, with N chosen to keep s near 8 CSS pixels. Resize observation handles responsive widths and reopened panels; DOM observation is limited to rebuilt menu fragments, not the HUD or simulation. Only decorative surfaces are masked, preserving control hit areas and focus.
 
+Browser menu portraits and in-run characters share the paths in [`survivor-art.mjs`](survivor-art.mjs). Clothing colours come from the Bend character catalogue; SVG prerendering and Canvas drawing use the same layers in solo and co-op. Canvas paths are cached once.
+
 ## Browser launch
 
 [Browser demo](https://survivors.dearlordylord.com). [Two-player co-op](COOP.md) uses the same ECS systems with a browser host and Iroh transport. Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.

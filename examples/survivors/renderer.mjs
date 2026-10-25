@@ -1,3 +1,4 @@
+import { drawSurvivor } from './survivor-art.mjs';
 import Game from "./dist/game.mjs";
 
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
@@ -668,44 +669,13 @@ export class Renderer {
     const [x, y] = this.xy(wx, wy),
       c = this.ctx,
       t = this.time,
-      id = typeof character === "number" ? character : 0,
-      col = [
-        "#bc5870",
-        "#719bc2",
-        "#caa55d",
-        "#8bba91",
-        "#ac81c5",
-        "#df986d",
-        "#82b4b0",
-        "#b4ac7c",
-      ][id % 8],
       step = this.options.reducedMotion ? 0 : Math.sin(t * 9) * 1.5;
     c.fillStyle = "#e9d4a10c";
     c.beginPath();
     c.arc(x, y - 6, 65, 0, TAU);
     c.fill();
     this.shadow(x, y, 12, 4);
-    c.fillStyle = "#111622";
-    c.beginPath();
-    c.moveTo(x - 8, y - 18);
-    c.lineTo(x + 7, y - 18);
-    c.lineTo(x + 12, y + 1);
-    c.lineTo(x - 12, y + 1);
-    c.fill();
-    rect(c, x - 6, y - 3, 4, 5 + step, "#333341");
-    rect(c, x + 2, y - 3, 4, 5 - step, "#333341");
-    rect(c, x - 7, y - 17, 14, 14, col);
-    rect(c, x - 9, y - 15, 4, 9, "#d1b98e");
-    rect(c, x + 5, y - 15, 4, 9, "#d1b98e");
-    rect(c, x - 5, y - 26, 10, 10, "#d9bb98");
-    rect(c, x - 6, y - 28, 12, 5, "#292838");
-    rect(c, x - 6, y - 23, 3, 6, "#292838");
-    rect(c, x + 3, y - 23, 3, 6, "#292838");
-    rect(c, x - 3, y - 22, 2, 2, "#241d2a");
-    rect(c, x + 2, y - 22, 2, 2, "#241d2a");
-    rect(c, x - 6, y - 7, 12, 2, "#e4c77c");
-    rect(c, x + 10, y - 22, 2, 25, "#96794e");
-    rect(c, x + 8, y - 25, 6, 6, COLORS[id % 24]);
+    drawSurvivor(c, character, x, y, step);
     // Small foot ring keeps the player readable under a dense horde.
     c.strokeStyle = "#eedfaf88";
     c.beginPath();
