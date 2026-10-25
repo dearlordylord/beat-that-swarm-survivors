@@ -1,6 +1,6 @@
 {
   "scope": "GH5 focused checks; grouped native/presentation/physical qualification and final review remain required",
-  "freeze": "d7d7c914e6a318b8e73803c9a55d2dc230d18afc",
+  "freeze": "dc23eade6053a240b29a4336661a756fa472ad9a",
   "checks": {
     "gameCompile": "PASS",
     "coreEmission": "PASS",
@@ -15,8 +15,8 @@
       "status": "PASS",
       "runner": "examples/survivors/enemy-birth-wiring-control.py",
       "command": "python3 examples/survivors/enemy-birth-wiring-control.py --output /tmp/issue5-maintained-wiring-control",
-      "receipt": "/tmp/issue5-maintained-wiring-control/receipt.json",
-      "receiptSha256": "03c5343e689c69fd02e01c889d0316e252d83091dc293bf66b7336c16a002cda",
+      "receipt": "/tmp/issue5-explicit-effects-wiring/receipt.json",
+      "receiptSha256": "6b1e72dcfc6e1271c3b3efbf7f7b3b2ebc2e61d0d150ec554db69c9d2ee4684d",
       "observed": {
         "pristineCompileExit": 0,
         "pristineFixtureExit": 0,
@@ -35,7 +35,11 @@
       "birthLawKernel": "PASS after blind statement approval; CPU10 wall60",
       "birthLawMutants": "2/2 compiled semantic mutants detected",
       "maintainedProductionWiring": "PASS /tmp/issue5-explicit-effects-wiring/receipt.json",
-      "strictStatusControls": "PASS rejects old packed Status, non-Boolean freeze and expired source retention"
+      "strictStatusControls": "PASS rejects old packed Status, non-Boolean freeze and expired source retention",
+      "nativeTypecheck": "PASS after all six fixture migrations",
+      "retainedDisconnectedOwner": "PASS actual Core.player_views + Game.enemy_effects_indexed: guest arcana7 applies four burn damage, creditSome1, cool119Some1",
+      "contactOracle": "PASS fresh Game/Core/Encoder modules, including prepared contact order and reused-slot birth",
+      "fixtureHelper": "6707ec2 (local dc23ead): three Bend fixtures, pickup wiring and dense8000-contact oracle passed"
     }
   },
   "artifacts": {
@@ -43,12 +47,16 @@
     "/tmp/issue5-group-core.mjs": "c4cba8b72675e38dbb6599ef9ceb4ad2e30b5a6196a4afdfc5be6cf6501b6b0d",
     "/tmp/issue5-group-encoder.mjs": "cf1710d7493f90225f722f8e09067239cfcf0eef195897c8a72d6e542ed8c61f",
     "/tmp/issue5-wiring-mutant.mjs": "a79c11ac44f5ac47f9a2f40059f84bd5c6fe012bac2901298ffc63e9bc7ce56f",
-    "/tmp/issue5-group-authority/receipt.json": "268f044d9fa8409080f74e3e1be7cee25f96ea51b158aea13c3798de91a45335"
+    "/tmp/issue5-group-authority/receipt.json": "268f044d9fa8409080f74e3e1be7cee25f96ea51b158aea13c3798de91a45335",
+    "/tmp/issue5-status-check/game.mjs": "a235ef46935c474c5389ec932a480176c2eb5e9d2bcd568d3c3e1213cae6b366",
+    "/tmp/issue5-status-check/coop-core.mjs": "9c911ec85adfdc3f7fa3f7150023b044938ee6db069d31c0dcfec43bf66adf50",
+    "/tmp/issue5-status-check/coop-encoder.mjs": "da06c4a2353f3a416d6ed1de5cb3e91657090f6691f95b8b93e53e50ed7e153c",
+    "/tmp/issue5-status-check/coop-hit-journal.mjs": "799945b3dfa9fe0be045a65576f0e3630ef34c886e7428bf5115e01e840c2fa7"
   },
   "status": "INCOMPLETE_PENDING_GROUP_QUALIFICATION_AND_REVIEW",
   "compiler": "Bend 2.0.38",
   "runtime": "Node.js 24.20.0 for development fixture execution only; native qualification pending",
-  "runtimeEmissionSource": "Game at1876e38; Core and Encoder assembled prerequisites plus1876e38; finald7d7c91 deletes only unused team_body_view, separately --check-only passed",
+  "runtimeEmissionSource": "Explicit effect core467b336 plus single-context invariant comments and retained guest fixture5cab1ee; six fixture migrationsdc23ead do not alter runtime Bend",
   "implementationCommits": [
     "2580b58",
     "c6c4d0f",
@@ -63,7 +71,11 @@
     "2453112",
     "7e20a91",
     "4e762f3",
-    "d7d7c91"
+    "d7d7c91",
+    "467b336",
+    "3671708",
+    "5cab1ee",
+    "dc23ead"
   ],
   "proof": {
     "statement": "examples/survivors/enemy-lifecycle/LAWS.bend",
