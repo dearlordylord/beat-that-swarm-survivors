@@ -133,3 +133,13 @@ def enemy_pressure(rows: List<&2,Threat>,+px: F32,+py: F32) -> U32:
     case []: 0
     case Threat{x,y,archetype} <> rest:
       U32.min(1000,(enemy_pressure_at(archetype,threat_distance(x,y,px,py)) + enemy_pressure(rest,px,py) : U32))
+
+# Only hostile projectile position contributes to music pressure; a renderer
+# does not need to reconstruct a projectile's authoritative component bundle.
+type ProjectileThreat is Data: ProjectileThreat{x: F32,y: F32}
+def projectile_pressure(rows: List<&2,ProjectileThreat>,+px: F32,+py: F32) -> U32:
+  match rows:
+    case []: 0
+    case ProjectileThreat{x,y} <> rest:
+      +range = threat_distance(x,y,px,py)
+      U32.min(1000,((35 * Bool.to_u32(F32.is_le(range,57600.0)) + 80 * Bool.to_u32(F32.is_le(range,6400.0))) + projectile_pressure(rest,px,py) : U32))
