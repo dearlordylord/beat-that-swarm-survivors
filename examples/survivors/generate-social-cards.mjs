@@ -9,7 +9,7 @@ const screenshot = 'data:image/png;base64,'+(await readFile(new URL('gameplay-so
 const moon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 2A10 10 0 1 0 22 17 9 9 0 0 1 16 2Z"/><path d="M20 1h1v3h3v1h-3v3h-1V5h-3V4h3Z"/></svg>';
 const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
 try {
-  for (const coop of [false,true]) {
+  for (const coop of process.argv.includes('--coop-only') ? [true] : [false,true]) {
     const page = await browser.newPage({viewport:{width:1200,height:630},deviceScaleFactor:1});
     await page.setContent(`<!doctype html><html><meta charset="utf-8"><style>
       *{box-sizing:border-box}body{margin:0;width:1200px;height:630px;overflow:hidden;background:#17131c;color:#f0e4ce;font-family:Georgia,'Times New Roman',serif}
@@ -36,11 +36,11 @@ try {
       .ground{position:absolute;width:350px;height:55px;bottom:-10px;left:50%;transform:translateX(-50%);border-radius:50%;background:#0b1016b0;border:1px solid #bba05b33}
     </style><div class="card"><div class="arena"></div><div class="veil"></div><div class="border"></div><i class="corner a"></i><i class="corner b"></i><i class="corner c"></i><i class="corner d"></i>
     <header>${moon}<span>Bendvy ECS example</span><span class="mode">${coop?'CO-OP':'SOLO + CO-OP'}</span></header>
-    <div class="copy"><h1>Survivors</h1><div class="sub">${coop?'Bring a friend.':'A Vampire Survivors clone.'}</div><div class="detail">${coop?'Choose your survivors. Share a run.':'Built with Bendvy. Play in your browser.'}</div></div>
+    <div class="copy"><h1>Survivors</h1><div class="sub">${coop?'Bring a friend.':'A Vampire Survivors clone.'}</div><div class="detail">${coop?'Survive together':'Built with Bendvy. Play in your browser.'}</div></div>
     <div class="party"><div class="ring"></div><div class="ground"></div><div class="person">${portrait(0)}</div>${coop?`<div class="person">${portrait(1)}</div>`:''}</div>
     <footer><span class="line"></span><span>${coop?'Browser co-op · No installation':'Entity Component System · Playable example'}</span><span class="domain">survivors.dearlordylord.com</span></footer></div></html>`);
     await page.evaluate(()=>Promise.all([...document.images].map(img=>img.decode())));
-    await page.screenshot({path:fileURLToPath(new URL(coop?'survivors-coop-v1.png':'survivors-v1.png',output)),type:'png'});
+    await page.screenshot({path:fileURLToPath(new URL(coop?'survivors-coop-v2.png':'survivors-v1.png',output)),type:'png'});
     await page.close();
   }
 } finally { await browser.close(); }

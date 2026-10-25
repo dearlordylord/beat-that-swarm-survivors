@@ -14,6 +14,8 @@ To regenerate the artwork after a deliberate visual update:
 PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node examples/survivors/generate-social-cards.mjs
 ```
 
+Append `--coop-only` to regenerate only the co-op card.
+
 Increment image filename versions and update seo.mjs when changing published
 artwork, so social crawlers fetch a new image URL. Page preview caches are owned
 by the sharing platforms; existing posts may continue to show a cached card.

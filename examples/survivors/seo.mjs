@@ -13,7 +13,7 @@ export const PAGE_META = Object.freeze({
     path: '/coop.html',
     title: 'Co-op Survivors — Bendvy ECS example',
     description: 'Invite a friend to a shared run in this Vampire Survivors clone. Choose your survivors and play together in the browser with Bendvy ECS.',
-    image: '/social/survivors-coop-v1.png',
+    image: '/social/survivors-coop-v2.png',
     imageAlt: 'Survivors co-op: invite a friend to play the Bendvy ECS example together in the browser.',
   },
 });
