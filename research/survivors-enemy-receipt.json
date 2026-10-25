@@ -10,7 +10,21 @@
     "concreteBirthProof": "PASS --verdict CPU10 wall60",
     "compiledProductionWiringMutant": "DETECTED; actual Game accepted branch reused old status and nonzero contact/killer; emission succeeded and fixture failed",
     "capabilityPairs": 18,
-    "enemyCurrentSchemaControls": "PASS; deliberately permuted handle/slot identities; membership/phase/duplicate/futurestamp rejected"
+    "enemyCurrentSchemaControls": "PASS; deliberately permuted handle/slot identities; membership/phase/duplicate/futurestamp rejected",
+    "maintainedProductionWiringControl": {
+      "status": "PASS",
+      "runner": "examples/survivors/enemy-birth-wiring-control.py",
+      "command": "python3 examples/survivors/enemy-birth-wiring-control.py --output /tmp/issue5-maintained-wiring-control",
+      "receipt": "/tmp/issue5-maintained-wiring-control/receipt.json",
+      "receiptSha256": "03c5343e689c69fd02e01c889d0316e252d83091dc293bf66b7336c16a002cda",
+      "observed": {
+        "pristineCompileExit": 0,
+        "pristineFixtureExit": 0,
+        "mutantCompileExit": 0,
+        "mutantFixtureExit": 1
+      },
+      "gate": "examples/survivors/check-coop-reliability.sh"
+    }
   },
   "artifacts": {
     "/tmp/issue5-group-game.mjs": "165cb453c17d396925d5a581dda6ae0375cb089ac713d541b32cce78f50239d1",

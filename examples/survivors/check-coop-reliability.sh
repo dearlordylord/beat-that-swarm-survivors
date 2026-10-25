@@ -10,7 +10,7 @@ source_fingerprint() {
   local source_list="$scratch/source-list"
   {
     find "$app" \( -path "$app/dist" -o -path "$app/web/node_modules" \) -prune -o \
-      -type f \( -name '*.bend' -o -name '*.mjs' -o -name '*.sh' -o -name '*.json' \) -print
+      -type f \( -name '*.bend' -o -name '*.mjs' -o -name '*.sh' -o -name '*.json' -o -name '*.py' \) -print
     find "$example_repo/vendor/bendlib/packages" -type f -name '*.bend'
     printf '%s\n' "$example_repo/examples/common.sh"
   } | LC_ALL=C sort > "$source_list"
@@ -41,6 +41,7 @@ example_node --stack_size=192 "$app/coop-playback-wire-check.mjs" "$scratch/coop
 example_node "$app/coop-snapshot-codec-check.mjs" "$scratch/coop-connection.mjs"
 COOP_ENCODER_MODULE="$scratch/coop-encoder.mjs" COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/coop-hit-source-check.mjs"
 COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/enemy-birth-check.mjs"
+python3 -B "$app/enemy-birth-wiring-control.py"
 COOP_ENCODER_MODULE="$scratch/coop-encoder.mjs" COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node "$app/coop-dense-contact-check.mjs"
 COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-dense-contact-check.mjs" --journal-only
 source_fingerprint_after="$(source_fingerprint)"
