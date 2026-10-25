@@ -213,7 +213,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
           else {
             const envelope = JSON.parse(text);
             if (envelope.type !== 'frame') return;
-            if (envelope.predictionModel !== 'world-input-combat-v2' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
+            if (envelope.predictionModel !== 'world-input-combat-v3' || !Number.isInteger(envelope.observationSeq) || !envelope.receipt
                 || typeof envelope.frame?.predictionAllowed !== 'boolean') {
               cleanup(); ui.status('Reload both pages and create a new invitation to use the current host version.',{error:true}); return;
             }
@@ -251,7 +251,7 @@ async function connect(kind, ticket, setup, invitation = {}) {
         else if (message.type === 'frame') { tick = message.frame.tick; ui.present({...message.frame,runId}); }
         else if (message.type === 'remote-frame') {
           if (!connected || message.connectionEpoch !== connectionEpoch) return;
-          latestSnapshot = {type:'frame',predictionModel:'world-input-combat-v2',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
+          latestSnapshot = {type:'frame',predictionModel:'world-input-combat-v3',frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
         } else if (message.type === 'guest-input-overflow' || message.type === 'guest-protocol-mismatch') {
           if (!connected || message.connectionEpoch !== connectionEpoch) return;
           refuseGuest(message.type === 'guest-input-overflow'

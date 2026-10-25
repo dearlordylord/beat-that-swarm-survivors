@@ -15,7 +15,9 @@ import ./coop-combat-broadphase.bend as Broadphase
 
 # No ECS World or durable progression API is reachable through a Scene value.
 # All currently known combat actors advance together from one received anchor.
-type Scene is Data: Scene{own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,session:Session.State,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool}
+# Only sampled directions cross this boundary; admission clocks and leases stay
+# authoritative. Speculative world time cannot expire a remote input heartbeat.
+type Scene is Data: Scene{own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool}
 def active(snapshot:G.Snapshot) -> Bool:
   match snapshot:
     case G.Snapshot{G.Body{_,_,+kind,_,hp,_,_,_,_},G.Motion{_,_,life,pierce,_,_,_,_,_}}:
@@ -33,7 +35,7 @@ def player_tick(players:List<&2,G.PlayerRecord>) -> U32:
     case []: 0
     case G.PlayerRecord{_,run,_} <> _: G.run_tick(run)
 def initialize_active(own:U32,+players:List<&2,G.PlayerRecord>,+snapshots:List<&2,G.Snapshot>) -> Scene:
-  Scene{own,players,snapshots,W.birth_map(snapshots,player_tick(players),BI.Empty{},BI.Empty{},BI.Empty{}),Session.fresh(0),[],player_tick(players),False{}}
+  Scene{own,players,snapshots,W.birth_map(snapshots,player_tick(players),BI.Empty{},BI.Empty{},BI.Empty{}),Session.Directions{0.0,0.0,0.0,0.0},[],player_tick(players),False{}}
 def initialize(own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>) -> Scene:
   initialize_active(own,players,active_snapshots(snapshots))
 def normalize_run(+run:G.Run) -> G.Run:
@@ -52,14 +54,14 @@ def normalize_snapshots(rows:List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
     case head <> tail: normalize_snapshot(head) <> normalize_snapshots(tail)
 def receive(scene:Scene,session:Session.State) -> Scene:
   match scene:
-    case Scene{own,players,snapshots,births,_,contacts,tick,diagnostics}: Scene{own,normalize_players(players),normalize_snapshots(snapshots),births,session,contacts,tick,diagnostics}
+    case Scene{own,players,snapshots,births,_,contacts,tick,diagnostics}: Scene{own,normalize_players(players),normalize_snapshots(snapshots),births,Policy.remote_input(session),contacts,tick,diagnostics}
 def diagnostic_history(enabled:Bool,contacts:List<&2,Policy.Witness>) -> List<&2,Policy.Witness>:
   match enabled:
     case False{}: []
     case True{}: contacts
 def with_diagnostics(scene:Scene,+enabled:Bool) -> Scene:
   match scene:
-    case Scene{own,players,snapshots,births,session,contacts,tick,_}: Scene{own,players,snapshots,births,session,diagnostic_history(enabled,contacts),tick,enabled}
+    case Scene{own,players,snapshots,births,directions,contacts,tick,_}: Scene{own,players,snapshots,births,directions,diagnostic_history(enabled,contacts),tick,enabled}
 def bodies(rows:List<&2,G.Snapshot>) -> List<&2,G.Body>:
   match rows:
     case []: []
@@ -422,17 +424,17 @@ def diagnostic_contacts(enabled:Bool,step:Prepared,+tick:U32,previous:List<&2,G.
   match enabled:
     case False{}: []
     case True{}: List.append(&2,Policy.Witness,recent_witnesses(contacts,tick),step_witnesses(step,tick,previous,births))
-def advanced_rows(own:U32,+players:List<&2,G.PlayerRecord>,+previous:List<&2,G.Snapshot>,+births:BI.Index<U32>,session:Session.State,contacts:List<&2,Policy.Witness>,+tick:U32,+diagnostics:Bool,+step:Prepared,+updated:List<&2,G.Snapshot>) -> Scene:
-  Scene{own,moved_players(players,team_views(prepared_team(step))),updated,W.birth_map(updated,tick,births,W.plan_births(team_plan(prepared_team(step)),tick),BI.Empty{}),session,diagnostic_contacts(diagnostics,step,tick,previous,births,contacts),tick,diagnostics}
-def advanced_team(+reference:Bool,own:U32,players:List<&2,G.PlayerRecord>,+previous:List<&2,G.Snapshot>,births:BI.Index<U32>,session:Session.State,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool,+step:Prepared) -> Scene:
-  advanced_rows(own,players,previous,births,session,contacts,tick,diagnostics,step,List.append(&2,G.Snapshot,choose_enemies(reference,previous,prepared_team(step),prepared_moved(step)),List.append(&2,G.Snapshot,choose_projectiles(reference,previous,prepared_team(step),prepared_next(step)),spawned_projectiles(prepared_team(step)))))
-def clocked_scene(+reference:Bool,+own:U32,+players:List<&2,G.PlayerRecord>,+snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,+session:Session.State,contacts:List<&2,Policy.Witness>,+tick:U32,diagnostics:Bool,+x:U32,+y:U32) -> Scene:
+def advanced_rows(own:U32,+players:List<&2,G.PlayerRecord>,+previous:List<&2,G.Snapshot>,+births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,+diagnostics:Bool,+step:Prepared,+updated:List<&2,G.Snapshot>) -> Scene:
+  Scene{own,moved_players(players,team_views(prepared_team(step))),updated,W.birth_map(updated,tick,births,W.plan_births(team_plan(prepared_team(step)),tick),BI.Empty{}),directions,diagnostic_contacts(diagnostics,step,tick,previous,births,contacts),tick,diagnostics}
+def advanced_team(+reference:Bool,own:U32,players:List<&2,G.PlayerRecord>,+previous:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool,+step:Prepared) -> Scene:
+  advanced_rows(own,players,previous,births,directions,contacts,tick,diagnostics,step,List.append(&2,G.Snapshot,choose_enemies(reference,previous,prepared_team(step),prepared_moved(step)),List.append(&2,G.Snapshot,choose_projectiles(reference,previous,prepared_team(step),prepared_next(step)),spawned_projectiles(prepared_team(step)))))
+def clocked_scene(+reference:Bool,+own:U32,+players:List<&2,G.PlayerRecord>,+snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,+directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,diagnostics:Bool,+x:U32,+y:U32) -> Scene:
   match players:
-    case []: Scene{own,[],snapshots,births,session,contacts,tick,diagnostics}
-    case G.PlayerRecord{+id,+run,+connected} <> +tail: advanced_team(reference,own,G.PlayerRecord{id,run,connected} <> tail,snapshots,births,session,contacts,tick,diagnostics,make_team(reference,views(G.PlayerRecord{id,run,connected} <> tail,own,x,y,Session.directions(session),tick),snapshots,own,run))
+    case []: Scene{own,[],snapshots,births,directions,contacts,tick,diagnostics}
+    case G.PlayerRecord{+id,+run,+connected} <> +tail: advanced_team(reference,own,G.PlayerRecord{id,run,connected} <> tail,snapshots,births,directions,contacts,tick,diagnostics,make_team(reference,views(G.PlayerRecord{id,run,connected} <> tail,own,x,y,directions,tick),snapshots,own,run))
 def advance_unchecked_mode(reference:Bool,scene:Scene,x:U32,y:U32) -> Scene:
   match scene:
-    case Scene{own,players,snapshots,births,session,contacts,tick,diagnostics}: clocked_scene(reference,own,players,snapshots,births,Session.clock(session),contacts,Policy.next_tick(tick),diagnostics,x,y)
+    case Scene{own,players,snapshots,births,directions,contacts,tick,diagnostics}: clocked_scene(reference,own,players,snapshots,births,directions,contacts,Policy.next_tick(tick),diagnostics,x,y)
 def advance_unchecked(scene:Scene,x:U32,y:U32) -> Scene: advance_unchecked_mode(False{},scene,x,y)
 def advance_reference_unchecked(scene:Scene,x:U32,y:U32) -> Scene: advance_unchecked_mode(True{},scene,x,y)
 def advance_reference(+scene:Scene,+x:U32,+y:U32) -> Scene: Replay.guard(~Scene,~advance_reference_unchecked,allowed(scene,x,y),scene,x,y)
@@ -475,12 +477,10 @@ def native_players(rows:List<&2,G.PlayerRecord>) -> String:
   match rows:
     case []: "{\"$\":\"Nil\"}"
     case head <> tail: "{\"$\":\"Con\",\"head\":" ++ native_player(head) ++ ",\"tail\":" ++ native_players(tail) ++ "}"
-def native_lane(value:Session.Lane) -> String:
+def native_directions(value:Session.Directions) -> String:
   match value:
-    case Session.Lane{last,input,applied,tick,received,x,y}: "{\"$\":\"Lane\",\"lastSeq\":" ++ U32.show(last) ++ ",\"inputSeq\":" ++ U32.show(input) ++ ",\"appliedSeq\":" ++ U32.show(applied) ++ ",\"appliedTick\":" ++ U32.show(tick) ++ ",\"receivedAt\":" ++ U32.show(received) ++ ",\"x\":" ++ U32.show(x) ++ ",\"y\":" ++ U32.show(y) ++ "}"
-def native_session(value:Session.State) -> String:
-  match value:
-    case Session.State{session,clock,host,guest,connected,ended}: "{\"$\":\"State\",\"session\":" ++ U32.show(session) ++ ",\"clock\":" ++ U32.show(clock) ++ ",\"host\":" ++ native_lane(host) ++ ",\"guest\":" ++ native_lane(guest) ++ ",\"guestConnected\":" ++ Bool.pick(String,connected,"true","false") ++ ",\"ended\":" ++ Bool.pick(String,ended,"true","false") ++ "}"
+    case Session.Directions{x0,y0,x1,y1}: "{\"$\":\"Directions\",\"x0\":" ++ F32.show(x0) ++ ",\"y0\":" ++ F32.show(y0) ++ ",\"x1\":" ++ F32.show(x1) ++ ",\"y1\":" ++ F32.show(y1) ++ "}"
+
 def witness_fields(value:Policy.Witness) -> String:
   match value:
     case Policy.Witness{kind,tick,shot,target,shotBirth,targetBirth,x0,y0,x1,y1,ex0,ey0,ex1,ey1,radius,time}: "\"kind\":" ++ U32.show(kind) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"shot\":" ++ U32.show(shot) ++ ",\"target\":" ++ U32.show(target) ++ ",\"shotBirth\":" ++ U32.show(shotBirth) ++ ",\"targetBirth\":" ++ U32.show(targetBirth) ++ ",\"x0\":" ++ F32.show(x0) ++ ",\"y0\":" ++ F32.show(y0) ++ ",\"x1\":" ++ F32.show(x1) ++ ",\"y1\":" ++ F32.show(y1) ++ ",\"ex0\":" ++ F32.show(ex0) ++ ",\"ey0\":" ++ F32.show(ey0) ++ ",\"ex1\":" ++ F32.show(ex1) ++ ",\"ey1\":" ++ F32.show(ey1) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"time\":" ++ F32.show(time)
@@ -491,7 +491,7 @@ def native_contacts(rows:List<&2,Policy.Witness>) -> String:
     case head <> tail: "{\"$\":\"Con\",\"head\":" ++ native_witness(head) ++ ",\"tail\":" ++ native_contacts(tail) ++ "}"
 def native_scene(scene:Scene) -> String:
   match scene:
-    case Scene{own,players,snapshots,births,session,contacts,tick,diagnostics}: "{\"$\":\"Scene\",\"own\":" ++ U32.show(own) ++ ",\"players\":" ++ native_players(players) ++ ",\"snapshots\":" ++ native_snapshots(snapshots) ++ ",\"births\":" ++ W.native_births(births) ++ ",\"session\":" ++ native_session(session) ++ ",\"contacts\":" ++ native_contacts(contacts) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"diagnostics\":" ++ Bool.pick(String,diagnostics,"true","false") ++ "}"
+    case Scene{own,players,snapshots,births,directions,contacts,tick,diagnostics}: "{\"$\":\"Scene\",\"own\":" ++ U32.show(own) ++ ",\"players\":" ++ native_players(players) ++ ",\"snapshots\":" ++ native_snapshots(snapshots) ++ ",\"births\":" ++ W.native_births(births) ++ ",\"directions\":" ++ native_directions(directions) ++ ",\"contacts\":" ++ native_contacts(contacts) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"diagnostics\":" ++ Bool.pick(String,diagnostics,"true","false") ++ "}"
 def observe(own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>) -> String: native_scene(initialize(own,players,snapshots))
 def generation(kind:U32,+seed:U32,born:U32,owner:U32,+slot:U32) -> String:
   match kind:
@@ -537,4 +537,4 @@ def visual_contacts(rows:List<&2,Policy.Witness>) -> String:
     case head <> tail: visual_contact(head) ++ "," ++ visual_contacts(tail)
 def render(scene:Scene) -> String:
   match scene:
-    case Scene{+own,+players,snapshots,births,_,contacts,+tick,diagnostics}: "{\"bodies\":[" ++ visual_rows(snapshots,tick,births) ++ "],\"players\":[" ++ visual_players(players) ++ "],\"tick\":" ++ U32.show(tick) ++ ",\"cohortTick\":" ++ U32.show(tick) ++ ",\"ownPlayerId\":" ++ U32.show(own) ++ point_fields(find_run(players,own)) ++ ",\"predictedCohort\":true,\"diagnosticsEnabled\":" ++ Bool.pick(String,diagnostics,"true","false") ++ ",\"contacts\":[" ++ visual_contacts(contacts) ++ "],\"contactTtlTicks\":" ++ U32.show(Policy.ttl_ticks()) ++ ",\"assumptions\":{\"remoteMovement\":\"held-until-lease-expiry\",\"remoteFutureBirths\":true,\"remoteFireAssumption\":\"current-loadout-and-held-input\",\"newEnemyBirths\":false,\"playerDamage\":false,\"durableAwards\":false}}"
+    case Scene{+own,+players,snapshots,births,_,contacts,+tick,diagnostics}: "{\"bodies\":[" ++ visual_rows(snapshots,tick,births) ++ "],\"players\":[" ++ visual_players(players) ++ "],\"tick\":" ++ U32.show(tick) ++ ",\"cohortTick\":" ++ U32.show(tick) ++ ",\"ownPlayerId\":" ++ U32.show(own) ++ point_fields(find_run(players,own)) ++ ",\"predictedCohort\":true,\"diagnosticsEnabled\":" ++ Bool.pick(String,diagnostics,"true","false") ++ ",\"contacts\":[" ++ visual_contacts(contacts) ++ "],\"contactTtlTicks\":" ++ U32.show(Policy.ttl_ticks()) ++ ",\"assumptions\":{\"remoteMovement\":\"bounded-held-last-observed\",\"remoteFutureBirths\":true,\"remoteFireAssumption\":\"current-loadout-and-held-input\",\"newEnemyBirths\":false,\"playerDamage\":false,\"durableAwards\":false}}"

@@ -1,0 +1,26 @@
+[
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "law": "remote_input_capture_exact",
+    "old": "def remote_input(state:Session.State) -> Session.Directions: Session.directions(state)",
+    "label": "remote-input-ages-admission-before-capture",
+    "new": "def remote_input(state:Session.State) -> Session.Directions: Session.directions(Session.clock(state))"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "law": "remote_input_capture_exact",
+    "old": "def remote_input(state:Session.State) -> Session.Directions: Session.directions(state)",
+    "label": "remote-input-drops-observed-movement",
+    "new": "def remote_input(state:Session.State) -> Session.Directions: Session.Directions{0.0,0.0,0.0,0.0}"
+  },
+  {
+    "source": "examples/survivors/coop-combat-prediction-policy.bend",
+    "proof": "examples/survivors/coop-combat-prediction-PROOF.bend",
+    "law": "remote_input_capture_exact",
+    "old": "def remote_input(state:Session.State) -> Session.Directions: Session.directions(state)",
+    "label": "remote-input-swaps-player-lanes",
+    "new": "def swap_remote(directions:Session.Directions) -> Session.Directions:\n  match directions:\n    case Session.Directions{x0,y0,x1,y1}: Session.Directions{x1,y1,x0,y0}\ndef remote_input(state:Session.State) -> Session.Directions: swap_remote(Session.directions(state))"
+  }
+]

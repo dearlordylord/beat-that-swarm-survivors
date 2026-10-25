@@ -4,6 +4,7 @@ import ./coop-prediction-replay.bend as Replay
 import ./coop-prediction.bend as P
 import ./projectile-contact.bend as Contact
 import ./body-index.bend as BI
+import ./coop-session.bend as S
 
 # Scope: these are the production-used detached cohort/adoption/contact-policy
 # laws. The Game adapters are qualified by real authority/forecast parity runs;
@@ -179,3 +180,40 @@ law diagnostic_recent_exact:
   for +now:U32
   for +value:C.Witness
   {C.recent(now,value) == U32.is_lt((now - contact_tick(value) : U32),4) : Bool}
+
+# Guarantees: sampling remote input captures exactly the observed axes and
+# connection/termination masks; admission timestamps cannot age the sample.
+# Why it matters: replaying ahead must not expire a still-moving host's last
+# observed input and turn smooth movement into a jump at every snapshot.
+law remote_input_capture_exact:
+  for session:U32
+  for clock:U32
+  for last0:U32
+  for input0:U32
+  for applied0:U32
+  for tick0:U32
+  for received0:U32
+  for +x0:U32
+  for +y0:U32
+  for last1:U32
+  for input1:U32
+  for applied1:U32
+  for tick1:U32
+  for received1:U32
+  for +x1:U32
+  for +y1:U32
+  for +connected:Bool
+  for +ended:Bool
+  {C.remote_input(S.State{session,clock,S.Lane{last0,input0,applied0,tick0,received0,x0,y0},S.Lane{last1,input1,applied1,tick1,received1,x1,y1},connected,ended}) == S.Directions{Bool.pick(F32,ended,0.0,Bool.pick(F32,U32.is_eq(x0,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(x0,2),1.0,0.0))),Bool.pick(F32,ended,0.0,Bool.pick(F32,U32.is_eq(y0,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(y0,2),1.0,0.0))),Bool.pick(F32,Bool.and(connected,Bool.not(ended)),Bool.pick(F32,U32.is_eq(x1,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(x1,2),1.0,0.0)),0.0),Bool.pick(F32,Bool.and(connected,Bool.not(ended)),Bool.pick(F32,U32.is_eq(y1,0),(0.0 - 1.0 : F32),Bool.pick(F32,U32.is_eq(y1,2),1.0,0.0)),0.0)} : S.Directions}
+
+# Guarantees: a terminated authority sample always captures zero movement for
+# both players, regardless of held axes or sequence/clock metadata.
+# Why it matters: preserving a sampled hint must not resurrect movement after
+# receiving the host's terminal state.
+law remote_input_ended_neutral:
+  for session:U32
+  for clock:U32
+  for host:S.Lane
+  for guest:S.Lane
+  for connected:Bool
+  {C.remote_input(S.State{session,clock,host,guest,connected,True{}}) == S.Directions{0.0,0.0,0.0,0.0} : S.Directions}

@@ -80,6 +80,7 @@ export class CoopUI {
     this.audio.setVolume(this.profile.settings?.volume ?? 0.42);
     this.keys = new Set();
     this.touch = { x: 0, y: 0 };
+    this.touchPointerId = null;
     this.lastInput = '';
     this.frame = null;
     this.rewardSignature = '';
@@ -158,10 +159,12 @@ export class CoopUI {
       this.emitInput();
     };
     on(pad, 'pointerdown', event => {
+      if (this.touchPointerId !== null) return;
+      this.touchPointerId = event.pointerId;
       pad.setPointerCapture(event.pointerId); pad.dataset.active = 'true'; touchMove(event);
     });
-    on(pad, 'pointermove', event => { if (pad.hasPointerCapture(event.pointerId)) touchMove(event); });
-    const touchEnd = () => { pad.dataset.active = 'false'; pad.firstElementChild.style.transform = ''; this.touch = { x: 0, y: 0 }; this.emitInput(); };
+    on(pad, 'pointermove', event => { if (event.pointerId === this.touchPointerId && pad.hasPointerCapture(event.pointerId)) touchMove(event); });
+    const touchEnd = event => { if (event.pointerId === this.touchPointerId) this.clearTouchInput(); };
     on(pad, 'pointerup', touchEnd); on(pad, 'pointercancel', touchEnd); on(pad, 'lostpointercapture', touchEnd);
     this.animate = now => {
       const delta = Math.max(0, Math.min(100, now - (this.previous || now)));
@@ -246,7 +249,16 @@ export class CoopUI {
       this.callbacks.onInput?.(input);
     }
   }
-  clearInput() { this.keys.clear(); this.touch = { x: 0, y: 0 }; this.emitInput(); }
+  clearTouchInput() {
+    const pad = this.$('#coop-touch'), pointer = this.touchPointerId;
+    // Clear ownership before releasing: lostpointercapture must not clear a
+    // subsequent gesture, and a second finger never owns the current gesture.
+    this.touchPointerId = null;
+    if (pointer !== null && pad.hasPointerCapture(pointer)) pad.releasePointerCapture(pointer);
+    pad.dataset.active = 'false'; pad.firstElementChild.style.transform = '';
+    this.touch = { x: 0, y: 0 }; this.emitInput();
+  }
+  clearInput() { this.keys.clear(); this.clearTouchInput(); }
   async invoke(name, ...args) {
     this.audio.unlock();
     try { return await this.callbacks[name]?.(...args); }
@@ -254,6 +266,8 @@ export class CoopUI {
   }
   status(text, { busy = false, error = false } = {}) {
     this.$('#coop-status').textContent = text;
+    if (this.entryRole === 'guest' && !this.frame)
+      this.$('#coop-join-title').textContent = error ? 'Could not connect' : 'Your place is ready?';
     this.$('#coop-status').dataset.error = String(error);
     this.$('#coop-play-status').textContent = text;
     for (const selector of ['#coop-host', '#coop-join']) this.$(selector).disabled = busy;
@@ -304,6 +318,7 @@ export class CoopUI {
     // A disconnect arriving after a completed receipt must not replace its result screen.
     if (previous && previous.runId === frame.runId && [3, 4].includes(previous.phase) && frame.phase === 5) return;
     this.frame = frame;
+    if (frame.ownPlayerId === 1) this.$('#coop-join-title').textContent = 'Your place is ready!';
     this.presentation.push(frame, this.window.performance.now());
     const saved = this.progress.observe(frame);
     this.closeInvitation();

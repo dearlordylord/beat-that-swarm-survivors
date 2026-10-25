@@ -1,8 +1,13 @@
 import Base
 import ./projectile-contact.bend as Contact
 import ./coop-prediction.bend as P
+import ./coop-session.bend as Session
 import ./coop-prediction-replay.bend as Replay
 import ./body-index.bend as BI
+
+# Sample authority once. Detached forecast state stores directions, never the
+# admission clock or lease: speculative ticks cannot expire a live input.
+def remote_input(state:Session.State) -> Session.Directions: Session.directions(state)
 
 # Detached visual combat has one clock and one canonical anchor. A prior
 # presentation state is never an alternative source of projectile geometry.

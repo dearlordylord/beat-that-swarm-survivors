@@ -1,6 +1,7 @@
 import Base
 import ./coop-combat-prediction-LAWS.bend as L
 import ./coop-combat-prediction-policy.bend as C
+import ./coop-session.bend as S
 
 def L.cohort_kind_exact(kind): {==}
 def L.cohort_clock_exact(tick): {==}
@@ -18,3 +19,9 @@ def L.diagnostic_ttl_exact(): {==}
 def L.diagnostic_recent_exact(now,value):
   match value:
     case C.Witness{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: {==}
+
+def L.remote_input_capture_exact(session,clock,last0,input0,applied0,tick0,received0,x0,y0,last1,input1,applied1,tick1,received1,x1,y1,connected,ended): {==}
+def L.remote_input_ended_neutral(session,clock,host,guest,connected):
+  match host guest connected:
+    case S.Lane{_,_,_,_,_,_,_} S.Lane{_,_,_,_,_,_,_} False{}: {==}
+    case S.Lane{_,_,_,_,_,_,_} S.Lane{_,_,_,_,_,_,_} True{}: {==}
