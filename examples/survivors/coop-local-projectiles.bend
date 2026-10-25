@@ -23,7 +23,7 @@ type Target is Data: Target{seed:U32,generation:U32,x:F32,y:F32,radius:F32,alive
 type Point is Data: Point{x:F32,y:F32}
 type Geometry is Data: Geometry{targets:List<&2,Target>,aims:Targets.Targets,contacts:List<&2,Contact.Target>,index:Broadphase.Index,policyTargets:List<&2,Policy.Target>}
 type Visual is Data:
-  Visual{id:String,owner:U32,slot:SP.Emission,weapon:U32,poolSeed:U32,age:U32,originX:F32,originY:F32,shot:Projectile.Shot,pending:Bool,predictedSeed:U32,predictedGeneration:U32,predictedX:F32,predictedY:F32,pendingAge:U32,confirmed:Bool,late:Bool,event:Maybe<&2,Journal.HitEvent>,guideTick:U32,guideX:F32,guideY:F32,fade:U32}
+  Visual{id:String,weaponOwner:U32,slot:SP.Emission,weapon:U32,poolSeed:U32,age:U32,originX:F32,originY:F32,shot:Projectile.Shot,pending:Bool,predictedSeed:U32,predictedGeneration:U32,predictedX:F32,predictedY:F32,pendingAge:U32,confirmed:Bool,late:Bool,event:Maybe<&2,Journal.HitEvent>,guideTick:U32,guideX:F32,guideY:F32,fade:U32}
 type RenderShot is Data: RenderShot{id:String,player:U32,kind:U32,weapon:U32,seed:U32,age:U32,x:F32,y:F32,radius:F32,life:U32,fade:U32,opacity:F32}
 type ContactFx is Data: ContactFx{id:String,tick:U32,kind:U32,targetSeed:U32,targetGeneration:U32,x:F32,y:F32,radius:F32,age:U32,opacity:F32}
 type TargetFade is Data: TargetFade{id:String,seed:U32,generation:U32,x:F32,y:F32,radius:F32,lastSeen:U32}
