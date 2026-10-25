@@ -518,7 +518,7 @@ document.addEventListener("click", (event) => {
         pendingUnlock = pendingUnlock?.kind === kind && pendingUnlock.id === id ? null : { kind, id }
         openPanel = kind
         menu()
-        const details = $("[data-unlock-details]")
+        const details = document.querySelector<HTMLElement>("[data-unlock-details]")
         details?.focus({ preventScroll: true })
         details?.scrollIntoView({ block: "nearest" })
       }
