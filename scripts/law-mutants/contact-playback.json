@@ -1,0 +1,90 @@
+[
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "contact-offset-uses-canonical-point",
+    "law": "contact_relative_geometry",
+    "old": "Point{F32.add(x,F32.sub(ix,tx)),F32.add(y,F32.sub(iy,ty))}",
+    "new": "Point{ix,iy}"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "contact-shot-ignores-lifetime",
+    "law": "shot_lifetime_exact",
+    "old": "String.eq(generation,shot)",
+    "new": "True{}"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "contact-target-ignores-generation",
+    "law": "target_lifetime_exact",
+    "old": "String.eq(generation,target_generation(seed,born))",
+    "new": "True{}"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "piercing-contact-terminates-shot",
+    "law": "terminal_exact",
+    "old": "Bool.and(U32.is_eq(kind,2),U32.is_eq(outcome,0))",
+    "new": "U32.is_eq(outcome,0)"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "terminal-selects-earliest-fraction",
+    "law": "terminal_order_exact",
+    "old": "F32.is_gt(fraction(a),fraction(b))",
+    "new": "F32.is_lt(fraction(a),fraction(b))"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "terminal-shot-keeps-ghost",
+    "law": "terminal_shot_removed",
+    "old": "case True{}: None{}\n    case False{}: Some{positioned(old",
+    "new": "case True{}: Some{old}\n    case False{}: Some{positioned(old"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "unknown-hit-removes-shot",
+    "law": "no_receipt_preserves_actor",
+    "old": "case _ None{}: Some{actor}",
+    "new": "case _ None{}: None{}"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "contact-bypasses-terminal-time",
+    "law": "shot_receipt_dispatch",
+    "old": "shot_projected(reached(context,event),context,actor,event)",
+    "new": "shot_projected(False{},context,actor,event)"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "contact-bucket-loses-new-receipt",
+    "law": "bucket_existing_key",
+    "old": "case True{}: BI.Item{oldKey,event <> rows}",
+    "new": "case True{}: BI.Item{oldKey,rows}"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "effect-reveals-future-contact",
+    "law": "fx_time_exact",
+    "old": "Bool.and(U32.is_le(tick,display),U32.is_lt((display - tick : U32),4))",
+    "new": "U32.is_le(tick,(display + 1 : U32))"
+  },
+  {
+    "source": "examples/survivors/coop-contact-playback.bend",
+    "proof": "examples/survivors/coop-contact-playback-PROOF.bend",
+    "label": "shot-endpoint-uses-a-different-target-world",
+    "law": "dead_endpoint_shared",
+    "old": "case Some{path}: target_trajectory(old,path,offset(event,base),base)",
+    "new": "case Some{path}: target_at_impact(event)"
+  }
+]

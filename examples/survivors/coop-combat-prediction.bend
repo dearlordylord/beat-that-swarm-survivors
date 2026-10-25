@@ -1,4 +1,5 @@
 import Base
+import ./coop-playback-wire-policy.bend as PlaybackProjection
 import ./game.bend as G
 import ./coop-prediction.bend as P
 import ./coop-session.bend as Session
@@ -493,12 +494,9 @@ def native_scene(scene:Scene) -> String:
   match scene:
     case Scene{own,players,snapshots,births,directions,contacts,tick,diagnostics}: "{\"$\":\"Scene\",\"own\":" ++ U32.show(own) ++ ",\"players\":" ++ native_players(players) ++ ",\"snapshots\":" ++ native_snapshots(snapshots) ++ ",\"births\":" ++ W.native_births(births) ++ ",\"directions\":" ++ native_directions(directions) ++ ",\"contacts\":" ++ native_contacts(contacts) ++ ",\"tick\":" ++ U32.show(tick) ++ ",\"diagnostics\":" ++ Bool.pick(String,diagnostics,"true","false") ++ "}"
 def observe(own:U32,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>) -> String: native_scene(initialize(own,players,snapshots))
-def generation(kind:U32,+seed:U32,born:U32,owner:U32,+slot:U32) -> String:
-  match kind:
-    case 1: Replay.generation((slot / 65536 : U32),born,0,owner,slot)
-    case 0: "enemy:" ++ U32.show(seed) ++ ":" ++ U32.show(born)
-    case _: "hostile:" ++ U32.show(seed) ++ ":" ++ U32.show(born)
-def visual_owner(kind:U32,slot:U32) -> U32: Bool.pick(U32,U32.is_eq(kind,1),(slot / 65536 : U32),4294967295)
+def generation(kind:U32,seed:U32,born:U32,owner:U32,slot:U32) -> String:
+  PlaybackProjection.generation(kind,seed,born,owner,slot)
+def visual_owner(kind:U32,slot:U32) -> U32: PlaybackProjection.visual_owner(kind,slot)
 def visual_body(+tick:U32,born:U32,body:G.Body,motion:G.Motion) -> String:
   match body motion:
     case G.Body{x,y,+kind,variant,hp,maximum,age,+seed,radius} G.Motion{_,_,_,_,_,_,_,owner,+slot}: "[" ++ F32.show(x) ++ "," ++ F32.show(y) ++ "," ++ U32.show(kind) ++ "," ++ U32.show(variant) ++ "," ++ U32.show(hp) ++ "," ++ U32.show(maximum) ++ "," ++ U32.show(age) ++ "," ++ U32.show(seed) ++ "," ++ F32.show(radius) ++ ",\"" ++ generation(kind,seed,born,owner,slot) ++ "\"," ++ U32.show(visual_owner(kind,slot)) ++ "," ++ U32.show(tick) ++ "]"

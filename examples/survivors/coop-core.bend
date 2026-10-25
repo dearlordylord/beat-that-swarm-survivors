@@ -1,4 +1,7 @@
 import Base
+import coop-hit-journal.bend as Journal
+import coop-combat-prediction-policy.bend as ContactPolicy
+import projectile-contact.bend as Contact
 import coop-reward-policy.bend as RP
 import coop-attach.bend as Attach
 import list-map.bend as ListMap
@@ -229,9 +232,7 @@ def forecast_players(+shared:G.Run,players:List<&2,G.PlayerRecord>) -> List<&2,G
     case []: []
     case G.PlayerRecord{id,run,connected} <> tail: G.PlayerRecord{id,projection(shared,run),connected} <> forecast_players(shared,tail)
 def combat_forecast_extra(id:U32,shared:G.Run,players:List<&2,G.PlayerRecord>,snapshots:List<&2,G.Snapshot>) -> String:
-  match id:
-    case 1: ",\"combatForecast\":" ++ CombatPrediction.observe(1,forecast_players(shared,players),snapshots)
-    case _: ""
+  ",\"combatForecast\":" ++ CombatPrediction.observe(id,forecast_players(shared,players),snapshots)
 def observe_loaded(+shared: G.Run,+refs: List<&2,PlayerRef>,+bodies: List<&2,G.Body>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
   match result:
     case (world,+players): observe_packet(shared,refs,round,required,offers,pending,G.packet_extra(G.State{world,observer_run(shared,players,id),bodies,offers_for(offers,id),snapshots,[]},coop_extra(shared,players,id,round,required) ++ combat_forecast_extra(id,shared,players,snapshots)))
@@ -445,11 +446,49 @@ def finalized_all(shared: G.Run,refs: List<&2,PlayerRef>,+rows: List<&2,G.Entity
   match result:
     case PlayersFinalized{world,players,xp,gold,chests}: finalized_totals(shared,refs,rows,round,world,players,xp,gold,chests,G.accumulate(rows,0,0,0,0,0,0,[],[],0))
     case FinalizeFailed{message}: CoreFailed{message}
+# Receipts use the exact prepared authoritative contact plans. Existing enemy
+# preimages retain pre-loot-clamp geometry; newborns bypass contact effects.
+def journal_event(value:ContactPolicy.Witness,source:G.Snapshot,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
+  match value source target:
+    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} G.Snapshot{G.Body{_,_,_,_,_,_,age,_,_},G.Motion{_,_,_,pierce,_,_,_,owner,+slot}} G.Snapshot{G.Body{_,_,_,_,_,_,targetAge,_,_},_}:
+      +eventKind = Journal.contact_kind(kind,pierce,selected)
+      +shotId = Journal.shot_id((slot / 65536 : U32),(tick - 1 - age : U32),owner,slot)
+      +targetBorn = (tick - 1 - targetAge : U32)
+      Journal.HitEvent{Journal.event_id(tick,eventKind,shotId,targetSeed,targetBorn),tick,eventKind,shotId,shot,targetSeed,targetBorn,Bool.pick(F32,U32.is_eq(kind,1),1.0,time),Bool.pick(F32,U32.is_eq(kind,1),ex1,(x0 + (x1 - x0) * time : F32)),Bool.pick(F32,U32.is_eq(kind,1),ey1,(y0 + (y1 - y0) * time : F32)),(ex0 + (ex1 - ex0) * time : F32),(ey0 + (ey1 - ey0) * time : F32),radius,0}
+def journal_lookup(value:ContactPolicy.Witness,source:Maybe<&2,G.Snapshot>,target:Maybe<&2,G.Snapshot>,selected:Nat,tail:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
+  match source target:
+    case Some{shot} Some{enemy}: journal_event(value,shot,enemy,selected) <> tail
+    case _ _: tail
+def journal_events_go(rows:List<&2,ContactPolicy.Witness>,+index:BI.Index<G.Snapshot>,+counts:BI.Index<Nat>,acc:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
+  match rows:
+    case []: List.reverse(&2,Journal.HitEvent,acc)
+    case ContactPolicy.Witness{+kind,+tick,+shot,+target,+sb,+tb,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,+radius,+time} <> tail:
+      journal_events_go(tail,index,counts,journal_lookup(ContactPolicy.Witness{kind,tick,shot,target,sb,tb,x0,y0,x1,y1,ex0,ey0,ex1,ey1,radius,time},BI.find(~G.Snapshot,index,shot),BI.find(~G.Snapshot,index,target),BI.value_or(~Nat,BI.find(~Nat,counts,shot),0n),acc))
+def journal_events(rows:List<&2,ContactPolicy.Witness>,index:BI.Index<G.Snapshot>,counts:BI.Index<Nat>) -> List<&2,Journal.HitEvent>:
+  journal_events_go(rows,index,counts,[])
+def journal_counts(rows:List<&2,G.HitPlan>,acc:BI.Index<Nat>) -> BI.Index<Nat>:
+  match rows:
+    case []: acc
+    case G.HitPlan{shot,_,_,_,_,_,_,targets} <> tail: journal_counts(tail,BI.insert(~Nat,acc,shot,List.length(&2,U32,targets)))
+def journal_team_paths(+team:G.Team,+hits:List<&2,G.HitPlan>,+tick:U32,+index:BI.Index<G.Snapshot>,+paths:List<&2,Contact.Target>) -> List<&2,Journal.HitEvent>:
+  journal_events(List.append(&2,ContactPolicy.Witness,CombatPrediction.witnesses(hits,tick,team,index,CombatPrediction.target_index(paths),BI.Empty{}),CombatPrediction.area_plans(hits,tick,paths)),index,journal_counts(hits,BI.Empty{}))
+def journal_team(+team:G.Team) -> List<&2,Journal.HitEvent>:
+  match team:
+    case G.Team{+players,G.Args{+run,+bodies,+dx,+dy,+snapshots,+hits},+plan,+origins}:
+      journal_team_paths(G.Team{players,G.Args{run,bodies,dx,dy,snapshots,hits},plan,origins},hits,G.run_tick(run),CombatPrediction.snapshot_index(snapshots),G.contact_targets(snapshots,G.Team{players,G.Args{run,bodies,dx,dy,snapshots,hits},plan,origins}))
+def journal_capped_clock(emission:Journal.Emission,packet:CorePacket) -> CorePacket:
+  match emission packet:
+    case Journal.Emission{events,omitted} CorePacket{CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending},_}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},"{\"tick\":" ++ U32.show(run_tick(shared)) ++ ",\"phase\":" ++ U32.show(run_phase(shared)) ++ ",\"advanced\":true,\"contactsOmitted\":" ++ U32.show(omitted) ++ ",\"contacts\":" ++ Journal.native_events(events) ++ "}"}
+    case _ packet: packet
+def journal_clock(events:List<&2,Journal.HitEvent>,packet:CorePacket) -> CorePacket:
+  journal_capped_clock(Journal.emit_capped(events),packet)
 def core_executed(+shared: G.Run,+refs: List<&2,PlayerRef>,+team: G.Team,round: U32,players: List<&2,G.PlayerRecord>,result: Q.Executed<G.World(),Q.Error<G.Error>,G.EntityRow>) -> CorePacket:
   match result:
-    case Q.Executed{world,T.Success{},+rows}: finalized_all(shared,refs,rows,round,finalize_players(players,team,rows,world,[],0,0,[]))
+    case Q.Executed{world,T.Success{},+rows}: journal_clock(journal_team(team),finalized_all(shared,refs,rows,round,finalize_players(players,team,rows,world,[],0,0,[])))
     case Q.Executed{_,T.Failure{_},_}: CoreFailed{"Shared ECS query failed"}
-def core_team_ready(shared: G.Run,refs: List<&2,PlayerRef>,round: U32,world: G.World(),players: List<&2,G.PlayerRecord>,+team: G.Team) -> CorePacket: core_executed(shared,refs,team,round,players,G.team_execute(world,team))
+def core_team_prepared(shared: G.Run,refs: List<&2,PlayerRef>,round: U32,world: G.World(),players: List<&2,G.PlayerRecord>,+team: G.Team) -> CorePacket: core_executed(shared,refs,team,round,players,G.team_execute_contacts(world,team))
+def core_team_ready(shared:G.Run,refs:List<&2,PlayerRef>,round:U32,world:G.World(),players:List<&2,G.PlayerRecord>,team:G.Team) -> CorePacket:
+  core_team_prepared(shared,refs,round,world,players,G.contact_team(team))
 def core_team(+shared: G.Run,+refs: List<&2,PlayerRef>,+bodies: List<&2,G.Body>,+snapshots: List<&2,G.Snapshot>,round: U32,world: G.World(),+players: List<&2,G.PlayerRecord>,+views: List<&2,G.PlayerView>) -> CorePacket:
   core_team_ready(shared,refs,round,world,players,G.Team{views,G.combat_args(G.view_run(G.first_view(views,with_tick(shared,(run_tick(shared) + 1 : U32)))),bodies,0.0,0.0,snapshots),G.team_plan(views,snapshots),G.effect_origin_index(snapshots)})
 def step_loaded(+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,snapshots: List<&2,G.Snapshot>,round: U32,dx0: F32,dy0: F32,dx1: F32,dy1: F32,result: G.World() & List<&2,G.PlayerRecord>) -> CorePacket:
@@ -458,14 +497,10 @@ def step_loaded(+shared: G.Run,refs: List<&2,PlayerRef>,bodies: List<&2,G.Body>,
 def core_clock(state: CoreState) -> CorePacket:
   match state:
     case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},"{\"tick\":" ++ U32.show(run_tick(shared)) ++ ",\"phase\":" ++ U32.show(run_phase(shared)) ++ ",\"advanced\":false}"}
-def stepped_clock(packet: CorePacket) -> CorePacket:
-  match packet:
-    case CorePacket{CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending},_}: CorePacket{CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},"{\"tick\":" ++ U32.show(run_tick(shared)) ++ ",\"phase\":" ++ U32.show(run_phase(shared)) ++ ",\"advanced\":true}"}
-    case packet: packet
 def step_allowed(allowed: Bool,state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: F32) -> CorePacket:
   match allowed state:
     case False{} state: core_clock(state)
-    case True{} CoreState{world,+shared,+refs,bodies,snapshots,round,_,_,_}: stepped_clock(step_loaded(shared,refs,bodies,snapshots,round,dx0,dy0,dx1,dy1,load_players(refs,[],world)))
+    case True{} CoreState{world,+shared,+refs,bodies,snapshots,round,_,_,_}: step_loaded(shared,refs,bodies,snapshots,round,dx0,dy0,dx1,dy1,load_players(refs,[],world))
 def core_step(state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: F32) -> CorePacket:
   match state:
     case CoreState{world,+shared,refs,bodies,snapshots,round,required,offers,pending}: step_allowed(U32.is_eq(run_phase(shared),0),CoreState{world,shared,refs,bodies,snapshots,round,required,offers,pending},dx0,dy0,dx1,dy1)

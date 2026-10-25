@@ -1,0 +1,443 @@
+{
+  "schema": 1,
+  "candidate": 17,
+  "date": "2026-10-25",
+  "scope": "finite actual-Iroh Chromium qualification; not universal network/device proof",
+  "setup": {
+    "workerSeed": 1729,
+    "inboundDelayMs": 300,
+    "nativeSendDelayMs": [
+      0,
+      200,
+      600
+    ],
+    "delayMode": "before",
+    "scriptedInputMs": 32000
+  },
+  "testedVersion": {
+    "schemaVersion": 1,
+    "revision": "3ef7bdc3ca12316f34258e1045529da45bebcd0a",
+    "dirty": true,
+    "buildContext": "local-development",
+    "builtAt": "2026-10-25T12:39:13.313Z"
+  },
+  "testedArtifactHashes": {
+    "coop.html": "725bddbb8ac2ae84c2383b2cfbea7e50aab21207229b87a974183f21702aa386",
+    "coop.css": "eaf700a9be116492a4ea137754eda52ce24ad7ebf4137fef01a9de143f89c176",
+    "style.css": "b7e39eb38ea4591657c24f84cf10d7af5a5d397aad09b22af1e349a28fc86c5f",
+    "menu-a.css": "d4cd849ea79fa2b9e278612115d1c3c021839ee91288f9898b06abddcbc47c91",
+    "menu-moon.css": "1103e780b7464d31c450fbd691721347b88223cc55698472a4dd7d986a1a8293",
+    "favicon.svg": "101ac747549b58be7f734906159080690f9036cc0d1d1a2115dae474c0fb309c",
+    "coop-browser.mjs": "181982a422a035954849def7ab321c81226699b8130b11995a5ed92e347adde5",
+    "coop-worker.mjs": "c17385c9393143f7d0bdfe4e2cec36408da6324aeeeb25f4a6d6574b2ba2930e",
+    "coop-ui.mjs": "73b52f34e17312c5c4a960447da703572e1c80ae1654854dacc16b0a29e38894",
+    "coop-transport.mjs": "58724e40962e1089110f53b36ab01f6d4608cef63f8e1c85a7e23940c5dae94f",
+    "coop-presentation.mjs": "a046df4a74edb617a1280f6495df342f860481f514919a02146ec957f85c381c",
+    "renderer.mjs": "6602be333d8c8d01182c5e216d004b122179b022bdf57eaf41dddf42fdb49ff6",
+    "audio.mjs": "6196eeb0845986068316c2ffabd940fb7eadc27fa076d0d6f2dcd595b86b66d0",
+    "content.mjs": "1379367f4638685c0351f895cdf91b5b927cfbfabbb08632dbccc89d74d9f1df",
+    "progression.mjs": "82d526ea1b18c1d28cc9deb5006c68c6a3cb885da51a6bacb5848a37ec9447e4",
+    "expedition-menu.mjs": "87dbf43d666979c289a6eb2c51cfca5df03c68dcb3d6559e9c17a04d196fe0eb",
+    "menu-controls.mjs": "ddfc032e0e72ef5ce67c7cbe1bdada5155e895abf27007e65ed44b9ad43e8226",
+    "survivor-art.mjs": "014b8cd0fd6ad4578e063412997572d38cbb3d37a7c3afa015d059e53c93147a",
+    "iroh/iroh_transport.js": "b06afb2ec4a24ccff8dfe2da5bd72e8c4278ef9a8df75a04da55ded385c5ada9",
+    "iroh/iroh_transport_bg.wasm": "4a2839a42aa7859f730b91a5ee2f4ea6073bb1fc1e1edfa3a9c95d66e582b538",
+    "dist/game.mjs": "4ce30b1744c1c77c7894149cc4a1bcf81ccfb0018db0936e0184387b31f00328",
+    "dist/menu-progression.mjs": "92e15495f0437b384800bdac8e22b1ae903ad3679865346707701c9a1e2d2f90",
+    "dist/coop-protocol.mjs": "a00d9706255243c784cf88bcc27020ba9e68e89c1001d0df6b65803631f46eb8",
+    "dist/coop-core.mjs": "5fe6eadbc6562313879b0cec892d4ebdce9c686e2ae1a85bf23d6003d3fdc244",
+    "dist/coop-session.mjs": "2e193ffc0c8f152875f4b4ea03f56f6adcc5765eb1c9c2c2de7498bca5077a85",
+    "dist/coop-input-queue.mjs": "20378939867ec381f5694d3e8cc9ad1a0b5caf4ab07c2a2c2713bdedb102a8d8",
+    "dist/coop-connection.mjs": "094c4968f2d4c3d23edb80eba54153a7e8e8e7157b0fd8fe63cf3313d5af5e2a",
+    "dist/coop-playback.mjs": "a6fb36f9a1126b844d25b31d4eed50430665670d15d6696a6671774f5715b15e",
+    "dist/coop-playback-wire.mjs": "ba6c61637097c13f663b1c1f01a80bd8b8ff121cf3dfc4838330982c0ea8b566",
+    "dist/coop-contact-playback.mjs": "c84b2368ac09159afc92b230e6fcc82eea3981a432e2491a444efa2a186a1405",
+    "dist/coop-client-clock.mjs": "54fabb1987119caa3cab652a7b3f6af6c0304f125a2f30e113158be7c1765a56",
+    "dist/coop-hit-journal.mjs": "11a54581056860d9536449aa317cc83afb77ec73687e4ea3448811ee459b8085",
+    "dist/coop-hit-effects.mjs": "13cfe476ad80d3f8f5a68409d5b63fcfcd12287ee31f7886977ecaab994861b3",
+    "dist/coop-local-projectiles.mjs": "f1cea457f6f0a12968486019d40f99743416e0fde20423d47b7833d995c71aeb",
+    "dist/coop-input-flow.mjs": "213a314357a04049b3ac52f38434003f2888424980c0580beab89d8ab16d864c",
+    "dist/coop-snapshot-flow.mjs": "165a8e2fd23ad37ad96a510243a5fe5fcf8b2f06a9f0a43bc76e19dd89db2567",
+    "dist/coop-snapshot-receipts.mjs": "77aa371a1df9c5ad7aee27c5754f779f42b6766f2bbce9af3565b4f6ed5d1059",
+    "dist/coop-client-delivery.mjs": "9d31463934e4c68f070bd2b290b98854c770a53c408346164a3543cbeac8f6ce",
+    "dist/coop-prediction.mjs": "27c5ac5091bd2e539cb42affcb50dbaa8d6c25776448654e5342b2e52fdb8fa8",
+    "version.json": "fd82d031cf4fa273a23dfd7b8ed057c6a8d5a071b2dbcf3a7ed4cfccb7d2f8da",
+    "coop-snapshot-codec.mjs": "a172541a90c1c255e07ad9cb619428626233404edb634b170d40c1a32909c1e0"
+  },
+  "cases": [
+    {
+      "completionDelay": 0,
+      "sendDelayMode": "before",
+      "qualification": "interactive-regression",
+      "sourceStable": true,
+      "sourceExact": true,
+      "authorityLag": {
+        "reference": "authoritative host worker advanced-step clock",
+        "hostClockSamples": 1315,
+        "activePhaseZeroMs": 22980,
+        "measuredMs": 17533,
+        "samples": 973,
+        "maxTicks": 29,
+        "p95Ticks": 28,
+        "windows": [
+          {
+            "startMs": 5000,
+            "samples": 300,
+            "maxTicks": 29,
+            "p95Ticks": 28
+          },
+          {
+            "startMs": 10000,
+            "samples": 246,
+            "maxTicks": 27,
+            "p95Ticks": 26
+          },
+          {
+            "startMs": 15000,
+            "samples": 300,
+            "maxTicks": 29,
+            "p95Ticks": 28
+          },
+          {
+            "startMs": 20000,
+            "samples": 127,
+            "maxTicks": 27,
+            "p95Ticks": 26
+          }
+        ]
+      },
+      "motion": {
+        "warmupMs": 5000,
+        "maxPairGapMs": 250,
+        "host": {
+          "samples": 1023,
+          "maxUnitsPerWallTick": 2.878146701388889,
+          "p95UnitsPerWallTick": 2.686903211805556,
+          "violationCount": 0,
+          "violations": []
+        },
+        "enemies": {
+          "samples": 16334,
+          "maxUnitsPerWallTick": 1.9383108188765654,
+          "p95UnitsPerWallTick": 1.6945904239608864,
+          "scope": "same-generation diagnostics; monster dash mechanics have no asserted speed bound"
+        },
+        "buffer": {
+          "activeSamples": 1025,
+          "bufferedSamples": 18,
+          "bufferEntries": 7,
+          "bufferExits": 8,
+          "recoveryEntries": 0
+        }
+      },
+      "workerInputCoverage": {
+        "recordedSteps": 1315,
+        "eligiblePhaseZeroSteps": 1147,
+        "appliedSteps": 1077,
+        "nonneutralAppliedSteps": 1070,
+        "appliedRatio": 0.9389712292938099,
+        "nonneutralAppliedRatio": 0.932868352223191,
+        "longestNeutralStreak": 35,
+        "lateRejections": 0,
+        "totalRejections": 49,
+        "scope": "actual advanced worker steps; neutral streak includes legitimate releases, not a mandatory 60Hz movement guarantee"
+      },
+      "delivery": {
+        "sent": 622,
+        "receivedReceipts": 575,
+        "exactAcknowledgments": 575,
+        "cumulativelyAcknowledged": 614,
+        "remainingUnacknowledged": 8,
+        "activePreparedToAppAck": {
+          "samples": 296,
+          "p50Ms": 398,
+          "p95Ms": 424,
+          "maxMs": 433
+        },
+        "activeSendCadence": {
+          "samples": 315,
+          "p50Ms": 52,
+          "p95Ms": 59,
+          "maxMs": 85
+        },
+        "maxObservedWindowDepth": 11,
+        "scope": "host snapshot preparation to cumulative application receipt; distinct from native stream completion"
+      },
+      "predictionBlocks": {
+        "total": 697,
+        "horizon": 697,
+        "disconnected": 0
+      },
+      "workerErrors": [],
+      "workerFailures": [],
+      "badStatus": []
+    },
+    {
+      "completionDelay": 200,
+      "sendDelayMode": "before",
+      "qualification": "interactive-regression",
+      "sourceStable": true,
+      "sourceExact": true,
+      "authorityLag": {
+        "reference": "authoritative host worker advanced-step clock",
+        "hostClockSamples": 1252,
+        "activePhaseZeroMs": 22477,
+        "measuredMs": 16814,
+        "samples": 906,
+        "maxTicks": 27,
+        "p95Ticks": 26,
+        "windows": [
+          {
+            "startMs": 5000,
+            "samples": 300,
+            "maxTicks": 27,
+            "p95Ticks": 27
+          },
+          {
+            "startMs": 10000,
+            "samples": 222,
+            "maxTicks": 27,
+            "p95Ticks": 26
+          },
+          {
+            "startMs": 15000,
+            "samples": 300,
+            "maxTicks": 27,
+            "p95Ticks": 26
+          },
+          {
+            "startMs": 20000,
+            "samples": 84,
+            "maxTicks": 27,
+            "p95Ticks": 26
+          }
+        ]
+      },
+      "motion": {
+        "warmupMs": 5000,
+        "maxPairGapMs": 250,
+        "host": {
+          "samples": 956,
+          "maxUnitsPerWallTick": 3.7226924189814814,
+          "p95UnitsPerWallTick": 2.6180491727941178,
+          "violationCount": 0,
+          "violations": []
+        },
+        "enemies": {
+          "samples": 15261,
+          "maxUnitsPerWallTick": 2.534789760753637,
+          "p95UnitsPerWallTick": 1.6879921557754378,
+          "scope": "same-generation diagnostics; monster dash mechanics have no asserted speed bound"
+        },
+        "buffer": {
+          "activeSamples": 958,
+          "bufferedSamples": 14,
+          "bufferEntries": 8,
+          "bufferExits": 9,
+          "recoveryEntries": 0
+        }
+      },
+      "workerInputCoverage": {
+        "recordedSteps": 1252,
+        "eligiblePhaseZeroSteps": 1169,
+        "appliedSteps": 818,
+        "nonneutralAppliedSteps": 816,
+        "appliedRatio": 0.699743370402053,
+        "nonneutralAppliedRatio": 0.69803250641574,
+        "longestNeutralStreak": 54,
+        "lateRejections": 252,
+        "totalRejections": 331,
+        "scope": "actual advanced worker steps; neutral streak includes legitimate releases, not a mandatory 60Hz movement guarantee"
+      },
+      "delivery": {
+        "sent": 620,
+        "receivedReceipts": 128,
+        "exactAcknowledgments": 128,
+        "cumulativelyAcknowledged": 607,
+        "remainingUnacknowledged": 13,
+        "activePreparedToAppAck": {
+          "samples": 62,
+          "p50Ms": 596,
+          "p95Ms": 624,
+          "maxMs": 653
+        },
+        "activeSendCadence": {
+          "samples": 292,
+          "p50Ms": 52,
+          "p95Ms": 62,
+          "maxMs": 84
+        },
+        "maxObservedWindowDepth": 16,
+        "scope": "host snapshot preparation to cumulative application receipt; distinct from native stream completion"
+      },
+      "predictionBlocks": {
+        "total": 686,
+        "horizon": 686,
+        "disconnected": 0
+      },
+      "workerErrors": [],
+      "workerFailures": [],
+      "badStatus": []
+    },
+    {
+      "completionDelay": 600,
+      "sendDelayMode": "before",
+      "qualification": "bounded-overload-only",
+      "sourceStable": true,
+      "sourceExact": true,
+      "authorityLag": {
+        "reference": "authoritative host worker advanced-step clock",
+        "hostClockSamples": 1185,
+        "activePhaseZeroMs": 22362,
+        "measuredMs": 16332,
+        "samples": 840,
+        "maxTicks": 49,
+        "p95Ticks": 42,
+        "windows": [
+          {
+            "startMs": 5000,
+            "samples": 300,
+            "maxTicks": 49,
+            "p95Ticks": 45
+          },
+          {
+            "startMs": 10000,
+            "samples": 195,
+            "maxTicks": 44,
+            "p95Ticks": 43
+          },
+          {
+            "startMs": 15000,
+            "samples": 300,
+            "maxTicks": 43,
+            "p95Ticks": 41
+          },
+          {
+            "startMs": 20000,
+            "samples": 45,
+            "maxTicks": 43,
+            "p95Ticks": 42
+          }
+        ]
+      },
+      "motion": {
+        "warmupMs": 5000,
+        "maxPairGapMs": 250,
+        "host": {
+          "samples": 911,
+          "maxUnitsPerWallTick": 4.325358072916667,
+          "p95UnitsPerWallTick": 3.639865451388889,
+          "violationCount": 0,
+          "violations": []
+        },
+        "enemies": {
+          "samples": 14555,
+          "maxUnitsPerWallTick": 2.9078871237969,
+          "p95UnitsPerWallTick": 2.266271181551979,
+          "scope": "same-generation diagnostics; monster dash mechanics have no asserted speed bound"
+        },
+        "buffer": {
+          "activeSamples": 913,
+          "bufferedSamples": 225,
+          "bufferEntries": 24,
+          "bufferExits": 26,
+          "recoveryEntries": 0
+        }
+      },
+      "workerInputCoverage": {
+        "recordedSteps": 1185,
+        "eligiblePhaseZeroSteps": 784,
+        "appliedSteps": 0,
+        "nonneutralAppliedSteps": 0,
+        "appliedRatio": 0,
+        "nonneutralAppliedRatio": 0,
+        "longestNeutralStreak": 768,
+        "lateRejections": 474,
+        "totalRejections": 504,
+        "scope": "actual advanced worker steps; neutral streak includes legitimate releases, not a mandatory 60Hz movement guarantee"
+      },
+      "delivery": {
+        "sent": 387,
+        "receivedReceipts": 50,
+        "exactAcknowledgments": 50,
+        "cumulativelyAcknowledged": 375,
+        "remainingUnacknowledged": 12,
+        "activePreparedToAppAck": {
+          "samples": 23,
+          "p50Ms": 995,
+          "p95Ms": 1040,
+          "maxMs": 1048
+        },
+        "activeSendCadence": {
+          "samples": 170,
+          "p50Ms": 51,
+          "p95Ms": 357,
+          "maxMs": 388
+        },
+        "maxObservedWindowDepth": 16,
+        "scope": "host snapshot preparation to cumulative application receipt; distinct from native stream completion"
+      },
+      "predictionBlocks": {
+        "total": 1364,
+        "horizon": 1364,
+        "disconnected": 0
+      },
+      "workerErrors": [],
+      "workerFailures": [],
+      "badStatus": []
+    }
+  ],
+  "recovery": {
+    "workerFailureVisible": true,
+    "newRoomStarted": true,
+    "touchReleased": true,
+    "mapSampling": {
+      "before": 28,
+      "afterOpen": 28,
+      "afterClose": 28,
+      "opened": true,
+      "closed": true
+    },
+    "activeRejoin": {
+      "passed": true,
+      "suspendedTick": 28,
+      "rejoinedTick": 28,
+      "resumedTick": 43,
+      "newAppliedInput": {
+        "type": "qa-input-resolution",
+        "wall": 1792932370700,
+        "round": 0,
+        "seq": 2,
+        "worldTick": 39,
+        "applied": true,
+        "x": 2,
+        "y": 1,
+        "eligible": true,
+        "phase": 0
+      },
+      "sameInvitation": true
+    },
+    "renderRecovery": {
+      "passed": true,
+      "injectedFailures": 1,
+      "drawsWhileFailed": 0,
+      "newRunDraws": 9,
+      "firstTick": 0,
+      "lastTick": 1,
+      "hostPageReloaded": false
+    }
+  },
+  "generalGate": {
+    "command": "BEND=/home/node/.bend/bin/bend bash examples/survivors/check.sh",
+    "exitCode": 0,
+    "proofFiles": 50,
+    "semanticMutantsRejected": 354,
+    "logSha256": "78f89ddcc3d957a724314eed83cbf3298926a69c8f4dcd930e01797a88f96510"
+  },
+  "limits": [
+    "600ms case is bounded overload with no guest movement; not playable",
+    "Chromium mobile emulation is not physical Safari/iPhone qualification",
+    "Extreme 8000-contact construction remains a 20-30ms single-frame stutter risk",
+    "No arbitrary-network or whole-game 60FPS guarantee"
+  ]
+}

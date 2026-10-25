@@ -12,6 +12,7 @@ type Reason is Data:
   SnapshotFailed{}
   TransportFailed{}
   RuntimeFailed{}
+  PresentationFailed{}
 type State is Data:
   Idle{role:Role,epoch:U32}
   HostHello{epoch:U32}
@@ -51,7 +52,7 @@ type Action is Data:
   CloseConnection{reason:Reason}
 type Out is Data: Out{state:State,action:Action}
 
-def protocol_version() -> U32: 4
+def protocol_version() -> U32: 5
 def fresh(role:Role) -> State: Idle{role,0}
 def role(state:State) -> Role:
   match state:
@@ -200,6 +201,7 @@ def reason_code(reason:Reason) -> U32:
     case SnapshotFailed{}: 5
     case TransportFailed{}: 6
     case RuntimeFailed{}: 7
+    case PresentationFailed{}: 8
 def decode_reason(code:U32) -> Maybe<&2,Reason>:
   match code:
     case 1: Some{VersionMismatch{}}
@@ -209,6 +211,7 @@ def decode_reason(code:U32) -> Maybe<&2,Reason>:
     case 5: Some{SnapshotFailed{}}
     case 6: Some{TransportFailed{}}
     case 7: Some{RuntimeFailed{}}
+    case 8: Some{PresentationFailed{}}
     case _: None{}
 def reason_text(reason:Reason) -> String:
   match reason:
@@ -219,6 +222,7 @@ def reason_text(reason:Reason) -> String:
     case SnapshotFailed{}: "The initial game state could not be applied. Reload and rejoin the party."
     case TransportFailed{}: "The connection failed. Check that the host still has the party open, then join again."
     case RuntimeFailed{}: "The host simulation failed. Close this party and create a new invitation."
+    case PresentationFailed{}: "A game view failed. Copy the error details, then reload and rejoin."
 def encode_action(action:Action) -> String:
   match action:
     case SendHello{version,token}: "BSC-HS1|H|" ++ U32.show(version) ++ "|" ++ U32.show(token)

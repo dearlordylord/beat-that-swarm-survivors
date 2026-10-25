@@ -1,0 +1,56 @@
+[
+  {
+    "label": "overflow counter collapses exact eviction count to a flag",
+    "source": "examples/survivors/coop-local-projectiles-policy.bend",
+    "old": "U32.from_nat(Nat.sub(before,after))",
+    "new": "Bool.to_u32(Nat.is_gt(after,before))",
+    "compile_target": "examples/survivors/coop-local-projectiles.bend",
+    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
+    "law": "overflow_added_exact_removed_rows"
+  },
+  {
+    "label": "contact offset points away from the recorded impact",
+    "source": "examples/survivors/coop-local-projectiles-policy.bend",
+    "old": "(event_x(event) - target_at_x(event) : F32)",
+    "new": "(target_at_x(event) - event_x(event) : F32)",
+    "compile_target": "examples/survivors/coop-local-projectiles.bend",
+    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
+    "law": "target_contact_uses_impact_minus_target_offset"
+  },
+  {
+    "label": "current target lookup accepts a dead pooled lifetime",
+    "source": "examples/survivors/coop-local-projectiles-policy.bend",
+    "old": "Bool.and(alive,Bool.and(U32.is_eq(storedSeed,seed),U32.is_eq(storedGeneration,generation)))",
+    "new": "Bool.and(U32.is_eq(storedSeed,seed),U32.is_eq(storedGeneration,generation))",
+    "compile_target": "examples/survivors/coop-local-projectiles.bend",
+    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
+    "law": "current_life_cons_exact"
+  },
+  {
+    "label": "area event retires the authoritative projectile",
+    "source": "examples/survivors/coop-local-projectiles-policy.bend",
+    "old": "Bool.and(U32.is_eq(kind,2),U32.is_eq(outcome,0))",
+    "new": "Bool.and(U32.is_eq(kind,1),U32.is_eq(outcome,0))",
+    "compile_target": "examples/survivors/coop-local-projectiles.bend",
+    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
+    "law": "terminal_classification_exact"
+  },
+  {
+    "label": "empty native renderer drops all three collections",
+    "source": "examples/survivors/coop-local-projectiles-policy.bend",
+    "old": "case RenderFrame{shots,contacts,corpses}: \"{\\\"shots\\\":[\" ++ native_shots(shots) ++ \"],\\\"contacts\\\":[\" ++ native_contacts(contacts) ++ \"],\\\"corpses\\\":[\" ++ native_corpses(corpses) ++ \"]}\"",
+    "new": "case RenderFrame{shots,contacts,corpses}: \"{}\"",
+    "compile_target": "examples/survivors/coop-local-projectiles.bend",
+    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
+    "law": "render_frame_encodes_each_collection"
+  },
+  {
+    "label": "same-ID visual from another player suppresses the canonical shot",
+    "source": "examples/survivors/coop-local-projectiles-policy.bend",
+    "old": "Bool.and(U32.is_eq(storedPlayer,player),Bool.and(draw_fields(life,pending,confirmed,late,fade),String.eq(storedId,id)))",
+    "new": "Bool.and(draw_fields(life,pending,confirmed,late,fade),String.eq(storedId,id))",
+    "compile_target": "examples/survivors/coop-local-projectiles.bend",
+    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
+    "law": "visible_row_exact"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "source": "examples/survivors/coop-client-clock.bend",
+    "proof": "examples/survivors/coop-client-clock-PROOF.bend",
+    "label": "clock-retains-regressing-time",
+    "law": "latest_exact",
+    "old": "def latest(+now:Nat,+lastAt:Nat) -> Nat: Nat.max(now,lastAt)",
+    "new": "def latest(+now:Nat,+lastAt:Nat) -> Nat: now"
+  },
+  {
+    "source": "examples/survivors/coop-client-clock.bend",
+    "proof": "examples/survivors/coop-client-clock-PROOF.bend",
+    "label": "clock-replays-old-credit",
+    "law": "total_exact",
+    "old": "Nat.add(Nat.min(credit,999999n),earned(now,lastAt))",
+    "new": "Nat.add(credit,earned(now,lastAt))"
+  },
+  {
+    "source": "examples/survivors/coop-client-clock.bend",
+    "proof": "examples/survivors/coop-client-clock-PROOF.bend",
+    "label": "clock-allows-eight-steps",
+    "law": "count_exact",
+    "old": "Nat.min(4n,Nat.div(credit,1000000n))",
+    "new": "Nat.min(8n,Nat.div(credit,1000000n))"
+  },
+  {
+    "source": "examples/survivors/coop-client-clock.bend",
+    "proof": "examples/survivors/coop-client-clock-PROOF.bend",
+    "label": "clock-spends-credit-without-subtraction",
+    "law": "budget_exact",
+    "old": "State{now,Nat.sub(credit,Nat.mul(count(credit),1000000n))}",
+    "new": "State{now,credit}"
+  },
+  {
+    "source": "examples/survivors/coop-client-clock.bend",
+    "proof": "examples/survivors/coop-client-clock-PROOF.bend",
+    "label": "blocked-clock-keeps-residue",
+    "law": "discard_exact",
+    "old": "case State{lastAt,_}: State{lastAt,0n}",
+    "new": "case State{lastAt,credit}: State{lastAt,credit}"
+  }
+]

@@ -1,0 +1,138 @@
+[
+  {
+    "label": "receipt wire budget grows",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "def max_frame_bytes() -> U32: 26",
+    "new": "def max_frame_bytes() -> U32: 27",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "receipt queued budget grows",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "def max_buffered_bytes() -> U32: 52",
+    "new": "def max_buffered_bytes() -> U32: 78",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "fresh loses local connection epoch",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "State{epoch,None{},False{},None{}}",
+    "new": "State{0,None{},False{},None{}}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "fresh_exact"
+  },
+  {
+    "label": "first accepted receipt refused",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "case None{}: True{}",
+    "new": "case None{}: False{}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "newer_first"
+  },
+  {
+    "label": "host token mismatch admitted",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "Bool.and(U32.is_eq(current,token),U32.is_gt(observation,last))",
+    "new": "U32.is_gt(observation,last)",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "newer_existing"
+  },
+  {
+    "label": "duplicate observation requeued",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "U32.is_gt(observation,last)",
+    "new": "U32.is_ge(observation,last)",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "newer_existing"
+  },
+  {
+    "label": "new receipt clears existing native flight",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "State{epoch,Some{F.Receipt{token,observation}},True{},flight}",
+    "new": "State{epoch,Some{F.Receipt{token,observation}},True{},None{}}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "offered_latest"
+  },
+  {
+    "label": "public offer bypasses high-water admission",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "offer_selected(offer_allowed(state,token,observation),state,token,observation)",
+    "new": "offer_selected(True{},state,token,observation)",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "offer_entry"
+  },
+  {
+    "label": "dispatch leaves same receipt pending",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "State{epoch,Some{latest},False{},Some{latest}}",
+    "new": "State{epoch,Some{latest},True{},Some{latest}}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "prepare_waiting"
+  },
+  {
+    "label": "dispatch discards received high-watermark",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "State{epoch,Some{latest},False{},Some{latest}}",
+    "new": "State{epoch,None{},False{},Some{latest}}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "prepare_waiting"
+  },
+  {
+    "label": "dispatch emits an invented identity",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "State{epoch,Some{latest},False{},Some{latest}},Some{latest}",
+    "new": "State{epoch,Some{latest},False{},Some{latest}},Some{F.Receipt{0,0}}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "prepare_waiting"
+  },
+  {
+    "label": "completion ignores local callback epoch",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "Bool.and(U32.is_eq(current,epoch),Bool.and(U32.is_eq(host,token),U32.is_eq(flight,observation)))",
+    "new": "Bool.and(U32.is_eq(host,token),U32.is_eq(flight,observation))",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "matches_exact"
+  },
+  {
+    "label": "completion ignores host protocol token",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "Bool.and(U32.is_eq(host,token),U32.is_eq(flight,observation))",
+    "new": "U32.is_eq(flight,observation)",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "matches_exact"
+  },
+  {
+    "label": "completion discards newer pending receipt",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "State{epoch,latest,pending,None{}}",
+    "new": "State{epoch,latest,False{},None{}}",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "complete_clears_flight"
+  },
+  {
+    "label": "public completion releases any flight",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "complete_selected(matches(state,epoch,token,observation),state)",
+    "new": "complete_selected(True{},state)",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "complete_entry"
+  },
+  {
+    "label": "idle high-water metadata counted as pending wire payload",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "Bool.to_u32(Bool.and(pending,present(latest)))",
+    "new": "Bool.to_u32(present(latest))",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "buffered_count_exact"
+  },
+  {
+    "label": "receipt acknowledges future unreceived observation",
+    "source": "examples/survivors/coop-snapshot-receipts.bend",
+    "old": "F.encode_receipt(token,observation)",
+    "new": "F.encode_receipt(token,(observation + 1 : U32))",
+    "proof": "examples/survivors/coop-snapshot-receipts-PROOF.bend",
+    "law": "encode_exact"
+  }
+]

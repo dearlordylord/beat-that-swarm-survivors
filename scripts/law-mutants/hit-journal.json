@@ -1,0 +1,296 @@
+[
+  {
+    "label": "cosmetic retention shrinks to32ticks",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "def window() -> U32: 64",
+    "new": "def window() -> U32: 32",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "retained event capacity changes",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "def capacity() -> Nat: 512n",
+    "new": "def capacity() -> Nat: 511n",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "expiry boundary includes64thtick",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "U32.is_lt((now - tick : U32),window())",
+    "new": "U32.is_le((now - tick : U32),window())",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "recent_exact"
+  },
+  {
+    "label": "incoming contact discards previous journal",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case False{}: head <> rows",
+    "new": "case False{}: [head]",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "append_cons",
+    "fails_in": "reversed_choice"
+  },
+  {
+    "label": "capacity drops newest rather than oldest",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "List.drop(&2,HitEvent,rows,Nat.sub(List.length(&2,HitEvent,rows),capacity()))",
+    "new": "List.take(&2,HitEvent,rows,capacity())",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "trim_exact"
+  },
+  {
+    "label": "overflow counter erased",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "(overflow + U32.from_nat(Nat.sub(List.length(&2,HitEvent,all),capacity())) : U32)",
+    "new": "overflow",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "retention_exact"
+  },
+  {
+    "label": "expired retained effects not counted",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "(expired + U32.from_nat(Nat.sub(List.length(&2,HitEvent,old),List.length(&2,HitEvent,kept))) : U32)",
+    "new": "expired",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "retention_exact"
+  },
+  {
+    "label": "future hit plays before presentation clock",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "U32.is_le(event_tick(head),displayTick)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "playback_cons",
+    "occurrences": 2
+  },
+  {
+    "label": "resend ignores seen identity",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "Bool.not(seen_contains(seen,event_key(head)))",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "playback_cons"
+  },
+  {
+    "label": "connection epoch comparison inverted",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "U32.is_eq(epoch,journalEpoch)",
+    "new": "U32.is_ne(epoch,journalEpoch)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "play_exact"
+  },
+  {
+    "label": "joining stream replays existing history",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "Playback{epoch,seen_rows(rows)}",
+    "new": "Playback{epoch,[]}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "attach_exact"
+  },
+  {
+    "label": "membership accumulator loses earlier match",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "Bool.or(found,String.eq(event_key(head),id))",
+    "new": "String.eq(event_key(head),id)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "contains_go_cons",
+    "fails_in": "contains_true"
+  },
+  {
+    "label": "seen accumulator loses earlier match",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "Bool.or(found,String.eq(key,id))",
+    "new": "String.eq(key,id)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "seen_go_cons",
+    "fails_in": "seen_true"
+  },
+  {
+    "label": "all contact identities collapse",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case HitEvent{id,_,_,_,_,_,_,_,_,_,_,_,_,_}: id",
+    "new": "case HitEvent{id,_,_,_,_,_,_,_,_,_,_,_,_,_}: \"\"",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "event_key_exact"
+  },
+  {
+    "label": "all contact ticks collapse",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case HitEvent{_,tick,_,_,_,_,_,_,_,_,_,_,_,_}: tick",
+    "new": "case HitEvent{_,tick,_,_,_,_,_,_,_,_,_,_,_,_}: 0",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "event_tick_exact"
+  },
+  {
+    "label": "hit clock uses observation instead of world tick",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case SnapshotPlayback.Sample{_,_,tick,_,_,_,_}: tick",
+    "new": "case SnapshotPlayback.Sample{observation,_,tick,_,_,_,_}: observation",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "presentation_tick_exact"
+  },
+  {
+    "label": "arrival collector incorrectly waits tick zero",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case State{_,now,_,_,_}: play(state,journal,now)",
+    "new": "case State{_,now,_,_,_}: play(state,journal,0)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "collect_exact"
+  },
+  {
+    "label": "finite piercing shot incorrectly terminal before exhaust",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "Nat.is_ge(selected,U32.to_nat(pierce))",
+    "new": "Nat.is_lt(selected,U32.to_nat(pierce))",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "contact_kind_exact"
+  },
+  {
+    "label": "seen capacity keeps oldest rather than newest",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "List.take(&2,Seen,seen,capacity())",
+    "new": "List.drop(&2,Seen,seen,Nat.sub(List.length(&2,Seen,seen),capacity()))",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "playback_nil",
+    "occurrences": 2
+  },
+  {
+    "label": "playback emits reverse input order",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "List.reverse(&2,HitEvent,acc)",
+    "new": "acc",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "playback_nil",
+    "occurrences": 2
+  },
+  {
+    "label": "dense raw source counter skips rows",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case _ <> tail: event_count_go(tail,1n+acc)",
+    "new": "case _ <> tail: event_count_go(tail,acc)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "event_count_cons"
+  },
+  {
+    "label": "source emission keeps first rather than last512",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "List.drop(&2,HitEvent,rows,Nat.sub(count,capacity()))",
+    "new": "List.take(&2,HitEvent,rows,capacity())",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "emission_for_exact"
+  },
+  {
+    "label": "source emission omits overflow accounting",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "U32.from_nat(Nat.sub(count,capacity()))",
+    "new": "0",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "emission_for_exact"
+  },
+  {
+    "label": "source omissions replace previous overflow",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "State{epoch,now,events,(overflow + omitted : U32),expired}",
+    "new": "State{epoch,now,events,omitted,expired}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "add_omitted_exact"
+  },
+  {
+    "label": "source omissions corrupt expired counter",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "State{epoch,now,events,(overflow + omitted : U32),expired}",
+    "new": "State{epoch,now,events,(overflow + omitted : U32),(expired + 1 : U32)}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "add_omitted_exact"
+  },
+  {
+    "label": "capped ingest ignores source omissions",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "add_omitted(ingest(state,now,rows),omitted)",
+    "new": "ingest(state,now,rows)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "ingest_capped_exact"
+  },
+  {
+    "label": "fast dedup leaves result reversed",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case head <> tail: List.reverse(&2,HitEvent,append_indexed_start(head <> tail,List.reverse(&2,HitEvent,rows)))",
+    "new": "case head <> tail: append_indexed_start(head <> tail,List.reverse(&2,HitEvent,rows))",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "append_unique_indexed_nonempty"
+  },
+  {
+    "label": "canonical event index forgets head ID",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "IDs.insert(event_index(tail),event_key(head))",
+    "new": "event_index(tail)",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "event_index_cons"
+  },
+  {
+    "label": "new receipt never enters carried index",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case False{}: IDs.insert(index,id)",
+    "new": "case False{}: index",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "indexed_insert_new"
+  },
+  {
+    "label": "duplicate clears carried index",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case True{}: index",
+    "new": "case True{}: IDs.empty()",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "indexed_insert_duplicate"
+  },
+  {
+    "label": "indexed ingestion disables duplicate lookup",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "+duplicate = IDs.contains(index,event_key(head))",
+    "new": "+duplicate:Bool = False{}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "append_indexed_cons"
+  },
+  {
+    "label": "production ingestion returns quadratic reference path",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "case head <> tail: List.reverse(&2,HitEvent,append_indexed_start(head <> tail,List.reverse(&2,HitEvent,rows)))",
+    "new": "case head <> tail: List.reverse(&2,HitEvent,append_reverse(head <> tail,List.reverse(&2,HitEvent,rows)))",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "append_unique_indexed_nonempty"
+  },
+  {
+    "label": "canonical seen index forgets old IDs",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "IDs.insert(seen_index(tail),seen_key(head))",
+    "new": "IDs.insert(IDs.empty(),seen_key(head))",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "seen_index_cons"
+  },
+  {
+    "label": "indexed playback ignores seen membership",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "Bool.not(IDs.contains(index,event_key(head)))",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "play_indexed_cons"
+  },
+  {
+    "label": "future playback row poisons deduplication",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "indexed_insert(Bool.not(accept),index,event_key(head))",
+    "new": "indexed_insert(False{},index,event_key(head))",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "play_indexed_cons"
+  },
+  {
+    "label": "production playback returns quadratic reference path",
+    "source": "examples/survivors/coop-hit-journal.bend",
+    "old": "play_indexed(rows,epoch,seen,displayTick,[],seen_index(seen))",
+    "new": "play_rows_go(rows,epoch,seen,displayTick,[])",
+    "proof": "examples/survivors/coop-hit-journal-PROOF.bend",
+    "law": "play_rows_indexed_entry"
+  }
+]

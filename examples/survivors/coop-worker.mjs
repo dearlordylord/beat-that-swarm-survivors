@@ -1,15 +1,17 @@
 // Browser scheduling and message IO only. Bend owns admission and the shared world.
 import Game from './dist/coop-core.mjs';
 import Session from './dist/coop-session.mjs';
-import Protocol from './dist/coop-protocol.mjs';
 import InputQueue from './dist/coop-input-queue.mjs';
 import Connection from './dist/coop-connection.mjs';
+import ClientDelivery from './dist/coop-client-delivery.mjs';
+import HitJournal from './dist/coop-hit-journal.mjs';
 let core, session, timer, last = 0, accumulator = 0;
 let gate = Connection.fresh({$:'Host'});
 let lastSnapshot = 0, observationSeq = 0, lastPhase;
 let guestReceipt = Session.receipt_fresh(), guestQueue = InputQueue.fresh(0,0);
 let currentRound = 0, currentPhase = 0, currentWorldTick = 0, guestEligible = false;
 let lastInputRejection = null, connectionEpoch = 0;
+let contactJournal = HitJournal.fresh(0);
 const STEP = 1000 / 60;
 function applyConnection(output) {
   gate = output.state;
@@ -45,7 +47,7 @@ function publish(remote = true, initial = false) {
   const round = local.roundId ?? currentRound;
   if (round !== currentRound || currentPhase !== 0) guestQueue = InputQueue.fresh(round,currentWorldTick);
   currentRound = round;
-  postMessage({type:'frame',frame:local,connectionReady:Connection.running(gate)});
+  postMessage({type:'frame',frame:local,observationSeq:observation,contactJournal,connectionReady:Connection.running(gate)});
   if (remote) {
     const guest = packet(Game.core_observe(core, 1));
     guestEligible = guest.predictionAllowed === true;
@@ -53,7 +55,7 @@ function publish(remote = true, initial = false) {
     const publication = initial ? handshake({$:'Prepared',observation}) : null;
     if (initial && publication.$ !== 'PublishInitial') return;
     postMessage({type:'remote-frame',frame:guest,admission:session,receipt:guestReceipt,
-      observationSeq:observation,connectionEpoch,token:Connection.epoch(gate),initial,
+      observationSeq:observation,connectionEpoch,token:Connection.epoch(gate),initial,contactJournal,
       inputTiming:{worldTick:currentWorldTick,lastRejected:lastInputRejection}});
   }
 }
@@ -68,10 +70,8 @@ function prepareWorld(action) {
   try { publish(true,true); }
   catch (error) { reject('SnapshotFailed',error); }
 }
-function accept(text, peer) {
-  const decoded = Protocol.decode(text);
-  if (decoded.$ !== 'Some') { if (peer === 1) reject('ProtocolError'); return; }
-  const command = decoded.value, action = command.action;
+function acceptCommand(command, peer) {
+  const action = command.action;
   if (action.$ === 'Choice' && !Connection.running(gate)) {
     postMessage({type:'choice-unavailable',player:peer,connectionEpoch}); return;
   }
@@ -101,6 +101,12 @@ function accept(text, peer) {
     if (handshake({$:'Setup'}).$ === 'PrepareWorld') prepareWorld(action);
   }
 }
+function accept(text, peer) {
+  const decoded = ClientDelivery.decode(text);
+  if (decoded.$ !== 'Some') { if (peer === 1) reject('ProtocolError'); return; }
+  for (let rows = decoded.value.commands; rows.$ === 'Con'; rows = rows.tail)
+    acceptCommand(rows.head,peer);
+}
 function schedule() {
   const now = performance.now();
   // Discard suspend time; at most four fixed steps per scheduling turn.
@@ -120,6 +126,7 @@ function schedule() {
       guestQueue = pending.state;
       guestReceipt = InputQueue.receipt(frame.tick,pending.tick);
       session = Session.applied(frame.tick,session);
+      contactJournal = HitJournal.ingest_capped(contactJournal,frame.tick,frame.contacts || {$:'Nil'},frame.contactsOmitted || 0);
     }
     if (frame && frame.phase !== lastPhase) { lastPhase = frame.phase; lastSnapshot = now; publish(); }
     accumulator -= STEP;
@@ -136,6 +143,7 @@ onmessage = event => {
         currentRound = 0; currentPhase = 0; currentWorldTick = 0; guestEligible = false; guestQueue = InputQueue.fresh(0,0); lastInputRejection = null;
         const s = message.setup;
         connectionEpoch = 0;
+        contactJournal = HitJournal.fresh(0);
         session = Session.fresh(message.session);
         packet(Game.core_start(s.character,s.meta,message.seed));
         packet(Game.core_configure(core,s.stage,s.mode,s.arcana));
@@ -152,6 +160,7 @@ onmessage = event => {
         const transition = Connection.reconnect(gate,message.connectionEpoch);
         if (transition.action.$ !== 'SendHello') break;
         connectionEpoch = message.connectionEpoch;
+        contactJournal = HitJournal.fresh(connectionEpoch);
         accumulator = 0;
         session = Session.reconnect(session);
         guestQueue = InputQueue.fresh(currentRound,currentWorldTick);

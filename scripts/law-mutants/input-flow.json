@@ -1,0 +1,182 @@
+[
+  {
+    "label": "accepted command replaces earlier pending journal",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "List.append(&2,S.Command,pending,[command])",
+    "new": "[command]",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "accepted_enqueue_exact"
+  },
+  {
+    "label": "batch reverses the first pending commands",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "List.take(&2,S.Command,pending,max_batch())",
+    "new": "List.reverse(&2,S.Command,List.take(&2,S.Command,pending,max_batch()))",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "preparation_preserves_journal",
+    "fails_in": "selected_journal"
+  },
+  {
+    "label": "accepted input loses its immutable fields",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "List.append(&2,S.Command,pending,[command])",
+    "new": "List.append(&2,S.Command,pending,[S.Command{0,0,0,0,S.MovementTick{0,1,1}}])",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "accepted_enqueue_exact"
+  },
+  {
+    "label": "input admission consumes reserved control capacity",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "Nat.is_lt(inputs,max_inputs())",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "counts_exact"
+  },
+  {
+    "label": "movement is classified as a reserved control",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "case S.Command{_,_,_,_,S.MovementTick{_,_,_}}: True{}",
+    "new": "case S.Command{_,_,_,_,S.MovementTick{_,_,_}}: False{}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "input_classification_exact"
+  },
+  {
+    "label": "journal forgets commands owned by its active flight",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "case Some{Batch{_,_,rows}}: rows",
+    "new": "case Some{Batch{_,_,rows}}: []",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "preparation_preserves_journal",
+    "fails_in": "selected_journal"
+  },
+  {
+    "label": "preparation overwrites an existing flight",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "case True{} State{+epoch,+next,+pending,None{},False{}}:",
+    "new": "case True{} State{+epoch,+next,+pending,_,False{}}:",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "preparation_preserves_journal",
+    "fails_in": "selected_journal"
+  },
+  {
+    "label": "flight completion ignores connection epochs",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "Bool.and(U32.is_eq(current,epoch),Bool.and(U32.is_eq(batchEpoch,epoch),U32.is_eq(batchId,id)))",
+    "new": "U32.is_eq(batchId,id)",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "matching_exact"
+  },
+  {
+    "label": "completion discards commands queued while IO waited",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "State{epoch,next,pending,None{},failed}",
+    "new": "State{epoch,next,[],None{},failed}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "matching_completion_exact"
+  },
+  {
+    "label": "failed delivery silently discards the journal",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "State{epoch,next,pending,flight,True{}}",
+    "new": "State{epoch,next,[],None{},True{}}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "failure_preserves_journal"
+  },
+  {
+    "label": "batch encoding skips its first command",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "Protocol.encode(head) ++ \"\\n\" ++ encode_rows(tail)",
+    "new": "encode_rows(tail)",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "ordered_encoding"
+  },
+  {
+    "label": "typed batch decoding reverses command order",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "case Some{command} Some{rows}: Some{command <> rows}",
+    "new": "case Some{command} Some{rows}: Some{List.append(&2,S.Command,rows,[command])}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "parsed_row_exact"
+  },
+  {
+    "label": "malformed suffix is accepted as a valid prefix",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "case Some{command} Some{rows}: Some{command <> rows}\n    case _ _: None{}",
+    "new": "case Some{command} Some{rows}: Some{command <> rows}\n    case Some{command} None{}: Some{[command]}\n    case _ _: None{}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "malformed_tail_refuses"
+  },
+  {
+    "label": "decoder bypasses declared preparse size gate",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "Nat.is_le(String.length(text),U32.to_nat(max_frame_bytes()))",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "decode_public_exact"
+  },
+  {
+    "label": "batch decoder accepts a thirty-third command",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "Nat.is_le(List.length(&2,String,rows),max_batch())",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "row_limit_exact"
+  },
+  {
+    "label": "character parser discards ordinary characters as separators",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "Char.is_eq(char,'\\n')",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "line_split_exact"
+  },
+  {
+    "label": "stale success drains the current flight",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "complete_selected(matches(state,epoch,id),state)",
+    "new": "complete_selected(True{},state)",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "complete_public_exact"
+  },
+  {
+    "label": "stale error fences a replacement connection",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "fail_selected(matches(state,epoch,id),state)",
+    "new": "fail_selected(True{},state)",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "fail_public_exact"
+  },
+  {
+    "label": "shared lane journal regresses to32records",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "def max_commands() -> Nat: 64n",
+    "new": "def max_commands() -> Nat: 32n",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "shared lane movement capacity regresses to30",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "def max_inputs() -> Nat: 62n",
+    "new": "def max_inputs() -> Nat: 30n",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "shared lane input batch regresses to16",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "def max_batch() -> Nat: 32n",
+    "new": "def max_batch() -> Nat: 16n",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "limits_exact",
+    "fails_in": "selected_journal"
+  },
+  {
+    "label": "new batch retains obsolete byte budget",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "def max_frame_bytes() -> U32: 5156",
+    "new": "def max_frame_bytes() -> U32: 2580",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "limits_exact"
+  }
+]

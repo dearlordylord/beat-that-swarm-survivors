@@ -1,17 +1,28 @@
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from './dist/coop-protocol.mjs';
 import Connection from './dist/coop-connection.mjs';
+import ClientDelivery from './dist/coop-client-delivery.mjs';
+import SnapshotFlow from './dist/coop-snapshot-flow.mjs';
 import Prediction from './dist/coop-prediction.mjs';
-import CombatForecast from './dist/coop-combat-prediction.mjs';
+import PlaybackWire from './dist/coop-playback-wire.mjs';
+import ClientClock from './dist/coop-client-clock.mjs';
+import LocalProjectiles from './dist/coop-local-projectiles.mjs';
+import HitJournal from './dist/coop-hit-journal.mjs';
 import { CoopTransport } from './coop-transport.mjs';
+import { encodeSnapshot, SnapshotDecoder } from './coop-snapshot-codec.mjs';
 import { CoopUI } from './coop-ui.mjs';
 let transport, worker, role, sessionId, sequence = 0, tick = 0, epoch = 0;
+let activeSnapshotDecoder;
 let runId = '', stalled = false;
 let input = {x:0,y:0}, inputTimer, lastFrameAt = 0, connected = false;
-let latestSnapshot, sendingSnapshot = false;
-const pendingCommands = new Set(), MAX_COMMANDS = 64, MAX_COMMAND_BYTES = 160;
+let latestSnapshot;
+let snapshotFlow = SnapshotFlow.fresh(0);
+
+const pendingCommands = new Set(), MAX_COMMANDS = 64;
+const MAX_COMMAND_BYTES = ClientDelivery.max_frame_bytes();
 let deliverySequence = 0, connectionEpoch = 0, connectDeadline;
 let connectionState = Connection.fresh({$:'Guest'}), selectedSetup, hostFrame;
+let clientDelivery = ClientDelivery.fresh(0);
 let failureDiagnostic;
 const buildVersion = fetch('./version.json').then(response => response.json()).catch(() => null);
 function reportFailure(error, source, context = {}) {
@@ -23,107 +34,176 @@ function reportFailure(error, source, context = {}) {
   buildVersion.then(version => {
     if (failureDiagnostic !== report) return;
     if (version?.revision) report.revision = version.revision;
+    if (typeof version?.dirty === 'boolean') report.dirty = version.dirty;
+    if (version?.sourceFingerprint) report.sourceFingerprint = version.sourceFingerprint;
+    if (version?.buildContext) report.buildContext = version.buildContext;
     ui.diagnostic(report);
   });
 }
-let prediction, predictionRun, predictionStage, predictionRound, authorityFrame, predictionAt = 0, predictionRemainder = 0;
-let predictionLead = 4, lastRoundTripMs = 0, lastPredictionResync, authorityInputTiming;
+let prediction, predictionRun, predictionStage, predictionRound, authorityFrame;
+let predictionClock = ClientClock.fresh(0);
+let visualClock = ClientClock.fresh(0);
+let predictionLead = 4, inputAckDelayMs = 0, lastPredictionResync, authorityInputTiming;
 const sentCommandTimes = new Map();
-let combatForecast, combatPresentation, combatPresentationState;
-const PREDICTION_STEP = 1000 / 60;
+let localShots = LocalProjectiles.empty(), localRun, localTargets = {$:'Nil'}, remoteFrame;
+let contactJournal = HitJournal.fresh(0), receivedContacts = HitJournal.playback(0);
+let playedContacts = HitJournal.playback(0), pendingJournal;
+const micros = now => {
+  const value = Math.floor(now * 1000);
+  if (!Number.isSafeInteger(value) || value < 0) throw Error('Invalid local input clock.');
+  return value;
+};
+const each = (rows,callback) => { for (; rows.$ === 'Con'; rows = rows.tail) callback(rows.head); };
+const nativeList = rows => {
+  let result = {$:'Nil'};
+  for (let index=rows.length-1;index>=0;index--) result = {$:'Con',head:rows[index],tail:result};
+  return result;
+};
 const bendBool = value => Boolean(value);
+function advanceLocalVisuals(now) {
+  if (!localRun || !remoteFrame || !prediction?.enabled || !Connection.running(connectionState)) return;
+  const budget = ClientClock.consume(visualClock,micros(now));
+  visualClock = budget.state;
+  const point = Prediction.view(prediction);
+  for (let step=0;step<budget.steps;step++)
+    localShots = LocalProjectiles.advance_tick(localShots,localRun,point.x,point.y,
+      remoteFrame.remotePresentation.tick,localTargets);
+}
 function advancePrediction(now = performance.now()) {
   if (role !== 'guest' || !prediction || !Connection.running(connectionState)) return;
-  // rAF timestamps may precede a performance.now() sampled by a message handler.
-  // Never rewind the shared local clock and count that interval twice.
-  now = Math.max(now,predictionAt);
-  predictionRemainder += Math.min(4 * PREDICTION_STEP,now - predictionAt);
-  predictionAt = now;
-  let count = 0;
-  while (predictionRemainder >= PREDICTION_STEP && count++ < 4) {
-    if (Prediction.can_tick(prediction) && connected) {
-      sendAction({$:'MovementTick',round:predictionRound ?? 0,
-        x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
-      prediction = Prediction.tick(prediction);
-      if (combatForecast) combatForecast = CombatForecast.advance(combatForecast,
-        Math.sign(input.x)+1,Math.sign(input.y)+1);
+  advanceLocalVisuals(now);
+  const budget = ClientClock.consume(predictionClock,micros(now));
+  predictionClock = budget.state;
+  for (let step=0;step<budget.steps;step++) {
+    if (!Prediction.can_tick(prediction) || !connected) break;
+    if (!sendAction({$:'MovementTick',round:predictionRound ?? 0,
+      x:Math.sign(input.x)+1,y:Math.sign(input.y)+1})) {
+      predictionClock = ClientClock.discard(predictionClock);
+      break;
     }
-    predictionRemainder -= PREDICTION_STEP;
+    prediction = Prediction.tick(prediction);
+    if (localRun && remoteFrame) {
+      const point = Prediction.view(prediction);
+      localShots = LocalProjectiles.accept_tick(localShots,true,1,localRun,
+        input.x,input.y,point.x,point.y,prediction.displayWorldTick,
+        remoteFrame.remotePresentation.tick,authorityFrame.tick,localTargets,authorityFrame.combatForecast.snapshots);
+    }
   }
 }
-function observeRoundTrip(envelope,now) {
+function observeInputAcknowledgement(envelope,now) {
   const acknowledged = envelope.admission?.guest?.lastSeq;
   if (!Number.isInteger(acknowledged)) return;
   const sentAt = sentCommandTimes.get(acknowledged);
-  if (sentAt !== undefined) lastRoundTripMs = Math.max(0,now-sentAt);
+  if (sentAt !== undefined) inputAckDelayMs = Math.max(0,now-sentAt);
   // Sample first: the first eligible frame must include its Setup round trip.
   for (const seq of sentCommandTimes.keys()) if (seq <= acknowledged) sentCommandTimes.delete(seq);
 }
 function reconcilePrediction(envelope) {
   const frame = envelope.frame, now = performance.now();
   if (prediction && !Prediction.observation_newer(prediction,envelope.observationSeq)) return false;
-  observeRoundTrip(envelope,now);
-  const reset = !prediction || predictionRun !== frame.runId || predictionStage !== frame.stage
-    || predictionRound !== (frame.roundId ?? 0);
+  observeInputAcknowledgement(envelope,now);
+  const newRun = !prediction || predictionRun !== frame.runId || predictionStage !== frame.stage;
+  const reset = newRun || predictionRound !== (frame.roundId ?? 0);
   const wasEnabled = !reset && prediction.enabled === true;
-  if (reset || !wasEnabled) predictionLead = Prediction.lead(Math.ceil(lastRoundTripMs));
+  if (reset || !wasEnabled) predictionLead = Prediction.lead(Math.ceil(inputAckDelayMs));
   if (reset) {
     prediction = Prediction.fresh(frame.px,frame.py,frame.stepDistance,bendBool(frame.predictionAllowed),frame.tick,predictionLead);
     predictionRun = frame.runId; predictionStage = frame.stage; predictionRound = frame.roundId ?? 0;
-    predictionAt = now; predictionRemainder = 0;
+    predictionClock = ClientClock.fresh(micros(now));
   } else advancePrediction(now);
   const resync = !reset && wasEnabled && frame.predictionAllowed && Prediction.resync_needed(prediction,frame.tick);
+  const previousLead = predictionLead;
+  predictionLead = Prediction.choose_lead(prediction,frame.tick,Math.ceil(inputAckDelayMs),predictionLead);
   const previousDisplayWorldTick = prediction.displayWorldTick;
   prediction = Prediction.reconcile(prediction,envelope.observationSeq,frame.tick,frame.px,frame.py,
     frame.stepDistance,bendBool(frame.predictionAllowed),predictionLead);
   if (resync) lastPredictionResync = Object.freeze({reason:'authority-caught-display-cursor',
     previousDisplayWorldTick,anchorWorldTick:frame.tick,displayWorldTick:prediction.displayWorldTick,lead:predictionLead});
+  else if (!reset && predictionLead > previousLead && prediction.displayWorldTick > previousDisplayWorldTick)
+    lastPredictionResync = Object.freeze({reason:'input-lead-increased',previousDisplayWorldTick,
+      anchorWorldTick:frame.tick,displayWorldTick:prediction.displayWorldTick,previousLead,lead:predictionLead});
   else if (reset) lastPredictionResync = null;
   if (prediction.observation !== envelope.observationSeq) return false;
   authorityFrame = frame; authorityInputTiming = envelope.inputTiming;
-  // Each accepted authority frame is a new canonical cohort anchor. Previous
-  // speculative trajectories may not override current contacts or enemy state.
-  const combatAnchor = frame.predictionAllowed && frame.combatForecast
-    ? CombatForecast.with_diagnostics(CombatForecast.receive(frame.combatForecast,envelope.admission),
-      new URL(location.href).searchParams.has('combatTrace')) : null;
-  combatForecast = combatAnchor
-    ? CombatForecast.rebase(!reset && wasEnabled && combatForecast ? combatForecast : combatAnchor,combatAnchor,prediction) : null;
-  if (!frame.predictionAllowed || !wasEnabled) { predictionAt = now; predictionRemainder = 0; }
+  const ownRun = PlaybackWire.own_run(frame.combatForecast);
+  localRun = ownRun.$ === 'Some' ? ownRun.value : null;
+  pendingJournal = envelope.contactJournal;
+  if (newRun) {
+    localShots = LocalProjectiles.empty();
+    contactJournal = envelope.contactJournal || HitJournal.fresh(connectionEpoch);
+    receivedContacts = HitJournal.attach(contactJournal);
+    playedContacts = HitJournal.attach(contactJournal);
+  }
+  if (!frame.predictionAllowed) localShots = LocalProjectiles.empty();
+  if (!frame.predictionAllowed || !wasEnabled) {
+    predictionClock = ClientClock.fresh(micros(now)); visualClock = ClientClock.fresh(micros(now));
+  }
   return true;
 }
-function displayFrame(frame, now) {
-  if (role !== 'guest' || !authorityFrame) return frame;
-  advancePrediction(now);
-  const point = prediction ? Prediction.view(prediction) : {x:authorityFrame.px,y:authorityFrame.py};
-  const own = authorityFrame.players?.find(player => player.id === authorityFrame.ownPlayerId);
-  const predicting = authorityFrame.predictionAllowed;
-  let bodies = frame.bodies;
-  let predictedPlayers, combatDiagnostics;
-  if (predicting && combatForecast) {
-    if (combatPresentationState !== combatForecast) {
-      combatPresentationState = combatForecast;
-      combatPresentation = JSON.parse(CombatForecast.render(combatForecast));
-    }
-    // Enemies and every known projectile are rendered from one Bend cohort
-    // clock. Pickups, rewards and durable gameplay remain authoritative.
-    bodies = (frame.bodies || []).filter(body => ![0,1,7].includes(body[2]))
-      .concat(combatPresentation.bodies);
-    predictedPlayers = new Map(combatPresentation.players.map(player => [player.id,player]));
-    // Display-only evidence belongs to this exact Bend cohort sample. It is not
-    // passed to authoritative progression, rewards, audio or the network.
-    combatDiagnostics = Object.freeze({tick:combatPresentation.tick,contacts:combatPresentation.contacts,
-      assumptions:combatPresentation.assumptions,predictedCohort:combatPresentation.predictedCohort});
+function prepareDisplayFrame(now) {
+  if (role !== 'guest' || !authorityFrame) return;
+  const frame = remoteFrame || {...authorityFrame,remotePresentation:{
+    sourceTick:authorityFrame.tick,tick:authorityFrame.tick}};
+  const targets = [];
+  for (const body of frame.bodies || []) {
+    const target = LocalProjectiles.observed_target(body[7],body[2],body[6],
+      frame.remotePresentation.sourceTick,body[0],body[1],body[8],body[4]);
+    if (target.$ === 'Some') targets.push(target.value);
   }
-  const predictionTiming = prediction ? Object.freeze({anchorWorldTick:prediction.anchorWorldTick,
-    displayWorldTick:prediction.displayWorldTick,lead:predictionLead,roundTripMs:lastRoundTripMs,resync:lastPredictionResync,server:authorityInputTiming}) : undefined;
-  return {...frame,bodies,combatPresentation:combatDiagnostics,predictionTiming,px:predicting ? point.x : authorityFrame.px,py:predicting ? point.y : authorityFrame.py,
-    players:frame.players?.map(player => {
-      const projected = predictedPlayers?.get(player.id);
-      const authoritative = player.id === authorityFrame.ownPlayerId && own ? {...player,...own} : player;
-      if (projected) return {...authoritative,px:projected.px,py:projected.py};
-      return player.id === authorityFrame.ownPlayerId && own
-        ? {...authoritative,px:predicting ? point.x : own.px,py:predicting ? point.y : own.py} : player;
-    })};
+  localTargets = nativeList(targets);
+  if (localRun && prediction && Connection.running(connectionState)) {
+    const boot = LocalProjectiles.ensure_bootstrap(localShots,1,localRun,authorityFrame.tick,
+      localTargets,authorityFrame.combatForecast.snapshots,prediction);
+    localShots = boot.state;
+    if (boot.started) visualClock = ClientClock.fresh(micros(now));
+  }
+  if (pendingJournal) {
+    contactJournal = pendingJournal; pendingJournal = null;
+    const newContacts = HitJournal.collect(receivedContacts,contactJournal);
+    receivedContacts = newContacts.state;
+    each(newContacts.events,event => {
+      localShots = LocalProjectiles.confirm(localShots,event,frame.remotePresentation.tick,localTargets);
+    });
+  }
+  // Finish costly bootstrap/contact work before selecting the painted remote time.
+  advancePrediction(performance.now());
+}
+function displayFrame(frame) {
+  if (role !== 'guest' || !authorityFrame) return frame;
+  remoteFrame = frame;
+  const targets = [];
+  for (const body of frame.bodies || []) {
+    const target = LocalProjectiles.observed_target(body[7],body[2],body[6],
+      frame.remotePresentation.sourceTick,body[0],body[1],body[8],body[4]);
+    if (target.$ === 'Some') targets.push(target.value);
+  }
+  localTargets = nativeList(targets);
+  const point = prediction && authorityFrame.predictionAllowed
+    ? Prediction.view(prediction) : {x:authorityFrame.px,y:authorityFrame.py};
+  const sample = ui.presentation.currentSample;
+  if (sample) {
+    const confirmed = HitJournal.play_sample(playedContacts,contactJournal,sample);
+    playedContacts = confirmed.state;
+    localShots = LocalProjectiles.play_effects(localShots,confirmed.events,frame.remotePresentation.tick);
+  }
+  const visual = JSON.parse(LocalProjectiles.render(localShots,1,frame.remotePresentation.tick,localTargets));
+  const visibility = LocalProjectiles.prepare_visibility(localShots);
+  const bodies = (frame.bodies || []).filter(body => LocalProjectiles.should_show_prepared(
+    visibility,1,body[2],body[10],body[9])).concat(visual.shots.map(shot =>
+      [shot.x,shot.y,shot.kind,shot.weapon,0,0,shot.age,shot.seed,shot.radius,shot.id,shot.player,0,shot.opacity]));
+  for (const corpse of visual.corpses) {
+    const metadata = ui.presentation.bodyMetadata(corpse.seed,corpse.id);
+    if (metadata) {
+      const body = metadata.slice(); body[0] = corpse.x; body[1] = corpse.y; body[4] = 0; body[12] = .45;
+      bodies.push(body);
+    }
+  }
+  return {...frame,bodies,px:point.x,py:point.y,
+    players:frame.players?.map(player => player.id === authorityFrame.ownPlayerId
+      ? {...player,...authorityFrame.players?.find(own => own.id === player.id),px:point.x,py:point.y} : player),
+    predictionTiming:prediction ? {anchorWorldTick:prediction.anchorWorldTick,
+      displayWorldTick:prediction.displayWorldTick,lead:predictionLead,inputAckDelayMs,
+      resync:lastPredictionResync,server:authorityInputTiming} : undefined};
 }
 
 function postCommand(text, player) {
@@ -190,9 +270,10 @@ function connectionAction(action, envelope) {
         lastFrameAt = performance.now(); tick = envelope.frame.tick;
         if (stalled && Connection.running(connectionState)) ui.status('');
         stalled = false;
-        ui.present(envelope.frame);
+        ui.present({...envelope.frame,observationSeq:envelope.observationSeq,contactJournal:envelope.contactJournal});
         if (!Connection.running(connectionState)) ui.setChoicePending(true);
         signalConnection({$:'SnapshotSeen',token:action.token,observation:action.observation});
+        clientDelivery = ClientDelivery.offer_receipt(clientDelivery,action.token,action.observation);
       } catch (error) {
         console.error(error); reportFailure(error,'snapshot'); signalConnection({$:'Reject',reason:{$:'SnapshotFailed'}});
       }
@@ -206,7 +287,7 @@ function connectionAction(action, envelope) {
       ui.setChoicePending(false); ui.status('');
       sendControl(action).catch(() => {}); break;
     case 'GuestReady':
-      clearTimeout(connectDeadline); predictionAt = performance.now(); predictionRemainder = 0;
+      clearTimeout(connectDeadline); predictionClock = ClientClock.fresh(micros(performance.now()));
       ui.setChoicePending(false); ui.status(''); break;
     case 'Suspend':
       ui.setChoicePending(true);
@@ -215,7 +296,7 @@ function connectionAction(action, envelope) {
       break;
     case 'CloseConnection': {
       clearTimeout(connectDeadline); clearInterval(inputTimer);
-      prediction = null; authorityFrame = null; combatForecast = null;
+      prediction = null; authorityFrame = null; localShots = LocalProjectiles.empty(); localRun = null;
       ui.setChoicePending(false); ui.status(Connection.reason_text(action.reason),{error:true});
       const generation = epoch, connection = connectionEpoch, channel = transport;
       const closePeer = () => {
@@ -249,34 +330,78 @@ function armConnectionDeadline() {
 function sendAction(action) {
   if (role === 'host' ? !worker : !connected || !Connection.running(connectionState)) {
     if (action.$ === 'Choice') ui.setChoicePending(false);
-    return;
+    return false;
   }
-  const text = command(action);
   if (role === 'host') {
+    const text = command(action);
     if (!postCommand(text,0) && action.$ === 'Choice') {
       ui.setChoicePending(false); ui.status('Host is busy. Please choose again.');
+      return false;
     }
+    return true;
   } else {
-    const generation = epoch, connection = connectionEpoch;
-    transport.send(text).catch(error => {
-      if (generation === epoch && connection === connectionEpoch) transportFailure(error);
-    });
+    // Reserve a bounded journal slot before assigning a sequence or predicting
+    // its tick. A busy transport cannot create an unsent speculative input.
+    const candidate = {$:'Command',session:sessionId,player:1,seq:sequence+1,
+      intendedTick:prediction && action.$ === 'MovementTick' ? Prediction.next_world_tick(prediction) : tick,action};
+    const admission = ClientDelivery.enqueue(clientDelivery,candidate);
+    clientDelivery = admission.state;
+    if (!admission.accepted) {
+      if (action.$ === 'Choice') { ui.setChoicePending(false); ui.status('Sending previous commands. Please choose again.'); }
+      return false;
+    }
+    sequence = candidate.seq;
+    sentCommandTimes.set(sequence,performance.now());
+    if (sentCommandTimes.size > 256) sentCommandTimes.delete(sentCommandTimes.keys().next().value);
+    if (prediction && action.$ === 'MovementTick')
+      prediction = Prediction.command(prediction,sequence,action.x,action.y);
+    if (action.$ === 'Choice') flushClientDelivery();
+    return true;
   }
 }
-async function flushSnapshot() {
-  if (sendingSnapshot || !connected || role !== 'host') return;
-  sendingSnapshot = true;
-  const generation = epoch, connection = connectionEpoch, channel = transport;
-  try {
-    while (latestSnapshot && connected && generation === epoch && connection === connectionEpoch) {
-      const message = latestSnapshot; latestSnapshot = null;
-      await channel.send(JSON.stringify(message));
-    }
-  } catch (error) { if (generation === epoch && connection === connectionEpoch && connected) ui.status(error.message,{error:true}); }
-  finally { if (generation === epoch && connection === connectionEpoch) sendingSnapshot = false; }
+function flushClientDelivery() {
+  if (role !== 'guest' || !connected) return;
+  const prepared = ClientDelivery.prepare(clientDelivery);
+  clientDelivery = prepared.state;
+  if (prepared.packet.$ !== 'Some') return;
+  const packet = prepared.packet.value, generation = epoch, connection = connectionEpoch;
+  transport.send(ClientDelivery.encode(packet)).then(() => {
+    if (generation === epoch && connection === connectionEpoch)
+      clientDelivery = ClientDelivery.complete(clientDelivery,packet.epoch,packet.id);
+  }).catch(error => {
+    if (generation !== epoch || connection !== connectionEpoch) return;
+    clientDelivery = ClientDelivery.fail(clientDelivery,packet.epoch,packet.id);
+    transportFailure(error);
+  });
 }
+function flushSnapshot() {
+  if (!connected || role !== 'host') return;
+  const prepared = SnapshotFlow.prepare(snapshotFlow);
+  snapshotFlow = prepared.state;
+  if (prepared.observation.$ !== 'Some') return;
+  const message = latestSnapshot; latestSnapshot = null;
+  if (!message || message.observationSeq !== prepared.observation.value)
+    throw Error('The pending snapshot payload disagrees with its Bend delivery journal.');
+  const generation = epoch, connection = connectionEpoch, channel = transport;
+  // Native completion clears only the writer; application receipts clear the
+  // bounded observation window. QUIC delivery is weaker
+  // than successful parsing, admission and presentation by the guest.
+  encodeSnapshot(JSON.stringify(message)).then(bytes => {
+    if (generation !== epoch || connection !== connectionEpoch || !connected) return;
+    return channel.send(bytes);
+  }).then(() => {
+    if (generation !== epoch || connection !== connectionEpoch) return;
+    snapshotFlow = SnapshotFlow.complete(snapshotFlow,message.token,message.observationSeq);
+    flushSnapshot();
+  }).catch(error => {
+    if (generation === epoch && connection === connectionEpoch && connected) transportFailure(error);
+  });
+}
+
 async function connect(kind, ticket, setup, invitation = {}) {
-  cleanup(); const generation = epoch; role = kind; ui.role(kind); sequence = 0; selectedSetup = setup;
+  cleanup(); ui.reset(); const generation = epoch;
+  let snapshotDecoder = new SnapshotDecoder(); activeSnapshotDecoder = snapshotDecoder;
+  role = kind; ui.role(kind); sequence = 0; selectedSetup = setup;
   connectionState = Connection.fresh({$:kind === 'host' ? 'Host' : 'Guest'});
   if (kind === 'host') runId = crypto.randomUUID?.() || Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8,'0')).join('');
   const requestedSession = invitation.session ?? new URL(location.href).searchParams.get('session');
@@ -287,15 +412,18 @@ async function connect(kind, ticket, setup, invitation = {}) {
   ui.status('Connecting to Iroh…',{busy:true});
   armConnectionDeadline();
   try {
-    const created = await CoopTransport.create(event => {
+    const created = await CoopTransport.create(async event => {
       if (generation !== epoch) return;
       if (event.type === 'connected') {
         connectionEpoch = event.connectionEpoch;
+        snapshotDecoder.close(); snapshotDecoder = new SnapshotDecoder(); activeSnapshotDecoder = snapshotDecoder;
+        clientDelivery = ClientDelivery.fresh(connectionEpoch);
         connected = true; lastFrameAt = performance.now();
-        clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
+        clearInterval(inputTimer); latestSnapshot = null; snapshotFlow = SnapshotFlow.fresh(connectionEpoch);
         armConnectionDeadline();
         if (kind === 'host') {
           connectionState = Connection.state(Connection.reconnect(connectionState,connectionEpoch));
+          snapshotFlow = SnapshotFlow.fresh(Connection.epoch(connectionState));
           worker?.postMessage({type:'connected',connectionEpoch});
         } else {
           const result = Connection.reconnect(connectionState,connectionEpoch);
@@ -303,18 +431,33 @@ async function connect(kind, ticket, setup, invitation = {}) {
         }
         ui.status('Connected. Checking party compatibility…',{busy:true});
         inputTimer = setInterval(() => {
-          if (kind === 'guest') advancePrediction();
+          if (kind === 'guest') { advancePrediction(); flushClientDelivery(); }
           else sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
         }, 50);
       } else if (event.type === 'message') {
+        if (event.connectionEpoch !== connectionEpoch) return;
+        const messageDecoder = snapshotDecoder;
         try {
           if (kind === 'host' && event.bytes.byteLength > MAX_COMMAND_BYTES) {
             signalConnection({$:'Reject',reason:{$:'ProtocolError'}}); return;
           }
-          const text = decoder.decode(event.bytes), control = Connection.decode(text);
+          const bytes = kind === 'guest' ? await messageDecoder.decode(event.bytes) : event.bytes;
+          if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return;
+          const text = decoder.decode(bytes);
+          const control = Connection.decode(text);
           if (control.$ === 'Some') { signalConnection(control.value); return; }
           if (kind === 'host') {
-            if (!postCommand(text,1)) signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
+            const decoded = ClientDelivery.decode(text);
+            if (decoded.$ !== 'Some') { signalConnection({$:'Reject',reason:{$:'ProtocolError'}}); return; }
+            const payload = decoded.value;
+            if (payload.receipt.$ === 'Some') {
+              snapshotFlow = SnapshotFlow.ack(snapshotFlow,payload.receipt.value.token,payload.receipt.value.observation);
+              flushSnapshot();
+            }
+            if (payload.commands.$ !== 'Nil' && !postCommand(text,1)) {
+              reportFailure(Error('The host command inbox is full.'),'worker-inbox');
+              signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
+            }
           } else {
             const envelope = JSON.parse(text);
             if (envelope.type !== 'frame') return;
@@ -323,12 +466,14 @@ async function connect(kind, ticket, setup, invitation = {}) {
               token:number(envelope.token),observation:number(envelope.observationSeq)},envelope);
           }
         } catch (error) {
+          if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return;
           console.error(error); reportFailure(error,'incoming-message'); signalConnection({$:'Reject',reason:{$:'ProtocolError'}});
         }
       } else if (event.type === 'disconnected') {
+        snapshotDecoder.close();
         connectionEpoch = event.connectionEpoch;
-        connected = false; prediction = null; authorityFrame = null; combatForecast = null;
-        clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
+        connected = false; prediction = null; authorityFrame = null; localShots = LocalProjectiles.empty(); localRun = null;
+        clearInterval(inputTimer); latestSnapshot = null; snapshotFlow = SnapshotFlow.fresh(connectionEpoch);
         ui.clearInput();
         clearTimeout(connectDeadline);
         if (kind === 'host') worker?.postMessage({type:'disconnect',connectionEpoch});
@@ -344,13 +489,15 @@ async function connect(kind, ticket, setup, invitation = {}) {
         const message = event.data;
         if (message.type === 'command-consumed') pendingCommands.delete(message.deliveryId);
         else if (message.type === 'frame') {
-          tick = message.frame.tick; hostFrame = message.frame;
-          if (message.connectionReady || ui.frame) ui.present({...message.frame,runId});
+          tick = message.frame.tick; hostFrame = {...message.frame,observationSeq:message.observationSeq,contactJournal:message.contactJournal};
+          if (message.connectionReady || ui.frame) ui.present({...hostFrame,runId});
           if (!message.connectionReady) ui.setChoicePending(true);
         }
         else if (message.type === 'remote-frame') {
           if (!connected || message.connectionEpoch !== connectionEpoch) return;
-          latestSnapshot = {type:'frame',connectionVersion:Connection.protocol_version(),token:message.token,initial:message.initial,frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq}; flushSnapshot();
+          if (!SnapshotFlow.offer_allowed(snapshotFlow,message.observationSeq)) return;
+          latestSnapshot = {type:'frame',connectionVersion:Connection.protocol_version(),token:message.token,initial:message.initial,frame:{...message.frame,runId},admission:message.admission,receipt:message.receipt,inputTiming:message.inputTiming,observationSeq:message.observationSeq,contactJournal:message.contactJournal};
+          snapshotFlow = SnapshotFlow.offer(snapshotFlow,message.observationSeq); flushSnapshot();
         } else if (message.type === 'handshake-action') {
           if (message.connectionEpoch === connectionEpoch && Connection.reason(connectionState).$ === 'None') {
             connectionState = message.state; connectionAction(message.action);
@@ -384,10 +531,14 @@ function showError(error) { ui.status(error.message || String(error),{error:true
 function cleanup() {
   failureDiagnostic = null; ui.diagnostic(null);
   epoch++; connectionState = Connection.fresh({$:'Guest'}); hostFrame = null; clearTimeout(connectDeadline); connectionEpoch = 0; pendingCommands.clear(); sentCommandTimes.clear(); stalled = false;
-  predictionLead = 4; lastRoundTripMs = 0; lastPredictionResync = null; authorityInputTiming = null;
-  prediction = null; authorityFrame = null; combatForecast = null; combatPresentation = null;
-  combatPresentationState = null; predictionRun = null; predictionRound = null; predictionAt = 0; predictionRemainder = 0;
-  connected = false; clearInterval(inputTimer); latestSnapshot = null; sendingSnapshot = false;
+  predictionLead = 4; inputAckDelayMs = 0; lastPredictionResync = null; authorityInputTiming = null;
+  prediction = null; authorityFrame = null; localShots = LocalProjectiles.empty(); localRun = null;
+  predictionRun = null; predictionRound = null; predictionClock = ClientClock.fresh(0); visualClock = ClientClock.fresh(0);
+  localTargets = {$:'Nil'}; remoteFrame = null; pendingJournal = null;
+  contactJournal = HitJournal.fresh(0); receivedContacts = HitJournal.playback(0); playedContacts = HitJournal.playback(0);
+  clientDelivery = ClientDelivery.fresh(0);
+  connected = false; clearInterval(inputTimer); latestSnapshot = null; snapshotFlow = SnapshotFlow.fresh(connectionEpoch);
+  activeSnapshotDecoder?.close(); activeSnapshotDecoder = null;
   worker?.terminate(); worker = null; transport?.close(); transport = null;
   input = {x:0,y:0};
 }
@@ -399,6 +550,7 @@ const ui = new CoopUI({
     if (role === 'host')
       sendAction({$:'Movement',x:Math.sign(input.x)+1,y:Math.sign(input.y)+1});
   },
+  onPrepareDisplay: prepareDisplayFrame,
   onDisplay: displayFrame,
   onChoice: ({round,index}) => sendAction({$:'Choice',round,index}),
   onLeave: () => { cleanup(); ui.reset(); },
@@ -406,7 +558,17 @@ const ui = new CoopUI({
 // A browser may suspend the host. Surface it; do not claim workers prevent it.
 setInterval(() => {
   if (role === 'guest' && connected && Connection.running(connectionState) && !stalled && performance.now() - lastFrameAt > 5000) {
-    stalled = true; ui.status('Host is stalled. Keep the host browser active.',{error:true});
+    stalled = true; ui.status('Waiting for host updates. Check the connection and keep the host browser active.',{error:true});
   }
 },1000);
 addEventListener('pagehide',cleanup);
+addEventListener('error',event => {
+  if (!role || !event.message) return;
+  reportFailure(event.error || Error(event.message),'browser-view');
+  signalConnection({$:'Reject',reason:{$:'PresentationFailed'}});
+});
+addEventListener('unhandledrejection',event => {
+  if (!role) return;
+  reportFailure(event.reason,'browser-promise');
+  signalConnection({$:'Reject',reason:{$:'PresentationFailed'}});
+});

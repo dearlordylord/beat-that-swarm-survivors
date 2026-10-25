@@ -46,5 +46,22 @@
     "label": "connection-idle-reports-zero-epoch",
     "old": "    case Idle{_,epoch}: epoch",
     "new": "    case Idle{_,epoch}: 0"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-reverts-to-old-wire-version-four",
+    "old": "def protocol_version() -> U32: 5",
+    "new": "def protocol_version() -> U32: 4",
+    "law": "protocol_version_exact",
+    "fails_in": "guest_hello_out"
+  },
+  {
+    "source": "examples/survivors/coop-connection.bend",
+    "proof": "examples/survivors/coop-connection-PROOF.bend",
+    "label": "connection-conflates-view-failure-with-host-simulation-failure",
+    "old": "case PresentationFailed{}: 8",
+    "new": "case PresentationFailed{}: 7",
+    "law": "reason_codes_roundtrip"
   }
 ]

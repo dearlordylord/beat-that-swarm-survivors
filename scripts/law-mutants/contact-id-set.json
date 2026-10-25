@@ -1,0 +1,29 @@
+[
+  {
+    "label": "lookup treats a different character as a match",
+    "source": "examples/survivors/contact-id-set.bend",
+    "old": "find_edge_choose(Char.is_eq(wanted, char), child, _ => find_edge(wanted, tail))",
+    "new": "find_edge_choose(True{}, child, _ => find_edge(wanted, tail))",
+    "proof": "examples/survivors/contact-id-set-PROOF.bend",
+    "law": "find_edge_cons",
+    "fails_in": "find_edge_cons"
+  },
+  {
+    "label": "nonempty insertion drops its edge update",
+    "source": "examples/survivors/contact-id-set.bend",
+    "old": "Node{terminal, edit_edges(char, edges, child => insert_go(tail, child))}",
+    "new": "Node{terminal, edges}",
+    "proof": "examples/survivors/contact-id-set-PROOF.bend",
+    "law": "insert_go_nonempty_node",
+    "fails_in": "insert_go_nonempty_node"
+  },
+  {
+    "label": "nonempty key incorrectly marks the root terminal",
+    "source": "examples/survivors/contact-id-set.bend",
+    "old": "Node{False{}, edit_edges(char, [], child => insert_go(tail, child))}",
+    "new": "Node{True{}, edit_edges(char, [], child => insert_go(tail, child))}",
+    "proof": "examples/survivors/contact-id-set-PROOF.bend",
+    "law": "insert_go_nonempty_empty",
+    "fails_in": "insert_go_nonempty_empty"
+  }
+]

@@ -64,10 +64,10 @@
     "law": "unresolved_row_exact"
   },
   {
-    "label": "ordinary ACK silently restarts future display cursor",
+    "label": "adaptive cursor rewinds when lead shrinks",
     "source": "examples/survivors/coop-prediction.bend",
-    "old": "Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(anchor,display)),after(anchor,U32.min(initialLead,54)),display)",
-    "new": "Bool.pick(U32,True{},after(anchor,U32.min(initialLead,54)),display)",
+    "old": "U32.max(display,after(anchor,U32.min(initialLead,54)))",
+    "new": "after(anchor,U32.min(initialLead,54))",
     "proof": "examples/survivors/coop-prediction-PROOF.bend",
     "law": "cursor_exact"
   },
@@ -150,5 +150,29 @@
     "new": "S.choose(seed,tick,px,py,radius)",
     "proof": "examples/survivors/prediction-spawn-PROOF.bend",
     "law": "placement_exact"
+  },
+  {
+    "label": "RTT adaptation leaves the epoch lead stale",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "Bool.pick(U32,U32.is_ge(anchorWorldTick,priorAnchor),U32.min(54,U32.max(currentLead,lead(roundTripMs))),currentLead)",
+    "new": "currentLead",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "choose_lead_exact"
+  },
+  {
+    "label": "RTT adaptation decreases lead inside an epoch",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "U32.min(54,U32.max(currentLead,lead(roundTripMs)))",
+    "new": "U32.min(54,lead(roundTripMs))",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "choose_lead_exact"
+  },
+  {
+    "label": "backward authority anchor changes the prediction lead",
+    "source": "examples/survivors/coop-prediction.bend",
+    "old": "U32.is_ge(anchorWorldTick,priorAnchor)",
+    "new": "True{}",
+    "proof": "examples/survivors/coop-prediction-PROOF.bend",
+    "law": "choose_lead_exact"
   }
 ]

@@ -1,0 +1,58 @@
+[
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-enemy-drops-birth",
+    "law": "enemy_generation_exact",
+    "old": "case 0: \"enemy:\" ++ U32.show(seed) ++ \":\" ++ U32.show(born)",
+    "new": "case 0: \"enemy:\" ++ U32.show(seed) ++ \":0\""
+  },
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-drops-projectile-owner",
+    "law": "visual_owner_exact",
+    "old": "Bool.pick(U32,U32.is_eq(kind,1),(slot / 65536 : U32),4294967295)",
+    "new": "4294967295"
+  },
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-hp-zero-shots-are-dead",
+    "law": "body_liveness_exact",
+    "old": "Bool.pick(U32,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7)),Bool.to_u32(Bool.and(U32.is_gt(life,0),U32.is_gt(pierce,0))),hp)",
+    "new": "hp"
+  },
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-keeps-player-binary64",
+    "law": "player_projection_exact",
+    "old": "P.Actor{id,character,\"player:\" ++ U32.show(id) ++ \":\" ++ U32.show(character),Numbers.normalize(x),Numbers.normalize(y)",
+    "new": "P.Actor{id,character,\"player:\" ++ U32.show(id) ++ \":\" ++ U32.show(character),x,Numbers.normalize(y)"
+  },
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-ignores-canonical-birth-index",
+    "law": "birth_lookup_exact",
+    "old": "BI.get(~U32,births,seed,(tick - age : U32))",
+    "new": "(tick - age : U32)"
+  },
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-duplicates-combat-extras",
+    "law": "extra_policy_exact",
+    "old": "extra_selected(Bool.not(Numbers.cohort_kind(kind)),key,kind,variant,x,y,age,hp,tick)",
+    "new": "extra_selected(True{},key,kind,variant,x,y,age,hp,tick)"
+  },
+  {
+    "source": "examples/survivors/coop-playback-wire-policy.bend",
+    "proof": "examples/survivors/coop-playback-wire-policy-PROOF.bend",
+    "label": "projection-reverses-body-inventory",
+    "law": "join_preserves_order",
+    "old": "List.reverse.go(&2,P.Actor,List.reverse(&2,P.Actor,first),second)",
+    "new": "List.reverse.go(&2,P.Actor,first,second)"
+  }
+]

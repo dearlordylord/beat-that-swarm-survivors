@@ -120,13 +120,14 @@ export class Renderer {
     for (const b of ordered) {
       while (playerIndex < players.length && b[1] > players[playerIndex].py)
         this.observedPlayer(players[playerIndex++], players.length > 1);
-      this.body(b);
+      this.drawBody(b);
     }
     while (playerIndex < players.length)
       this.observedPlayer(players[playerIndex++], players.length > 1);
     for (const b of bodies) if (b[2] === 6) this.effect(b, false);
     for (const b of bodies) this.healthBar(b);
     if (options.showDamage !== false) this.damage(bodies, dt);
+    this.contactEffects(frame.combatImpacts || []);
     const shade = c.createRadialGradient(
       this.width / 2,
       this.height / 2,
@@ -218,7 +219,7 @@ export class Renderer {
           h = hash(ix, iy);
         rect(c, x, y, s, s, h > 0.6 ? th[1] : th[0]);
         c.fillStyle = th[2];
-        c.globalAlpha = 0.3;
+        this.setAlpha(0.3);
         for (let j = 0; j < 4; j++) {
           let z = hash(ix * 7 + j, iy);
           c.fillRect(
@@ -228,12 +229,12 @@ export class Renderer {
             1,
           );
         }
-        c.globalAlpha = 1;
+        this.setAlpha(1);
         if (h > 0.86) {
           c.strokeStyle = th[2];
-          c.globalAlpha = 0.35;
+          this.setAlpha(0.35);
           c.strokeRect(Math.round(x + 4), Math.round(y + 5), 53, 51);
-          c.globalAlpha = 1;
+          this.setAlpha(1);
         }
         if (
           h < 0.062 &&
@@ -339,7 +340,7 @@ export class Renderer {
     ];
     c.strokeStyle = c.fillStyle;
     c.lineWidth = 2;
-    c.globalAlpha = until >= 0 ? 0.09 + progress * 0.17 : 0.32;
+    this.setAlpha(until >= 0 ? 0.09 + progress * 0.17 : 0.32);
     c.setLineDash(until >= 0 ? [7, 7] : []);
     if (stage === 3) {
       const left = Math.max(0, this.camera.x - 100),
@@ -376,7 +377,7 @@ export class Renderer {
           c.strokeRect(x + 1, y + 1, width - 2, height - 2);
           if (until >= 0) {
             c.save();
-            c.globalAlpha = 0.35 + progress * 0.4;
+            this.setAlpha(0.35 + progress * 0.4);
             c.font = "bold 16px monospace";
             c.textAlign = "center";
             c.fillText("!", x + width / 2, y + Math.min(height / 2, 40) + 6);
@@ -456,6 +457,23 @@ export class Renderer {
     rect(this.ctx, x - width / 2 - 1, top - 1, width + 2, 5, "#eadbc9");
     rect(this.ctx, x - width / 2, top, width, 3, "#592434");
     rect(this.ctx, x - width / 2, top, width * ratio, 3, "#a5e2a0");
+  }
+  setAlpha(opacity) { this.ctx.globalAlpha = opacity * (this.bodyOpacity ?? 1); }
+  drawBody(body) {
+    this.bodyOpacity = Number.isFinite(body[12]) ? Math.max(0,Math.min(1,body[12])) : 1;
+    this.ctx.save(); this.setAlpha(1);
+    this.body(body);
+    this.ctx.restore(); this.bodyOpacity = 1;
+  }
+  contactEffects(contacts) {
+    const c = this.ctx;
+    for (const contact of contacts) {
+      const [x,y] = this.xy(contact.x,contact.y);
+      c.save(); c.globalAlpha = contact.opacity;
+      c.strokeStyle = '#fff0b6'; c.fillStyle = '#fff8de'; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(x,y,3+contact.age,0,TAU); c.stroke();
+      c.fillRect(Math.round(x)-1,Math.round(y)-1,3,3); c.restore();
+    }
   }
   body(b) {
     const [x, y] = this.xy(b[0], b[1]);
@@ -651,9 +669,9 @@ export class Renderer {
       own = player.id === (this.frame.ownPlayerId ?? 0),
       color = own ? "#f3dfb0" : "#9ce5fa";
     c.save();
-    if (player.hp === 0) c.globalAlpha = 0.35;
+    if (player.hp === 0) this.setAlpha(0.35);
     this.player(player.px, player.py, player.character);
-    c.globalAlpha = 1;
+    this.setAlpha(1);
     c.font = "bold 10px monospace"; c.textAlign = "center";
     c.fillStyle = "#10131d"; c.fillRect(x - 23, y - 48, 46, 14);
     c.fillStyle = player.hp === 0 ? "#b5a5af" : color;
@@ -705,7 +723,7 @@ export class Renderer {
     if (chargePeriod && chargePhase >= 90 && chargePhase < 120) {
       c.save();
       c.strokeStyle = "#f2b785";
-      c.globalAlpha = 0.65;
+      this.setAlpha(0.65);
       c.lineWidth = 2;
       c.setLineDash([4, 4]);
       c.beginPath();
@@ -734,7 +752,7 @@ export class Renderer {
     ][type];
     if (type === 2 || type === 7) {
       c.fillStyle = skin;
-      c.globalAlpha = 0.8;
+      this.setAlpha(0.8);
       c.beginPath();
       c.moveTo(-9, 0);
       c.lineTo(-8, -15);
@@ -744,7 +762,7 @@ export class Renderer {
       c.lineTo(0, 1);
       c.lineTo(-4, -3);
       c.fill();
-      c.globalAlpha = 1;
+      this.setAlpha(1);
       rect(c, -5, -18, 3, 3, "#effaff");
       rect(c, 3, -18, 3, 3, "#effaff");
     } else if (type === 3) {
@@ -838,15 +856,15 @@ export class Renderer {
         c.strokeStyle = "#7e787259";
         c.setLineDash([3, 8]);
       }
-      c.globalAlpha = spent ? 0.12 : id === 11 ? 0.035 : 0.11;
+      this.setAlpha(spent ? 0.12 : id === 11 ? 0.035 : 0.11);
       c.beginPath();
       c.arc(0, 0, radius, 0, TAU);
       c.fill();
-      c.globalAlpha = spent ? 0.3 : 0.48;
+      this.setAlpha(spent ? 0.3 : 0.48);
       c.beginPath();
       c.arc(0, 0, Math.max(1, radius - 1), 0, TAU);
       c.stroke();
-      c.globalAlpha = spent ? 0.12 : 0.65;
+      this.setAlpha(spent ? 0.12 : 0.65);
       // All glyphs lie inside the authoritative collision circle.
       if (id === 9) {
         c.rotate(this.options.reducedMotion ? 0 : this.time * 0.25);
@@ -993,7 +1011,7 @@ export class Renderer {
       r = Math.min(6, Math.max(1, Number(b[8]) || 3));
     c.save();
     c.strokeStyle = COLORS[(b[3] || 0) % 24];
-    c.globalAlpha = 0.5;
+    this.setAlpha(0.5);
     c.beginPath();
     c.moveTo(x - r, y);
     c.lineTo(x + r, y);
@@ -1007,7 +1025,7 @@ export class Renderer {
       next = new Map();
     for (const b of bodies) {
       if (b[2] !== 0) continue;
-      const key = `${b[3]}:${b[7]}`,
+      const key = typeof b[9] === "string" ? b[9] : `${b[3]}:${b[7]}`,
         old = this.previous.get(key);
       if (old && old.hp > b[4] && this.labels.length < 65)
         this.labels.push({
@@ -1025,7 +1043,7 @@ export class Renderer {
       l.life -= Math.min(0.05, dt);
       if (l.life <= 0) return false;
       const [x, y] = this.xy(l.x, l.y);
-      c.globalAlpha = Math.min(1, l.life * 3);
+      this.setAlpha(Math.min(1, l.life * 3));
       c.strokeStyle = "#15121d";
       c.lineWidth = 3;
       c.strokeText(l.value, x, y - (0.65 - l.life) * 25);
@@ -1033,7 +1051,7 @@ export class Renderer {
       c.fillText(l.value, x, y - (0.65 - l.life) * 25);
       return true;
     });
-    c.globalAlpha = 1;
+    this.setAlpha(1);
     c.lineWidth = 1;
   }
 }

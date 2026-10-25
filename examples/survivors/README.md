@@ -77,6 +77,19 @@ bash examples/survivors/build-web.sh
 python3 -m http.server 8713 --directory examples/survivors/dist/web
 ```
 
+For the optional actual-Iroh browser check, keep the server running and use a
+second terminal with Playwright and Chromium already available:
+
+```sh
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
+COOP_URL=http://127.0.0.1:8713/coop.html \
+node tools/survivors-bot/coop-reliability-browser-check.mjs
+```
+
+A local build writes `version.json` with the Git revision, dirty state and
+`buildContext: "local-development"`; it has no source fingerprint. The
+publication preparation step replaces it with the immutable release manifest.
+
 Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend, Astro or Node.js. `index.html` is the source HTML shell; the deployable, prerendered page is `dist/web/index.html`. `content.mjs` is generated from `menu-catalog.bend` at build time; edit the Bend catalog, not the generated file.
 
 ## Publication
@@ -118,7 +131,10 @@ validation scope are linked from the [music guide](music/README.md).
 [Browser co-op](COOP.md) uses the shared Bend world and Iroh transport. Its
 [command boundary](coop-session-README.md) documents admission, application and
 proof scope. Historical design research is linked from the
-[multiplayer work map](../../research/survivors-multiplayer-plan.md).
+[multiplayer work map](../../research/survivors-multiplayer-plan.md). Run
+[`check-coop-reliability.sh`](check-coop-reliability.sh) from the repository
+root for fresh-emission co-op runtime checks. These checks do not qualify a
+hosted browser session or end-to-end Iroh behavior.
 
 ## Checks
 

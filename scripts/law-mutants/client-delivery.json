@@ -1,0 +1,162 @@
+[
+  {
+    "label": "shared frame budget regresses to input-only size",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "def max_frame_bytes() -> U32: 5190",
+    "new": "def max_frame_bytes() -> U32: 5156",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "failed client still admits new input",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "enqueue_selected(Bool.not(failed),state,command)",
+    "new": "enqueue_selected(True{},state,command)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "enqueue_wiring"
+  },
+  {
+    "label": "failed client still offers ACKs",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "offer_selected(Bool.not(failed),state,token,observation)",
+    "new": "offer_selected(True{},state,token,observation)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "offer_wiring"
+  },
+  {
+    "label": "ACK-only client never becomes ready",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "Bool.or(I.ready(input),R.ready(receipts))",
+    "new": "I.ready(input)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "ready_idle"
+  },
+  {
+    "label": "busy writer admits another packet",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "case State{_,next,input,receipts,None{},False{}}",
+    "new": "case State{_,next,input,receipts,_,False{}}",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "ready_busy"
+  },
+  {
+    "label": "prepare ignores ready input child",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "prepared_children(epoch,next,I.prepare(input),R.prepare(receipts))",
+    "new": "prepared_children(epoch,next,I.Prepared{input,None{}},R.prepare(receipts))",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "prepare_allowed"
+  },
+  {
+    "label": "composition drops prepared ACK",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "combined(Bool.or(batch_present(batch),R.present(receipt)),epoch,next,input,receipts,batch,receipt)",
+    "new": "combined(Bool.or(batch_present(batch),R.present(receipt)),epoch,next,input,receipts,batch,None{})",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "prepared_children_exact"
+  },
+  {
+    "label": "shared callbacks ignore epoch",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "Bool.and(U32.is_eq(current,epoch),Bool.and(U32.is_eq(packetEpoch,epoch),U32.is_eq(packetId,id)))",
+    "new": "U32.is_eq(packetId,id)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "matches_exact"
+  },
+  {
+    "label": "input completion leaves child flight reserved",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "I.complete(input,epoch,id)",
+    "new": "input",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "completed_input_stored"
+  },
+  {
+    "label": "receipt completion leaves child flight reserved",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "R.complete(receipts,epoch,token,observation)",
+    "new": "receipts",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "completed_receipt_stored"
+  },
+  {
+    "label": "failure forgets shared fence",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "State{epoch,next,failed_input_packet(flight,input),receipts,flight,True{}}",
+    "new": "State{epoch,next,failed_input_packet(flight,input),receipts,flight,False{}}",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "fail_fences_retains"
+  },
+  {
+    "label": "failure discards retained accepted input",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "State{epoch,next,failed_input_packet(flight,input),receipts,flight,True{}}",
+    "new": "State{epoch,next,I.fresh(epoch),receipts,flight,True{}}",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "fail_fences_retains"
+  },
+  {
+    "label": "failed input is completed instead of fenced",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "I.fail(input,epoch,id)",
+    "new": "I.complete(input,epoch,id)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "failed_input_stored"
+  },
+  {
+    "label": "composite encoding drops input batch",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "\"BSC1\\n\" ++ encoded_receipt(receipt) ++ \"\\n\" ++ encoded_batch(batch)",
+    "new": "\"BSC1\\n\" ++ encoded_receipt(receipt) ++ \"\\n\" ++ \"-\"",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "encode_exact"
+  },
+  {
+    "label": "composite encoding drops ACK",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "\"BSC1\\n\" ++ encoded_receipt(receipt) ++ \"\\n\" ++ encoded_batch(batch)",
+    "new": "\"BSC1\\n\" ++ \"-\" ++ \"\\n\" ++ encoded_batch(batch)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "encode_exact"
+  },
+  {
+    "label": "atomic assembler reverses commands",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "Some{Payload{receipt,commands}}",
+    "new": "Some{Payload{receipt,List.reverse(&2,S.Command,commands)}}",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "assembled_success"
+  },
+  {
+    "label": "bad command suffix still admits good ACK",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "case _ _: None{}\ndef fallback_receipt",
+    "new": "case Some{receipt} None{}: Some{Payload{receipt,[]}}\n    case _ _: None{}\ndef fallback_receipt",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "assembled_bad_commands"
+  },
+  {
+    "label": "input batch parser accepts empty commands",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "case False{}: I.decode(join_lines(rows))",
+    "new": "case False{}: Some{[]}",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "command_selected_present"
+  },
+  {
+    "label": "receipt decoder drops valid ACK",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "case Some{receipt}: Some{Some{receipt}}",
+    "new": "case Some{receipt}: Some{None{}}",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "parsed_receipt_some"
+  },
+  {
+    "label": "public parser skips preparse size gate",
+    "source": "examples/survivors/coop-client-delivery.bend",
+    "old": "decode_selected(Nat.is_le(String.length(text),U32.to_nat(max_frame_bytes())),text)",
+    "new": "decode_selected(True{},text)",
+    "proof": "examples/survivors/coop-client-delivery-PROOF.bend",
+    "law": "decode_entry"
+  }
+]

@@ -1,0 +1,170 @@
+[
+  {
+    "label": "effect lifetime extended",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "def duration() -> U32: 4",
+    "new": "def duration() -> U32: 5",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "active capacity enlarged",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "def capacity() -> Nat: 512n",
+    "new": "def capacity() -> Nat: 513n",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "limits_exact"
+  },
+  {
+    "label": "attach replays prior history",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "J.attach(journal)",
+    "new": "J.playback(0)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "attach_exact"
+  },
+  {
+    "label": "unattached epoch zero treated as current",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "Bool.and(attached,U32.is_eq(epoch,other))",
+    "new": "U32.is_eq(epoch,other)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "epoch_exact"
+  },
+  {
+    "label": "fourth elapsed tick still visible",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "U32.is_lt((tick - started : U32),duration())",
+    "new": "U32.is_le((tick - started : U32),duration())",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "recent_exact"
+  },
+  {
+    "label": "visibility uses old authority time",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "case Effect{_,started}: recent(started,tick)",
+    "new": "case Effect{event,started}: recent(J.event_tick(event),tick)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "visible_exact"
+  },
+  {
+    "label": "active membership forgets earlier duplicate",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "Bool.or(found,String.eq(key(head),id))",
+    "new": "String.eq(key(head),id)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "contains_cons"
+  },
+  {
+    "label": "failed contacts create hit effects",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "Bool.and(U32.is_eq(outcome,0),U32.is_le(at,tick))",
+    "new": "U32.is_le(at,tick)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "eligible_exact"
+  },
+  {
+    "label": "new late flash starts at stale authority tick",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "def add_selected(allowed:Bool,duplicate:Bool,event:J.HitEvent,tick:U32,rows:List<&2,Effect>) -> List<&2,Effect>:\n  match allowed duplicate:\n    case True{} False{}: Effect{event,tick} <> rows",
+    "new": "def add_selected(allowed:Bool,duplicate:Bool,+event:J.HitEvent,tick:U32,rows:List<&2,Effect>) -> List<&2,Effect>:\n  match allowed duplicate:\n    case True{} False{}: Effect{event,J.event_tick(event)} <> rows",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "add_new"
+  },
+  {
+    "label": "duplicate active flash restarts",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "case True{} False{}: Effect{event,tick} <> rows",
+    "new": "case True{} _: Effect{event,tick} <> rows",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "add_duplicate"
+  },
+  {
+    "label": "public insertion bypasses dedup",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "contains(rows,J.event_key(event)),event,tick,rows",
+    "new": "False{},event,tick,rows",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "add_entry"
+  },
+  {
+    "label": "batch drops all existing flashes",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "case []: effects",
+    "new": "case []: []",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "add_rows_nil"
+  },
+  {
+    "label": "active eviction counter lost",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "(dropped + U32.from_nat(Nat.sub(List.length(&2,Effect,rows),capacity())) : U32)",
+    "new": "dropped",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "bounded_exact"
+  },
+  {
+    "label": "expired effects retain capacity",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "add_rows(events,tick,retain_go(rows,tick,[]))",
+    "new": "add_rows(events,tick,rows)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "completed_exact"
+  },
+  {
+    "label": "public advance bypasses epoch reset",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "advance_selected(same_epoch(state,journal),state,journal,sample)",
+    "new": "advance_same(state,journal,sample)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "advance_entry"
+  },
+  {
+    "label": "effect target mapping uses stale world impact",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "C.fx_point(BI.find(~P.Actor,index,C.target_seed(event)),event)",
+    "new": "C.impact(event)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "render_effect_exact"
+  },
+  {
+    "label": "rendered age ignores first display",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "    case J.HitEvent{id,at,kind,_,_,seed,generation,_,_,_,_,_,radius,_} C.Point{x,y}:\n      C.Fx{id,at,kind,seed,generation,x,y,radius,(tick - started : U32),F32.div(U32.to_f32((duration() - U32.min(duration(),(tick - started : U32)) : U32)),4.0)}",
+    "new": "    case J.HitEvent{id,+at,kind,_,_,seed,generation,_,_,_,_,_,radius,_} C.Point{x,y}:\n      C.Fx{id,at,kind,seed,generation,x,y,radius,(tick - at : U32),F32.div(U32.to_f32((duration() - U32.min(duration(),(tick - started : U32)) : U32)),4.0)}",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "rendered_exact"
+  },
+  {
+    "label": "render traversal ignores expiry",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "render_selected(visible(head,tick),head,tick,index,acc)",
+    "new": "render_selected(True{},head,tick,index,acc)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "render_cons"
+  },
+  {
+    "label": "same-epoch intake consumes future arrivals",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "case True{}: state",
+    "new": "case True{}: attach(journal)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "receive_current"
+  },
+  {
+    "label": "first intake does not establish journal baseline",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "def receive_selected(same:Bool,state:State,journal:J.State) -> State:\n  match same:\n    case True{}: state\n    case False{}: attach(journal)",
+    "new": "def receive_selected(same:Bool,state:State,journal:J.State) -> State:\n  match same:\n    case True{}: state\n    case False{}: state",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "receive_changed"
+  },
+  {
+    "label": "public intake always attaches latest journal",
+    "source": "examples/survivors/coop-hit-effects.bend",
+    "old": "receive_selected(same_epoch(state,journal),state,journal)",
+    "new": "attach(journal)",
+    "proof": "examples/survivors/coop-hit-effects-PROOF.bend",
+    "law": "receive_entry"
+  }
+]

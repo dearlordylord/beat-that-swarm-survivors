@@ -215,9 +215,20 @@ law resync_exact:
   for +incoming:U32
   {P.resync_needed(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last},incoming) == Bool.or(Bool.not(enabled),U32.is_ge(incoming,display)) : Bool}
 
-# Guarantees: cursor selection either preserves the existing display clock or
-# starts an explicit neutral lead after the incoming anchor, under that policy.
-# Why it matters: pending commands retain their original world tick assignments.
+# Guarantees: on a nondecreasing authority anchor, lead never falls below the
+# current epoch lead and never exceeds54; a backward anchor preserves it.
+# Why it matters: admitted RTT growth repairs a lagging pipeline while a stale
+# authority frame cannot change the lead.
+law choose_lead_exact:
+  for +state:P.State
+  for +anchor:U32
+  for +roundTripMs:U32
+  for +currentLead:U32
+  {P.choose_lead(state,anchor,roundTripMs,currentLead) == Bool.pick(U32,U32.is_ge(anchor,P.anchor_world_tick(state)),U32.min(54,U32.max(currentLead,P.lead(roundTripMs))),currentLead) : U32}
+
+# Guarantees: cursor is the greater of its old display and the saturating
+# incoming anchor plus the selected lead.
+# Why it matters: RTT adaptation can move only the future cursor forward.
 law cursor_exact:
   for x:F32
   for y:F32
@@ -230,7 +241,7 @@ law cursor_exact:
   for last:U32
   for +incoming:U32
   for +initialLead:U32
-  {P.cursor(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last},incoming,initialLead) == Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(incoming,display)),P.after(incoming,U32.min(initialLead,54)),display) : U32}
+  {P.cursor(P.State{x,y,distance,enabled,inputs,anchor,display,observation,last},incoming,initialLead) == U32.max(display,P.after(incoming,U32.min(initialLead,54))) : U32}
 
 # Guarantees: rejecting a stale observation preserves the complete timeline.
 # Why it matters: duplicate packets cannot rewind the display clock or pending inputs.
@@ -356,12 +367,14 @@ law fresh_exact:
 
 def running_spec(state:P.State,observation:U32,+anchor:U32,x:F32,y:F32,+distance:F32,initialLead:U32) -> P.State:
   match state:
-    case P.State{_,_,_,enabled,inputs,_,+display,_,last}:
-      +cursor = Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(anchor,display)),P.after(anchor,U32.min(initialLead,54)),display)
+    case P.State{_,_,_,_,inputs,_,+display,_,last}:
+      +cursor = U32.max(display,P.after(anchor,U32.min(initialLead,54)))
       +rows = P.unresolved(inputs,anchor)
       P.placed(distance,True{},rows,anchor,cursor,observation,last,P.replay_position(U32.to_nat(P.world_count(anchor,cursor)),anchor,rows,distance,M.Point{x,y}))
 # Guarantees: accepted authority replaces the point anchor, filters resolved
-# target ticks, and replays the full retained world interval to the fixed cursor.
+# target ticks, and replays the full retained interval; unassigned added ticks
+# use the existing neutral input default while preserving each pending row's
+# sequence, target tick and axes.
 # Why it matters: an ACK cannot replay commands from an old position or squeeze
 # neutral cooldown ticks out of the history.
 law running_reconcile_exact:

@@ -1,0 +1,122 @@
+[
+  {
+    "label": "snapshot application window becomes seventeenth outstanding snapshot",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "def window() -> Nat: 16n",
+    "new": "def window() -> Nat: 17n",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "window_exact"
+  },
+  {
+    "label": "stale observations replace pending",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "U32.is_gt(observation,last)",
+    "new": "U32.is_ge(observation,last)",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "offer_allowed_exact"
+  },
+  {
+    "label": "offer discards outstanding native writer",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "State{token,Some{observation},writing,flights,observation,True{}}",
+    "new": "State{token,Some{observation},None{},flights,observation,True{}}",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "offered_replaces_pending"
+  },
+  {
+    "label": "full window admits seventeenth snapshot",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "Nat.is_lt(List.length(&2,U32,flights),window())",
+    "new": "Nat.is_le(List.length(&2,U32,flights),window())",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "ready_available"
+  },
+  {
+    "label": "flight row cap removed",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "List.take(&2,U32,List.append(&2,U32,rows,[observation]),window())",
+    "new": "List.append(&2,U32,rows,[observation])",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "flight_rows_exact"
+  },
+  {
+    "label": "native completion clears application flights",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "State{token,pending,None{},flights,last,offered}",
+    "new": "State{token,pending,None{},[],last,offered}",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "complete_only_native"
+  },
+  {
+    "label": "native completion ignores observation",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "Bool.and(U32.is_eq(current,token),U32.is_eq(writing,observation))",
+    "new": "U32.is_eq(current,token)",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "writing_matches_exact"
+  },
+  {
+    "label": "application receipt ignores connection token",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "Bool.and(U32.is_eq(current,token),contains(flights,observation))",
+    "new": "contains(flights,observation)",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "matches_exact"
+  },
+  {
+    "label": "application receipt ignores exact membership",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "Bool.and(U32.is_eq(current,token),contains(flights,observation))",
+    "new": "U32.is_eq(current,token)",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "matches_exact"
+  },
+  {
+    "label": "cumulative receipt retains its own acknowledged ID",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "keep_flight(U32.is_gt(head,observation)",
+    "new": "keep_flight(U32.is_ge(head,observation)",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "unacknowledged_cons"
+  },
+  {
+    "label": "application receipt clears native writer early",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "State{token,pending,writing,unacknowledged(flights,observation),last,offered}",
+    "new": "State{token,pending,None{},unacknowledged(flights,observation),last,offered}",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "ack_cumulative_only"
+  },
+  {
+    "label": "application receipt discards pending latest",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "State{token,pending,writing,unacknowledged(flights,observation),last,offered}",
+    "new": "State{token,None{},writing,unacknowledged(flights,observation),last,offered}",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "ack_cumulative_only"
+  },
+  {
+    "label": "public acknowledgement never releases flights",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "ack_selected(matches(state,token,observation),state,observation)",
+    "new": "state",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "ack_wiring"
+  },
+  {
+    "label": "receipt decoder refuses every field triple",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "decode_fields(Protocol.fields(text,\"\"))",
+    "new": "None{}",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "decode_allowed"
+  },
+  {
+    "label": "receipt encoding discards observation",
+    "source": "examples/survivors/coop-snapshot-flow.bend",
+    "old": "U32.show(token) ++ \"|\" ++ U32.show(observation)",
+    "new": "U32.show(token) ++ \"|\" ++ \"0\"",
+    "proof": "examples/survivors/coop-snapshot-flow-PROOF.bend",
+    "law": "encode_exact"
+  }
+]

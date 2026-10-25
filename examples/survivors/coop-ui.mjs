@@ -82,7 +82,7 @@ export class CoopUI {
     this.touch = { x: 0, y: 0 };
     this.touchPointerId = null;
     this.lastInput = '';
-    this.frame = null;
+    this.frame = null; this.displayedFrame = null;
     this.rewardSignature = '';
     this.choiceBusy = false;
     this.events = new AbortController();
@@ -166,24 +166,36 @@ export class CoopUI {
     on(pad, 'pointermove', event => { if (event.pointerId === this.touchPointerId && pad.hasPointerCapture(event.pointerId)) touchMove(event); });
     const touchEnd = event => { if (event.pointerId === this.touchPointerId) this.clearTouchInput(); };
     on(pad, 'pointerup', touchEnd); on(pad, 'pointercancel', touchEnd); on(pad, 'lostpointercapture', touchEnd);
-    this.animate = now => {
-      const delta = Math.max(0, Math.min(100, now - (this.previous || now)));
-      this.previous = now;
-      if (this.frame) {
-        const display = this.displayFrame(now);
-        this.renderer.draw(display, delta / 1000, this.profile.settings || {});
-        if (!this.$('#coop-map-panel').hidden) this.renderer.drawMap(this.$('#coop-map'), display);
-        if (delta > 0) this.fps = this.fps === undefined ? 1000 / delta : this.fps * .95 + 1000 / delta * .05;
-        this.$('#coop-fps').textContent = `${Math.round(this.fps || 0)} FPS`;
+    this.animate = () => {
+      try {
+        const now = window.performance.now();
+        const delta = Math.max(0, Math.min(100, now - (this.previous || now)));
+        this.previous = now;
+        if (this.frame && !this.renderFailed) {
+          const display = this.displayFrame(now);
+          this.renderer.draw(display, delta / 1000, this.profile.settings || {});
+          this.displayedFrame = display;
+          if (!this.$('#coop-map-panel').hidden) this.renderer.drawMap(this.$('#coop-map'), display);
+          if (delta > 0) this.fps = this.fps === undefined ? 1000 / delta : this.fps * .95 + 1000 / delta * .05;
+          this.$('#coop-fps').textContent = `${Math.round(this.fps || 0)} FPS`;
+        }
+      } catch (error) {
+        // Preserve the fatal diagnostic; drawing resumes only after a new session reset.
+        this.renderFailed = true;
+        throw error;
+      } finally {
+        this.animation = window.requestAnimationFrame(this.animate);
       }
-      this.animation = window.requestAnimationFrame(this.animate);
     };
     this.animation = window.requestAnimationFrame(this.animate);
   }
   displayFrame(now) {
-    const interpolated = this.presentation.sample(now) || this.frame;
-    return this.callbacks.onDisplay?.(interpolated,now) || interpolated;
+    this.callbacks.onPrepareDisplay?.(now);
+    const paintAt = this.window.performance.now();
+    const interpolated = this.presentation.sample(paintAt) || this.frame;
+    return this.callbacks.onDisplay?.(interpolated,paintAt) || interpolated;
   }
+
   setup() {
     const selected = Object.fromEntries(Object.keys(catalogs).map(kind => [kind, Number(this.$(`#coop-${kind}`).value)]));
     return { ...validateSetup(this.profile, selected), meta: metaCode(this.profile), allowedWeapons: allowedWeapons(this.profile) };
@@ -335,7 +347,7 @@ export class CoopUI {
   toggleMap(open = this.$('#coop-map-panel').hidden) {
     this.$('#coop-map-panel').hidden = !open;
     this.$('#coop-map-toggle').setAttribute('aria-expanded', String(open));
-    if (open && this.frame) this.renderer.drawMap(this.$('#coop-map'), this.displayFrame(this.window.performance.now()));
+    if (open && this.frame) this.renderer.drawMap(this.$('#coop-map'), this.displayedFrame || this.frame);
     // This is a local overlay; it never requests a pause from the controller.
   }
   present(frame) {
@@ -403,8 +415,8 @@ export class CoopUI {
     if (!previous) this.canvas.focus({ preventScroll: true });
   }
   reset() {
-    this.clearInput(); this.frame = null; this.rewardSignature = ''; this.choiceBusy = false;
-    this.playerSignature = '';
+    this.clearInput(); this.frame = null; this.displayedFrame = null; this.rewardSignature = ''; this.choiceBusy = false;
+    this.playerSignature = ''; this.renderFailed = false;
     this.progress.reset(); this.presentation.reset();
     this.renderer.reset(); this.audio.stop(true); this.toggleMap(false);
     this.$('#coop-lobby').hidden = false; this.$('#coop-play').hidden = true;

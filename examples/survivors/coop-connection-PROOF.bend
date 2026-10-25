@@ -2,7 +2,7 @@ import Base
 import ./coop-connection.bend as C
 import ./coop-connection-LAWS.bend as L
 
-def guest_hello_out(+flag:Bool,+epoch:U32,+token:U32) -> {C.guest_hello_selected(flag,epoch,token) == Bool.pick(C.Out,flag,C.Out{C.GuestSnapshot{epoch,token},C.HelloAckAndSetup{4,token}},C.Out{C.Failed{C.Guest{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}:
+def guest_hello_out(+flag:Bool,+epoch:U32,+token:U32) -> {C.guest_hello_selected(flag,epoch,token) == Bool.pick(C.Out,flag,C.Out{C.GuestSnapshot{epoch,token},C.HelloAckAndSetup{5,token}},C.Out{C.Failed{C.Guest{},epoch,C.VersionMismatch{}},C.CloseConnection{C.VersionMismatch{}}}) : C.Out}:
   match flag:
     case False{}: {==}
     case True{}: {==}
@@ -143,9 +143,9 @@ def L.host_transport_only_negotiates(epoch): {==}
 
 def L.guest_transport_waits_for_hello(epoch): {==}
 
-def L.guest_hello_exact(epoch,version,token): guest_hello_out(U32.is_eq(version,4),epoch,token)
+def L.guest_hello_exact(epoch,version,token): guest_hello_out(U32.is_eq(version,5),epoch,token)
 
-def L.host_hello_exact(epoch,version,token): host_hello_out(U32.is_eq(version,4),epoch,token)
+def L.host_hello_exact(epoch,version,token): host_hello_out(U32.is_eq(version,5),epoch,token)
 
 def L.legacy_setup_rejected(epoch): {==}
 
@@ -194,7 +194,7 @@ def L.current_event_dispatch_exact(state,eventEpoch,event,current):
 
 def L.reconnect_newer_exact(state,newEpoch): reconnect_out(U32.is_gt(newEpoch,C.epoch(state)),state,newEpoch)
 
-def L.frame_version_and_token_exact(epoch,expected,version,token,observation): frame_version_out(U32.is_eq(version,4),C.GuestSnapshot{epoch,expected},expected,token,observation)
+def L.frame_version_and_token_exact(epoch,expected,version,token,observation): frame_version_out(U32.is_eq(version,5),C.GuestSnapshot{epoch,expected},expected,token,observation)
 
 def L.oversized_control_refused(text,oversized):
   %oversized : {C.decode_bounded(_,text) == None{} : Maybe<&2,C.Signal>}
@@ -227,6 +227,7 @@ def L.reason_codes_roundtrip(reason):
     case C.SnapshotFailed{}: {==}
     case C.TransportFailed{}: {==}
     case C.RuntimeFailed{}: {==}
+    case C.PresentationFailed{}: {==}
 
 def L.running_query_exact(state):
   match state:
@@ -258,7 +259,7 @@ def L.start_has_only_one_cause(state,event):
     case C.Idle{role,epoch} C.Reject{why}: {==}
     case C.HostHello{epoch} C.Hello{version,token}: {==}
     case C.HostHello{epoch} C.Frame{version,token,received}: {==}
-    case C.HostHello{epoch} C.HelloAck{version,token}: host_hello_no_start(U32.is_eq(version,4),epoch,token)
+    case C.HostHello{epoch} C.HelloAck{version,token}: host_hello_no_start(U32.is_eq(version,5),epoch,token)
     case C.HostHello{epoch} C.Setup{}: {==}
     case C.HostHello{epoch} C.Prepared{received}: {==}
     case C.HostHello{epoch} C.SnapshotSeen{token,received}: {==}
@@ -311,8 +312,8 @@ def L.start_has_only_one_cause(state,event):
     case C.HostRunning{epoch} C.Timeout{}: {==}
     case C.HostRunning{epoch} C.Lost{}: {==}
     case C.HostRunning{epoch} C.Reject{why}: {==}
-    case C.GuestHello{epoch} C.Hello{version,token}: guest_hello_no_start(U32.is_eq(version,4),epoch,token)
-    case C.GuestHello{epoch} C.Frame{version,token,received}: early_frame_no_start(U32.is_eq(version,4),C.GuestHello{epoch})
+    case C.GuestHello{epoch} C.Hello{version,token}: guest_hello_no_start(U32.is_eq(version,5),epoch,token)
+    case C.GuestHello{epoch} C.Frame{version,token,received}: early_frame_no_start(U32.is_eq(version,5),C.GuestHello{epoch})
     case C.GuestHello{epoch} C.HelloAck{version,token}: {==}
     case C.GuestHello{epoch} C.Setup{}: {==}
     case C.GuestHello{epoch} C.Prepared{received}: {==}
@@ -323,7 +324,7 @@ def L.start_has_only_one_cause(state,event):
     case C.GuestHello{epoch} C.Lost{}: {==}
     case C.GuestHello{epoch} C.Reject{why}: {==}
     case C.GuestSnapshot{epoch,expected} C.Hello{version,token}: {==}
-    case C.GuestSnapshot{epoch,expected} C.Frame{version,token,received}: frame_version_no_start(U32.is_eq(version,4),C.GuestSnapshot{epoch,expected},expected,token,received)
+    case C.GuestSnapshot{epoch,expected} C.Frame{version,token,received}: frame_version_no_start(U32.is_eq(version,5),C.GuestSnapshot{epoch,expected},expected,token,received)
     case C.GuestSnapshot{epoch,expected} C.HelloAck{version,token}: {==}
     case C.GuestSnapshot{epoch,expected} C.Setup{}: {==}
     case C.GuestSnapshot{epoch,expected} C.Prepared{received}: {==}
@@ -334,7 +335,7 @@ def L.start_has_only_one_cause(state,event):
     case C.GuestSnapshot{epoch,expected} C.Lost{}: {==}
     case C.GuestSnapshot{epoch,expected} C.Reject{why}: {==}
     case C.GuestStart{epoch,expected,observation} C.Hello{version,token}: {==}
-    case C.GuestStart{epoch,expected,observation} C.Frame{version,token,received}: frame_version_no_start(U32.is_eq(version,4),C.GuestStart{epoch,expected,observation},expected,token,received)
+    case C.GuestStart{epoch,expected,observation} C.Frame{version,token,received}: frame_version_no_start(U32.is_eq(version,5),C.GuestStart{epoch,expected,observation},expected,token,received)
     case C.GuestStart{epoch,expected,observation} C.HelloAck{version,token}: {==}
     case C.GuestStart{epoch,expected,observation} C.Setup{}: {==}
     case C.GuestStart{epoch,expected,observation} C.Prepared{received}: {==}
@@ -345,7 +346,7 @@ def L.start_has_only_one_cause(state,event):
     case C.GuestStart{epoch,expected,observation} C.Lost{}: {==}
     case C.GuestStart{epoch,expected,observation} C.Reject{why}: {==}
     case C.GuestRunning{epoch,expected} C.Hello{version,token}: {==}
-    case C.GuestRunning{epoch,expected} C.Frame{version,token,received}: frame_version_no_start(U32.is_eq(version,4),C.GuestRunning{epoch,expected},expected,token,received)
+    case C.GuestRunning{epoch,expected} C.Frame{version,token,received}: frame_version_no_start(U32.is_eq(version,5),C.GuestRunning{epoch,expected},expected,token,received)
     case C.GuestRunning{epoch,expected} C.HelloAck{version,token}: {==}
     case C.GuestRunning{epoch,expected} C.Setup{}: {==}
     case C.GuestRunning{epoch,expected} C.Prepared{received}: {==}
@@ -393,7 +394,7 @@ def L.running_entry_has_only_confirmed_causes(state,event):
     case C.Idle{role,epoch} C.Reject{why}: {==}
     case C.HostHello{epoch} C.Hello{version,token}: {==}
     case C.HostHello{epoch} C.Frame{version,token,received}: {==}
-    case C.HostHello{epoch} C.HelloAck{version,token}: host_hello_not_running(U32.is_eq(version,4),epoch,token)
+    case C.HostHello{epoch} C.HelloAck{version,token}: host_hello_not_running(U32.is_eq(version,5),epoch,token)
     case C.HostHello{epoch} C.Setup{}: {==}
     case C.HostHello{epoch} C.Prepared{received}: {==}
     case C.HostHello{epoch} C.SnapshotSeen{token,received}: {==}
@@ -446,8 +447,8 @@ def L.running_entry_has_only_confirmed_causes(state,event):
     case C.HostRunning{epoch} C.Timeout{}: {==}
     case C.HostRunning{epoch} C.Lost{}: {==}
     case C.HostRunning{epoch} C.Reject{why}: {==}
-    case C.GuestHello{epoch} C.Hello{version,token}: guest_hello_not_running(U32.is_eq(version,4),epoch,token)
-    case C.GuestHello{epoch} C.Frame{version,token,received}: early_frame_not_running(U32.is_eq(version,4),C.GuestHello{epoch})
+    case C.GuestHello{epoch} C.Hello{version,token}: guest_hello_not_running(U32.is_eq(version,5),epoch,token)
+    case C.GuestHello{epoch} C.Frame{version,token,received}: early_frame_not_running(U32.is_eq(version,5),C.GuestHello{epoch})
     case C.GuestHello{epoch} C.HelloAck{version,token}: {==}
     case C.GuestHello{epoch} C.Setup{}: {==}
     case C.GuestHello{epoch} C.Prepared{received}: {==}
@@ -458,7 +459,7 @@ def L.running_entry_has_only_confirmed_causes(state,event):
     case C.GuestHello{epoch} C.Lost{}: {==}
     case C.GuestHello{epoch} C.Reject{why}: {==}
     case C.GuestSnapshot{epoch,expected} C.Hello{version,token}: {==}
-    case C.GuestSnapshot{epoch,expected} C.Frame{version,token,received}: frame_version_not_running(U32.is_eq(version,4),C.GuestSnapshot{epoch,expected},expected,token,received,{==})
+    case C.GuestSnapshot{epoch,expected} C.Frame{version,token,received}: frame_version_not_running(U32.is_eq(version,5),C.GuestSnapshot{epoch,expected},expected,token,received,{==})
     case C.GuestSnapshot{epoch,expected} C.HelloAck{version,token}: {==}
     case C.GuestSnapshot{epoch,expected} C.Setup{}: {==}
     case C.GuestSnapshot{epoch,expected} C.Prepared{received}: {==}
@@ -469,7 +470,7 @@ def L.running_entry_has_only_confirmed_causes(state,event):
     case C.GuestSnapshot{epoch,expected} C.Lost{}: {==}
     case C.GuestSnapshot{epoch,expected} C.Reject{why}: {==}
     case C.GuestStart{epoch,expected,observation} C.Hello{version,token}: {==}
-    case C.GuestStart{epoch,expected,observation} C.Frame{version,token,received}: frame_version_not_running(U32.is_eq(version,4),C.GuestStart{epoch,expected,observation},expected,token,received,{==})
+    case C.GuestStart{epoch,expected,observation} C.Frame{version,token,received}: frame_version_not_running(U32.is_eq(version,5),C.GuestStart{epoch,expected,observation},expected,token,received,{==})
     case C.GuestStart{epoch,expected,observation} C.HelloAck{version,token}: {==}
     case C.GuestStart{epoch,expected,observation} C.Setup{}: {==}
     case C.GuestStart{epoch,expected,observation} C.Prepared{received}: {==}

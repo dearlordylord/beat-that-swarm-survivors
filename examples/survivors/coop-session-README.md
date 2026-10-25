@@ -16,7 +16,7 @@ when a worker cannot respond. Worker crashes are handled without asking that
 failed worker to process its own error. Browser/transport adapters execute the
 returned actions; the formal laws do not prove their IO implementation.
 
-The public module contract is version four. Keep both tabs updated. A mismatch
+The public module contract is version five. Keep both tabs updated. A mismatch
 is shown beside the guest heading; the static lobby does not assert that an
 uncontacted host is available. Peer rejection retains the host endpoint and
 invitation so a compatible guest can try again.
@@ -38,6 +38,41 @@ input only after an actual game step. A movement command's intended tick is its
 exact target world tick: a late command is rejected rather than shifted forward.
 Transport sequence numbers and world ticks are different clocks. The
 [worker](coop-worker.mjs) connects these boundaries.
+
+## Separate clocks and prediction lead
+
+The co-op path keeps packet identity, observation freshness, authoritative world
+time and the guest's predicted display cursor separate. A command's `seq`
+orders packets; `targetWorldTick` names the exact simulation tick it may affect.
+Observation numbers reject stale snapshots. The authority anchor advances with
+the host simulation, while the display cursor may run ahead to cover expected
+input delay. Missing command rows remain neutral world ticks during replay.
+
+The pure prediction module derives lead as
+`min(54, ceil(min(ackDelayMs, 1000) * 60 / 1000) + 4)` ticks. This delay is measured
+from command enqueue to host admission acknowledgement, including queues and the
+return snapshot; it is not pure network RTT. Every admitted observation raises
+the selected lead monotonically when that delay grows. The cursor is the maximum
+of its previous value and the saturating new anchor plus lead. Existing sequence
+numbers, target ticks and axes stay unchanged; newly exposed gaps remain neutral.
+Lifecycle resets may choose a smaller lead. Late commands are rejected, never
+silently shifted to a different gameplay tick.
+
+A sustained delay beyond the capped lead is a degraded condition. In particular,
+600 ms for each combined input/ACK write can exceed the timely-delivery budget
+within this horizon. Overload checks establish bounded resources and explicit
+late-input rejection, not playability under an arbitrary network delay.
+
+## Protocol v5 and bounded delivery
+
+The client keeps accepted commands in a bounded journal until their batch
+completes. The bound is 64 total commands, including the active flight and
+pending rows, with 62 movement slots and two reserved control slots. One flight
+at a time carries up to 32 ordered commands in the `BSB1` envelope; its encoded
+frame is limited to 5156 bytes. Completion must match the current connection
+epoch and batch ID. Failure retains the journal and fences that flow, so an
+accepted command is not reported as delivered merely because a write was
+started.
 
 A guest transport departure suspends the shared run without disconnecting the
 stored player record or discarding its reward choice. The host keeps its Iroh
@@ -63,11 +98,54 @@ executed state equality. This is not a kernel proof of all game/core functions
 or of browser/Iroh lifecycle behavior.
 
 The [session laws](coop-session-LAWS.bend), [reward laws](coop-reward-policy-LAWS.bend),
-[protocol laws](coop-protocol-LAWS.bend) and [pickup laws](pickup-selection-LAWS.bend)
+[protocol laws](coop-protocol-LAWS.bend), prediction laws and [pickup laws](pickup-selection-LAWS.bend)
 state their precise guarantees. The shared [proof gate](../../scripts/check-bend-laws.py)
 checks them with BendTT; the [mutation gate](../../scripts/check-bend-mutants.py)
-requires type-correct semantic faults to be rejected.
+requires type-correct semantic faults to be rejected. From the repository root,
+`bash examples/survivors/check-coop-reliability.sh` freshly emits its Bend modules
+and runs deterministic flow, prediction, playback, journal, prepared-resolver
+and presentation-projection adapter checks. It fingerprints the relevant Bend
+and JavaScript sources during the run and fails if they change concurrently.
 
-Run `bash examples/survivors/check.sh` from the repository root. Universal wire
-encode/decode roundtrip and cross-platform floating point determinism are outside
-the current proofs.
+These laws prove pure Bend behavior, and the command checks its generated
+modules and selected prepared-resolver behavior. Neither is an end-to-end
+browser/Iroh qualification. Universal wire encode/decode roundtrip across every
+transport path and cross-platform floating-point determinism remain outside the
+current proofs.
+
+Snapshot delivery has a separate Bend journal (`coop-snapshot-flow.bend`): up to sixteen
+application-unacknowledged observations, one native writer and one replaceable
+latest pending observation. The guest sends the exact token/observation receipt only after
+parsing, admission and `ui.present` complete. QUIC stream completion and byte
+acknowledgement clear only the writer, never the application window.
+`coop-client-delivery.bend` prepares input and the latest receipt in one `BSC1`
+packet, with one shared native writer. It completes the stored child IDs and
+preserves newer pending work; its outer frame limit is 5190 bytes.
+Guest receipts coalesce to one latest pending receipt;
+cumulative host-token/observation acknowledgements release the window. This bounds stale work; it cannot
+promise a network latency bound. At high latency the snapshot cadence decreases
+instead of building an ever older queue.
+
+Both roles use `coop-hit-effects.bend` for confirmed contact effects. A receipt
+first crossed during presentation recovery gets four display ticks from its
+first delivery to that ledger. Duplicates cannot restart it; reconnect attaches
+to the current journal without replaying old effects. These are cosmetic events;
+health and progression remain authoritative host state.
+
+The remote presentation clock has four Bend modes. Priming waits for its role's
+initial delay (six guest ticks, three host ticks); after starvation, Holding
+resumes at the first newer tick. Ordinary playback uses 60 Hz, or 66 Hz above
+`delay + 1` received ticks of backlog. Emergency Boosting enters above
+`delay + 4`, runs at 84 Hz until backlog reaches `delay + 1`, and resets on
+starvation/history recovery/new stream. This is a bounded cosmetic speed tradeoff.
+On readiness, elapsed credit is capped separately at 33,334 microseconds so a
+background gap cannot become a large resume jump. All remote actors and
+confirmed effects share that cursor; local movement and shot clocks retain
+60 Hz budgets. A slow producer can still force short holds. This does not
+promise continuous motion across arbitrary outages or overloaded host CPUs.
+
+Snapshots use the browser gzip codec in `coop-snapshot-codec.mjs`. One serial
+receiver admits at most sixteen compressed jobs, including the active job, and
+16 MiB of compressed input. Each complete decoded snapshot is limited to 1 MiB;
+CRC/ISIZE must pass before JSON admission. These IO limits do not establish a
+1 MiB bound on browser-internal decompressor allocation.

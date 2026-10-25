@@ -36,6 +36,9 @@ def L.committed_input_removed(seq,anchor,x,y,tail):
   %Equal.sym(Bool,U32.is_gt(anchor,anchor),False{},Counter.gt_self(anchor)) : {P.keep_input(_,P.Input{seq,anchor,x,y},P.unresolved(tail,anchor)) == P.unresolved(tail,anchor) : List<&2,P.Input>}
   {==}
 def L.resync_exact(x,y,distance,enabled,inputs,anchor,display,observation,last,incoming): {==}
+def L.choose_lead_exact(state,anchor,roundTripMs,currentLead):
+  match state:
+    case P.State{_,_,_,_,_,priorAnchor,_,_,_}: {==}
 def L.cursor_exact(x,y,distance,enabled,inputs,anchor,display,observation,last,incoming,initialLead): {==}
 def L.rejected_observation_preserves(state,observation,anchor,x,y,distance,enabled,initialLead): {==}
 def L.disabled_reconcile_clears(px,py,priorDistance,priorEnabled,inputs,oldAnchor,oldDisplay,oldObservation,last,observation,anchor,x,y,distance,initialLead): {==}

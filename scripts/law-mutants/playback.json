@@ -1,0 +1,162 @@
+[
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "backward-authority-admitted",
+    "law": "admission_exact",
+    "old": "Bool.and(U32.is_gt(observation(new),observation(old)),U32.is_ge(world_tick(new),world_tick(old)))",
+    "new": "U32.is_gt(observation(new),observation(old))"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "fractional-clock-ignores-selected-rate",
+    "law": "fraction_exact",
+    "old": "Nat.mul(elapsed(now,previous),rate)",
+    "new": "elapsed(now,previous)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "recycled-lifetime-interpolated",
+    "law": "identity_exact",
+    "old": "String.eq(g0,g1)",
+    "new": "True{}"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "projectiles-use-different-alpha",
+    "law": "sample_cohort_exact",
+    "old": "Mix{bodyIndex,alpha},bodies)",
+    "new": "Mix{bodyIndex,0.0},bodies)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "underrun-extrapolates",
+    "law": "underrun_holds_latest",
+    "old": "case True{}: Cursor{latest,0n,now,Holding{}}",
+    "new": "case True{}: Cursor{tick,fraction,now,mode}"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "duplicate-tick-grows-history",
+    "law": "same_tick_replaces",
+    "old": "case True{} _ <> tail: new <> List.take(&2,Indexed,tail,7n)",
+    "new": "case True{} head <> tail: new <> List.take(&2,Indexed,head <> tail,7n)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "sample-bypasses-lifetime-check",
+    "law": "matched_found_wiring",
+    "old": "case Some{+new}: blended(identity(old,new),old,new,alpha)",
+    "new": "case Some{new}: blended(True{},old,new,alpha)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "bracket-reveals-future-inventory",
+    "law": "bracket_cons",
+    "old": "bracket_selected(U32.is_ge(tick,world_tick(frame(head))),head,new,tick,fraction,u => bracket(tail,head,tick,fraction))",
+    "new": "bracket_selected(True{},head,new,tick,fraction,u => bracket(tail,head,tick,fraction))"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "payload-cache-admits-stale-frame",
+    "law": "push_wiring",
+    "old": "case State{head <> _,_,_,_}: admissible(frame(head),new)",
+    "new": "case State{head <> _,_,_,_}: True{}"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "backlog-catchup-disabled",
+    "law": "rate_selected_exact",
+    "old": "Bool.pick(Nat,behind,66n,60n)",
+    "new": "Bool.pick(Nat,behind,60n,60n)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "catchup-at-deadband-boundary",
+    "law": "rate_for_exact",
+    "old": "  rate_selected(Nat.is_gt(Nat.sub(U32.to_nat(latest),U32.to_nat(tick)),Nat.add(U32.to_nat(delay),1n)))",
+    "new": "  rate_selected(Nat.is_ge(Nat.sub(U32.to_nat(latest),U32.to_nat(tick)),Nat.add(U32.to_nat(delay),1n)))"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "public-clock-bypasses-catchup",
+    "law": "move_clock_exact",
+    "old": "fraction_after(fraction,now,previous,mode_rate(selected,tick,latest,delay))",
+    "new": "fraction_after(fraction,now,previous,60n)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "holding-repays-startup-buffer",
+    "law": "refill_exact",
+    "old": "case Priming{}: delay\n    case _: 1",
+    "new": "case Priming{}: delay\n    case _: delay"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "emergency-entry-too-early",
+    "law": "boost_exact",
+    "old": "case _: Nat.is_gt(Nat.sub(U32.to_nat(latest),U32.to_nat(tick)),Nat.add(U32.to_nat(delay),4n))",
+    "new": "case _: Nat.is_ge(Nat.sub(U32.to_nat(latest),U32.to_nat(tick)),Nat.add(U32.to_nat(delay),4n))"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "emergency-latch-forgotten",
+    "law": "boost_exact",
+    "old": "case Boosting{}: Nat.is_gt(Nat.sub(U32.to_nat(latest),U32.to_nat(tick)),Nat.add(U32.to_nat(delay),1n))",
+    "new": "case Boosting{}: Nat.is_gt(Nat.sub(U32.to_nat(latest),U32.to_nat(tick)),Nat.add(U32.to_nat(delay),4n))"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "resume-spends-background-debt",
+    "law": "resume_units_exact",
+    "old": "Nat.min(elapsed(now,previous),33334n)",
+    "new": "elapsed(now,previous)"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "ready-resume-bypasses-capped-credit",
+    "law": "ready_resumes_exact",
+    "old": "running_units(tick,resume_units(fraction,now,previous,mode_rate(selected,tick,latest,delay))",
+    "new": "running_units(tick,fraction_after(fraction,now,previous,mode_rate(selected,tick,latest,delay))"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "waiting-does-not-update-timestamp",
+    "law": "waiting_holds_exact",
+    "old": "case False{}: Cursor{tick,fraction,Nat.max(now,previous),mode}",
+    "new": "case False{}: Cursor{tick,fraction,previous,mode}"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "history-recovery-keeps-boost",
+    "law": "eviction_forward_recovery",
+    "old": "Cursor{oldestTick,0n,at,Priming{}}",
+    "new": "Cursor{oldestTick,0n,at,Boosting{}}"
+  },
+  {
+    "source": "examples/survivors/coop-playback.bend",
+    "proof": "examples/survivors/coop-playback-PROOF.bend",
+    "label": "holding-dispatch-skips-readiness",
+    "law": "holding_clock_wiring",
+    "old": "case Cursor{tick,fraction,previous,Holding{}}: wait_clock(Holding{},tick,fraction,previous,now,latest,delay)",
+    "new": "case Cursor{tick,fraction,previous,Holding{}}: move_clock(Holding{},tick,fraction,previous,now,latest,delay)"
+  }
+]

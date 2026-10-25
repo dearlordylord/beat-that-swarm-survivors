@@ -1,0 +1,9 @@
+# Co-op reliability spec review
+
+Baseline: `5aff253`; review covers the current tracked diff and relevant untracked files against [the acceptance plan](coop-reliability-plan.md). This is a static Spec-axis review; it does not claim a browser/Iroh pass.
+
+- **High — stale display is not rejected.** The browser harness records `guestDisplayTick`, but asserts only that host and guest ticks exceed 100 and that rejoin does not rewind the host. It never bounds the displayed cursor or its lag behind authority, so it can pass with the same failure the plan calls unreleasable: “displayed an authoritative state 450 ticks behind the host” ([plan](coop-reliability-plan.md#L17), [harness](../tools/survivors-bot/coop-reliability-browser-check.mjs#L81)). The plan also requires “bounded recovery after gaps” ([plan](coop-reliability-plan.md#L47)).
+
+- **High — slow Iroh writes are not simulated.** The harness awaits the actual transport send, then adds the configured delay before resolving the caller’s promise ([harness](../tools/survivors-bot/coop-reliability-browser-check.mjs#L38)). This exercises application-side single-flight waiting, but the native send has already completed; it does not establish behavior under a slow outbound write. The plan requires “Slow 200/600 ms writes” and “slow outbound writes” ([plan](coop-reliability-plan.md#L46), [plan](coop-reliability-plan.md#L50)).
+
+- **Partial — browser matrix omits required cases.** The harness uses a 1000×700 viewport and keyboard events; it has no touch/pointer path. It reloads and rejoins the same invitation, but does not inject worker failure, try a new party after error, or assert visible diagnostics. These are explicit browser obligations ([plan](coop-reliability-plan.md#L50)); touch ownership code exists but is not exercised here.

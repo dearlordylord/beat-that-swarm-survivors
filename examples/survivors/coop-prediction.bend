@@ -81,9 +81,13 @@ def observation_newer(state:State,observation:U32) -> Bool:
 def resync_needed(state:State,anchorWorldTick:U32) -> Bool:
   match state:
     case State{_,_,_,enabled,_,_,display,_,_}: Bool.or(Bool.not(enabled),U32.is_ge(anchorWorldTick,display))
+def choose_lead(state:State,+anchorWorldTick:U32,+roundTripMs:U32,+currentLead:U32) -> U32:
+  match state:
+    case State{_,_,_,_,_,priorAnchor,_,_,_}:
+      Bool.pick(U32,U32.is_ge(anchorWorldTick,priorAnchor),U32.min(54,U32.max(currentLead,lead(roundTripMs))),currentLead)
 def cursor(state:State,+anchor:U32,initialLead:U32) -> U32:
   match state:
-    case State{_,_,_,enabled,_,_,+display,_,_}: Bool.pick(U32,Bool.or(Bool.not(enabled),U32.is_ge(anchor,display)),after(anchor,U32.min(initialLead,54)),display)
+    case State{_,_,_,_,_,_,display,_,_}: U32.max(display,after(anchor,U32.min(initialLead,54)))
 def reconcile_running(+state:State,observation:U32,+anchor:U32,x:F32,y:F32,+distance:F32,initialLead:U32) -> State:
   match state:
     case State{_,_,_,_,inputs,_,_,_,last}:
