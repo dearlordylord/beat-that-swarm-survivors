@@ -16,7 +16,7 @@ class EnemyQualification(unittest.TestCase):
             role = E.M.assigned(slot, self.layout)
             values = dict(enemyPhases=[1, 9] if role == 'EnemySlot' else [0, 0] if role == 'RelicSlot' else None,
                           vitals=[50, 100] if role == 'EnemySlot' else None,
-                          statuses=[7, 11] if role == 'EnemySlot' else None,
+                          statuses=dict(slow=dict(ticks=7,frozen=False),burn=dict(ticks=11,sourcePlayer=1)) if role == 'EnemySlot' else None,
                           spaces=[0, 0, 20, 0], bodies=None, roles=role, identities=slot)
             for key, value in values.items():
                 self.components[key].append([handle, value, [[0, 1], [0, 2]] if value is not None else [None, None]])
@@ -27,13 +27,16 @@ class EnemyQualification(unittest.TestCase):
     def test_issued_identity_and_named_health(self):
         fact, = self.check()
         self.assertEqual((fact['seed'], fact['variant'], fact['health'], fact['maximum']), (0, 9, 50, 100))
-        self.assertEqual(fact['status'], dict(slow=7, burn=11))
+        self.assertEqual(fact['status'], dict(slow=dict(ticks=7,frozen=False),burn=dict(ticks=11,sourcePlayer=1)))
 
     def test_bad_membership_identity_phase_and_clock_rejected(self):
         original = copy.deepcopy(self.components)
         mutations = [
             ('bodies', 3, [0] * 9), ('vitals', 0, [1, 2]),
             ('identities', 0, 0), ('enemyPhases', 3, [3, 9]),
+            ('statuses',3,[7,11]),
+            ('statuses',3,dict(slow=dict(ticks=7,frozen=1),burn=dict(ticks=0,sourcePlayer=None))),
+            ('statuses',3,dict(slow=dict(ticks=7,frozen=False),burn=dict(ticks=0,sourcePlayer=1))),
         ]
         for family, index, value in mutations:
             with self.subTest(family=family):

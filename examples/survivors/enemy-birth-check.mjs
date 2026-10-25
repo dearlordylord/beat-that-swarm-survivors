@@ -13,7 +13,7 @@ const dirty = {
   spatial: { $: 'Spatial', x: 10, y: 20, age: 77, radius: 8 },
   archetype: 3, identity: 41,
   vitals: { $: 'Vitals', health: 2, maximum: 100 },
-  status: { $: 'Status', slow: 65536, burn: 37 },
+  status: { $: 'Status', slow: {$:'Slow',ticks:0,frozen:true}, burn: {$:'Burn',ticks:37,sourcePlayer:{$:'Some',value:0}} },
 };
 const candidate = {
   $: 'Candidate', x: 3000, y: 4000, archetype: 9, identity: 41,
@@ -27,7 +27,7 @@ assert.deepEqual(admitted, {
   $: 'Resolved', outcome: {
     $: 'Born', newborn: {
       $: 'Newborn', candidate, age: 0,
-      status: { $: 'Status', slow: 0, burn: 0 },
+      status: { $: 'Status', slow: {$:'Slow',ticks:0,frozen:false}, burn: {$:'Burn',ticks:0,sourcePlayer:{$:'None'}} },
       contactDamage: 0, killer: { $: 'None' },
     },
   },
@@ -35,7 +35,7 @@ assert.deepEqual(admitted, {
 const rejected = Game.team_enemy_birth_allowed(false, phase, dirty, candidate);
 assert.deepEqual(rejected, {
   $: 'Resolved', outcome: {
-    $: 'Sleeping', enemy: { ...dirty, status: { $: 'Status', slow: 0, burn: 0 } },
+    $: 'Sleeping', enemy: { ...dirty, status: { $: 'Status', slow: {$:'Slow',ticks:0,frozen:false}, burn: {$:'Burn',ticks:0,sourcePlayer:{$:'None'}} } },
   },
 });
 console.log('PASS production enemy birth admission cleans status/contact and rejection preserves prior age');

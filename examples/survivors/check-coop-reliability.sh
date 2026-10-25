@@ -19,9 +19,10 @@ source_fingerprint() {
   done < "$source_list" | shasum -a 256 | awk '{print $1}'
 }
 source_fingerprint_before="$(source_fingerprint)"
-for module in pickup-state pickup-xp-pool pickup-encoder party-difficulty contact-id-set coop-connection coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-client-clock coop-input-flow coop-hit-journal coop-local-projectiles coop-contact-playback coop-playback-wire coop-core coop-prediction game game-encoder coop-encoder; do
+for module in enemy-effects pickup-state pickup-xp-pool pickup-encoder party-difficulty contact-id-set coop-connection coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-client-clock coop-input-flow coop-hit-journal coop-local-projectiles coop-contact-playback coop-playback-wire coop-core coop-prediction game game-encoder coop-encoder; do
   example_emit "$app/$module.bend" "$scratch/$module.mjs"
 done
+example_node "$app/enemy-effects-check.mjs" "$scratch/enemy-effects.mjs"
 example_node "$app/typed-results-check.mjs" "$scratch"
 example_node "$app/coop-command-framing-check.mjs" "$scratch/coop-client-delivery.mjs"
 example_node "$app/player-authority-check.mjs" "$scratch"

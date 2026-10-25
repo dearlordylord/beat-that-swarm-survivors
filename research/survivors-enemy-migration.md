@@ -54,3 +54,20 @@ successfully, and requires the same fixture to fail its named birth assertion.
 A compiler, import or unrelated runtime failure cannot count as detection.
 Production Game source is never modified; optional receipt/logs are retained
 only in the requested external directory.
+
+Enemy Status now contains `Slow{ticks,frozen}` and
+`Burn{ticks,sourcePlayer:Maybe<U32>}`. Current snapshots and physical captures
+use those named facts. Slow comparison retains freeze priority, then remaining
+duration. Movement uses the old/fresh strongest effect for the current tick;
+next Status first cools the previous effect, then merges the fresh one. Burn
+comparison selects the longer duration, then the lower actual source player.
+Expiration clears its source; active player zero remains `Some{0}`. No runtime
+packing or unpacking is involved. Only the external immutable-baseline exporter
+decodes historical words for the one migration comparison.
+
+The single-player effect optimization applies to the sole player-zero context.
+Solo births create only player-zero burn sources; co-op observations and
+forecast scenes retain all joined player records, including disconnected
+players, so a prior guest-owned burn is resolved with the multiple-player
+context. Missing credit's existing player-zero statistics fallback is an
+explicit statistics policy and does not manufacture a burn source.

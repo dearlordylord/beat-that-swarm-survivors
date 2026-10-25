@@ -24,6 +24,18 @@
         "mutantFixtureExit": 1
       },
       "gate": "examples/survivors/check-coop-reliability.sh"
+    },
+    "explicitEffects": {
+      "coreCheckpoint": "467b336",
+      "gameTypecheck": "PASS",
+      "predictionTypecheck": "PASS",
+      "physicalObserverTypecheck": "PASS",
+      "namedPolicyAssertions": 14,
+      "externalImmutableBaselinePolicyComparisons": 1022,
+      "birthLawKernel": "PASS after blind statement approval; CPU10 wall60",
+      "birthLawMutants": "2/2 compiled semantic mutants detected",
+      "maintainedProductionWiring": "PASS /tmp/issue5-explicit-effects-wiring/receipt.json",
+      "strictStatusControls": "PASS rejects old packed Status, non-Boolean freeze and expired source retention"
     }
   },
   "artifacts": {
@@ -55,7 +67,7 @@
   ],
   "proof": {
     "statement": "examples/survivors/enemy-lifecycle/LAWS.bend",
-    "sha256": "a8de85884f0d6463608971c3e437ff0fdd2b9b379771fc3bcdfd9eb7d500a06c",
+    "sha256": "408ade1ae3d3f51cf92afb96841496826a76a7bba6b520e1551f866081cf44b1",
     "scope": "Concrete admitted birth preserves candidate and constructs clean age/status/contact/killer; not admission or whole-game correctness",
     "bounds": {
       "cpuSeconds": 10,

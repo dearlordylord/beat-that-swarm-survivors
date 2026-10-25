@@ -2,16 +2,16 @@
   {
     "label": "enemy-birth-carries-slow-into-new-lifetime",
     "source": "examples/survivors/enemy-lifecycle.bend",
-    "old": "Newborn{candidate,0,Components.Status{0,0},0,None{}}",
-    "new": "Newborn{candidate,0,Components.Status{1,0},0,None{}}",
+    "old": "Newborn{candidate,0,Components.Status{Effect.empty_slow(),Effect.empty_burn()},0,None{}}",
+    "new": "Newborn{candidate,0,Components.Status{Effect.Slow{1,False{}},Effect.empty_burn()},0,None{}}",
     "proof": "examples/survivors/enemy-lifecycle/PROOF.bend",
     "law": "birth_constructs_fresh_lifetime"
   },
   {
     "label": "enemy-birth-carries-contact-damage",
     "source": "examples/survivors/enemy-lifecycle.bend",
-    "old": "Newborn{candidate,0,Components.Status{0,0},0,None{}}",
-    "new": "Newborn{candidate,0,Components.Status{0,0},1,None{}}",
+    "old": "Newborn{candidate,0,Components.Status{Effect.empty_slow(),Effect.empty_burn()},0,None{}}",
+    "new": "Newborn{candidate,0,Components.Status{Effect.empty_slow(),Effect.empty_burn()},1,None{}}",
     "proof": "examples/survivors/enemy-lifecycle/PROOF.bend",
     "law": "birth_constructs_fresh_lifetime"
   }
