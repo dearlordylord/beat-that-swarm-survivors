@@ -601,4 +601,3 @@ def meta_max(id: U32) -> U32:
     case 8: 5
     case 9: 2
     case _: 0
-

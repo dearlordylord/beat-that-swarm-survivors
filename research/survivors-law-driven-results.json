@@ -982,5 +982,20 @@
     "Real co-op browser qualification used isolated contexts on one machine with real Iroh relays; arbitrary physical networks and cross-backend floating-point determinism are not proved."
   ],
   "confidenceAssessment": "Above the requested engineering-confidence threshold based on independent-kernel proofs, type-correct semantic faults, source-consumer audit and native/browser qualification; not a measured probability or a percentage of all game behavior.",
-  "artifacts": "Generated binaries, browser profiles, captures and detailed logs remain outside tracked source under /tmp or ignored build directories."
+  "artifacts": "Generated binaries, browser profiles, captures and detailed logs remain outside tracked source under /tmp or ignored build directories.",
+  "postValidationFormatting": [
+    {
+      "path": "examples/survivors/native-content-policy.bend",
+      "validatedSha256": "0cfd9a9d5cab04ae57fa0405c96a39b4fe25528aa1e72d7d7f67070e27d65f6e",
+      "finalSha256": "16a69513572f38b346eb9471f88297940f8dc1c1668e1911ead501cde0b2f742",
+      "change": "Remove an extra blank line at EOF; Bend tokens unchanged."
+    },
+    {
+      "path": "examples/survivors/native-profile-codec.bend",
+      "validatedSha256": "660bc6d18b17b65004d1e3823da2778f2d65f878ebcfe99d003ca84232ae8f86",
+      "finalSha256": "43c178b8bad8615cc98018c8909661efb9d8eb7fd19388ceedc9c4b5853fa550",
+      "change": "Remove an extra blank line at EOF; Bend tokens unchanged."
+    }
+  ],
+  "finalSourceFingerprintSha256": "066a598153b281e036a735cefb7eaff1b53ec62572f98c79eae2537304c7f797"
 }

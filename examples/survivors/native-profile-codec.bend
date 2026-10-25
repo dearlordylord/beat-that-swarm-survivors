@@ -47,4 +47,3 @@ def normalize(+profile: P.Profile) -> P.Profile:
 def decode_rows(+rows: List<&2,String>) -> P.Profile:
   P.choose(valid_save(rows),normalize(decode_lines(rows)),P.fresh())
 def decode(text: String) -> P.Profile: decode_rows(String.lines(text))
-
