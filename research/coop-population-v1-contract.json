@@ -26,7 +26,23 @@
       "stage": 0,
       "mode": 0,
       "arcana0": 0,
-      "arcana1": 0
+      "arcana1": 0,
+      "character0": 0,
+      "character1": 0,
+      "metaPreset": "native-economy.fresh"
+    },
+    {
+      "setupId": "advanced-advanced-stage0-standard",
+      "styleId": "resource-memory-pair",
+      "partySize": 2,
+      "profile": "advanced",
+      "stage": 0,
+      "mode": 0,
+      "character0": 2,
+      "character1": 2,
+      "arcana0": 9,
+      "arcana1": 9,
+      "metaPreset": "existing-native-advanced"
     }
   ],
   "cohorts": [
@@ -112,5 +128,11 @@
     "threadsPerProcess": 1,
     "wallBounds": "Chosen from measured pilot cost, recorded per launch; timeout remains an infrastructure outcome.",
     "stopOnSourceDrift": true
-  }
+  },
+  "amendments": [
+    {
+      "beforeFormalCampaign": true,
+      "reason": "Complete explicit setup catalog for the advanced profile already declared in final cohort; align native receipt labels. No seed, horizon, coefficient or selection-rule change. Only an unpaired 120-tick technical prototype had run."
+    }
+  ]
 }
