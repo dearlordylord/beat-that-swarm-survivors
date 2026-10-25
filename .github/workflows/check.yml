@@ -101,5 +101,7 @@ jobs:
           bash tools/survivors-bot/check.sh
           bash tools/survivors-bot/check-visible.sh
           bash tools/survivors-bot/check-monsters.sh
+      - name: Check native compilation cache
+        run: python3 scripts/native-check-cache.test.py
       - name: Check native profile, UI and loot
         run: bash examples/survivors/check-native.sh
