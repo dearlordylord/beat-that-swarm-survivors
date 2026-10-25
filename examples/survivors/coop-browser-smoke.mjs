@@ -53,7 +53,7 @@ try {
   await host.locator('#coop-host').click();
   await waitHost(() => document.querySelector('#coop-invite-link')?.value.includes('join='),null,{timeout:120000});
   assert.equal(await host.locator('#coop-invitation').evaluate(dialog => dialog.open),true,'room creation opens the invitation immediately');
-  assert.equal(await host.locator('#coop-setup-fields').isDisabled(),true,'room settings are fixed after creation');
+  assert.equal(await host.locator('#coop-setup-preview [data-menu-panel="character"]').isDisabled(),true,'room settings are fixed after creation');
   const invitation = await host.locator('#coop-invite-link').inputValue();
   await guest.goto(invitation);
   assert.equal(await guest.locator('#coop-host').isVisible(),false,'invited guests cannot accidentally create another room');
