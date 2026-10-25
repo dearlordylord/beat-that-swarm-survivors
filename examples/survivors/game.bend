@@ -90,8 +90,15 @@ def populate_result(result: C.Replacement<Storage.World(),Components.Body>) -> S
   match result:
     case C.Replaced{world,_}: world
     case C.ReplaceRejected{world,_,_}: world
+def stored_actor_body_allowed(projectile: Bool,body: Components.Body) -> Maybe<&1,Components.Body>:
+  match projectile:
+    case True{}: None{}
+    case False{}: Some{stored_body(body)}
+def stored_actor_body(+body: Components.Body) -> Maybe<&1,Components.Body>:
+  match body:
+    case Components.Body{_,_,_,_,_,_,_,seed,_}: stored_actor_body_allowed(Role.projectile(Role.assigned(seed)),body)
 def populate_body(world: Storage.World(),handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
-  populate_result(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,Storage.family(),world,handle,Some{stored_body(body)}))
+  populate_result(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,Storage.family(),world,handle,stored_actor_body(body)))
 def vital_populated(result: C.Replacement<Storage.World(),Components.Vitals>) -> Storage.World():
   match result:
     case C.Replaced{world,_}: world
@@ -117,8 +124,14 @@ def populate_spatial(world: Storage.World(),handle: W.Handle<Storage.Schema>,bod
 def populate_enemy(world: Storage.World(),+handle: W.Handle<Storage.Schema>,+body: Components.Body) -> Storage.World():
   match body:
     case Components.Body{_,_,_,_,hp,maxHp,_,_,_}: status_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,Storage.status_family(),vital_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,Storage.vital_family(),populate_spatial(world,handle,body),handle,Some{Components.Vitals{hp,maxHp}})),handle,Some{empty_status()}))
-def populate_projectile(world: Storage.World(),handle: W.Handle<Storage.Schema>) -> Storage.World():
-  trajectory_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,Storage.trajectory_family(),world,handle,Some{empty_trajectory()}))
+def shot_populated(result: C.Replacement<Storage.World(),Components.ShotPayload>) -> Storage.World():
+  match result:
+    case C.Replaced{world,_}: world
+    case C.ReplaceRejected{world,_,_}: world
+def populate_projectile(world: Storage.World(),+handle: W.Handle<Storage.Schema>,body: Components.Body) -> Storage.World():
+  match body:
+    case Components.Body{+x,+y,+kind,weapon,damage,_,+age,_,+radius}:
+      shot_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,Storage.shot_family(),trajectory_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,Storage.trajectory_family(),spatial_populated(C.structural_replace(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,Storage.spatial_family(),world,handle,Some{Space.Spatial{x,y,age,radius}})),handle,Some{empty_trajectory()})),handle,Some{Components.ShotPayload{weapon,damage,Bool.or(U32.is_eq(kind,1),U32.is_eq(kind,7))}}))
 def pickup_populated(result: C.Replacement<Storage.World(),Components.Pickup>) -> Storage.World():
   match result:
     case C.Replaced{world,_}: world
@@ -147,8 +160,8 @@ def populate_components(role: Role.Role,world: Storage.World(),handle: W.Handle<
   match role:
     case Role.EnemySlot{}: populate_enemy_slot(world,handle,body)
     case Role.RelicSlot{}: populate_enemy(world,handle,body)
-    case Role.PlayerProjectileSlot{}: populate_projectile(world,handle)
-    case Role.HostileProjectileSlot{}: populate_projectile(world,handle)
+    case Role.PlayerProjectileSlot{}: populate_projectile(world,handle,body)
+    case Role.HostileProjectileSlot{}: populate_projectile(world,handle,body)
     case Role.XpSlot{}: populate_pickup(world,handle,body)
     case _: world
 def initial_role(body: Components.Body) -> Role.Role:
@@ -184,11 +197,13 @@ def run_player(value: Run) -> RS.PlayerState:
 type PlayerSnapshot is Data: PlayerSnapshot{id: U32,run: Run,connected: Bool}
 type Offer is Data: Offer{kind: U32,id: U32,level: U32}
 type Snapshot is Data: Snapshot{body: Components.Body,motion: Motion}
+  ProjectileSnapshot{projectile: Shot.State}
 # Common geometry contains no overloaded health, damage or reward payload.
 type SnapshotGeometry is Data: SnapshotGeometry{identity: U32,x: F32,y: F32,age: U32,radius: F32}
 def snapshot_geometry(snapshot: Snapshot) -> SnapshotGeometry:
   match snapshot:
     case Snapshot{Components.Body{x,y,_,_,_,_,age,identity,radius},_}: SnapshotGeometry{identity,x,y,age,radius}
+    case ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,_,_,_}}: SnapshotGeometry{identity,x,y,age,radius}
 def geometry_identity(geometry: SnapshotGeometry) -> U32:
   match geometry:
     case SnapshotGeometry{identity,_,_,_,_}: identity
@@ -443,6 +458,7 @@ def update(body: Components.Body,run: Run) -> Row:
     case Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius} Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+rng,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+playerHp,+playerMax,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
       update_selected(Bool.and(U32.is_eq(seed,0),Bool.and(U32.is_lt(0,tick),Bool.or(Bool.and(Bool.or(U32.is_lt(wave_tick(mode,tick),36000),U32.is_eq(mode,2)),U32.is_eq((wave_tick(mode,tick) % 7200 : U32),0)),Bool.or(U32.is_eq(wave_tick(mode,tick),34200),U32.is_eq(wave_tick(mode,tick),36000))))),Bool.and(Bool.not(U32.is_eq(mode,2)),U32.is_eq(wave_tick(mode,tick),36000)),Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},Run{RS.Session{phase,tick,xp,need,level,kills,gold,rng,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,playerHp,playerMax,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},seed,(rng - tick + 1 : U32),wave_tick(mode,tick),px,py,stage)
 type EntityRow is Data: EntityRow{row: Row,motion: Motion}
+  ProjectileRow{outcome: Shot.Outcome}
 # Spatial snapshots are only observations; Q capabilities own all three components.
 type Aim is Data: Aim{x: F32,y: F32,id: U32,distance: F32}
 def prefer_aim(closer: Bool,+x: F32,+y: F32,+id: U32,+distance: F32,rest: Aim) -> Aim:
@@ -491,9 +507,6 @@ def projectile_speed(+passives: List<&2,U32>,+arcana: U32) -> F32: ((1.0 + U32.t
 def weapon_damage(+id: U32,+level: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
   F32.to_u32((U32.to_f32((5 + level * 3 + id % 4 * 2 : U32)) * (1.0 + U32.to_f32(at(passives,0)) * 0.10 + U32.to_f32(meta_rank(meta,0)) * 0.05 + 0.35 * stat_bonus(arcana,0) + 0.15 * stat_bonus(arcana,8) + 0.10 * U32.to_f32(Bool.to_u32(U32.is_eq(character,0))) + 0.20 * U32.to_f32(Bool.to_u32(U32.is_eq(character,6)))) * (1.0 - 0.15 * stat_bonus(arcana,4)) * (1.0 + (0.20 + U32.to_f32(at(passives,14)) * 0.05) * U32.to_f32(Bool.to_u32(Bool.and(U32.is_eq(arcana,5),Bool.or(U32.is_eq(id,9),U32.is_eq(id,11)))))) * (1.0 + 1.2 * U32.to_f32(Bool.to_u32(U32.is_le(9,level)))) : F32))
 def dormant_entity(+x: F32,+y: F32,+seed: U32) -> EntityRow: EntityRow{Row{Components.Body{x,y,8,0,0,0,0,seed,0.0},0,0,0,0,0,0,0},empty_motion()}
-def shot_created(+id: U32,+seed: U32,+damage: U32,shot: P.Shot) -> EntityRow:
-  match shot:
-    case P.Shot{+x,+y,+vx,+vy,+radius,+life,+pierce}: EntityRow{Row{Components.Body{x,y,1,id,damage,damage,0,seed,radius},0,0,0,0,0,0,0},Motion{vx,vy,life,pierce,[],0,0,0,0}}
 def direction_x(+dx: F32,+dy: F32) -> F32: ((dx + U32.to_f32(Bool.to_u32(F32.is_lt((dx * dx + dy * dy : F32),0.01)))) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32)
 def direction_y(+dx: F32,+dy: F32) -> F32: (dy / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32)
 def union_base(+id: U32) -> U32: at([0,1,2,3,4,6],id)
@@ -514,10 +527,9 @@ def aim_direction_x(+dx: F32,+dy: F32,+px: F32,+py: F32,+tx: F32,+ty: F32) -> F3
 def aim_direction_y(+dx: F32,+dy: F32,+px: F32,+py: F32,+tx: F32,+ty: F32) -> F32:
   E.choose_float(F32.is_lt((dx * dx + dy * dy : F32),0.01),P.aim_y(px,py,tx,ty),direction_y(dx,dy))
 def shot_spawn_aim(+owner: U32,fire: Bool,+seed: U32,+id: U32,+slot: U32,+level: U32,input: Shot.SpawnInput) -> EntityRow:
-  match fire input:
-    case False{} _: dormant_entity(0.0,0.0,seed)
-    case True{} Shot.SpawnInput{+tick,+px,+py,+dx,+dy,+tx,+ty,damage,speed,area,duration}:
-      shot_created(id,seed,damage,P.spawn(id,level,(slot * 2 : U32),familiar_x(id,owner,slot,px,tick),familiar_y(id,owner,slot,py,tick),tx,ty,aim_direction_x(dx,dy,px,py,tx,ty),aim_direction_y(dx,dy,px,py,tx,ty),speed,area,duration))
+  match fire:
+    case False{}: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
+    case True{}: ProjectileRow{Shot.Outcome{Shot.spawn(seed,id,level,owner,slot,slot,input),0}}
 def shot_spawn_at(tick: U32,px: F32,py: F32,dx: F32,dy: F32,damage: U32,speed: F32,area: F32,duration: F32,aim: Aim) -> Shot.SpawnInput:
   match aim:
     case Aim{tx,ty,_,_}: Shot.SpawnInput{tick,px,py,dx,dy,tx,ty,damage,speed,area,duration}
@@ -556,7 +568,7 @@ def inventory_add(alive: Bool,+seed: U32,+owner: U32,+slot: U32,inventory: ShotI
 def shot_inventory(rows: List<&2,Snapshot>,inventory: ShotInventory) -> ShotInventory:
   match rows:
     case []: inventory
-    case Snapshot{Components.Body{_,_,1,_,_,_,_,+seed,_},Motion{_,_,+life,+pierce,_,_,_,+owner,+slot}} <> rest: shot_inventory(rest,inventory_add(Bool.and(PL.is_player_shot(seed),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce))),seed,owner,slot,inventory))
+    case ProjectileSnapshot{Shot.State{_,+seed,Shot.PlayerShot{},Components.ShotPayload{_,_,active},Components.Trajectory{_,_,life,pierce,_,owner,slot}}} <> rest: shot_inventory(rest,inventory_add(Bool.and(active,Bool.and(PL.is_player_shot(seed),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)))),seed,owner,slot,inventory))
     case _ <> rest: shot_inventory(rest,inventory)
 def free_slot(available: Bool,seed: U32,rest: List<&2,U32>) -> List<&2,U32>:
   match available:
@@ -598,43 +610,21 @@ def prepare_shot_plan(args: Args) -> SP.Plan:
     case Args{run,_,_,_,snapshots,_}: shot_plan_inventory(run,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}))
 def with_shot_owner(row: EntityRow,+owner: U32,+slot: U32) -> EntityRow:
   match row:
-    case EntityRow{row,Motion{vx,vy,life,pierce,visited,slow,burn,_,_}}: EntityRow{row,Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot}}
+    case ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,_,_}},contact}}: ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},contact}}
+    case row: row
 
 # Resolve the complete firing predicate before preparing a projectile. Most
 # unowned/unscheduled slots stay dormant and need neither aim nor materialization.
 def shot_spawn_ready(fire: Bool,+seed: U32,+base: U32,+slot: U32,+level: U32,args: Args) -> EntityRow:
   match fire args:
-    case False{} _: dormant_entity(0.0,0.0,seed)
+    case False{} _: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
     case True{} Args{+run,bodies,dx,dy,_,_}: shot_spawn_aim(base,True{},seed,effective_weapon(base,level,slot),slot,level,shot_spawn_input(effective_weapon(base,level,slot),level,run,dx,dy,bodies))
-def shot_surviving(alive: Bool,+x: F32,+y: F32,+id: U32,+damage: U32,+age: U32,+seed: U32,+radius: F32,+vx: F32,+vy: F32,+life: U32,+pierce: U32,+visited: List<&2,U32>) -> EntityRow:
-  match alive:
-    case True{}: EntityRow{Row{Components.Body{x,y,1,id,damage,damage,age,seed,radius},0,0,0,0,0,0,0},Motion{vx,vy,life,pierce,visited,0,0,0,0}}
-    case False{}: dormant_entity(x,y,seed)
-def shot_contacted(+id: U32,+age: U32,+seed: U32,+damage: U32,+visited: List<&2,U32>,+newHits: List<&2,U32>,shot: P.Shot) -> EntityRow:
-  match shot:
-    case P.Shot{+x,+y,+vx,+vy,+radius,+life,+pierce}:
-      shot_surviving(Bool.and(U32.is_lt(0,life),U32.is_lt((U32.from_nat(List.length(&2,U32,newHits)) * Bool.to_u32(Bool.and(P.active_hit(id,age),U32.is_lt(pierce,9999))) : U32),pierce)),x,y,id,damage,(age + 1 : U32),seed,radius,vx,vy,life,Combat.lose(pierce,(U32.from_nat(List.length(&2,U32,newHits)) * Bool.to_u32(Bool.and(P.active_hit(id,age),U32.is_lt(pierce,9999))) : U32)),List.append(&2,U32,visited,newHits))
-def ballistic(id: U32) -> Bool:
-  match id:
-    case 3: False{}
-    case 4: False{}
-    case 5: False{}
-    case 7: False{}
-    case 9: False{}
-    case 11: False{}
-    case 19: False{}
-    case 20: False{}
-    case 21: False{}
-    case 22: False{}
-    case _: True{}
-def reflected(enabled: Bool,shot: P.Shot) -> P.Shot:
-  match enabled shot:
-    case False{} shot: shot
-    case True{} P.Shot{+x,+y,+vx,+vy,+radius,+life,+pierce}: P.Shot{F32.clamp(x,20.0,(A.size() - 20.0 : F32)),F32.clamp(y,20.0,(A.size() - 20.0 : F32)),(vx * E.choose_float(Bool.or(F32.is_lt(x,20.0),F32.is_lt((A.size() - 20.0 : F32),x)),(0.0 - 1.0 : F32),1.0) : F32),(vy * E.choose_float(Bool.or(F32.is_lt(y,20.0),F32.is_lt((A.size() - 20.0 : F32),y)),(0.0 - 1.0 : F32),1.0) : F32),radius,life,pierce}
-def shot_step_aim(body: Components.Body,motion: Motion,args: Args,aim: Aim) -> EntityRow:
-  match body motion args aim:
-    case Components.Body{+x,+y,_,+id,+damage,_,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,_,_,_,_} Args{Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,_,_,_,_,+arcana,_,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,_,_,+snapshots,+hits} Aim{+tx,+ty,_,_}:
-      shot_contacted(id,age,seed,damage,visited,hit_targets(hits,seed),reflected(Bool.and(U32.is_eq(arcana,8),ballistic(id)),P.step(id,(age + 1 : U32),P.Shot{x,y,vx,vy,radius,life,pierce},px,py,tx,ty)))
+def shot_step_input(run: Run,aim: Aim) -> Shot.StepInput:
+  match run aim:
+    case Run{_,RS.PlayerState{px,py,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_}} Aim{tx,ty,_,_}: Shot.StepInput{px,py,tx,ty,U32.is_eq(arcana,8)}
+def shot_step_aim(+projectile: Shot.State,args: Args,aim: Aim) -> EntityRow:
+  match args:
+    case Args{run,_,_,_,_,hits}: ProjectileRow{Shot.step(projectile,shot_step_input(run,aim),hit_targets(hits,Shot.identity(projectile)))}
 def nearest_from_args(args: Args,+x: F32,+y: F32) -> Aim:
   match args:
     case Args{_,bodies,_,_,+snapshots,+hits}: nearest(bodies,x,y,Aim{(x + 180.0 : F32),y,0,10000000.0})
@@ -714,18 +704,16 @@ def nearest_shooter(targets: Targets.Targets,x: F32,y: F32,best: Aim) -> Aim:
     case Targets.Targets{_,shooters}: nearest_shooter_targets(shooters,x,y,best)
 def hostile_created(fire: Bool,+seed: U32,+px: F32,+py: F32,aim: Aim) -> EntityRow:
   match fire aim:
-    case True{} Aim{+x,+y,_,_}: EntityRow{Row{Components.Body{x,y,7,0,8,8,0,seed,6.0},0,0,0,0,0,0,0},Motion{((px - x) / F32.max(1.0,F32.sqrt(distance2(x,y,px,py))) * 3.5 : F32),((py - y) / F32.max(1.0,F32.sqrt(distance2(x,y,px,py))) * 3.5 : F32),240,1,[],0,0,0,0}}
-    case False{} _: dormant_entity(0.0,0.0,seed)
+    case True{} Aim{x,y,_,_}: ProjectileRow{Shot.Outcome{Shot.hostile_spawn(seed,x,y,px,py),0}}
+    case False{} _: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.HostileShot{}),0}}
 def hostile_spawn(+seed: U32,args: Args) -> EntityRow:
   match args:
-    case Args{Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,_,_,_,_,_,_,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+bodies,_,_,+snapshots,+hits}: hostile_created(Bool.and(U32.is_lt((seed - PL.hostile_start() : U32),U32.min(PL.hostile_count(),(2 + tick / 1800 : U32))),Bool.and(U32.is_eq((tick % 12 : U32),((seed - PL.hostile_start()) % 12 : U32)),F32.is_lt(aim_distance(nearest_shooter(bodies,px,py,Aim{0.0,0.0,0,10000000.0})),10000000.0))),seed,px,py,nearest_shooter(bodies,px,py,Aim{0.0,0.0,0,10000000.0}))
-def hostile_advance(alive: Bool,+body: Components.Body,+motion: Motion,+args: Args) -> EntityRow:
-  match alive body motion args:
-    case False{} Components.Body{_,_,_,_,_,_,_,+seed,_} _ args: hostile_spawn(seed,args)
-    case True{} Components.Body{+x,+y,_,+variant,+damage,+maxHp,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,_,_} Args{Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,_,_,_,_,_,_,_,_,_,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},_,_,_,+snapshots,+hits}: EntityRow{Row{Components.Body{(x + vx : F32),(y + vy : F32),7,variant,damage,maxHp,(age + 1 : U32),seed,radius},(Bool.to_u32(close(x,y,px,py,(radius + 10.0 : F32))) * (1 + 1000 * Bool.to_u32(U32.is_eq(variant,30))) : U32),0,0,0,0,0,0},Motion{vx,vy,dec(life),pierce,visited,slow,burn,0,0}}
-def hostile_step(body: Components.Body,motion: Motion,args: Args) -> EntityRow:
-  match motion:
-    case Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,_,_}: hostile_advance(U32.is_lt(0,life),body,Motion{vx,vy,life,pierce,visited,slow,burn,0,0},args)
+    case Args{Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}},+targets,_,_,_,_}: hostile_created(Bool.and(U32.is_lt((seed - PL.hostile_start() : U32),U32.min(PL.hostile_count(),(2 + tick / 1800 : U32))),Bool.and(U32.is_eq((tick % 12 : U32),((seed - PL.hostile_start()) % 12 : U32)),F32.is_lt(aim_distance(nearest_shooter(targets,px,py,Aim{0.0,0.0,0,10000000.0})),10000000.0))),seed,px,py,nearest_shooter(targets,px,py,Aim{0.0,0.0,0,10000000.0}))
+def hostile_advance(alive: Bool,+projectile: Shot.State,args: Args) -> EntityRow:
+  match alive args:
+    case False{} args: hostile_spawn(Shot.identity(projectile),args)
+    case True{} Args{Run{_,RS.PlayerState{px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}},_,_,_,_,_}: ProjectileRow{Shot.hostile_step(projectile,px,py)}
+def hostile_step(+projectile: Shot.State,args: Args) -> EntityRow: hostile_advance(Shot.hostile_active(projectile),projectile,args)
 # Each pass has an independently checked access contract. Read capabilities cannot write.
 def missing_row() -> EntityRow: EntityRow{Row{Components.Body{0.0,0.0,8,0,0,0,0,0,0.0},0,0,0,0,0,0,0},empty_motion()}
 def Frame() -> Type: Q.Frame<Storage.Schema,Storage.Store,Unit,Unit>
@@ -752,21 +740,28 @@ def selected_enemy(frame: Frame()) -> Frame() & Bool: selected_enemy_admitted(se
 def selected_pool(frame: Frame()) -> Frame() & Bool: selected_role_observed(2,Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family(),frame))
 
 # Projectile updates own geometry and trajectory, with no health/status grant.
-type ProjectileOps<-H: Type> is Type: ProjectileOps{body: Cap.Write<H,Components.Body,Components.Body>,trajectory: Cap.Write<H,Components.Trajectory,Components.Trajectory>,role: Cap.Read<H,Role.Role>}
+type ProjectileOps<-H: Type> is Type: ProjectileOps{spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,payload: Cap.Write<H,Components.ShotPayload,Components.ShotPayload>,trajectory: Cap.Write<H,Components.Trajectory,Components.Trajectory>,identity: Cap.Read<H,Components.Identity>,role: Cap.Read<H,Role.Role>}
 def ProjectileOpsType(H: Type) -> Type: ProjectileOps<H>
-def projectile_body_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Components.Body,Components.Body>:
+def projectile_spatial_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
   match ops:
-    case ProjectileOps{body,_,_}: body
+    case ProjectileOps{spatial,_,_,_,_}: spatial
+def projectile_payload_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Components.ShotPayload,Components.ShotPayload>:
+  match ops:
+    case ProjectileOps{_,payload,_,_,_}: payload
 def projectile_trajectory_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Components.Trajectory,Components.Trajectory>:
   match ops:
-    case ProjectileOps{_,trajectory,_}: trajectory
+    case ProjectileOps{_,_,trajectory,_,_}: trajectory
+def projectile_identity_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Read<H,Components.Identity>:
+  match ops:
+    case ProjectileOps{_,_,_,identity,_}: identity
 def projectile_role_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Read<H,Role.Role>:
   match ops:
-    case ProjectileOps{_,_,role}: role
+    case ProjectileOps{_,_,_,_,role}: role
 def projectile_write(~H: Type,~ops: ProjectileOps<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
-    case EntityRow{Row{+body,+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}: (Cap.set(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),Cap.set(~H,~Components.Body,~Components.Body,~projectile_body_cap(~H,ops),ctx,body),trajectory_of(motion)),(T.Success{},EntityRow{Row{body,hit,xp,gold,heal,chest,killed,0},motion}))
-def projectile_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.BodyRest,~Components.Body,~Components.Body,~Storage.Token,~Storage.take,~Storage.put,~Storage.project,~Storage.family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~Storage.trajectory_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family())},selected_projectile}
+    case ProjectileRow{Shot.Outcome{Shot.State{+space,+identity,+side,+payload,+trajectory},+contact}}: (Cap.set(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),Cap.set(~H,~Components.ShotPayload,~Components.ShotPayload,~projectile_payload_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~projectile_spatial_cap(~H,ops),ctx,space),payload),trajectory),(T.Success{},ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,trajectory},contact}}))
+    case _: (ctx,(T.Failure{MissingBody{}},missing_row()))
+def projectile_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~Storage.shot_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~Storage.trajectory_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family())},selected_projectile}
 
 # Movement writes only spatial state, including the once-per-step age increment.
 # Enemy kind/variant metadata and slow status are read-only.
@@ -790,6 +785,7 @@ def write_row(~H: Type,~ops: Ops<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Err
   match row:
     case EntityRow{Row{Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius},+hit,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
       (Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),Cap.set(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx,Components.Vitals{hp,maxHp}),status_of(motion)),(T.Success{},EntityRow{Row{Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}))
+    case _: (ctx,(T.Failure{MissingBody{}},missing_row()))
 type PickupOps<-H: Type> is Type: PickupOps{body: Cap.Read<H,Components.Body>,pickup: Cap.Read<H,Components.Pickup>}
 def PickupOpsType(H: Type) -> Type: PickupOps<H>
 def pickup_body_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Components.Body>:
@@ -854,6 +850,7 @@ def body_index_rows(rows: List<&2,EntityRow>,index: BI.Index<Components.Body>) -
   match rows:
     case []: index
     case EntityRow{Row{+body,_,_,_,_,_,_,_},_} <> rest: body_index_rows(rest,BI.insert(~Components.Body,index,body_seed(body),body))
+    case _ <> rest: body_index_rows(rest,index)
 def body_index(rows: List<&2,EntityRow>) -> BI.Index<Components.Body>: body_index_rows(rows,BI.Empty{})
 def indexed_body(index: BI.Index<Components.Body>,seed: U32,fallback: Components.Body) -> Components.Body:
   BI.get(~Components.Body,index,seed,fallback)
@@ -924,6 +921,7 @@ def xp_pool_keep(keep: Bool,row: EntityRow,rest: List<&2,EntityRow>) -> List<&2,
 def xp_pool_filter(+row: EntityRow,+pool: Bool,rest: List<&2,EntityRow>) -> List<&2,EntityRow>:
   match row:
     case EntityRow{Row{Components.Body{_,_,_,_,_,_,_,seed,_},_,_,_,_,_,_,_},_}: xp_pool_keep(Bool.or(Bool.and(PL.is_xp(seed),pool),Bool.and(Bool.not(PL.is_xp(seed)),Bool.not(pool))),row,rest)
+    case ProjectileRow{_}: xp_pool_keep(Bool.not(pool),row,rest)
 def xp_pool_rows(rows: List<&2,EntityRow>,+pool: Bool) -> List<&2,EntityRow>:
   match rows:
     case []: []
@@ -941,6 +939,7 @@ def xp_inventory(rows: List<&2,EntityRow>,+px: F32,+py: F32,inventory: XpInvento
   match rows:
     case []: inventory
     case EntityRow{Row{body,_,_,_,_,_,_,_},_} <> rest: xp_inventory(rest,px,py,xp_inventory_body(body,px,py,inventory))
+    case _ <> rest: xp_inventory(rest,px,py,inventory)
 type XpBatch is Data: XpBatch{free: List<&2,U32>,accumulator: Components.Body,updates: BI.Index<Components.Body>,overflow: U32}
 def xp_accumulator_or_new(old: Components.Body,fresh: Components.Body) -> Components.Body:
   match old:
@@ -968,6 +967,7 @@ def xp_batch_apply(rows: List<&2,EntityRow>,+index: BI.Index<Components.Body>,+s
   match rows:
     case []: []
     case EntityRow{Row{body,hit,xp,gold,heal,chest,killed,relic},motion} <> rest: EntityRow{Row{xp_batch_body(body,index,selected,overflow),hit,xp,gold,heal,chest,killed,relic},motion} <> xp_batch_apply(rest,index,selected,overflow)
+    case row <> rest: row <> xp_batch_apply(rest,index,selected,overflow)
 def xp_batch_done(pool: List<&2,EntityRow>,batch: XpBatch) -> List<&2,EntityRow>:
   match batch:
     case XpBatch{_,Components.Body{_,_,_,_,_,_,_,seed,_},index,overflow}: xp_batch_apply(pool,index,seed,overflow)
@@ -1086,6 +1086,7 @@ def accumulate(rows: List<&2,EntityRow>,+hit: U32,+xp: U32,+gold: U32,+heal: U32
   match rows:
     case []: Totals{hit,xp,gold,heal,chest,kills,bodies,snapshots,relicTotal}
     case EntityRow{Row{+body,+h,+x,+g,+he,+c,+k,+relic},+motion} <> rest: accumulate(rest,(hit + h : U32),(xp + x : U32),(gold + g : U32),(heal + he : U32),(chest + c : U32),(kills + k : U32),body <> bodies,Snapshot{body,motion} <> snapshots,(relicTotal + relic : U32))
+    case ProjectileRow{Shot.Outcome{+projectile,h}} <> rest: accumulate(rest,(hit + h : U32),xp,gold,heal,chest,kills,bodies,ProjectileSnapshot{projectile} <> snapshots,relicTotal)
 def phase_for(dead: Bool,won: Bool,chest: Bool,levelup: Bool) -> U32:
   match dead won chest levelup:
     case True{} _ _ _: 3
@@ -1097,6 +1098,7 @@ def boss_kills(rows: List<&2,EntityRow>) -> U32:
   match rows:
     case []: 0
     case EntityRow{Row{Components.Body{_,_,_,+variant,_,_,_,_,_},_,_,_,_,_,+killed,+relic},_} <> rest: (killed * Bool.to_u32(U32.is_le(20,variant)) + boss_kills(rest) : U32)
+    case _ <> rest: boss_kills(rest)
 def earned_xp(+earned: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32) -> U32: (earned * (100 + at(passives,9) * 10 + at(passives,14) * 10 + meta_rank(meta,7) * 5 + 30 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32)
 def player_damage(+hit: U32,+invuln: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
   Combat.contact_damage(hit,invuln,U32.max(1,Combat.lose(6,(at(passives,6) + meta_rank(meta,3) + 3 * Bool.to_u32(U32.is_eq(arcana,4)) + Bool.to_u32(U32.is_eq(character,3)) : U32))))
@@ -1136,6 +1138,7 @@ def killed_kinds(rows: List<&2,EntityRow>,+kinds: List<&2,U32>) -> List<&2,U32>:
     case []: kinds
     case EntityRow{Row{Components.Body{_,_,_,+variant,_,_,_,_,_},_,_,_,_,_,1,+relic},_} <> rest: killed_kinds(rest,add_killed_kind(contains(kinds,variant),variant,kinds))
     case _ <> rest: killed_kinds(rest,kinds)
+    case _ <> rest: killed_kinds(rest,kinds)
 def run_kinds(run: Run) -> List<&2,U32>:
   match run:
     case Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,kinds,+relicCollected},RS.PlayerState{_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: kinds
@@ -1173,13 +1176,15 @@ def effect_find_stats(players: List<&2,effect_Player>,+id: U32) -> effect_Effect
 def effect_source(snapshots: List<&2,Snapshot>,+shot: U32) -> U32:
   match snapshots:
     case []: 0
-    case Snapshot{Components.Body{_,_,_,_,_,_,_,+seed,_},Motion{_,_,_,_,_,_,_,_,slot}} <> rest: Bool.pick(U32,U32.is_eq(seed,shot),(slot / 65536 : U32),effect_source(rest,shot))
+    case ProjectileSnapshot{Shot.State{_,+seed,_,_,Components.Trajectory{_,_,_,_,_,_,slot}}} <> rest: Bool.pick(U32,U32.is_eq(seed,shot),(slot / 65536 : U32),effect_source(rest,shot))
 # Build once per world tick; shared-world callers use effect_apply_indexed to avoid
 # scanning every snapshot for every enemy/projectile pair.
+    case _ <> rest: effect_source(rest,shot)
 def effect_origin_index(snapshots: List<&2,Snapshot>) -> BI.Index<U32>:
   match snapshots:
     case []: BI.Empty{}
-    case Snapshot{Components.Body{_,_,_,_,_,_,_,seed,_},Motion{_,_,_,_,_,_,_,_,slot}} <> rest: BI.insert(~U32,effect_origin_index(rest),seed,(slot / 65536 : U32))
+    case ProjectileSnapshot{Shot.State{_,seed,_,_,Components.Trajectory{_,_,_,_,_,_,slot}}} <> rest: BI.insert(~U32,effect_origin_index(rest),seed,(slot / 65536 : U32))
+    case _ <> rest: effect_origin_index(rest)
 def effect_indexed_source(origins: BI.Index<U32>,shot: U32) -> U32: BI.get(~U32,origins,shot,0)
 def effect_burn_duration(+burn: U32) -> U32: (burn % 65536 : U32)
 def effect_burn_source(+burn: U32) -> U32: (burn / 65536 : U32)
@@ -1435,7 +1440,8 @@ def collector(+team: Team,+x: F32,+y: F32) -> PlayerView:
     case Team{players,_,_,_}: collector_ready(team,x,y,pickup_candidates(players,x,y))
 def own_snapshot(row: Snapshot,+id: U32,+tail: List<&2,Snapshot>) -> List<&2,Snapshot>:
   match row:
-    case Snapshot{+body,Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}}: Bool.pick(List<&2,Snapshot>,U32.is_eq((slot / 65536 : U32),id),Snapshot{body,Motion{vx,vy,life,pierce,visited,slow,burn,owner,(slot % 65536 : U32)}} <> tail,tail)
+    case ProjectileSnapshot{Shot.State{+space,+identity,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}}: Bool.pick(List<&2,Snapshot>,U32.is_eq((slot / 65536 : U32),id),ProjectileSnapshot{Shot.State{space,identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,(slot % 65536 : U32)}}} <> tail,tail)
+    case _: tail
 def own_snapshots(rows: List<&2,Snapshot>,+id: U32) -> List<&2,Snapshot>:
   match rows:
     case []: []
@@ -1467,32 +1473,43 @@ def team_plan_all(views: List<&2,PlayerView>,+snapshots: List<&2,Snapshot>) -> S
 # projectile IDs and weapon IDs remain independent and retain solo encodings.
 def team_shot_spawn(+team: Team,+seed: U32,request: Maybe<&2,SP.Request>) -> EntityRow:
   match request:
-    case None{}: dormant_entity(0.0,0.0,seed)
+    case None{}: ProjectileRow{Shot.Outcome{Shot.dormant(0.0,0.0,seed,Shot.PlayerShot{}),0}}
     case Some{SP.Request{+owner,+slot,level}}: with_shot_owner(shot_spawn_ready(True{},seed,owner,(slot % 65536 : U32),level,team_args(team,team_for_id(team,(slot / 65536 : U32)))),owner,slot)
-def team_shot_alive(alive: Bool,+team: Team,+body: Components.Body,+motion: Motion,+seed: U32,+owner: U32,+slot: U32,+plan: SP.Plan) -> EntityRow:
-  match alive body:
-    case False{} _: team_shot_spawn(team,seed,SP.lookup(plan,seed))
-    case True{} Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: with_shot_owner(shot_step_aim(Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},motion,team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y)),owner,slot)
-def team_shot(team: Team,body: Components.Body,trajectory: Components.Trajectory) -> EntityRow:
-  match team body trajectory:
-    case Team{players,base,+plan,origins} Components.Body{+x,+y,1,+variant,+hp,+maximum,+age,+seed,+radius} Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}: team_shot_alive(Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)),Team{players,base,plan,origins},Components.Body{x,y,1,variant,hp,maximum,age,seed,radius},Motion{vx,vy,life,pierce,visited,0,0,owner,slot},seed,owner,slot,plan)
-    case Team{players,base,+plan,origins} Components.Body{_,_,_,_,_,_,_,+seed,_} _: team_shot_spawn(Team{players,base,plan,origins},seed,SP.lookup(plan,seed))
-def team_projectile_role(role: Role.Role,+team: Team,+body: Components.Body,trajectory: Components.Trajectory) -> EntityRow:
-  match role body:
-    case Role.PlayerProjectileSlot{} body: team_shot(team,body,trajectory)
-    case Role.HostileProjectileSlot{} Components.Body{+x,+y,+kind,+variant,+hp,+maxHp,+age,+seed,+radius}: hostile_step(Components.Body{x,y,kind,variant,hp,maxHp,age,seed,radius},logical_motion(trajectory,empty_status()),team_args(team,team_nearest(team,x,y)))
+def team_shot_alive(alive: Bool,+team: Team,+projectile: Shot.State,plan: SP.Plan) -> EntityRow:
+  match alive projectile:
+    case False{} +projectile: team_shot_spawn(team,Shot.identity(projectile),SP.lookup(plan,Shot.identity(projectile)))
+    case True{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+identity,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}: shot_step_aim(Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y))
+def team_shot(team: Team,+projectile: Shot.State) -> EntityRow:
+  match team:
+    case Team{players,base,+plan,origins}: team_shot_alive(Shot.active(projectile),Team{players,base,plan,origins},projectile,plan)
+def projectile_side(role: Role.Role) -> Shot.Side:
+  match role:
+    case Role.HostileProjectileSlot{}: Shot.HostileShot{}
+    case _: Shot.PlayerShot{}
+def team_projectile_role(role: Role.Role,+team: Team,+projectile: Shot.State) -> EntityRow:
+  match role projectile:
+    case Role.PlayerProjectileSlot{} projectile: team_shot(team,projectile)
+    case Role.HostileProjectileSlot{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+identity,+side,+payload,+trajectory}: hostile_step(Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,trajectory},team_args(team,team_nearest(team,x,y)))
     case _ _: missing_row()
-def team_projectile_trajectory(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,body: Components.Body,result: H & C.Access<Components.Trajectory>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_trajectory(~H: Type,~ops: ProjectileOps<H>,+role: Role.Role,team: Team,identity: U32,space: Space.Spatial,payload: Components.ShotPayload,result: H & C.Access<Components.Trajectory>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{trajectory}): projectile_write(~H,~ops,ctx,team_projectile_role(role,team,body,trajectory))
+    case (ctx,C.Found{trajectory}): projectile_write(~H,~ops,ctx,team_projectile_role(role,team,Shot.State{space,identity,projectile_side(role),payload,trajectory}))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
-def team_projectile_body(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,result: H & C.Access<Components.Body>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_payload(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,identity: U32,space: Space.Spatial,result: H & C.Access<Components.ShotPayload>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{body}): team_projectile_trajectory(~H,~ops,role,team,body,Cap.get(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),ctx))
+    case (ctx,C.Found{payload}): team_projectile_trajectory(~H,~ops,role,team,identity,space,payload,Cap.get(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+def team_projectile_spatial(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
+  match result:
+    case (ctx,C.Found{space}): team_projectile_payload(~H,~ops,role,team,identity,space,Cap.get(~H,~Components.ShotPayload,~Components.ShotPayload,~projectile_payload_cap(~H,ops),ctx))
+    case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
+def team_projectile_identity(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EntityRow):
+  match result:
+    case (ctx,C.Found{Components.Identity{identity}}): team_projectile_spatial(~H,~ops,role,team,identity,Cap.get(~H,~Space.Spatial,~Space.Spatial,~projectile_spatial_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def team_projectile_observed(~H: Type,~ops: ProjectileOps<H>,team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{role}): team_projectile_body(~H,~ops,role,team,Cap.get(~H,~Components.Body,~Components.Body,~projectile_body_cap(~H,ops),ctx))
+    case (ctx,C.Found{role}): team_projectile_identity(~H,~ops,role,team,Cap.read(~H,~Components.Identity,~projectile_identity_cap(~H,ops),ctx))
     case (ctx,_): (ctx,(T.Failure{MissingBody{}},missing_row()))
 def team_projectile_system(~H: Type,~ops: ProjectileOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_projectile_observed(~H,~ops,team,Cap.read(~H,~Role.Role,~projectile_role_cap(~H,ops),ctx))
 def move_space_toward(space: Space.Spatial,variant: U32,slow: U32,+run: Run) -> Space.Spatial:
@@ -1562,9 +1579,11 @@ def outside_predicted_players(views: List<&2,PlayerView>,+x: F32,+y: F32,+radius
 def positioned_birth(row: EntityRow,point: S.Point) -> EntityRow:
   match row point:
     case EntityRow{Row{Components.Body{_,_,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion} S.Point{x,y}: EntityRow{Row{Components.Body{x,y,kind,variant,hp,maximum,age,seed,radius},hit,xp,gold,heal,chest,killed,relic},motion}
+    case row _: row
 def prediction_birth_at(view: PlayerView,distance: F32,+row: EntityRow) -> EntityRow:
   match view row:
     case PlayerView{_,+run,_,_,_} EntityRow{Row{Components.Body{_,_,_,_,_,_,_,+seed,radius},_,_,_,_,_,_,_},_}: positioned_birth(row,PredictionSpawn.choose((seed + ((run_seed(run) - run_tick(run) + 1 : U32) - 12345) * 31 : U32),wave_tick(run_mode(run),run_tick(run)),PredictionSpawn.Camera{run_px(run),run_py(run),distance},radius))
+    case _ row: row
 def maximum_prediction_distance(views: List<&2,PlayerView>,+distance: F32) -> F32:
   match views:
     case []: distance
@@ -1575,10 +1594,12 @@ def prediction_birth(+team: Team,+previous: Components.Body,row: EntityRow) -> E
 def predicted_birth_gate(views: List<&2,PlayerView>,previous: Components.Body,+row: EntityRow) -> EntityRow:
   match row:
     case EntityRow{Row{Components.Body{+x,+y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_predicted_players(views,x,y,radius),previous,row)
+    case row: row
 def team_spawn_mode(padded: Bool,+team: Team,+previous: Components.Body,+result: EntityRow) -> EntityRow:
   match padded team result:
     case False{} Team{views,_,_,_} EntityRow{Row{Components.Body{x,y,_,_,_,_,_,_,radius},_,_,_,_,_,_,_},_}: spawn_gate(outside_players(views,x,y,radius),previous,result)
     case True{} Team{+views,base,plan,origins} _: predicted_birth_gate(views,previous,prediction_birth(Team{views,base,plan,origins},previous,result))
+    case _ _ result: result
 def team_spawn_fresh(fresh: Bool,+team: Team,+previous: Components.Body,+result: EntityRow) -> EntityRow:
   match fresh team:
     case False{} _: result
@@ -1586,6 +1607,7 @@ def team_spawn_fresh(fresh: Bool,+team: Team,+previous: Components.Body,+result:
 def team_spawn_gate(+team: Team,+previous: Components.Body,+result: EntityRow) -> EntityRow:
   match previous result:
     case Components.Body{_,_,previousKind,_,_,_,previousAge,_,_} EntityRow{Row{Components.Body{_,_,kind,_,_,_,age,_,_},_,_,_,_,_,_,_},_}: team_spawn_fresh(SL.fresh_transition(SL.is_newborn(previousKind,previousAge),SL.is_newborn(kind,age)),team,previous,result)
+    case _ result: result
 def effect_players(views: List<&2,PlayerView>) -> List<&2,effect_Player>:
   match views:
     case []: []
@@ -1687,24 +1709,24 @@ def contact_targets(rows: List<&2,Snapshot>,+team: Team) -> List<&2,Contact.Targ
     case []: []
     case Snapshot{+body, motion} <> rest: contact_target_enemy(body,motion,team,contact_targets(rest,team))
 
+    case _ <> rest: contact_targets(rest,team)
 def contact_shot_targets(unlimited: Bool,+targets: List<&2,Contact.Target>,+x: F32,+y: F32,+radius: F32,+pierce: U32,+visited: List<&2,U32>,next: P.Shot) -> List<&2,U32>:
   match unlimited next:
     case True{} _: []
     case False{} P.Shot{x1,y1,_,_,_,_,_}: Contact.first_ids(pierce,Contact.contacts(targets,x,y,x1,y1,radius,visited))
-def contact_shot_next(body: Components.Body,motion: Motion,args: Args,aim: Aim) -> P.Shot:
-  match body motion args aim:
-    case Components.Body{x,y,_,+id,_,_,age,_,radius} Motion{vx,vy,life,pierce,_,_,_,_,_} Args{Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{px,py,_,_,_,_,_,_,arcana,_,_,_,_,_,_,_}},_,_,_,_,_} Aim{tx,ty,_,_}:
-      reflected(Bool.and(U32.is_eq(arcana,8),ballistic(id)),P.step(id,(age + 1 : U32),P.Shot{x,y,vx,vy,radius,life,pierce},px,py,tx,ty))
-def contact_shot_plan(active: Bool,+body: Components.Body,+motion: Motion,+team: Team,targets: List<&2,Contact.Target>,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
-  match active body motion:
-    case False{} _ _: tail
-    case True{} Components.Body{+x,+y,+kind,+id,+damage,+maximum,+age,+seed,+radius} Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}:
-      HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),contact_shot_targets(U32.is_le(9999,pierce),targets,x,y,radius,pierce,visited,contact_shot_next(Components.Body{x,y,kind,id,damage,maximum,age,seed,radius},Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y)))} <> tail
+def contact_shot_input(args: Args,aim: Aim) -> Shot.StepInput:
+  match args:
+    case Args{run,_,_,_,_,_}: shot_step_input(run,aim)
+def contact_shot_plan(active: Bool,+projectile: Shot.State,+team: Team,targets: List<&2,Contact.Target>,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
+  match active projectile:
+    case False{} _: tail
+    case True{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+seed,+side,Components.ShotPayload{+weapon,+damage,+enabled},Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot}}:
+      HitPlan{seed,weapon,damage,x,y,radius,U32.is_le(9999,pierce),contact_shot_targets(U32.is_le(9999,pierce),targets,x,y,radius,pierce,visited,Shot.next(Shot.State{Space.Spatial{x,y,age,radius},seed,side,Components.ShotPayload{weapon,damage,enabled},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot}},contact_shot_input(team_args(team,team_for_id(team,(slot / 65536 : U32))),nearest_from_args(team_base(team),x,y))))} <> tail
 def contact_plans(rows: List<&2,Snapshot>,+team: Team,+targets: List<&2,Contact.Target>) -> List<&2,HitPlan>:
   match rows:
     case []: []
-    case Snapshot{Components.Body{+x,+y,1,+id,+damage,+maximum,+age,+seed,+radius},Motion{+vx,+vy,+life,+pierce,+visited,+slow,+burn,+owner,+slot}} <> rest:
-      contact_shot_plan(Bool.and(P.active_hit(id,age),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce))),Components.Body{x,y,1,id,damage,maximum,age,seed,radius},Motion{vx,vy,life,pierce,visited,slow,burn,owner,slot},team,targets,contact_plans(rest,team,targets))
+    case ProjectileSnapshot{Shot.State{+space,+identity,Shot.PlayerShot{},Components.ShotPayload{+weapon,+damage,+enabled},+trajectory}} <> rest:
+      contact_shot_plan(Bool.and(P.active_hit(weapon,Space.age(space)),Shot.active(Shot.State{space,identity,Shot.PlayerShot{},Components.ShotPayload{weapon,damage,enabled},trajectory})),Shot.State{space,identity,Shot.PlayerShot{},Components.ShotPayload{weapon,damage,enabled},trajectory},team,targets,contact_plans(rest,team,targets))
     case _ <> rest: contact_plans(rest,team,targets)
 def contact_team_ready(team: Team,hits: List<&2,HitPlan>) -> Team:
   match team:
