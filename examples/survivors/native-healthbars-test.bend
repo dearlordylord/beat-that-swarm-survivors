@@ -1,4 +1,6 @@
-# Pixel assertions run through the actual native body renderer and quadtree image.
+# Pixel assertions run through the actual native actor renderer and quadtree image.
+import enemy-effects.bend as Effect
+import pickup-state.bend as Pickup
 import Base
 import game-components.bend as Components
 import game.bend as G
@@ -13,11 +15,11 @@ def expect(ok: Bool,label: String) -> IO(Unit):
     case True{}: IO.print("PASS " ++ label)
     case False{}: IO.die(Unit,1,"FAIL " ++ label)
 def enemy(x: F32,y: F32,archetype: U32,health: U32,maximum: U32,identity: U32) -> Enemy.State:
-  Enemy.State{Space.Spatial{x,y,0,10.0},archetype,identity,Components.Vitals{health,maximum},Components.Status{0,0}}
+  Enemy.State{Space.Spatial{x,y,0,10.0},archetype,identity,Components.Vitals{health,maximum},Components.Status{Effect.Slow{0,False{}},Effect.Burn{0,None{}}}}
 def image(kind: U32,variant: U32,hp: U32,maxHp: U32) -> Image:
   match kind:
     case 0: D.image(N.enemies([enemy(1800.0,1800.0,variant,hp,maxHp,0)],1800.0,1800.0,[]))
-    case kind: D.image(N.bodies([Components.Body{1800.0,1800.0,kind,variant,hp,maxHp,0,0,10.0}],1800.0,1800.0,[]))
+    case _: D.image(N.actors([G.PickupSnapshot{Pickup.State{Space.Spatial{1800.0,1800.0,0,10.0},Pickup.Payload{Pickup.Xp{1,False{}},0,True{}},0}}],1800.0,1800.0,[]))
 def pixel(kind: U32,variant: U32,hp: U32,maxHp: U32,x: U32,y: U32) -> U32:
   Capture.pixel(image(kind,variant,hp,maxHp),x,y,512)
 def variants(fuel: Nat,+index: U32) -> IO(Unit):
