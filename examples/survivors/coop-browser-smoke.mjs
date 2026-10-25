@@ -94,10 +94,20 @@ try {
   await waitHost(() => globalThis.__coopLatest?.players?.find(player => player.id === 1)?.connected === false,
     null,{timeout:15000});
   const departed = await host.evaluate(() => globalThis.__coopLatest);
-  await host.locator('#coop-game').focus();
-  await host.keyboard.down('ArrowLeft');
-  await waitHost(x => globalThis.__coopLatest?.players.find(player => player.id === 0)?.px < x - 5,
-    departed.players.find(player => player.id === 0).px,{timeout:15000});
+  const departedX = departed.players.find(player => player.id === 0).px;
+  // A longer real-network run can legitimately reach a reward pause here.
+  // Resolve its actual UI choice before checking that the remaining host moves.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const reward = host.locator('#coop-offers [data-choice]:enabled').first();
+    if (await reward.isVisible()) await reward.click();
+    await host.locator('#coop-game').focus();
+    await host.keyboard.down('ArrowLeft');
+    await waitHost(x => globalThis.__coopLatest?.players.find(player => player.id === 0)?.px < x - 5
+      || [1,2].includes(globalThis.__coopLatest?.phase),departedX,{timeout:15000});
+    await host.keyboard.up('ArrowLeft');
+    if (await host.evaluate(x => globalThis.__coopLatest.players.find(player => player.id === 0).px < x - 5,departedX)) break;
+  }
+  assert.ok(await host.evaluate(x => globalThis.__coopLatest.players.find(player => player.id === 0).px < x - 5,departedX),'remaining host must actually move after any reward pauses');
   await host.keyboard.up('ArrowLeft');
   assert.equal(await host.evaluate(() => globalThis.__coopError),undefined);
   assert.deepEqual(errors,[]);
