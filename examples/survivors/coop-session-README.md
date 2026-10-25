@@ -37,7 +37,7 @@ The host advances the admission clock during reward pauses and acknowledges
 input only after an actual game step. A movement command's intended tick is its
 exact target world tick: a late command is rejected rather than shifted forward.
 Transport sequence numbers and world ticks are different clocks. The
-[worker](coop-worker.mjs) connects these boundaries.
+[worker](coop-worker.mts) connects these boundaries.
 
 ## Separate clocks and prediction lead
 
@@ -144,7 +144,7 @@ confirmed effects share that cursor; local movement and shot clocks retain
 60 Hz budgets. A slow producer can still force short holds. This does not
 promise continuous motion across arbitrary outages or overloaded host CPUs.
 
-Snapshots use the browser gzip codec in `coop-snapshot-codec.mjs`. One serial
+Snapshots use the browser gzip codec in `coop-snapshot-codec.mts`. One serial
 receiver admits at most sixteen compressed jobs, including the active job, and
 16 MiB of compressed input. Each complete decoded snapshot is limited to 1 MiB;
 CRC/ISIZE must pass before JSON admission. These IO limits do not establish a

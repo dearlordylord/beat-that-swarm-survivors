@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "noEmitOnError": true,
+    "rootDir": ".",
+    "types": [],
+    "outDir": "./dist/typescript-browser"
+  },
+  "include": [
+    "browser.mts",
+    "coop-browser.mts",
+    "coop-worker.mts",
+    "../../.typescript/bend.d.ts",
+    "../../types/browser.d.ts",
+    "entry-scripts.mts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

@@ -24,7 +24,7 @@ if [[ ${BENDVY_EXAMPLE_LOCK_HELD:-0} != 1 ]]; then
   export BENDVY_EXAMPLE_LOCK_HELD=1
 fi
 example_timeout() {
-  "$NODE" "$example_repo/examples/run-bounded.mjs" "$@"
+  "$NODE" "$example_repo/examples/run-bounded.mts" "$@"
 }
 example_emit() {
   example_timeout 30 "${example_cpu[@]}" "$BEND" "$1" -o "$2"

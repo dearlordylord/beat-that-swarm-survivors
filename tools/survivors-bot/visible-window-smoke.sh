@@ -45,7 +45,7 @@ for ((attempt=0;attempt<100;attempt++)); do
 done
 [[ -s "$receipt/display" ]]
 export DISPLAY=":$(cat "$receipt/display")"
-"${NODE:-node}" tools/survivors-bot/visible.mjs --mode heuristic --seconds 20 --binary "$binary" --receipts-dir "$receipt/runs" >"$receipt/controller.log" 2>&1 &
+"${NODE:-node}" tools/survivors-bot/visible.mts --mode heuristic --seconds 20 --binary "$binary" --receipts-dir "$receipt/runs" >"$receipt/controller.log" 2>&1 &
 game_pid=$!
 window=
 for ((attempt=0;attempt<120;attempt++)); do

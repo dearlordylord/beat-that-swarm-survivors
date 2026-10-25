@@ -2,7 +2,7 @@
 
 The shared score and arrangement decisions belong to [music.bend](../music.bend).
 [game.bend](../game.bend) derives danger observations from simulation data outside
-ECS advancement. Browser [audio.mjs](../audio.mjs) and native
+ECS advancement. Browser [audio.mts](../audio.mts) and native
 [native_audio.bend](../native_audio.bend) own their transport and synthesis.
 Timing constants, thresholds, voice budgets and queue policies belong in those
 sources.

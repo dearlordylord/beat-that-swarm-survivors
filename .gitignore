@@ -16,3 +16,6 @@ __pycache__/
 
 # Private measured-investigation state
 .autoresearch/
+
+# Generated host declarations and TypeScript tool outputs
+.typescript/
