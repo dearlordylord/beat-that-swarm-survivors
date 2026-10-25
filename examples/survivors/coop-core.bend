@@ -1,6 +1,8 @@
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
+import projectile-state.bend as Shot
+import enemy-spatial.bend as Space
 import game-storage.bend as Storage
 import coop-hit-journal.bend as Journal
 import coop-combat-prediction-policy.bend as ContactPolicy
@@ -344,14 +346,20 @@ def pickup_owner(+team: G.Team,+body: Components.Body,events: U32) -> U32:
     case Components.Body{x,y,_,_,_,_,_,_,_} _: G.view_id(G.collector(team,x,y))
 def owned_row_credit(body: Components.Body,hit: U32,xp: U32,gold: U32,heal: U32,chest: U32,killed: U32,relic: U32,motion: G.Motion,+own: U32) -> G.EntityRow:
   G.EntityRow{G.Row{body,hit,(xp * own : U32),(gold * own : U32),(heal * own : U32),(chest * own : U32),killed,(relic * own : U32)},motion}
+def projectile_contact(run: G.Run,projectile: Shot.State) -> U32:
+  match projectile:
+    case Shot.State{Space.Spatial{x,y,_,radius},_,Shot.HostileShot{},_,_}: Bool.to_u32(G.close(x,y,run_px(run),run_py(run),(radius + 10.0 : F32)))
+    case _: 0
 def owned_row_values(+id: U32,+run: G.Run,row: G.EntityRow,collectorId: U32) -> G.EntityRow:
   match row:
     case G.EntityRow{G.Row{+body,_,+xp,+gold,+heal,+chest,+killed,+relic},+motion}:
       owned_row_credit(body,contact_hit(run,body),xp,gold,heal,chest,(killed * Bool.to_u32(U32.is_eq(kill_owner(motion),id)) : U32),relic,motion,Bool.to_u32(U32.is_eq(collectorId,id)))
+    case G.ProjectileRow{Shot.Outcome{+projectile,_}}: G.ProjectileRow{Shot.Outcome{projectile,projectile_contact(run,projectile)}}
 def owned_row(+team: G.Team,id: U32,run: G.Run,+row: G.EntityRow) -> G.EntityRow:
   match row:
     case G.EntityRow{G.Row{body,_,xp,gold,heal,chest,_,relic},_}: owned_row_values(id,run,row,pickup_owner(team,body,U32.or(U32.or(xp,gold),U32.or(U32.or(heal,chest),relic))))
 type OwnedRowsContext is Data: OwnedRowsContext{team:G.Team,id:U32,run:G.Run}
+    case G.ProjectileRow{_}: owned_row_values(id,run,row,0)
 def owned_row_context(context:OwnedRowsContext,row:G.EntityRow) -> G.EntityRow:
   match context:
     case OwnedRowsContext{team,id,run}: owned_row(team,id,run,row)
@@ -442,16 +450,16 @@ def finalized_all(shared: RS.Session,refs: List<&2,PlayerRef>,+rows: List<&2,G.E
     case FinalizeFailed{message}: CoreFailed{message}
 # Receipts use the exact prepared authoritative contact plans. Existing enemy
 # preimages retain pre-loot-clamp geometry; newborns bypass contact effects.
-def journal_event(value:ContactPolicy.Witness,source:G.Snapshot,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
-  match value source target:
-    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} G.Snapshot{Components.Body{_,_,_,_,_,_,age,_,_},G.Motion{_,_,_,pierce,_,_,_,owner,+slot}} G.Snapshot{Components.Body{_,_,_,_,_,_,targetAge,_,_},_}:
+def journal_event(value:ContactPolicy.Witness,source:Shot.State,target:G.Snapshot,selected:Nat) -> Journal.HitEvent:
+  match value source:
+    case ContactPolicy.Witness{+kind,+tick,+shot,+targetSeed,_,_,+x0,+y0,+x1,+y1,+ex0,+ey0,+ex1,+ey1,radius,+time} Shot.State{Space.Spatial{_,_,age,_},_,_,_,Components.Trajectory{_,_,_,pierce,_,owner,+slot}}:
       +eventKind = Journal.contact_kind(kind,pierce,selected)
       +shotId = Journal.shot_id((slot / 65536 : U32),(tick - 1 - age : U32),owner,slot)
-      +targetBorn = (tick - 1 - targetAge : U32)
+      +targetBorn = (tick - 1 - G.snapshot_age(target) : U32)
       Journal.HitEvent{Journal.event_id(tick,eventKind,shotId,targetSeed,targetBorn),tick,eventKind,shotId,shot,targetSeed,targetBorn,Bool.pick(F32,U32.is_eq(kind,1),1.0,time),Bool.pick(F32,U32.is_eq(kind,1),ex1,(x0 + (x1 - x0) * time : F32)),Bool.pick(F32,U32.is_eq(kind,1),ey1,(y0 + (y1 - y0) * time : F32)),(ex0 + (ex1 - ex0) * time : F32),(ey0 + (ey1 - ey0) * time : F32),radius,0}
 def journal_lookup(value:ContactPolicy.Witness,source:Maybe<&2,G.Snapshot>,target:Maybe<&2,G.Snapshot>,selected:Nat,tail:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
   match source target:
-    case Some{shot} Some{enemy}: journal_event(value,shot,enemy,selected) <> tail
+    case Some{G.ProjectileSnapshot{shot}} Some{enemy}: journal_event(value,shot,enemy,selected) <> tail
     case _ _: tail
 def journal_events_go(rows:List<&2,ContactPolicy.Witness>,+index:BI.Index<G.Snapshot>,+counts:BI.Index<Nat>,acc:List<&2,Journal.HitEvent>) -> List<&2,Journal.HitEvent>:
   match rows:
