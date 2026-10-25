@@ -1,21 +1,8 @@
-import { displayText } from "./host-values.mts"
+import { displayText, defined, errorMessage, at, text, parseJson } from "./host-values.mts"
 import { element } from "./dom.mts"
-import { defined, errorMessage, at, text } from "./host-values.mts"
 import type { AudioEngine } from "./audio.mts"
 import type { Renderer } from "./renderer.mts"
-import type { Frame } from "./frame.mts"
-interface DeferredAudio {
-  engine: AudioEngine | null
-  context: AudioContext | null
-  master: GainNode | null
-  unlock(): void
-  stop: AudioEngine["stop"]
-  event: AudioEngine["event"]
-  update: AudioEngine["update"]
-  observe: AudioEngine["observe"]
-  setMuted: AudioEngine["setMuted"]
-  setVolume: AudioEngine["setVolume"]
-}
+import { parseFrame, type Frame } from "./frame.mts"
 import { MENU_TABS, renderMenuContent } from "./menu-content.mts"
 import { WEAPONS, PASSIVES, CHARACTERS, STAGES, ACHIEVEMENTS, UNIONS } from "./content.mts"
 import { renderExpeditionAction } from "./expedition-menu.mts"
@@ -32,6 +19,19 @@ import {
   validateSetup,
   observeRun
 } from "./progression.mts"
+interface DeferredAudio {
+  engine: AudioEngine | null
+  context: AudioContext | null
+  master: GainNode | null
+  unlock(): void
+  stop: AudioEngine["stop"]
+  event: AudioEngine["event"]
+  update: AudioEngine["update"]
+  observe: AudioEngine["observe"]
+  setMuted: AudioEngine["setMuted"]
+  setVolume: AudioEngine["setVolume"]
+}
+
 const $ = element,
   canvas = $("#game"),
   audio: DeferredAudio = {
@@ -95,8 +95,8 @@ function prepareRuntime() {
       })
   return runtimeTask
 }
-let profile = loadProfile(),
-  state: BendABI.Game.State | undefined,
+const profile = loadProfile()
+let state: BendABI.Game.State | undefined,
   frame: Frame,
   running = false,
   paused = false,
@@ -237,8 +237,8 @@ function accept(packet: BendABI.Game.Packet | { $: "Failed"; error: string }) {
   if (packet.$ === "Failed") throw Error(packet.error)
   if (packet.$ !== "Packet") throw Error("Invalid simulation response")
   state = packet.state
-  let old = frame
-  frame = JSON.parse(packet.frame)
+  const old = frame
+  frame = parseFrame(parseJson(packet.frame))
   if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true
   runHistory = observeRun(runHistory, { weapons: frame.weapons })
   frame.stage ??= stage
@@ -318,7 +318,7 @@ function phase() {
   const d = $("#dialog")
   if (frame.phase === 1 || frame.phase === 2) {
     audio.stop()
-    let offers = frame.offers || []
+    const offers = frame.offers || []
     d.innerHTML = `<div class="banner-heading"><div class="eyebrow">${frame.phase === 1 ? `LEVEL ${frame.level}` : "TREASURE OF THE NIGHT"}</div><h2 id="dialog-title">${frame.phase === 1 ? "Power awakens" : "A fallen lord’s gift"}</h2></div><p>${frame.phase === 1 ? "Choose an ability for the next wave." : "Choose your reward. A matching weapon may evolve."}</p><div class="grid choices">${offers
       .map((o, index) => {
         const isW = o.kind === 0 || o.kind === 3,
@@ -433,14 +433,14 @@ function fail(error: unknown) {
   console.error(error)
 }
 function animation(now: number) {
-  let dt = Math.min(100, now - (previous || now))
+  const dt = Math.min(100, now - (previous || now))
   previous = now
   try {
     if (running && frame) {
       if (!paused && !upgradeOpen && [0, 1, 2].includes(frame.phase)) {
         accumulator += dt
         while (accumulator >= STEP) {
-          let dx =
+          const dx =
               Number(keys.has("KeyD") || keys.has("ArrowRight")) -
               Number(keys.has("KeyA") || keys.has("ArrowLeft")) +
               touch.x,

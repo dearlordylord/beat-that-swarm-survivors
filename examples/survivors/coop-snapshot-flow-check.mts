@@ -1,11 +1,14 @@
+import { bendModule } from "../bend-module.mts"
 import { rows as array } from "./host-values.mts"
-// Fresh emitted Bend diagnostics. Queue bounds do not promise network latency.
 import assert from "node:assert/strict"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-const F: BendABI.CoopSnapshotFlow.API = (
-  await import(
-    pathToFileURL(resolve(process.argv[2] || "examples/survivors/dist/web/dist/coop-snapshot-flow.mjs")).href
+// Fresh emitted Bend diagnostics. Queue bounds do not promise network latency.
+
+const F = (
+  await bendModule<BendABI.CoopSnapshotFlow.API>()(
+    pathToFileURL(resolve(process.argv[2] || "examples/survivors/dist/web/dist/coop-snapshot-flow.mjs")).href,
+    ["ack", "complete", "decode_receipt", "encode_receipt", "fresh", "offer", "prepare", "window"]
   )
 ).default
 const value = <T,>(m: BendMaybe<T>) => (m.$ === "Some" ? m.value : null)

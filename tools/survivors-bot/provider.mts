@@ -5,7 +5,6 @@ import * as Schema from "effect/Schema"
 import { Decision, DecisionModel } from "effect/ai"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import { TypeSafeClient, TypeSafeDecisionModel } from "@effect/ai-typesafe"
-
 export const MODEL = "jev-latest"
 export class ClassifierError extends Schema.TaggedError<ClassifierError>()("ClassifierError", {
   code: Schema.String,

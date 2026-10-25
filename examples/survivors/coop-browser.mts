@@ -1,31 +1,6 @@
-import { displayText } from "./host-values.mts"
-import type { Frame, Body } from "./frame.mts"
+import { displayText, defined, list as nativeList, errorMessage, at, parseJson, object } from "./host-values.mts"
+import type { Frame, Body, CoopFrame } from "./frame.mts"
 import type { CoopSetup } from "./coop-ui.mts"
-import { defined, list as nativeList, errorMessage, at } from "./host-values.mts"
-type Role = "host" | "guest"
-type CoopFrame = Frame & {
-  combatForecast: BendABI.CoopCombatPrediction.Scene
-  stepDistance: number
-  predictionAllowed: boolean
-  ownPlayerId: number
-}
-interface SnapshotEnvelope {
-  type: "frame"
-  connectionVersion: number
-  token: number
-  initial: boolean
-  frame: CoopFrame
-  admission: BendABI.CoopSession.State
-  receipt: BendABI.CoopSession.Receipt
-  observationSeq: number
-  contactJournal: BendABI.CoopHitJournal.State
-  inputTiming: unknown
-}
-interface VisualFrame {
-  shots: Omit<BendABI.CoopLocalProjectiles.RenderShot, "$">[]
-  corpses: Omit<BendABI.CoopLocalProjectiles.TargetFade, "$">[]
-}
-// Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 import Protocol from "./dist/coop-protocol.mjs"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
@@ -36,8 +11,14 @@ import ClientClock from "./dist/coop-client-clock.mjs"
 import LocalProjectiles from "./dist/coop-local-projectiles.mjs"
 import HitJournal from "./dist/coop-hit-journal.mjs"
 import { CoopTransport } from "./coop-transport.mts"
+import type { TransportEvent } from "./coop-transport.mts"
 import { encodeSnapshot, SnapshotDecoder } from "./coop-snapshot-codec.mts"
 import { CoopUI } from "./coop-ui.mts"
+import type { SnapshotEnvelope } from "./coop-boundary.mts"
+import { parseBuildVersion, parseSnapshotEnvelope, parseWorkerReply, parseVisualFrame } from "./coop-boundary.mts"
+type Role = "host" | "guest"
+// Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
+
 let transport: CoopTransport | null = null,
   worker: Worker | null = null,
   role: Role | undefined,
@@ -66,7 +47,10 @@ let connectionState = Connection.fresh({ $: "Guest" }),
 let clientDelivery = ClientDelivery.fresh(0)
 let failureDiagnostic: Record<string, unknown> | null
 const buildVersion = fetch("./version.json")
-  .then((response) => response.json())
+  .then(async (response) => {
+    const value: unknown = await response.json()
+    return parseBuildVersion(value)
+  })
   .catch(() => null)
 function reportFailure(error: unknown, source: string, context: Record<string, unknown> = {}) {
   if (failureDiagnostic) return
@@ -332,8 +316,8 @@ function displayFrame(frame: Frame | null): Frame | null {
     playedContacts = confirmed.state
     localShots = LocalProjectiles.play_effects(localShots, confirmed.events, defined(frame.remotePresentation).tick)
   }
-  const visual: VisualFrame = JSON.parse(
-    LocalProjectiles.render(localShots, 1, defined(frame.remotePresentation).tick, localTargets)
+  const visual = parseVisualFrame(
+    parseJson(LocalProjectiles.render(localShots, 1, defined(frame.remotePresentation).tick, localTargets))
   )
   const visibility = LocalProjectiles.prepare_visibility(localShots)
   const bodies = (frame.bodies || [])
@@ -701,7 +685,7 @@ async function connect(
   ui.status("Connecting to Iroh…", { busy: true })
   armConnectionDeadline()
   try {
-    const created = await CoopTransport.create(async (event) => {
+    const handleEvent = async (event: TransportEvent) => {
       if (generation !== epoch) return
       if (event.type === "connected") {
         connectionEpoch = event.connectionEpoch
@@ -767,8 +751,9 @@ async function connect(
               signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
             }
           } else {
-            const envelope: SnapshotEnvelope = JSON.parse(text)
-            if (envelope.type !== "frame") return
+            const incoming = object(parseJson(text))
+            if (incoming.type !== "frame") return
+            const envelope = parseSnapshotEnvelope(incoming)
             const number = (value: unknown) =>
               typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0
             signalConnection(
@@ -803,6 +788,11 @@ async function connect(
         if (kind === "host") worker?.postMessage({ type: "disconnect", connectionEpoch })
         else signalConnection({ $: "Lost" })
       } else if (event.type === "error") transportFailure(Error(event.message))
+    }
+    const created = await CoopTransport.create((event) => {
+      void handleEvent(event).catch((error: unknown) => {
+        if (generation === epoch) transportFailure(error)
+      })
     })
     if (generation !== epoch) {
       created.close()
@@ -811,59 +801,64 @@ async function connect(
     transport = created
     if (kind === "host") {
       worker = new Worker("./coop-worker.mjs", { type: "module" })
-      worker.onmessage = (event) => {
+      worker.onmessage = (event: MessageEvent<unknown>) => {
         if (generation !== epoch) return
-        const message = event.data
-        if (message.type === "command-consumed") pendingCommands.delete(message.deliveryId)
-        else if (message.type === "frame") {
-          tick = message.frame.tick
-          hostFrame = {
-            ...message.frame,
-            observationSeq: message.observationSeq,
-            contactJournal: message.contactJournal
+        try {
+          const message = parseWorkerReply(event.data)
+          if (message.type === "command-consumed") pendingCommands.delete(message.deliveryId)
+          else if (message.type === "frame") {
+            tick = message.frame.tick
+            hostFrame = {
+              ...message.frame,
+              observationSeq: message.observationSeq,
+              contactJournal: message.contactJournal
+            }
+            if (message.connectionReady || ui.frame) ui.present({ ...defined(hostFrame), runId })
+            if (!message.connectionReady) ui.setChoicePending(true)
+          } else if (message.type === "remote-frame") {
+            if (!connected || message.connectionEpoch !== connectionEpoch) return
+            if (!SnapshotFlow.offer_allowed(snapshotFlow, message.observationSeq)) return
+            latestSnapshot = {
+              type: "frame",
+              connectionVersion: Connection.protocol_version(),
+              token: message.token,
+              initial: message.initial,
+              frame: { ...message.frame, runId },
+              admission: message.admission,
+              receipt: message.receipt,
+              inputTiming: message.inputTiming,
+              observationSeq: message.observationSeq,
+              contactJournal: message.contactJournal
+            }
+            snapshotFlow = SnapshotFlow.offer(snapshotFlow, message.observationSeq)
+            flushSnapshot()
+          } else if (message.type === "handshake-action") {
+            if (message.connectionEpoch === connectionEpoch && Connection.reason(connectionState).$ === "None") {
+              connectionState = message.state
+              connectionAction(message.action)
+            }
+          } else if (
+            message.type === "choice-unavailable" &&
+            message.player === 0 &&
+            message.connectionEpoch === connectionEpoch
+          ) {
+            ui.setChoicePending(false)
+            ui.status("Waiting for your teammate to be ready.")
+          } else if (message.type === "ready") {
+            clearTimeout(connectDeadline)
+            const link = new URL(location.href)
+            link.search = ""
+            link.searchParams.set("session", String(sessionId))
+            link.searchParams.set("join", defined(transport).invitation())
+            ui.invitation(link.href)
+            ui.status("Send the invitation. Keep this host tab open.")
+          } else if (message.type === "error" && message.connectionEpoch === connectionEpoch) {
+            console.error(message.message, message.stack)
+            reportFailure(message, "host-worker", message.context)
           }
-          if (message.connectionReady || ui.frame) ui.present({ ...defined(hostFrame), runId })
-          if (!message.connectionReady) ui.setChoicePending(true)
-        } else if (message.type === "remote-frame") {
-          if (!connected || message.connectionEpoch !== connectionEpoch) return
-          if (!SnapshotFlow.offer_allowed(snapshotFlow, message.observationSeq)) return
-          latestSnapshot = {
-            type: "frame",
-            connectionVersion: Connection.protocol_version(),
-            token: message.token,
-            initial: message.initial,
-            frame: { ...message.frame, runId },
-            admission: message.admission,
-            receipt: message.receipt,
-            inputTiming: message.inputTiming,
-            observationSeq: message.observationSeq,
-            contactJournal: message.contactJournal
-          }
-          snapshotFlow = SnapshotFlow.offer(snapshotFlow, message.observationSeq)
-          flushSnapshot()
-        } else if (message.type === "handshake-action") {
-          if (message.connectionEpoch === connectionEpoch && Connection.reason(connectionState).$ === "None") {
-            connectionState = message.state
-            connectionAction(message.action)
-          }
-        } else if (
-          message.type === "choice-unavailable" &&
-          message.player === 0 &&
-          message.connectionEpoch === connectionEpoch
-        ) {
-          ui.setChoicePending(false)
-          ui.status("Waiting for your teammate to be ready.")
-        } else if (message.type === "ready") {
-          clearTimeout(connectDeadline)
-          const link = new URL(location.href)
-          link.search = ""
-          link.searchParams.set("session", String(sessionId))
-          link.searchParams.set("join", defined(transport).invitation())
-          ui.invitation(link.href)
-          ui.status("Send the invitation. Keep this host tab open.")
-        } else if (message.type === "error" && message.connectionEpoch === connectionEpoch) {
-          console.error(message.message, message.stack)
-          reportFailure(message, "host-worker", message.context)
+        } catch (error) {
+          reportFailure(error, "worker-message")
+          signalConnection({ $: "Reject", reason: { $: "RuntimeFailed" } })
         }
       }
       worker.onerror = (event) => {

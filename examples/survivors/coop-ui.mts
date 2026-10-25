@@ -1,24 +1,7 @@
-import { displayText } from "./host-values.mts"
+import { displayText, defined, errorMessage } from "./host-values.mts"
 import { element } from "./dom.mts"
-import { defined, errorMessage } from "./host-values.mts"
-import type { Setup, SetupKind } from "./profile.mts"
-import type { Offer } from "./frame.mts"
-export interface CoopSetup extends Setup {
-  meta: number
-  allowedWeapons: number
-}
-export interface CoopCallbacks {
-  onHost?: (setup: CoopSetup) => unknown
-  onJoin?: (ticket: string, setup: CoopSetup, invitation: { session: string | null }) => unknown
-  onLeave?: () => unknown
-  onInput?: (input: { x: number; y: number }) => void
-  onChoice?: (choice: { round: number; index: number }) => unknown
-  onPrepareDisplay?: (now: number) => void
-  onDisplay?: (frame: Frame | null, paintAt: number) => Frame | null
-}
-const kinds: SetupKind[] = ["character", "stage", "arcana", "mode"]
-import type { Frame } from "./frame.mts"
-import type { Profile } from "./profile.mts"
+import type { Setup, SetupKind, Profile } from "./profile.mts"
+import type { Offer, Frame } from "./frame.mts"
 import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS, PASSIVES, UNIONS, ACHIEVEMENTS } from "./content.mts"
 import {
   loadProfile,
@@ -34,6 +17,21 @@ import { Renderer } from "./renderer.mts"
 import { AudioEngine } from "./audio.mts"
 import { ObservationPresentation } from "./coop-presentation.mts"
 import { renderCoopSetup } from "./expedition-menu.mts"
+export interface CoopSetup extends Setup {
+  meta: number
+  allowedWeapons: number
+}
+export interface CoopCallbacks {
+  onHost?: (setup: CoopSetup) => unknown
+  onJoin?: (ticket: string, setup: CoopSetup, invitation: { session: string | null }) => unknown
+  onLeave?: () => unknown
+  onInput?: (input: { x: number; y: number }) => void
+  onChoice?: (choice: { round: number; index: number }) => unknown
+  onPrepareDisplay?: (now: number) => void
+  onDisplay?: (frame: Frame | null, paintAt: number) => Frame | null
+}
+const kinds: SetupKind[] = ["character", "stage", "arcana", "mode"]
+
 // Presentation and device IO only. The controller supplies authoritative Bend frames.
 const esc = (value: unknown) =>
   displayText(value).replace(
@@ -477,13 +475,15 @@ export class CoopUI {
         const copy = this.document.createElement("button")
         copy.type = "button"
         copy.textContent = "Copy error"
-        copy.addEventListener("click", async () => {
-          try {
-            await this.window.navigator.clipboard.writeText(output.textContent)
-            copy.textContent = "Copied"
-          } catch {
-            copy.textContent = "Select and copy the details below"
-          }
+        copy.addEventListener("click", () => {
+          void (async () => {
+            try {
+              await this.window.navigator.clipboard.writeText(output.textContent)
+              copy.textContent = "Copied"
+            } catch {
+              copy.textContent = "Select and copy the details below"
+            }
+          })()
         })
         panel.append(heading, copy, output)
         status.after(panel)
@@ -610,10 +610,13 @@ export class CoopUI {
           : "Run receipt unavailable; progress has not been saved."
         this.$("#coop-offers").innerHTML =
           `${aborted ? "" : `<p class="muted">${esc(saveNote)}</p>`}<button id="coop-finish" class="moon-button">Return to lobby</button>`
-        this.$("#coop-finish").addEventListener("click", () => this.invoke(() => this.callbacks.onLeave?.()), {
-          once: true,
-          signal: this.events.signal
-        })
+        this.$("#coop-finish").addEventListener(
+          "click",
+          () => {
+            void this.invoke(() => this.callbacks.onLeave?.())
+          },
+          { once: true, signal: this.events.signal }
+        )
         this.$("#coop-finish").focus({ preventScroll: true })
         if (aborted) this.audio.stop(true)
       }

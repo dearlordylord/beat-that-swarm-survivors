@@ -1,6 +1,8 @@
 import { at, defined, object } from "../../examples/survivors/host-values.mts"
 import type { Frame, Offer, Mechanics, Goal, History } from "./observations.mts"
 import type { planMovement } from "./planner.mts"
+import { createHash } from "node:crypto"
+import { WEAPONS, PASSIVES, CHARACTERS, STAGES, ARCANA, UNIONS, RUN_MODES } from "../../examples/survivors/content.mts"
 interface DecisionOptions {
   runId?: string | undefined
   decisionSeq?: number | undefined
@@ -18,8 +20,7 @@ const effectExtensions = (): {
   route?: unknown
 } => ({})
 const snapshotExtensions = (): { spatialPlanner?: unknown; goalExecution?: unknown } => ({})
-import { createHash } from "node:crypto"
-import { WEAPONS, PASSIVES, CHARACTERS, STAGES, ARCANA, UNIONS, RUN_MODES } from "../../examples/survivors/content.mts"
+
 // Mirrors game.bend's observable rules. These are explanatory estimates, never
 // a second implementation deciding legality: the engine's offers are authoritative.
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex")

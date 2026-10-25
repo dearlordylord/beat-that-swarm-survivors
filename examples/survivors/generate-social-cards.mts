@@ -1,8 +1,10 @@
-// Optional authoring tool; normal builds copy the checked-in PNGs and need no browser.
 import { readFile, mkdir } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
+import { loadChromium } from "../../tools/survivors-bot/playwright-module.mts"
 import { portrait } from "./expedition-menu.mts"
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
+// Optional authoring tool; normal builds copy the checked-in PNGs and need no browser.
+
+const chromium = await loadChromium()
 const output = new URL("./social/", import.meta.url)
 await mkdir(output, { recursive: true })
 const screenshot =

@@ -1,5 +1,4 @@
 import { defined } from "./host-values.mts"
-// Node Web Streams check for the browser-compatible snapshot byte codec.
 import assert from "node:assert/strict"
 import {
   decodeSnapshot,
@@ -10,6 +9,8 @@ import {
   MAX_SNAPSHOT_DECODE_JOBS,
   MAX_SNAPSHOT_DECODE_QUEUE_BYTES
 } from "./coop-snapshot-codec.mts"
+// Node Web Streams check for the browser-compatible snapshot byte codec.
+
 assert.equal(typeof CompressionStream, "function")
 assert.equal(typeof DecompressionStream, "function")
 let checks = 0
@@ -253,15 +254,15 @@ const oldConnection = new SnapshotDecoder({
 const activeOld = oldConnection.decode(queuedFrames[0])
 const queuedOld1 = oldConnection.decode(queuedFrames[1]).then(
   () => null,
-  (error) => error
+  (error: unknown) => error
 )
 const queuedOld2 = oldConnection.decode(queuedFrames[2]).then(
   () => null,
-  (error) => error
+  (error: unknown) => error
 )
 const activeOldResult = activeOld.then(
   (value) => value,
-  (error) => error
+  (error: unknown) => error
 )
 oldConnection.close()
 check(

@@ -399,7 +399,7 @@ export class AudioEngine {
       this.timer = globalThis.setInterval(() => this._schedule(), 25)
       const timer: unknown = this.timer
       if (typeof timer === "object" && timer !== null && "unref" in timer && typeof timer.unref === "function")
-        timer.unref()
+        Reflect.apply(timer.unref, timer, [])
     }
   }
   stop(reset = false) {

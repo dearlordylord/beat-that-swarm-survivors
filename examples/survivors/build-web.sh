@@ -37,6 +37,7 @@ for module in coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coo
 done
 bash "$example_repo/tools/iroh-transport/build.sh" "$staging_dir/public/iroh"
 python3 "$example_repo/scripts/generate-bend-types.py"
+"$NODE" "$example_repo/scripts/generate-bend-codecs.mts"
 "$NODE" "$example_repo/node_modules/typescript/bin/tsc" -p "$app_dir/tsconfig.browser.json" --outDir "$staging_dir/public"
 for asset in style.css menu-a.css menu-moon.css coop.css; do
   cp "$app_dir/$asset" "$staging_dir/public/$asset"

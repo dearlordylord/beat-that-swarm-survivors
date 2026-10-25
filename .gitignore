@@ -19,3 +19,6 @@ __pycache__/
 
 # Generated host declarations and TypeScript tool outputs
 .typescript/
+
+# Runtime boundary codecs derived from the checked Bend ABI
+examples/survivors/bend-codecs.generated.mts

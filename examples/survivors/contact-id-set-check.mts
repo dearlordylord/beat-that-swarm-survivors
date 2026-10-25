@@ -1,10 +1,13 @@
+import { bendModule } from "../bend-module.mts"
 import { list } from "./host-values.mts"
 import assert from "node:assert/strict"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 const modulePath =
   process.env.CONTACT_ID_SET_MODULE || fileURLToPath(new URL("./dist/contact-id-set.mjs", import.meta.url))
-const IdSet: BendABI.ContactIdSet.API = (await import(pathToFileURL(modulePath).href)).default
+const IdSet = (
+  await bendModule<BendABI.ContactIdSet.API>()(pathToFileURL(modulePath).href, ["contains", "empty", "insert"])
+).default
 function compare(ids: string[], queries = ids) {
   let trie = IdSet.empty()
   const reference = new Set()

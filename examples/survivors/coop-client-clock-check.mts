@@ -1,11 +1,14 @@
-// Diagnostics of the emitted Bend clock. The laws own the scheduling contract.
-// Usage: bend coop-client-clock.bend -o /tmp/coop-client-clock.mjs
-//        node coop-client-clock-check.mts /tmp/coop-client-clock.mjs
+import { bendModule } from "../bend-module.mts"
 import assert from "node:assert/strict"
 import { pathToFileURL } from "node:url"
 import { resolve } from "node:path"
-const { default: C }: { default: BendABI.CoopClientClock.API } = await import(
-  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-client-clock.mjs")).href
+// Diagnostics of the emitted Bend clock. The laws own the scheduling contract.
+// Usage: bend coop-client-clock.bend -o /tmp/coop-client-clock.mjs
+//        node coop-client-clock-check.mts /tmp/coop-client-clock.mjs
+
+const { default: C } = await bendModule<BendABI.CoopClientClock.API>()(
+  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-client-clock.mjs")).href,
+  ["consume", "discard", "fresh"]
 )
 let checks = 0
 const check = (value: unknown, message: string) => {

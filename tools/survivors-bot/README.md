@@ -7,6 +7,7 @@ A deterministic controller with spatial memory and bounded route planning for th
 From the repository root, install the optional tool's pinned dependencies with a Node.js version supported by [package.json](package.json):
 
 ```sh
+npm ci
 npm ci --prefix tools/survivors-bot --ignore-scripts
 ./tools/survivors-bot/run.sh --mode heuristic --profile fresh --decisions both --ticks 1800
 ```

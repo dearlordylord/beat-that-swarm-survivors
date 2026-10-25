@@ -1,6 +1,5 @@
 import { at } from "./host-values.mts"
 import { CHARACTERS } from "./content.mts"
-
 // One browser sprite for prerendered SVG portraits and Canvas players (solo/co-op).
 // Character identity and clothing colour come from the generated Bend catalogue.
 const layers: [string | null, string][] = [

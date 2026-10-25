@@ -1,3 +1,7 @@
+import { bendModule } from "../bend-module.mts"
+import { list, rows as array, defined, some } from "./host-values.mts"
+import assert from "node:assert/strict"
+import { pathToFileURL, fileURLToPath } from "node:url"
 interface PendingWrite {
   batch: BendABI.CoopInputFlow.Batch
   payload: string
@@ -6,15 +10,30 @@ interface NativeWrite extends PendingWrite {
   done: number
 }
 type ActiveWrite = { kind: "ack"; done: number } | ({ kind: "input"; done: number } & PendingWrite)
-import { list, rows as array, defined, some } from "./host-values.mts"
+
 // Deterministic boundary check, not a general latency benchmark. The former
 // 16-command/8-command-batch budget could not sustain 60 Hz at 200 ms writes;
 // these checks cover the approved 64/62/2 journal and 32-row batch budget.
-import assert from "node:assert/strict"
-import { pathToFileURL, fileURLToPath } from "node:url"
+
 const location =
   process.env.COOP_FLOW_MODULE || fileURLToPath(new URL("./dist/web/dist/coop-input-flow.mjs", import.meta.url))
-const Flow: BendABI.CoopInputFlow.API = (await import(pathToFileURL(location).href)).default
+const Flow = (
+  await bendModule<BendABI.CoopInputFlow.API>()(pathToFileURL(location).href, [
+    "complete",
+    "decode",
+    "encode",
+    "enqueue",
+    "fail",
+    "fresh",
+    "journal",
+    "max_batch",
+    "max_commands",
+    "max_controls",
+    "max_frame_bytes",
+    "max_inputs",
+    "prepare"
+  ])
+).default
 const command = (
   seq: number,
   target: number,
@@ -239,10 +258,10 @@ function sharedLane(writeMs: number, generateMs = 10000) {
     pending: PendingWrite | null = null,
     active: ActiveWrite | null = { kind: "ack", done: writeMs },
     nextInput = 0
+  const accepted: BendABI.CoopSession.Command[] = [],
+    delivered: BendABI.CoopSession.Command[] = []
   let seq = 0,
     displayTick = 54,
-    accepted: BendABI.CoopSession.Command[] = [],
-    delivered: BendABI.CoopSession.Command[] = [],
     blocked = 0,
     maxJournal = 0,
     late = 0,

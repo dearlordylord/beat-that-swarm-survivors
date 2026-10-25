@@ -1,10 +1,14 @@
 #!/usr/bin/env node
+import { parseJson, list, rows as array, defined } from "./host-values.mts"
+import { bendModule } from "../bend-module.mts"
+import { parseCoopFrame } from "./frame.mts"
 import { corePacket } from "./coop-fixtures.mts"
-import { list, rows as array, defined } from "./host-values.mts"
-// Diagnostic fixtures only. Physics always comes from compiled Bend modules.
 import { performance } from "node:perf_hooks"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
+
+// Diagnostic fixtures only. Physics always comes from compiled Bend modules.
+
 const args = process.argv.slice(2)
 if (![0, 2].includes(args.length) || (args.length && args[0] !== "--variant")) {
   throw new Error("Usage: node coop-combat-benchmark.mts [--variant ballistic|mixed-area]")
@@ -19,23 +23,27 @@ const combatUrl = process.env.COOP_COMBAT_MODULE
     ? new URL(process.env.COOP_COMBAT_MODULE)
     : pathToFileURL(resolve(process.env.COOP_COMBAT_MODULE))
   : new URL("coop-combat-prediction.mjs", moduleDir)
-const [{ default: Core }, { default: C }, { default: P }, { default: S }]: [
-  { default: BendABI.CoopCore.API },
-  { default: BendABI.CoopCombatPrediction.API },
-  { default: BendABI.CoopPrediction.API },
-  { default: BendABI.CoopSession.API }
-] = await Promise.all([
-  import(new URL("coop-core.mjs", moduleDir).href),
-  import(combatUrl.href),
-  import(new URL("coop-prediction.mjs", moduleDir).href),
-  import(new URL("coop-session.mjs", moduleDir).href)
+const [{ default: Core }, { default: C }, { default: P }, { default: S }] = await Promise.all([
+  bendModule<BendABI.CoopCore.API>()(new URL("coop-core.mjs", moduleDir).href, [
+    "core_join",
+    "core_observe",
+    "core_start",
+    "core_step"
+  ]),
+  bendModule<BendABI.CoopCombatPrediction.API>()(combatUrl.href, ["advance", "forecast", "initialize", "receive"]),
+  bendModule<BendABI.CoopPrediction.API>()(new URL("coop-prediction.mjs", moduleDir).href, [
+    "command",
+    "fresh",
+    "tick"
+  ]),
+  bendModule<BendABI.CoopSession.API>()(new URL("coop-session.mjs", moduleDir).href, ["fresh"])
 ])
 // Keep these setup operations and coordinates identical to the original frozen
 // /tmp/bendvy-combat-perf.mjs diagnostic. The mixed variant changes pierce only.
 let state = corePacket(Core.core_join(corePacket(Core.core_start(0, 0, 1)).state, 0, 0, 0)).state
 state = corePacket(Core.core_step(state, 0, 0, 0, 0)).state
-const initial: BendABI.CoopCombatPrediction.Scene = JSON.parse(
-  corePacket(Core.core_observe(state, 1)).frame
+const initial: BendABI.CoopCombatPrediction.Scene = parseCoopFrame(
+  parseJson(corePacket(Core.core_observe(state, 1)).frame)
 ).combatForecast
 const source = array(initial.snapshots).find((snapshot) => snapshot.body.kind === 1)
 if (!source) throw new Error("Fixture bootstrap has no projectile snapshot")

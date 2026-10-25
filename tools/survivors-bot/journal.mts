@@ -1,15 +1,15 @@
 import { execFile } from "node:child_process"
-import { promisify } from "node:util"
+import { promisify, parseArgs } from "node:util"
 import { defined, errorCode, object } from "../../examples/survivors/host-values.mts"
-interface JournalOptions {
-  directory?: string
-  receipt?: string | undefined
-}
 import { createServer } from "node:http"
 import { readFile, readdir, stat } from "node:fs/promises"
 import { resolve, basename } from "node:path"
 import { fileURLToPath } from "node:url"
-import { parseArgs } from "node:util"
+interface JournalOptions {
+  directory?: string
+  receipt?: string | undefined
+}
+
 const defaultDirectory = fileURLToPath(new URL("../../examples/survivors/dist/bot-runs/", import.meta.url))
 const maxBytes = 64 * 1024 * 1024
 // Writers append newline-terminated records. A partial final write is not corruption.
@@ -57,37 +57,43 @@ export async function readJournal({ directory = defaultDirectory, receipt }: Jou
   return { file: basename(path), ...parseJournal(await readFile(path, "utf8")) }
 }
 export function createJournalServer(options: JournalOptions = {}) {
-  return createServer(async (request, response) => {
-    response.setHeader("Cache-Control", "no-store")
-    response.setHeader("X-Content-Type-Options", "nosniff")
-    response.setHeader("Referrer-Policy", "no-referrer")
-    response.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
-    )
-    if (request.method !== "GET") {
-      response.writeHead(405)
+  return createServer((request, response) => {
+    void handleRequest().catch(() => {
+      if (!response.headersSent) response.writeHead(500)
       response.end()
-      return
-    }
-    // No URL-supplied paths, shell commands, credentials, or writes.
-    if (request.url === "/api/journal") {
-      response.setHeader("Content-Type", "application/json; charset=utf-8")
-      try {
-        response.end(JSON.stringify(await readJournal(options)))
-      } catch {
-        response.writeHead(503)
-        response.end(JSON.stringify({ error: "Journal unavailable or exceeds viewer limit" }))
+    })
+    async function handleRequest() {
+      response.setHeader("Cache-Control", "no-store")
+      response.setHeader("X-Content-Type-Options", "nosniff")
+      response.setHeader("Referrer-Policy", "no-referrer")
+      response.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
+      )
+      if (request.method !== "GET") {
+        response.writeHead(405)
+        response.end()
+        return
       }
-    } else if (request.url === "/journal-client.mjs") {
-      response.setHeader("Content-Type", "text/javascript; charset=utf-8")
-      response.end(await readFile(new URL("../../.typescript/journal/journal-client.mjs", import.meta.url)))
-    } else if (request.url === "/" || request.url === "/index.html") {
-      response.setHeader("Content-Type", "text/html; charset=utf-8")
-      response.end(await readFile(new URL("./journal.html", import.meta.url)))
-    } else {
-      response.writeHead(404)
-      response.end()
+      // No URL-supplied paths, shell commands, credentials, or writes.
+      if (request.url === "/api/journal") {
+        response.setHeader("Content-Type", "application/json; charset=utf-8")
+        try {
+          response.end(JSON.stringify(await readJournal(options)))
+        } catch {
+          response.writeHead(503)
+          response.end(JSON.stringify({ error: "Journal unavailable or exceeds viewer limit" }))
+        }
+      } else if (request.url === "/journal-client.mjs") {
+        response.setHeader("Content-Type", "text/javascript; charset=utf-8")
+        response.end(await readFile(new URL("../../.typescript/journal/journal-client.mjs", import.meta.url)))
+      } else if (request.url === "/" || request.url === "/index.html") {
+        response.setHeader("Content-Type", "text/html; charset=utf-8")
+        response.end(await readFile(new URL("./journal.html", import.meta.url)))
+      } else {
+        response.writeHead(404)
+        response.end()
+      }
     }
   })
 }

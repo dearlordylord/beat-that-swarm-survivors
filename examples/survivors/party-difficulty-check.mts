@@ -1,10 +1,12 @@
-// Executed diagnostics of freshly emitted Bend population policy.
-// Usage: node party-difficulty-check.mts <emitted-party-difficulty.mjs>
+import { bendModule } from "../bend-module.mts"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { createHash } from "node:crypto"
 import { resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+// Executed diagnostics of freshly emitted Bend population policy.
+// Usage: node party-difficulty-check.mts <emitted-party-difficulty.mjs>
+
 const modulePath = resolve(
   process.argv[2] ||
     process.env.PARTY_DIFFICULTY_MODULE ||
@@ -13,7 +15,11 @@ const modulePath = resolve(
 const artifactHash = createHash("sha256")
   .update(await readFile(modulePath))
   .digest("hex")
-const { default: D }: { default: BendABI.PartyDifficulty.API } = await import(pathToFileURL(modulePath).href)
+const { default: D } = await bendModule<BendABI.PartyDifficulty.API>()(pathToFileURL(modulePath).href, [
+  "extra_per_player_percent",
+  "spawn_limit",
+  "spawn_limit_for"
+])
 // Ordinary JavaScript arithmetic is the independent oracle. Every intermediate
 // is at most 25,000,000, so these integers are exact even at arbitrary U32 inputs.
 const reference = (base: number, players: number, extra: number) =>

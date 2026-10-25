@@ -1,4 +1,19 @@
+import {
+  parseAstroVersion,
+  parseDependency,
+  parseHosting,
+  parseJson,
+  parseReceipt,
+  parseVersion
+} from "./survivors-publication-values.mts"
 import { defined, errorCode, object } from "../examples/survivors/host-values.mts"
+import { createHash } from "node:crypto"
+import { execFile, spawn } from "node:child_process"
+import { promisify } from "node:util"
+import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 interface SourceFile {
   bytes: Buffer
   mode: number
@@ -20,30 +35,6 @@ interface PublicationOptions {
   siteCheckout?: string
   quiet?: boolean
 }
-interface Hosting {
-  project_id: string
-  static?: { directory?: string }
-}
-interface Receipt {
-  schemaVersion: number
-  siteProjectId: string
-  commit: string
-  branch: string
-  sourceSnapshot: string
-  sourceFingerprint: string
-  sourceFiles: SourceFiles
-  files: Record<string, string>
-  dirty: boolean
-  dirtyFiles: string[]
-  build: { builtAt: string }
-}
-import { createHash } from "node:crypto"
-import { execFile, spawn } from "node:child_process"
-import { promisify } from "node:util"
-import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises"
-import os from "node:os"
-import path from "node:path"
-import { fileURLToPath } from "node:url"
 const exec = promisify(execFile)
 const defaultRepo = fileURLToPath(new URL("..", import.meta.url))
 const scopes = [
@@ -52,6 +43,7 @@ const scopes = [
   "tsconfig.json",
   "types",
   "scripts/generate-bend-types.py",
+  "scripts/generate-bend-codecs.mts",
   "scripts/write-survivors-version.mts",
   "tools/iroh-transport",
   "examples/survivors",
@@ -68,6 +60,7 @@ const validRelative = (name: string) =>
   name && !path.isAbsolute(name) && !name.split("/").some((p) => p === ".." || p === "" || p === ".")
 const include = (name: string) =>
   name !== "examples/survivors/content.mts" &&
+  name !== "examples/survivors/bend-codecs.generated.mts" &&
   !name.split("/").some((p) => ["dist", "node_modules", ".astro"].includes(p))
 async function git(repo: string, args: string[]) {
   try {
@@ -192,7 +185,7 @@ async function directories(repo: string, siteCheckout: string) {
       }
     }
   }
-  const hosting: Hosting = JSON.parse((await regularFile(site, ".openai/hosting.json")).bytes.toString("utf8"))
+  const hosting = parseHosting(parseJson((await regularFile(site, ".openai/hosting.json")).bytes.toString("utf8")))
   if (hosting.static?.directory !== "dist" || typeof hosting.project_id !== "string" || !hosting.project_id)
     throw new Error("This publication guard requires a registered static Site with static.directory set to dist.")
   return { repo: source, site, hosting }
@@ -328,7 +321,9 @@ export async function prepareSite({ repo = defaultRepo, siteCheckout, quiet = fa
       await command("bash", [path.join(temporary, "examples/survivors/build-web.sh")], temporary, quiet)
       const output = path.join(temporary, "examples/survivors/dist/web")
       await treeFiles(output) // Reject output links before any Site mutation.
-      const dependency = JSON.parse(defined(source.content.get("bendhub-dependencies.json")).bytes.toString("utf8"))
+      const dependency = parseDependency(
+        parseJson(defined(source.content.get("bendhub-dependencies.json")).bytes.toString("utf8"))
+      )
       const versionOutput = await exec(process.env.BEND || "bend", ["version"])
       const bendVersion = versionOutput.stdout.match(/\b\d+\.\d+\.\d+\b/)?.[0]
       if (bendVersion !== dependency.bendVersion)
@@ -365,9 +360,9 @@ export async function prepareSite({ repo = defaultRepo, siteCheckout, quiet = fa
         url.password = ""
         repository = url.href
       } catch {}
-      const astro =
-        JSON.parse(defined(source.content.get("examples/survivors/web/package.json")).bytes.toString("utf8"))
-          .dependencies?.astro || null
+      const astro = parseAstroVersion(
+        parseJson(defined(source.content.get("examples/survivors/web/package.json")).bytes.toString("utf8"))
+      )
       const receipt = {
         schemaVersion: 2,
         siteProjectId: dirs.hosting.project_id,
@@ -410,7 +405,7 @@ export async function verifySite({ repo = defaultRepo, siteCheckout }: Publicati
   repo = dirs.repo
   const site = dirs.site
   return withLock(site, async () => {
-    const receipt: Receipt = JSON.parse(await readFile(path.join(site, "SOURCE.json"), "utf8"))
+    const receipt = parseReceipt(parseJson(await readFile(path.join(site, "SOURCE.json"), "utf8")))
     if (receipt.siteProjectId !== dirs.hosting.project_id)
       throw new Error("The build receipt belongs to a different Site project.")
     if (receipt.schemaVersion !== 2 || receipt.branch !== "master" || receipt.sourceSnapshot !== sourceSnapshot)
@@ -423,7 +418,7 @@ export async function verifySite({ repo = defaultRepo, siteCheckout }: Publicati
     const assets = await treeFiles(path.join(site, "dist"))
     if (!same(assets, receipt.files))
       throw new Error("Site assets differ from their fresh build receipt. Prepare the Site again.")
-    const version = JSON.parse(await readFile(path.join(site, "dist/version.json"), "utf8"))
+    const version = parseVersion(parseJson(await readFile(path.join(site, "dist/version.json"), "utf8")))
     for (const [key, value] of Object.entries({
       revision: receipt.commit,
       branch: receipt.branch,
@@ -431,7 +426,8 @@ export async function verifySite({ repo = defaultRepo, siteCheckout }: Publicati
       dirty: receipt.dirty,
       builtAt: receipt.build.builtAt
     }))
-      if (version[key] !== value) throw new Error(`Published version receipt disagrees on ${key}.`)
+      if (Object.entries(version).find(([name]) => name === key)?.[1] !== value)
+        throw new Error(`Published version receipt disagrees on ${key}.`)
     if (source.dirty !== receipt.dirty || !same(source.dirtyFiles, receipt.dirtyFiles))
       throw new Error("Source dirty-state receipt changed; prepare the Site again.")
     return {

@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process"
 import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
-
 const [repo, output] = process.argv.slice(2)
 if (!repo || !output) throw new Error("Usage: write-survivors-version.mts REPOSITORY OUTPUT")
 const repository = repo

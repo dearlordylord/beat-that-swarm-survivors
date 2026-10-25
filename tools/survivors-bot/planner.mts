@@ -196,8 +196,8 @@ export function routePath(
     closed[i] = 1
     expanded++
     if (i === end) {
-      let cursor = i,
-        indices = []
+      let cursor = i
+      const indices: number[] = []
       while (cursor !== start) {
         indices.push(cursor)
         cursor = at(previous, cursor)

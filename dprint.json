@@ -8,7 +8,19 @@
     "trailingCommas": "none",
     "expand": "never"
   },
-  "includes": ["examples/**/*.{ts,mts}", "tools/**/*.mts", "scripts/**/*.mts"],
-  "excludes": ["**/node_modules", "**/dist", "vendor", "examples/survivors/content.mts"],
-  "plugins": ["https://plugins.dprint.dev/oxc-0.32.0.wasm"]
+  "includes": [
+    "examples/**/*.{ts,mts}",
+    "tools/**/*.mts",
+    "scripts/**/*.mts"
+  ],
+  "excludes": [
+    "**/node_modules",
+    "**/dist",
+    "vendor",
+    "examples/survivors/content.mts",
+    "examples/survivors/bend-codecs.generated.mts"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/oxc-0.32.0.wasm"
+  ]
 }

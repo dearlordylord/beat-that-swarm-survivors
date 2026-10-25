@@ -1,6 +1,9 @@
 import { defined, errorCode } from "../../examples/survivors/host-values.mts"
 import type { Frame, Goal, Mechanics, History, ClassifierResponse } from "./observations.mts"
 import type { RunOptions } from "./runner.mts"
+import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from "./context.mts"
+import { heuristicUpgrade, steering } from "./runner.mts"
+import { createPlanner, planMovement, advisePlanner } from "./planner.mts"
 interface Observation {
   sequence: number
   frame: Frame
@@ -25,9 +28,6 @@ interface PendingOutcome {
   level: number
 }
 type DecisionRequest = ReturnType<typeof buildUpgradeDecision> | ReturnType<typeof buildGoalDecision>
-import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from "./context.mts"
-import { heuristicUpgrade, steering } from "./runner.mts"
-import { createPlanner, planMovement, advisePlanner } from "./planner.mts"
 
 // The native process alone advances the world. This controller receives snapshots.
 export function makeVisibleController({

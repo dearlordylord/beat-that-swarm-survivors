@@ -1,11 +1,25 @@
+import { bendModule } from "../bend-module.mts"
 import { list, rows as array, defined, some } from "./host-values.mts"
-// Fresh emitted composite delivery diagnostics; not a network latency proof.
 import assert from "node:assert/strict"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-const D: BendABI.CoopClientDelivery.API = (
-  await import(
-    pathToFileURL(resolve(process.argv[2] || "examples/survivors/dist/web/dist/coop-client-delivery.mjs")).href
+// Fresh emitted composite delivery diagnostics; not a network latency proof.
+
+const D = (
+  await bendModule<BendABI.CoopClientDelivery.API>()(
+    pathToFileURL(resolve(process.argv[2] || "examples/survivors/dist/web/dist/coop-client-delivery.mjs")).href,
+    [
+      "complete",
+      "decode",
+      "encode",
+      "enqueue",
+      "fail",
+      "fresh",
+      "max_frame_bytes",
+      "offer_receipt",
+      "prepare",
+      "prepared_children"
+    ]
   )
 ).default
 const _nil = { $: "Nil" as const }

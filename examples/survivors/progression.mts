@@ -1,10 +1,11 @@
 import { list, rows as array, at, object, number, boolean, text, array as parseArray } from "./host-values.mts"
 import { parseProfile, parseSetup } from "./profile.mts"
 import type { Profile } from "./profile.mts"
-type Value = BendABI.MenuProgression.Value
-// Presentation/storage adapter. Every game decision is made by the Bend core.
 import Core from "./dist/menu-progression.mjs"
 import * as Catalog from "./content.mts"
+type Value = BendABI.MenuProgression.Value
+// Presentation/storage adapter. Every game decision is made by the Bend core.
+
 const KEY = "nightfall-survivors-v1"
 const NAT_MAX = 281474976710655
 // Generic JSON-value transport, with no game-specific fields or rules.

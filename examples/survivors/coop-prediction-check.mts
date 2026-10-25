@@ -1,9 +1,20 @@
-// Deterministic pure-function regression check for adaptive prediction lead.
+import { bendModule } from "../bend-module.mts"
 import assert from "node:assert/strict"
 import { pathToFileURL, fileURLToPath } from "node:url"
+// Deterministic pure-function regression check for adaptive prediction lead.
+
 const location =
   process.env.COOP_PREDICTION_MODULE || fileURLToPath(new URL("./dist/web/dist/coop-prediction.mjs", import.meta.url))
-const Prediction: BendABI.CoopPrediction.API = (await import(pathToFileURL(location).href)).default
+const Prediction = (
+  await bendModule<BendABI.CoopPrediction.API>()(pathToFileURL(location).href, [
+    "choose_lead",
+    "command",
+    "cursor",
+    "fresh",
+    "reconcile",
+    "tick"
+  ])
+).default
 assert.equal(typeof Prediction.choose_lead, "function", "the public adaptive lead helper is exported")
 const running = Prediction.fresh(0, 0, 1, true, 100, 10) // display cursor is world tick 110.
 assert.equal(

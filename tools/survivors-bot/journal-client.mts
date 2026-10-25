@@ -348,6 +348,8 @@ async function poll() {
     $("connection").textContent = "Disconnected · retrying"
     $("connection").className = "error"
   }
-  setTimeout(poll, 500)
+  setTimeout(() => {
+    void poll()
+  }, 500)
 }
 void poll()

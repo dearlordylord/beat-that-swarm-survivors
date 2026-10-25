@@ -1,14 +1,18 @@
+import { bendModule } from "../bend-module.mts"
 import { list, rows as array, defined, some } from "./host-values.mts"
-// Diagnostics of emitted Bend geometry; laws own the pure contact policy.
-// Usage: node coop-contact-playback-check.mts /tmp/coop-contact-playback.mjs /tmp/coop-playback.mjs
 import assert from "node:assert/strict"
 import { pathToFileURL } from "node:url"
 import { resolve } from "node:path"
-const { default: C }: { default: BendABI.CoopContactPlayback.API } = await import(
-  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-contact-playback.mjs")).href
+// Diagnostics of emitted Bend geometry; laws own the pure contact policy.
+// Usage: node coop-contact-playback-check.mts /tmp/coop-contact-playback.mjs /tmp/coop-playback.mjs
+
+const { default: C } = await bendModule<BendABI.CoopContactPlayback.API>()(
+  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-contact-playback.mjs")).href,
+  ["contact_for", "output", "prepare", "project"]
 )
-const { default: P }: { default: BendABI.CoopPlayback.API } = await import(
-  pathToFileURL(resolve(process.argv[3] ?? "examples/survivors/dist/coop-playback.mjs")).href
+const { default: P } = await bendModule<BendABI.CoopPlayback.API>()(
+  pathToFileURL(resolve(process.argv[3] ?? "examples/survivors/dist/coop-playback.mjs")).href,
+  ["fresh", "push", "sample"]
 )
 const enemy = (key: number, x: number, extra = {}) => ({
   $: "Actor" as const,

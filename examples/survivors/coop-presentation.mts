@@ -1,11 +1,12 @@
 import { list, rows as array, number } from "./host-values.mts"
 import type { Frame, Body } from "./frame.mts"
-// Browser data adapter. Bend owns admission, clocks, lifetimes and interpolation.
 import Playback from "./dist/coop-playback.mjs"
 import Wire from "./dist/coop-playback-wire.mjs"
 import Contacts from "./dist/coop-contact-playback.mjs"
 import HitJournal from "./dist/coop-hit-journal.mjs"
 import HitEffects from "./dist/coop-hit-effects.mjs"
+// Browser data adapter. Bend owns admission, clocks, lifetimes and interpolation.
+
 const micros = (now: number) => {
   const value = Math.floor(now * 1000)
   if (!Number.isSafeInteger(value) || value < 0) throw Error("Invalid local presentation clock.")

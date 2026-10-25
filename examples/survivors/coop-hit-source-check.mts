@@ -1,23 +1,44 @@
 #!/usr/bin/env node
+import { parseJson, list, rows as array, at, defined } from "./host-values.mts"
+import { bendModule } from "../bend-module.mts"
+import { parseCoopFrame } from "./frame.mts"
+import { parseCoreView } from "./coop-boundary.mts"
 import { corePacket } from "./coop-fixtures.mts"
-import { list, rows as array, at, defined } from "./host-values.mts"
-// Runtime oracle fixtures for host-confirmed cosmetic contacts. Core receipts
-// are checked against literal identities and hand-computed simple geometry;
-// Game's prepared hit plans are also sent through its actual enemy resolver.
 import assert from "node:assert/strict"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
+
+// Runtime oracle fixtures for host-confirmed cosmetic contacts. Core receipts
+// are checked against literal identities and hand-computed simple geometry;
+// Game's prepared hit plans are also sent through its actual enemy resolver.
+
+const parseCoreReceipt = (text: string) => {
+  const view = parseCoreView(parseJson(text))
+  return { ...view, contacts: defined(view.contacts), contactsOmitted: defined(view.contactsOmitted) }
+}
 function moduleUrl(variable: string, fallback: string) {
   const configured = process.env[variable]
   if (!configured) return new URL(fallback, import.meta.url)
   if (configured.startsWith("file:")) return new URL(configured)
   return pathToFileURL(resolve(configured))
 }
-const [{ default: Core }, { default: Game }]: [{ default: BendABI.CoopCore.API }, { default: BendABI.Game.API }] =
-  await Promise.all([
-    import(moduleUrl("COOP_CORE_MODULE", "./dist/web/dist/coop-core.mjs").href),
-    import(moduleUrl("COOP_GAME_MODULE", "./dist/web/dist/game.mjs").href)
+const [{ default: Core }, { default: Game }] = await Promise.all([
+  bendModule<BendABI.CoopCore.API>()(moduleUrl("COOP_CORE_MODULE", "./dist/web/dist/coop-core.mjs").href, [
+    "core_join",
+    "core_observe",
+    "core_start",
+    "core_step"
+  ]),
+  bendModule<BendABI.Game.API>()(moduleUrl("COOP_GAME_MODULE", "./dist/web/dist/game.mjs").href, [
+    "contact_team",
+    "enemy_update",
+    "move_body",
+    "solo_team",
+    "team_args",
+    "team_enemy_updated",
+    "team_nearest"
   ])
+])
 const nil = () => ({ $: "Nil" as const })
 function snapshot({
   x,
@@ -98,7 +119,7 @@ function coreContacts(tick: number, snapshots: BendABI.Game.Snapshot[]) {
   const input = { ...state, shared: { ...state.shared, tick: tick - 1 }, snapshots: list(snapshots) }
   const packet = Core.core_step(input, 0, 0, 0, 0)
   assert.ok(packet.$ === "CorePacket", `Core.core_step failed: ${JSON.stringify(packet)}`)
-  const frame: { advanced: boolean; contacts: BendList<BendABI.CoopHitJournal.HitEvent> } = JSON.parse(packet.frame)
+  const frame = parseCoreReceipt(packet.frame)
   assert.equal(frame.advanced, true, "fixture must exercise the advancing Core path")
   assert.ok(Object.hasOwn(frame, "contacts"), "Core frame must expose its journaled contact receipts")
   return array(frame.contacts)
@@ -141,7 +162,7 @@ function close(actual: number, expected: number, label: string, epsilon = 0.0001
   for (const id of [0, 1]) {
     const observed = corePacket(Core.core_observe(state, id))
     state = observed.state
-    const frame = JSON.parse(observed.frame)
+    const frame = parseCoopFrame(parseJson(observed.frame))
     assert.equal(frame.combatForecast.own, id, "typed projection exists for each observer")
     assert.ok(frame.combatForecast.$ === "Scene")
   }

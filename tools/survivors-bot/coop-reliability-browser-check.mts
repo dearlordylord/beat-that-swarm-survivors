@@ -1,12 +1,5 @@
-interface NetworkReport {
-  nativeSendTraceFile: string
-  sourceStable: boolean
-  sourceExact: boolean
-  reload: { beforeReload: number; suspended: string | null; rejoined: Trace["lastFrame"]; sameInvitation: boolean }
-  [key: string]: unknown
-}
-import type * as Playwright from "playwright"
 import type { Page } from "playwright"
+import { loadChromium } from "./playwright-module.mts"
 import type {
   Trace,
   Role,
@@ -16,16 +9,25 @@ import type {
   SnapshotSend,
   SnapshotAck
 } from "./coop-browser-trace.mts"
-import { defined, errorMessage } from "../../examples/survivors/host-values.mts"
-// Fixed-input real-Iroh diagnostics. This is browser evidence, not a formal proof.
-// COOP_URL must point at the frozen candidate; test-only route hooks do not alter source files.
+import { defined, errorMessage, object, text, array } from "../../examples/survivors/host-values.mts"
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { createHash } from "node:crypto"
 import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-const { chromium }: Pick<typeof Playwright, "chromium"> = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
+interface NetworkReport {
+  nativeSendTraceFile: string
+  sourceStable: boolean
+  sourceExact: boolean
+  reload: { beforeReload: number; suspended: string | null; rejoined: Trace["lastFrame"]; sameInvitation: boolean }
+  [key: string]: unknown
+}
+
+// Fixed-input real-Iroh diagnostics. This is browser evidence, not a formal proof.
+// COOP_URL must point at the frozen candidate; test-only route hooks do not alter source files.
+
+const chromium = await loadChromium()
 const base = process.env.COOP_URL || "http://127.0.0.1:32987/coop.html"
 const output = process.env.COOP_QA_DIR || "/tmp/coop-reliability"
 const duration = Math.max(30000, Number(process.env.COOP_DURATION_MS || 32000))
@@ -116,7 +118,11 @@ async function localSourceHashes() {
     { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 60000 }
   )
   assert.equal(result.status, 0, `artifact import closure failed: ${result.error || result.stderr}`)
-  const closure: { hashes: Record<string, string>; imports: Record<string, string[]> } = JSON.parse(result.stdout)
+  const value = object(JSON.parse(result.stdout))
+  const closure = {
+    hashes: Object.fromEntries(Object.entries(object(value.hashes)).map(([key, value]) => [key, text(value)])),
+    imports: Object.fromEntries(Object.entries(object(value.imports)).map(([key, value]) => [key, array(value, text)]))
+  }
   return closure
 }
 async function source() {
@@ -436,14 +442,49 @@ async function instrument(page: Page, role: Role, errors: BrowserError[]) {
     globalThis.Worker = class extends NativeWorker {
       constructor(...args: ConstructorParameters<typeof Worker>) {
         super(...args)
-        this.addEventListener("message", (e) => {
-          if (e.data.type === "error") trace.workerErrors.push(e.data)
-          if (e.data.type === "qa-input-resolution") {
-            trace.inputResolutions.push(e.data)
+        this.addEventListener("message", (e: MessageEvent<unknown>) => {
+          const data = e.data
+          if (typeof data !== "object" || data === null || !("type" in data)) return
+          if (data.type === "error") trace.workerErrors.push(data)
+          if (data.type === "qa-input-resolution") {
+            e.stopImmediatePropagation()
+            if (
+              !("wall" in data) ||
+              typeof data.wall !== "number" ||
+              !("worldTick" in data) ||
+              typeof data.worldTick !== "number" ||
+              !("phase" in data) ||
+              typeof data.phase !== "number" ||
+              !("round" in data) ||
+              typeof data.round !== "number" ||
+              !("eligible" in data) ||
+              typeof data.eligible !== "boolean" ||
+              !("applied" in data) ||
+              typeof data.applied !== "boolean" ||
+              !("x" in data) ||
+              typeof data.x !== "number" ||
+              !("y" in data) ||
+              typeof data.y !== "number" ||
+              !("seq" in data) ||
+              typeof data.seq !== "number"
+            )
+              throw new TypeError("Invalid QA input resolution")
+            trace.inputResolutions.push({
+              wall: data.wall,
+              worldTick: data.worldTick,
+              phase: data.phase,
+              round: data.round,
+              eligible: data.eligible,
+              applied: data.applied,
+              x: data.x,
+              y: data.y,
+              seq: data.seq
+            })
             if (trace.inputResolutions.length > 5000) trace.inputResolutions.shift()
           }
-          if (e.data.type === "input-rejected") {
-            trace.inputRejections.push(e.data)
+          if (data.type === "input-rejected") {
+            if (!("reason" in data) || typeof data.reason !== "number") throw new TypeError("Invalid input rejection")
+            trace.inputRejections.push({ reason: data.reason })
             if (trace.inputRejections.length > 5000) trace.inputRejections.shift()
           }
         })
@@ -565,7 +606,7 @@ async function instrument(page: Page, role: Role, errors: BrowserError[]) {
     await page.route("**/coop-browser.mjs", async (route) => {
       const r = await route.fetch()
       let s = await r.text()
-      const marker = "const envelope = JSON.parse(text);",
+      const marker = "const envelope = parseSnapshotEnvelope(incoming);",
         inputMarker = emittedMarker(s, /onInput:\s*\(?value\)?\s*=>\s*\{/, "input callback")
       assert.ok(s.includes(marker) && s.includes(inputMarker), "authority/input hooks")
       s = s

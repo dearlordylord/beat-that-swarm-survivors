@@ -2,7 +2,6 @@ import { at } from "./host-values.mts"
 import type { Frame, Body, Player } from "./frame.mts"
 import { drawSurvivor } from "./survivor-art.mts"
 import Game from "./dist/game.mjs"
-
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
 const TAU = Math.PI * 2
 const shotIdentity = (body: Body) =>
@@ -170,7 +169,7 @@ export class Renderer {
     if (!options.reducedMotion) {
       c.fillStyle = "#d6e8d64a"
       for (let i = 0; i < 19; i++) {
-        let x = (hash(i, 8) * this.width + Math.sin(t * 0.15 + i) * 20 + this.width) % this.width,
+        const x = (hash(i, 8) * this.width + Math.sin(t * 0.15 + i) * 20 + this.width) % this.width,
           y = (hash(i, 9) * this.height - t * (3 + hash(i, 2) * 7) + this.height * 20) % this.height
         c.fillRect(x, y, 1, 1)
       }
@@ -259,13 +258,13 @@ export class Renderer {
       y0 = Math.floor(this.camera.y / s) - 1
     for (let iy = y0; iy < y0 + Math.ceil(this.height / s) + 3; iy++)
       for (let ix = x0; ix < x0 + Math.ceil(this.width / s) + 3; ix++) {
-        let [x, y] = this.xy(ix * s, iy * s),
+        const [x, y] = this.xy(ix * s, iy * s),
           h = hash(ix, iy)
         rect(c, x, y, s, s, h > 0.6 ? th[1] : th[0])
         c.fillStyle = th[2]
         this.setAlpha(0.3)
         for (let j = 0; j < 4; j++) {
-          let z = hash(ix * 7 + j, iy)
+          const z = hash(ix * 7 + j, iy)
           c.fillRect(x + z * 60, y + hash(iy * 11 + j, ix) * 60, 2 + (j % 2) * 3, 1)
         }
         this.setAlpha(1)
@@ -998,7 +997,7 @@ export class Renderer {
   }
   damage(bodies: Body[], dt: number) {
     const c = this.ctx,
-      next = new Map()
+      next = new Map<string, { hp: number }>()
     for (const b of bodies) {
       if (b[2] !== 0) continue
       const key = typeof b[9] === "string" ? b[9] : `${b[3]}:${b[7]}`,

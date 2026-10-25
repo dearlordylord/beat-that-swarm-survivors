@@ -1,5 +1,4 @@
-import { defined, errorCode } from "./host-values.mts"
-// Portable development launcher: the canonical Bend + Astro build runs at every launch.
+import { defined, errorCode, errorMessage, object, text } from "./host-values.mts"
 import { createServer } from "node:http"
 import { createReadStream } from "node:fs"
 import { realpath, stat } from "node:fs/promises"
@@ -8,6 +7,8 @@ import { promisify } from "node:util"
 import { fileURLToPath } from "node:url"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
+// Portable development launcher: the canonical Bend + Astro build runs at every launch.
+
 const [major = 0, minor = 0, _patch = 0] = process.versions.node.split(".").map(Number)
 if (major < 24 || (major === 24 && minor < 20)) throw Error("Node.js 24.20.0 or newer is required for Astro.")
 const run = promisify(execFile)
@@ -85,10 +86,14 @@ async function assetFile(pathname: string) {
   return within(realRoot, realFile) ? { file, info } : null
 }
 async function stopPrevious() {
-  let previous
+  let previous: { application: string; root: string; instance: string } | undefined
   try {
     const response = await fetch(url + "/__nightfall", { signal: AbortSignal.timeout(800) })
-    if (response.ok) previous = await response.json()
+    if (response.ok) {
+      const payload: unknown = await response.json()
+      const health = object(payload)
+      previous = { application: text(health.application), root: text(health.root), instance: text(health.instance) }
+    }
   } catch {
     return
   }
@@ -104,50 +109,56 @@ async function main() {
   await build() // A failed build leaves the previous compiled file/server intact.
   await stopPrevious()
   const instance = randomUUID()
-  const server = createServer(async (req, res) => {
-    let pathname
-    try {
-      pathname = new URL(req.url ?? "/", url).pathname
-    } catch {
-      res.writeHead(400).end()
-      return
-    }
-    res.setHeader("Cache-Control", "no-store")
-    if (pathname === "/__nightfall" && req.method === "GET") {
-      res.setHeader("Content-Type", "application/json")
-      res.end(JSON.stringify({ application: "nightfall-survivors", root: app, instance }))
-      return
-    }
-    if (pathname === "/__nightfall/stop" && req.method === "POST" && req.headers["x-nightfall-instance"] === instance) {
-      res.writeHead(202).end()
-      setImmediate(() => server.close(() => process.exit(0)))
-      return
-    }
-    if (!["GET", "HEAD"].includes(req.method ?? "")) {
-      res.writeHead(405).end()
-      return
-    }
-    if (pathname === "/favicon.ico") {
-      res.writeHead(204).end()
-      return
-    }
-    try {
-      const asset = await assetFile(pathname)
-      if (!asset) {
-        res.writeHead(404).end()
+  const server = createServer((req, res) => {
+    void (async () => {
+      let pathname
+      try {
+        pathname = new URL(req.url ?? "/", url).pathname
+      } catch {
+        res.writeHead(400).end()
         return
       }
-      res.setHeader("Content-Type", mime.get(path.extname(asset.file)) || "application/octet-stream")
-      res.setHeader("Content-Length", asset.info.size)
-      res.setHeader("X-Content-Type-Options", "nosniff")
-      if (req.method === "HEAD") res.end()
-      else
-        createReadStream(asset.file)
-          .on("error", () => res.destroy())
-          .pipe(res)
-    } catch (error) {
-      res.writeHead(error instanceof URIError ? 400 : 404).end()
-    }
+      res.setHeader("Cache-Control", "no-store")
+      if (pathname === "/__nightfall" && req.method === "GET") {
+        res.setHeader("Content-Type", "application/json")
+        res.end(JSON.stringify({ application: "nightfall-survivors", root: app, instance }))
+        return
+      }
+      if (
+        pathname === "/__nightfall/stop" &&
+        req.method === "POST" &&
+        req.headers["x-nightfall-instance"] === instance
+      ) {
+        res.writeHead(202).end()
+        setImmediate(() => server.close(() => process.exit(0)))
+        return
+      }
+      if (!["GET", "HEAD"].includes(req.method ?? "")) {
+        res.writeHead(405).end()
+        return
+      }
+      if (pathname === "/favicon.ico") {
+        res.writeHead(204).end()
+        return
+      }
+      try {
+        const asset = await assetFile(pathname)
+        if (!asset) {
+          res.writeHead(404).end()
+          return
+        }
+        res.setHeader("Content-Type", mime.get(path.extname(asset.file)) || "application/octet-stream")
+        res.setHeader("Content-Length", asset.info.size)
+        res.setHeader("X-Content-Type-Options", "nosniff")
+        if (req.method === "HEAD") res.end()
+        else
+          createReadStream(asset.file)
+            .on("error", () => res.destroy())
+            .pipe(res)
+      } catch (error) {
+        res.writeHead(error instanceof URIError ? 400 : 404).end()
+      }
+    })().catch((error: unknown) => res.destroy(error instanceof Error ? error : Error(errorMessage(error))))
   })
   // The previous launcher may still be releasing its listening socket.
   for (let attempt = 0; ; attempt++) {
@@ -173,7 +184,7 @@ async function main() {
   }
   for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => server.close(() => process.exit(0)))
 }
-main().catch((error) => {
-  console.error(error.message)
+main().catch((error: unknown) => {
+  console.error(errorMessage(error))
   process.exitCode = 1
 })

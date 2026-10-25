@@ -1,19 +1,40 @@
 #!/usr/bin/env node
-import { list, rows as array, defined } from "./host-values.mts"
-// Dense cosmetic journal regression. Core builds the real prepared geometry;
-// the small-stack branch exercises only the bounded journal policy.
+import { parseJson, list, rows as array, defined } from "./host-values.mts"
+import { bendModule } from "../bend-module.mts"
+import { parseCoreView } from "./coop-boundary.mts"
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+
+// Dense cosmetic journal regression. Core builds the real prepared geometry;
+// the small-stack branch exercises only the bounded journal policy.
+
+const parseCoreReceipt = (text: string) => {
+  const view = parseCoreView(parseJson(text))
+  return { ...view, contacts: defined(view.contacts), contactsOmitted: defined(view.contactsOmitted) }
+}
 function moduleUrl(variable: string, fallback: string) {
   const configured = process.env[variable]
   if (!configured) return new URL(fallback, import.meta.url)
   if (configured.startsWith("file:")) return new URL(configured)
   return pathToFileURL(resolve(configured))
 }
-const { default: Journal }: { default: BendABI.CoopHitJournal.API } = await import(
-  moduleUrl("COOP_JOURNAL_MODULE", "./dist/web/dist/coop-hit-journal.mjs").href
+const { default: Journal } = await bendModule<BendABI.CoopHitJournal.API>()(
+  moduleUrl("COOP_JOURNAL_MODULE", "./dist/web/dist/coop-hit-journal.mjs").href,
+  [
+    "collect",
+    "emit_capped",
+    "event_id",
+    "fresh",
+    "ingest",
+    "ingest_capped",
+    "play",
+    "play_sample",
+    "playback",
+    "shot_id",
+    "window"
+  ]
 )
 const nil = () => ({ $: "Nil" as const })
 function syntheticEvent(index: number, tick = 10802) {
@@ -80,11 +101,24 @@ function runJournalOnly() {
 if (process.argv.includes("--journal-only")) {
   runJournalOnly()
 } else {
-  const [{ default: Core }, { default: Game }]: [{ default: BendABI.CoopCore.API }, { default: BendABI.Game.API }] =
-    await Promise.all([
-      import(moduleUrl("COOP_CORE_MODULE", "./dist/web/dist/coop-core.mjs").href),
-      import(moduleUrl("COOP_GAME_MODULE", "./dist/web/dist/game.mjs").href)
+  const [{ default: Core }, { default: Game }] = await Promise.all([
+    bendModule<BendABI.CoopCore.API>()(moduleUrl("COOP_CORE_MODULE", "./dist/web/dist/coop-core.mjs").href, [
+      "core_start",
+      "journal_clock",
+      "journal_team"
+    ]),
+    bendModule<BendABI.Game.API>()(moduleUrl("COOP_GAME_MODULE", "./dist/web/dist/game.mjs").href, [
+      "contact_team",
+      "cooldown_for",
+      "effect_origin_index",
+      "empty_owner_counts",
+      "empty_shot_plan",
+      "projectile_amount",
+      "shot_requests",
+      "team_plan",
+      "team_shot_spawn"
     ])
+  ])
   const contactTick = 10802
   const fireTick = contactTick - 1
   const started = Core.core_start(0, 0, 1)
@@ -191,7 +225,7 @@ if (process.argv.includes("--journal-only")) {
   const encodeMs = performance.now() - encodeStart
   assert.deepEqual(encodedPacket.state, corePacket.state, "journal serialization does not change Core state")
   const parseStart = performance.now()
-  const frame = JSON.parse(encodedPacket.frame)
+  const frame = parseCoreReceipt(encodedPacket.frame)
   const parseMs = performance.now() - parseStart
   assert.equal(frame.tick, contactTick)
   assert.equal(frame.contactsOmitted, 7488)

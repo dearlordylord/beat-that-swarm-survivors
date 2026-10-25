@@ -1,13 +1,36 @@
-import { list, rows as array, defined } from "./host-values.mts"
-// Executable diagnostics of the emitted Bend model, not a substitute for laws.
-// Usage: bend coop-playback.bend -o /tmp/coop-playback.mjs
-//        node coop-playback-check.mts /tmp/coop-playback.mjs
+import { bendModule } from "../bend-module.mts"
+import { object, number, array as parseArray, list, rows as array, defined } from "./host-values.mts"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { resolve } from "node:path"
-const { default: P }: { default: BendABI.CoopPlayback.API } = await import(
-  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-playback.mjs")).href
+// Executable diagnostics of the emitted Bend model, not a substitute for laws.
+// Usage: bend coop-playback.bend -o /tmp/coop-playback.mjs
+//        node coop-playback-check.mts /tmp/coop-playback.mjs
+
+const { default: P } = await bendModule<BendABI.CoopPlayback.API>()(
+  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-playback.mjs")).href,
+  [
+    "accepts",
+    "advance",
+    "boost",
+    "clock",
+    "elapsed",
+    "fraction_after",
+    "fresh",
+    "fresh_for",
+    "is_buffering",
+    "matched",
+    "mode_rate",
+    "observations",
+    "push",
+    "rate_for",
+    "recovered_cursor",
+    "refill",
+    "sample",
+    "tick_after",
+    "waiting"
+  ]
 )
 const actor = (key: number, x: number, extra = {}) => ({
   $: "Actor" as const,
@@ -232,17 +255,36 @@ check(large.length === 12000, "large cohort retains all rows")
 check(defined(large[11999]).x === 12002, "large cohort mapped in order")
 // The observed producer hole is replayed through actual emitted Bend. This
 // fixture intentionally stores no model implementation or actor world payload.
-const fixture = JSON.parse(
-  await readFile(new URL("./fixtures/coop-playback-producer-gap.json", import.meta.url), "utf8")
+const fixtureRow = object(
+  JSON.parse(await readFile(new URL("./fixtures/coop-playback-producer-gap.json", import.meta.url), "utf8"))
 )
+const fixture = {
+  arrivals: parseArray(fixtureRow.arrivals, (value): [number, number, number] => {
+    const row = parseArray(value, number)
+    return [number(row[0]), number(row[1]), number(row[2])]
+  }),
+  samples: parseArray(fixtureRow.samples, (value): [number, number, number, number] => {
+    const row = parseArray(value, number)
+    return [number(row[0]), number(row[1]), number(row[2]), number(row[3])]
+  }),
+  expected: (() => {
+    const row = object(fixtureRow.expected)
+    return {
+      windowMs: number(row.windowMs),
+      p95LagTicks: number(row.p95LagTicks),
+      maxLagTicks: number(row.maxLagTicks),
+      maxWindowP95Ticks: number(row.maxWindowP95Ticks)
+    }
+  })()
+}
 let replay = P.fresh(),
   arrivalIndex = 0,
   priorCursor = 0
 const lagValues = [],
-  windowValues = new Map()
+  windowValues = new Map<number, number[]>()
 for (const [at, wall, workerTick, measured] of fixture.samples) {
-  while (arrivalIndex < fixture.arrivals.length && fixture.arrivals[arrivalIndex][0] <= at) {
-    const [received, obs, tick] = fixture.arrivals[arrivalIndex++]
+  while (arrivalIndex < fixture.arrivals.length && defined(fixture.arrivals[arrivalIndex])[0] <= at) {
+    const [received, obs, tick] = defined(fixture.arrivals[arrivalIndex++])
     replay = P.push(replay, frame(obs, tick, received))
   }
   if (replay.frames.$ === "Nil") continue

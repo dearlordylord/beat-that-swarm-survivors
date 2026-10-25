@@ -1,11 +1,24 @@
+import { bendModule } from "../bend-module.mts"
 import { defined } from "./host-values.mts"
-// Fresh emitted Bend checks. Offers represent snapshots already admitted by IO.
-// Native delivery/cadence is verified by the browser integration, not this model.
 import assert from "node:assert/strict"
 import { pathToFileURL } from "node:url"
 import { resolve } from "node:path"
-const { default: R }: { default: BendABI.CoopSnapshotReceipts.API } = await import(
-  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-snapshot-receipts.mjs")).href
+// Fresh emitted Bend checks. Offers represent snapshots already admitted by IO.
+// Native delivery/cadence is verified by the browser integration, not this model.
+
+const { default: R } = await bendModule<BendABI.CoopSnapshotReceipts.API>()(
+  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-snapshot-receipts.mjs")).href,
+  [
+    "buffered_bytes",
+    "buffered_count",
+    "complete",
+    "encode",
+    "fresh",
+    "max_buffered_bytes",
+    "max_frame_bytes",
+    "offer",
+    "prepare"
+  ]
 )
 const value = <T,>(maybe: BendMaybe<T>) => (maybe.$ === "Some" ? maybe.value : null)
 let checks = 0

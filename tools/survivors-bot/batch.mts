@@ -1,5 +1,11 @@
-import { at } from "../../examples/survivors/host-values.mts"
+import { at, errorMessage } from "../../examples/survivors/host-values.mts"
 import type { runBot } from "./runner.mts"
+import { Worker } from "node:worker_threads"
+import { availableParallelism } from "node:os"
+import { parseArgs } from "node:util"
+import { pathToFileURL } from "node:url"
+import { randomUUID, createHash } from "node:crypto"
+import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs"
 interface BatchOptions {
   count: number
   ticks: number
@@ -33,12 +39,7 @@ interface PoolOptions {
   signal?: AbortSignal
   workerURL?: URL
 }
-import { Worker } from "node:worker_threads"
-import { availableParallelism } from "node:os"
-import { parseArgs } from "node:util"
-import { pathToFileURL } from "node:url"
-import { randomUUID, createHash } from "node:crypto"
-import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs"
+
 export function validateOptions(input: Partial<BatchOptions> = {}, cpus = availableParallelism()) {
   const o = { count: 1000, ticks: 1800, workers: 1, seed: 12345, profile: "fresh", wallSeconds: 300, ...input }
   const bounds: [Exclude<keyof BatchOptions, "profile">, number, number][] = [
@@ -232,7 +233,7 @@ async function main() {
   if (summary.status !== "complete") process.exitCode = 2
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  main().catch((error) => {
-    console.error("Batch failed: " + error.message)
+  main().catch((error: unknown) => {
+    console.error("Batch failed: " + errorMessage(error))
     process.exitCode = 1
   })

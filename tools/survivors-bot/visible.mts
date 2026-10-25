@@ -1,3 +1,4 @@
+import { parseObservation } from "./observations.mts"
 import { object, errorCode, defined } from "../../examples/survivors/host-values.mts"
 import type { Frame } from "../../examples/survivors/frame.mts"
 import type { ChildProcess } from "node:child_process"
@@ -141,7 +142,7 @@ try {
     }
     let observation
     try {
-      observation = JSON.parse(readFileSync(resolve(session, "observation.json"), "utf8"))
+      observation = parseObservation(JSON.parse(readFileSync(resolve(session, "observation.json"), "utf8")))
     } catch (e) {
       if (errorCode(e) !== "ENOENT" && !(e instanceof SyntaxError)) throw e
       await delay(10)

@@ -1,3 +1,5 @@
+import { parseFrame } from "../../examples/survivors/frame.mts"
+import { parseGoals, parseMechanics } from "./observations.mts"
 import { at, defined, errorCode } from "../../examples/survivors/host-values.mts"
 import type { Body } from "../../examples/survivors/frame.mts"
 import type {
@@ -11,6 +13,9 @@ import type {
   ClassifierResponse,
   Emit
 } from "./observations.mts"
+import { createHash, randomUUID } from "node:crypto"
+import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from "./context.mts"
+import { createPlanner, planMovement, advisePlanner } from "./planner.mts"
 export interface RunOptions {
   mode?: string
   profile?: string
@@ -25,9 +30,6 @@ export interface RunOptions {
   runId?: string
 }
 type DecisionRequest = ReturnType<typeof buildUpgradeDecision> | ReturnType<typeof buildGoalDecision>
-import { createHash, randomUUID } from "node:crypto"
-import { buildUpgradeDecision, resolveCandidate, buildGoalDecision, resolveGoalCandidate } from "./context.mts"
-import { createPlanner, planMovement, advisePlanner } from "./planner.mts"
 
 export function heuristicUpgrade(frame: Frame) {
   const weapons = [4, 19, 10, 0, 2, 17],
@@ -89,7 +91,7 @@ export function steering(frame: Frame, target: Point | null, mechanics: Partial<
   return [dx / length, dy / length]
 }
 
-type BotRuntime = Omit<BendABI.BotActions.API, "fresh_start_seed" | "advanced_start_seed" | "observed_packet"> &
+type BotRuntime = Pick<BendABI.BotActions.API, "fresh_start" | "advanced_start" | "observe" | "advance" | "choose"> &
   Partial<Pick<BendABI.BotActions.API, "fresh_start_seed" | "advanced_start_seed" | "observed_packet">>
 export async function runBot(
   Game: BotRuntime,
@@ -135,14 +137,14 @@ export async function runBot(
       typeof Game.observed_packet === "function" ? Game.observed_packet(packet) : Game.observe(packet.state)
     if (observed.$ !== "Observed") throw new Error("Bend observation failed")
     if (typeof observed.mechanics !== "string") throw new Error("Rebuild bot facade: engine mechanics are required")
-    const frame: Frame = JSON.parse(observed.frame)
+    const frame = parseFrame(JSON.parse(observed.frame))
     if (!Number.isFinite(frame.px) || !Number.isFinite(frame.py) || frame.hp > frame.maxHp)
       throw new Error("Invalid Bend observation")
     return {
       state: observed.state,
       frame,
-      catalog: JSON.parse(observed.actions),
-      engineMechanics: JSON.parse(observed.mechanics)
+      catalog: parseGoals(JSON.parse(observed.actions)),
+      engineMechanics: parseMechanics(JSON.parse(observed.mechanics))
     }
   }
   const startSeed = profile === "fresh" ? Game.fresh_start_seed : Game.advanced_start_seed

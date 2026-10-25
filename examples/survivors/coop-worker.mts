@@ -1,28 +1,14 @@
-import { errorMessage, defined } from "./host-values.mts"
-import type { CoopSetup } from "./coop-ui.mts"
-interface CoreView {
-  tick: number
-  phase?: number
-  roundId?: number
-  predictionAllowed?: boolean
-  advanced?: boolean
-  contacts?: BendList<BendABI.CoopHitJournal.HitEvent>
-  contactsOmitted?: number
-}
-type WorkerRequest =
-  | { type: "init"; setup: CoopSetup; session: number; seed: number }
-  | { type: "connected"; connectionEpoch: number }
-  | { type: "handshake"; signal: BendABI.CoopConnection.Signal; connectionEpoch: number }
-  | { type: "command"; player: number; text: string; deliveryId: number; connectionEpoch: number }
-  | { type: "disconnect"; connectionEpoch?: number }
-  | { type: "stop" }
-// Browser scheduling and message IO only. Bend owns admission and the shared world.
+import { errorMessage, defined, parseJson } from "./host-values.mts"
 import Game from "./dist/coop-core.mjs"
 import Session from "./dist/coop-session.mjs"
 import InputQueue from "./dist/coop-input-queue.mjs"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
 import HitJournal from "./dist/coop-hit-journal.mjs"
+import type { CoreView } from "./coop-boundary.mts"
+import { parseCoreView, parseWorkerRequest } from "./coop-boundary.mts"
+// Browser scheduling and message IO only. Bend owns admission and the shared world.
+
 let core: BendABI.CoopCore.CoreState,
   session: BendABI.CoopSession.State,
   timer: ReturnType<typeof setInterval> | undefined,
@@ -82,7 +68,7 @@ function packet(result: BendABI.CoopCore.CorePacket): CoreView | null {
     postMessage({ type: "rejected", message: result.message, connectionEpoch })
     return null
   }
-  const frame: CoreView | null = result.frame ? JSON.parse(result.frame) : null
+  const frame = result.frame ? parseCoreView(parseJson(result.frame)) : null
   if (frame && Number.isInteger(frame.tick)) currentWorldTick = frame.tick
   return frame
 }
@@ -239,9 +225,11 @@ function schedule() {
     publish()
   }
 }
-onmessage = (event: MessageEvent<WorkerRequest>) => {
+onmessage = (event: MessageEvent<unknown>) => {
+  let consumedDelivery: number | undefined
   try {
-    const message = event.data
+    const message = parseWorkerRequest(event.data)
+    if (message.type === "command") consumedDelivery = message.deliveryId
     switch (message.type) {
       case "init": {
         clearInterval(timer)
@@ -311,6 +299,6 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
   } catch (error) {
     reject("RuntimeFailed", error)
   } finally {
-    if (event.data.type === "command") postMessage({ type: "command-consumed", deliveryId: event.data.deliveryId })
+    if (consumedDelivery !== undefined) postMessage({ type: "command-consumed", deliveryId: consumedDelivery })
   }
 }

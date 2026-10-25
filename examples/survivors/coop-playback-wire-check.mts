@@ -1,16 +1,29 @@
-import { list, rows as array, defined, some } from "./host-values.mts"
-// Executed diagnostics of emitted typed projection and the actual browser adapter.
-// Usage: node coop-playback-wire-check.mts <wire.mjs> <directory-of-emitted-modules>
+import type { ObservationPresentation as Presentation } from "./coop-presentation.mts"
+import type { Frame } from "./frame.mts"
+import { bendModule } from "../bend-module.mts"
+import { list, rows as array, defined, some, object } from "./host-values.mts"
 import assert from "node:assert/strict"
 import { mkdtemp, copyFile, mkdir, symlink, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { resolve, join, dirname } from "node:path"
 import { pathToFileURL, fileURLToPath } from "node:url"
+// Executed diagnostics of emitted typed projection and the actual browser adapter.
+// Usage: node coop-playback-wire-check.mts <wire.mjs> <directory-of-emitted-modules>
+
 const wirePath = resolve(process.argv[2] ?? "examples/survivors/dist/coop-playback-wire.mjs")
 const moduleDir = resolve(process.argv[3] ?? dirname(wirePath))
-const { default: W }: { default: BendABI.CoopPlaybackWire.API } = await import(pathToFileURL(wirePath).href)
-const { default: P }: { default: BendABI.CoopPlayback.API } = await import(
-  pathToFileURL(join(moduleDir, "coop-playback.mjs")).href
+const { default: W } = await bendModule<BendABI.CoopPlaybackWire.API>()(pathToFileURL(wirePath).href, [
+  "body_actor",
+  "extra_actor",
+  "join",
+  "own_run",
+  "player_actor",
+  "project",
+  "snapshot_actor"
+])
+const { default: P } = await bendModule<BendABI.CoopPlayback.API>()(
+  pathToFileURL(join(moduleDir, "coop-playback.mjs")).href,
+  ["fresh", "push", "sample"]
 )
 const run = (extra = {}) => ({
   $: "Run" as const,
@@ -83,13 +96,26 @@ const scene = (tick: number, b: BendABI.Game.Body, extra = {}) => ({
   diagnostics: false,
   ...extra
 })
-const raw = (observation: number, tick: number, b: BendABI.Game.Body, extra = {}) => ({
+const raw = (observation: number, tick: number, b: BendABI.Game.Body, extra: Partial<Frame> = {}): Frame => ({
+  ...run(),
+  worldSize: 1000,
+  worldMargin: 0,
+  relicCollected: 0,
+  relicX: 0,
+  relicY: 0,
+  runLength: 0,
+  enemiesKilled: [],
+  revivalsUsed: 0,
+  bossesKilled: 0,
+  weapons: [],
+  passives: [],
+  offers: [],
   observationSeq: observation,
   tick,
   ownPlayerId: 0,
   px: 0,
   py: 0,
-  players: [{ id: 0, px: 0.1, py: -0.2, hp: 100 }],
+  players: [{ id: 0, px: 0.1, py: -0.2, hp: 100, maxHp: 100, character: 0 }],
   bodies: [[b.x, b.y, b.kind, b.variant, b.hp, b.maxHp, b.age, b.seed, b.radius]],
   combatForecast: scene(tick, b),
   ...extra
@@ -189,18 +215,27 @@ try {
     join(scratch, "coop-presentation.mts")
   )
   await copyFile(new URL("./host-values.mts", import.meta.url), join(scratch, "host-values.mts"))
-  const { ObservationPresentation } = await import(pathToFileURL(join(scratch, "coop-presentation.mts")).href)
+  const imported: unknown = await import(pathToFileURL(join(scratch, "coop-presentation.mts")).href)
+  const constructor = object(imported).ObservationPresentation
+  if (typeof constructor !== "function") throw new TypeError("Missing ObservationPresentation constructor")
+  const prototype: unknown = constructor.prototype
+  const methods = object(prototype)
+  for (const key of ["reset", "push", "sample", "bodyMetadata"]) {
+    if (typeof methods[key] !== "function") throw new TypeError(`Missing presentation method: ${key}`)
+  }
+  // This is the same typed adapter copied above, loaded against the emitted fixtures.
+  const ObservationPresentation = constructor as typeof Presentation
   const adapter = new ObservationPresentation()
   adapter.push(raw(1, 100, body({ kind: 0, hp: 80, maxHp: 100, x: 0, age: 10 })), 0)
   adapter.push(raw(2, 106, body({ kind: 0, hp: 30, maxHp: 100, x: 6, age: 16, variant: 4, radius: 7 })), 100)
   adapter.sample(100)
-  let displayed = adapter.sample(200)
-  check(displayed.remotePresentation.baseObservation === 2, "base observation advances")
+  let displayed = defined(adapter.sample(200))
+  check(defined(displayed.remotePresentation).baseObservation === 2, "base observation advances")
   check(
-    displayed.bodies[0][4] === 30 &&
-      displayed.bodies[0][6] === 16 &&
-      displayed.bodies[0][3] === 4 &&
-      displayed.bodies[0][8] === 7,
+    defined(displayed.bodies[0])[4] === 30 &&
+      defined(displayed.bodies[0])[6] === 16 &&
+      defined(displayed.bodies[0])[3] === 4 &&
+      defined(displayed.bodies[0])[8] === 7,
     "render metadata belongs to selected base observation, not oldest lifetime cache"
   )
   const savedFrame = adapter.frames.get(2),
@@ -220,7 +255,7 @@ try {
     "newer observation with backward world tick cannot mutate cache"
   )
   adapter.push(raw(3, 106, body({ kind: 0, hp: 20, age: 16, x: 6 })), 240)
-  check(adapter.sample(240).bodies[0][4] === 20, "same-tick newer metadata is presented")
+  check(defined(defined(adapter.sample(240)).bodies[0])[4] === 20, "same-tick newer metadata is presented")
   for (let obs = 4; obs < 24; obs++)
     adapter.push(
       raw(obs, 106 + (obs - 3) * 3, body({ kind: 0, x: obs, hp: 20, age: 16 + (obs - 3) * 3 })),
@@ -238,9 +273,9 @@ try {
     ...shots.state,
     cursor: { $: "Cursor" as const, tick: 103, fraction: 0, lastAt: 100000, mode: { $: "Playing" as const } }
   }
-  displayed = shots.sample(100)
+  displayed = defined(shots.sample(100))
   check(
-    displayed.bodies[0][0] === 3 && displayed.bodies[0][4] === 0,
+    defined(displayed.bodies[0])[0] === 3 && defined(displayed.bodies[0])[4] === 0,
     "actual adapter interpolates projectile while preserving raw HP zero"
   )
   const early = new ObservationPresentation()
@@ -275,9 +310,11 @@ try {
     ...early.state,
     cursor: { $: "Cursor" as const, tick: 100, fraction: 0, lastAt: 100000, mode: { $: "Playing" as const } }
   }
-  check(early.sample(100).combatImpacts.length === 0, "first-render race keeps future hit hidden")
+  check(defined(defined(early.sample(100)).combatImpacts).length === 0, "first-render race keeps future hit hidden")
   check(
-    early.sample(150).combatImpacts.some((effect: BendABI.CoopContactPlayback.Fx) => effect.id === hit.id),
+    defined(defined(early.sample(150)).combatImpacts).some(
+      (effect: BendABI.CoopContactPlayback.Fx) => effect.id === hit.id
+    ),
     "hit received after attachment but before first rAF plays when due"
   )
 } finally {

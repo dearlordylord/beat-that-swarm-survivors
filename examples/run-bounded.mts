@@ -1,3 +1,5 @@
+import { spawn, spawnSync } from "node:child_process"
+import { constants } from "node:os"
 interface ProcessRow {
   pid: number
   parent: number
@@ -13,8 +15,7 @@ function errorMessage(error: unknown): string {
 // Portable check timeout, including separately detached compiler descendants.
 // Cancellation snapshots only the owned subtree still connected at cancellation;
 // a daemon already reparented beforehand cannot be recovered from POSIX ps.
-import { spawn, spawnSync } from "node:child_process"
-import { constants } from "node:os"
+
 const [seconds, command, ...args] = process.argv.slice(2)
 if (!command || !Number.isFinite(Number(seconds)) || !(Number(seconds) > 0))
   throw Error("Usage: run-bounded.mts SECONDS COMMAND [ARGS...]")

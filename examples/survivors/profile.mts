@@ -1,5 +1,4 @@
 import { array, boolean, number, object, text } from "./host-values.mts"
-
 // Shapes of serialized results from menu-progression.bend. No game rules here.
 export interface Profile {
   version: number

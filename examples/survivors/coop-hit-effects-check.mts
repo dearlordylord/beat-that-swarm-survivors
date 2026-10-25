@@ -1,11 +1,14 @@
+import { bendModule } from "../bend-module.mts"
 import { list, rows as array, defined } from "./host-values.mts"
-// Executed emitted-Bend checks for first-due contact FX; no world simulation.
-// Usage: node coop-hit-effects-check.mts /tmp/coop-hit-effects.mjs
 import assert from "node:assert/strict"
 import { pathToFileURL } from "node:url"
 import { resolve } from "node:path"
-const { default: E }: { default: BendABI.CoopHitEffects.API } = await import(
-  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-hit-effects.mjs")).href
+// Executed emitted-Bend checks for first-due contact FX; no world simulation.
+// Usage: node coop-hit-effects-check.mts /tmp/coop-hit-effects.mjs
+
+const { default: E } = await bendModule<BendABI.CoopHitEffects.API>()(
+  pathToFileURL(resolve(process.argv[2] ?? "examples/survivors/dist/coop-hit-effects.mjs")).href,
+  ["add", "advance", "attach", "fresh", "receive", "render"]
 )
 const event = (id = "late", tick = 124, extra = {}) => ({
   $: "HitEvent" as const,

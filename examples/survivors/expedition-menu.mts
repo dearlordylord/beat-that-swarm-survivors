@@ -1,6 +1,9 @@
-import { displayText } from "./host-values.mts"
-import { at, defined } from "./host-values.mts"
+import { displayText, at, defined } from "./host-values.mts"
 import type { Profile, Setup, SetupKind, MenuState } from "./profile.mts"
+import { survivorColor, survivorSvg } from "./survivor-art.mts"
+import { startControl } from "./menu-controls.mts"
+import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS } from "./content.mts"
+import { isUnlocked, purchaseStatus } from "./progression.mts"
 interface SelectionItem {
   id: number
   name: string
@@ -11,10 +14,7 @@ interface SelectionItem {
   cost?: number
 }
 const kinds: SetupKind[] = ["character", "stage", "arcana", "mode"]
-import { survivorColor, survivorSvg } from "./survivor-art.mts"
-import { startControl } from "./menu-controls.mts"
-import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS } from "./content.mts"
-import { isUnlocked, purchaseStatus } from "./progression.mts"
+
 const catalog: Record<SetupKind, readonly SelectionItem[]> = {
   character: CHARACTERS,
   stage: STAGES,

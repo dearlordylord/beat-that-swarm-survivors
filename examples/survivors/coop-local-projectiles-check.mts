@@ -1,20 +1,60 @@
+import { bendModule } from "../bend-module.mts"
+import { object, array as parseArray, list, rows as array, defined, some } from "./host-values.mts"
+import {
+  parseCoopLocalProjectilesRenderShot,
+  parseCoopLocalProjectilesContactFx,
+  parseCoopLocalProjectilesTargetFade
+} from "./bend-codecs.generated.mts"
+import assert from "node:assert/strict"
+import { fileURLToPath, pathToFileURL } from "node:url"
+import { resolve } from "node:path"
 type RenderFrame = {
   shots: Omit<BendABI.CoopLocalProjectiles.RenderShot, "$">[]
   contacts: Omit<BendABI.CoopLocalProjectiles.ContactFx, "$">[]
   corpses: Omit<BendABI.CoopLocalProjectiles.TargetFade, "$">[]
 }
-const renderFrame = (text: string): RenderFrame => JSON.parse(text)
-import { list, rows as array, defined, some } from "./host-values.mts"
+const renderFrame = (text: string): RenderFrame => {
+  const row = object(JSON.parse(text))
+  return {
+    shots: parseArray(row.shots, (value) => parseCoopLocalProjectilesRenderShot({ ...object(value), $: "RenderShot" })),
+    contacts: parseArray(row.contacts, (value) =>
+      parseCoopLocalProjectilesContactFx({ ...object(value), $: "ContactFx" })
+    ),
+    corpses: parseArray(row.corpses, (value) =>
+      parseCoopLocalProjectilesTargetFade({ ...object(value), $: "TargetFade" })
+    )
+  }
+}
+
 // Functional checks for the emitted Bend local projectile presentation core.
 // Usage: bend coop-local-projectiles.bend -o /tmp/coop-local-projectiles.mjs
 //        COOP_LOCAL_PROJECTILES_MODULE=/tmp/coop-local-projectiles.mjs node coop-local-projectiles-check.mts
-import assert from "node:assert/strict"
-import { fileURLToPath, pathToFileURL } from "node:url"
-import { resolve } from "node:path"
+
 const modulePath =
   process.env.COOP_LOCAL_PROJECTILES_MODULE ||
   fileURLToPath(new URL("./dist/web/dist/coop-local-projectiles.mjs", import.meta.url))
-const C: BendABI.CoopLocalProjectiles.API = (await import(pathToFileURL(resolve(modulePath)).href)).default
+const C = (
+  await bendModule<BendABI.CoopLocalProjectiles.API>()(pathToFileURL(resolve(modulePath)).href, [
+    "accept_tick",
+    "advance_tick",
+    "bootstrap",
+    "bounded_known",
+    "confirm",
+    "coop-prediction:fresh_prepared",
+    "empty",
+    "ensure_bootstrap",
+    "event_contact",
+    "flight_step",
+    "observed_target",
+    "overflow_added",
+    "play_effects",
+    "prepare_geometry",
+    "prepare_visibility",
+    "render",
+    "should_show_authoritative",
+    "should_show_prepared"
+  ])
+).default
 const record = <T extends object, K extends keyof T>(state: T, key: K, value: T[K]): T => ({ ...state, [key]: value })
 const prediction = (lead = 54, enabled = true, anchor = 0) =>
   C["coop-prediction:fresh_prepared"](128, 128, 2.5, enabled, anchor, lead)
@@ -123,7 +163,7 @@ const baseRun = run(0),
   snapshots = list([]),
   p = prediction()
 const bootstrap = C.ensure_bootstrap(C.empty(), 1, baseRun, 0, targets, snapshots, p)
-let state = bootstrap.state
+const state = bootstrap.state
 check(bootstrap.started === true && state.lastAccepted === 54, "bootstrap begins exactly once at the bounded lead")
 const bootShots = array(state.shots)
 check(bootShots.length === 2, "automatic weapon births inside bootstrap prefix")
@@ -283,7 +323,7 @@ check(C.overflow_added(515, 512) === 3, "three discarded rows increment the coun
 const auraRun = run(3),
   auraPrediction = prediction(20),
   auraBoot = C.bootstrap(1, auraRun, 0, targets, snapshots, auraPrediction)
-let aura = array(auraBoot.shots).find((row) => row.weapon === 3)
+const aura = array(auraBoot.shots).find((row) => row.weapon === 3)
 check(!!aura && aura.age === 19, "attached aura is born and advanced during startup prefix")
 const auraMoved = C.accept_tick(auraBoot, true, 1, auraRun, 0, 0, 500, 600, 21, 21, 21, targets, snapshots)
 const movedAura = field(array(auraMoved.shots), "id", defined(aura).id)

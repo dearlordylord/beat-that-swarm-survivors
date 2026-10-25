@@ -1,15 +1,43 @@
+import { bendModule } from "../bend-module.mts"
+import { parseCoopHitJournalState } from "./bend-codecs.generated.mts"
 import { list, rows as array, defined } from "./host-values.mts"
-// Cosmetic retention/dedup boundary checks; authoritative geometry is checked
-// separately against Core's actual prepared contact resolver.
 import assert from "node:assert/strict"
 import { pathToFileURL, fileURLToPath } from "node:url"
-const J: BendABI.CoopHitJournal.API = (
-  await import(
+// Cosmetic retention/dedup boundary checks; authoritative geometry is checked
+// separately against Core's actual prepared contact resolver.
+
+const J = (
+  await bendModule<BendABI.CoopHitJournal.API>()(
     pathToFileURL(
       process.env.COOP_JOURNAL_MODULE || fileURLToPath(new URL("./dist/web/dist/coop-hit-journal.mjs", import.meta.url))
-    ).href
+    ).href,
+    [
+      "add_omitted",
+      "append_unique",
+      "attach",
+      "capacity",
+      "collect",
+      "contact_kind",
+      "emit_capped",
+      "event_count",
+      "event_id",
+      "fresh",
+      "ingest",
+      "ingest_capped",
+      "native_events",
+      "play",
+      "play_rows",
+      "play_sample",
+      "playback",
+      "shot_id",
+      "window"
+    ]
   )
 ).default
+const wireEvents = (text: string) => {
+  const events: unknown = JSON.parse(text)
+  return parseCoopHitJournalState({ $: "State", epoch: 0, now: 0, events, overflow: 0, expired: 0 }).events
+}
 const event = (id: string | number, tick = 100, targetGeneration = 50) => ({
   $: "HitEvent" as const,
   id: String(id),
@@ -65,7 +93,7 @@ assert.equal(expired.expired, 512)
 assert.equal(J.ingest(journal, 90, list([])).now, 100, "host world clock does not regress")
 const largeWire = J.native_events(list(original))
 assert.deepEqual(
-  array(JSON.parse(largeWire)),
+  array(wireEvents(largeWire)),
   original,
   "700-contact receipt serialization preserves all pre-retention contacts"
 )
@@ -73,7 +101,7 @@ assert.ok(
   new TextEncoder().encode(largeWire).length < 1024 * 1024,
   "700-contact stress receipt fits1MiB transport gate"
 )
-const wire = JSON.parse(J.native_events(list([event("42")])))
+const wire = wireEvents(J.native_events(list([event("42")])))
 assert.deepEqual(wire, list([event("42")]))
 assert.notEqual(
   J.event_id(100, 0, "1:2", 42, 50),
@@ -128,8 +156,8 @@ assert.deepEqual(
 )
 assert.equal(emission.omitted, 7488)
 assert.equal(J.event_count(list(sourceBurst)), 8000)
-assert.deepEqual(array(JSON.parse(J.native_events(emission.events))), sourceBurst.slice(-512))
-let capped = J.ingest_capped(J.fresh(77), 200, emission.events, emission.omitted)
+assert.deepEqual(array(wireEvents(J.native_events(emission.events))), sourceBurst.slice(-512))
+const capped = J.ingest_capped(J.fresh(77), 200, emission.events, emission.omitted)
 assert.equal(capped.overflow, 7488)
 assert.equal(capped.expired, 0)
 assert.equal(capped.epoch, 77)

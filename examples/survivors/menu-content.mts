@@ -1,5 +1,4 @@
-import { displayText } from "./host-values.mts"
-import { at, number } from "./host-values.mts"
+import { displayText, at, number } from "./host-values.mts"
 import type { MenuState } from "./profile.mts"
 import {
   WEAPONS,
@@ -50,7 +49,7 @@ export function renderMenuContent(
         )
         .join("") +
       '</div><div class="grid collection">'
-    let list =
+    const list =
       collectionTab === "artifacts"
         ? STAGE_RELICS
         : collectionTab === "unions"

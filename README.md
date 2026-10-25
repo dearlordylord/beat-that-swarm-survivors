@@ -41,7 +41,7 @@ npm ci --prefix examples/survivors/web
 npm run check:typescript
 ```
 
-Authored ESM modules use `.mts`; browser builds emit `.mjs`. Node runs development modules directly with type stripping. `npm run check:typescript` regenerates Bend declarations, checks the browser separately without Node types, and runs lint, formatting and source inventory checks. See the example guide for functional checks.
+Authored ESM modules use `.mts`; browser builds emit `.mjs`. Node runs development modules directly with type stripping. `npm run check:typescript` regenerates Bend declarations and constructive JSON parsers, checks the browser separately without Node types, and runs type-aware lint, formatting and source inventory checks. The gate rejects unsafe implicit `any` flows, checks runtime import cycles and browser dependencies, exercises malformed boundary inputs, and verifies the generated ABI against actual Bend output and rejected TypeScript consumers. `npm run generate:types` prepares the generated contracts independently; browser builds and bot shell launchers also run it. See the example guide for functional checks.
 
 ## License
 

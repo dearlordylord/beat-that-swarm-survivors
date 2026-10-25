@@ -1,10 +1,11 @@
+import { parseFrame } from "../../examples/survivors/frame.mts"
+import { parseGoals, parseMechanics } from "./observations.mts"
 import { errorCode } from "../../examples/survivors/host-values.mts"
 import { parseArgs } from "node:util"
 import { mkdirSync, appendFileSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { randomUUID, createHash } from "node:crypto"
 import { runBot } from "./runner.mts"
-
 const { values } = parseArgs({
   options: {
     seed: { type: "string", default: "12345" },
@@ -38,7 +39,7 @@ try {
     if (next.$ !== "Packet") throw new Error("Bend advance failed")
     const observed = Game.observe(next.state)
     if (observed.$ !== "Observed") throw new Error("Bend observation failed")
-    const frame = JSON.parse(observed.frame)
+    const frame = parseFrame(JSON.parse(observed.frame))
     console.log(
       JSON.stringify(
         {
@@ -46,8 +47,8 @@ try {
           seed,
           tick: frame.tick,
           upgradeOffers: frame.offers,
-          goals: JSON.parse(observed.actions),
-          mechanics: JSON.parse(observed.mechanics)
+          goals: parseGoals(JSON.parse(observed.actions)),
+          mechanics: parseMechanics(JSON.parse(observed.mechanics))
         },
         null,
         2
