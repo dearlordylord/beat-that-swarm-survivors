@@ -1,0 +1,20 @@
+# Explicit projectile authority (issue 6)
+
+Player and hostile projectile queries read immutable slot identity and role, and write only Spatial, ShotPayload and Trajectory. ShotPayload contains weapon, damage and active occupancy; Trajectory contains velocity, remaining life, pierce, visited target identities, weapon ownership and logical allocation slot. There is no writable whole-projectile aggregate and no projectile Body component. Shot.State is a detached observation and pure rule input.
+
+Scheduling and spawn rules take explicit Schedule/SpawnInput/StepInput values. They do not manufacture Session or PlayerState values. Player and hostile allegiance is a sum constructor; weapon is never an enemy archetype. Native, browser, prediction, local anticipation, contact journaling, playback and encoding consume typed projectile snapshots. Named presentation fields carry explicit lifetime identity, including canonical and local anticipation reuse.
+
+`projectile-state/LAWS.bend` states one exact characterization of birth: every supplied field survives, age is zero, visited history is empty and occupancy is true. Its independent blind translation was accepted before kernel proof. The corresponding proof and two mutants cover the complete stated constructor contract; they do not prove contact geometry or allocator correctness. Fourteen actual pure runtime cases additionally cover step, pierce, exhaustion, expiry, reuse and hostile inclusive contact. Playback liveness is a Boolean, while presentation health comes from the typed enemy metadata.
+
+Verification completed on the local combined issues 5/6/7 assembly:
+
+- Game, Core, combat prediction, GameEncoder, native presentation and the full-state observer typecheck. Actual Game/Core/Encoder JavaScript emissions run the analytic contact oracle successfully (swept contact ordering, AoE edge, lethal geometry before loot and reused-slot newborn isolation).
+- Six projectile capability pairs accept the real accessor's grant and reject cross-family writes or read-to-write escalation. The complete shared authority suite subsequently passed eighteen pairs.
+- Fresh normal, stationary terminal and advanced public-input traces are byte-identical to the frozen baseline schedules (920, 671 and 1200 actual ticks).
+- The player-observing native binary runs directly with Node absent from PATH. Fifteen fixed full-state checkpoints are captured externally. The current-schema validator validates every actual pooled column, routing cohort, allocator/clock/stamp, typed snapshot coverage/order and actual empty native PlayerRecord column. It compares the complete current representation exactly.
+- Complementary co-op capture retains six checkpoints of actual player-column payloads/stamps and refs, including guest disconnection. Personal and shared gameplay fields and refs match the frozen baseline exactly; current player authority validation and payload/identity/stamp negative controls pass.
+- Dependency audit passes for 225 Bend modules.
+
+Artifacts are outside source under `/tmp/survivors-issue6`, `/tmp/survivors-issue6-projectile-grants` and `/tmp/issue5-group-authority`. The native capture source is commit `5c34ff8`; subsequent runtime source change `e1aa32e` only removes an unused enemy helper. Binary SHA-256 is `f06fc1ac909785d783a6cbd3f8e3ef62786ba752e06e1071a180e3a0662cef98`.
+
+Qualification is **incomplete** until the cross-schema named-fact comparison passes after the pickup idle-transition correction, and the assembled candidate receives both required reviews. No performance conclusion is claimed; bounded paired performance qualification belongs to issue 10. No issue is closed by this document.
