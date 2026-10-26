@@ -1,5 +1,10 @@
+import pickup-state.bend as Pickup
+import enemy-spatial.bend as Space
+import run-state.bend as RS
 import Base
+import game-components.bend as Components
 import game.bend as G
+import game-encoder.bend as Encoder
 import native-economy.bend as P
 import projectile.bend as Shots
 
@@ -7,7 +12,7 @@ import projectile.bend as Shots
 # Observation consumes the affine state once and returns it unchanged. Candidates
 # are snapshot-scoped goals, not promises of safety, reachability or rewards.
 type Observed is Type:
-  Observed{state: G.State,frame: Maybe<&2,G.Observation>,actions: String,mechanics: String}
+  Observed{state: G.State,frame: G.Observation,actions: String,mechanics: String}
   ObserveFailed{error: String}
 
 def goal_data(+tick: U32,+px: F32,+py: F32,+kind: String,+x: F32,+y: F32,identity: String,resource: String) -> String:
@@ -21,37 +26,28 @@ def resource_metadata(kind: U32,amount: U32,generation: U32) -> String:
     case 2: ",\"resource\":{\"kind\":\"experience\",\"baseXp\":" ++ U32.show(amount) ++ ",\"generation\":" ++ U32.show(generation) ++ ",\"autoClaimTicks\":null}"
     case _: ""
 
-def entity_goal(+tick: U32,+px: F32,+py: F32,body: G.Body,+kind: String) -> String:
-  match body:
-    case G.Body{+x,+y,+bodyKind,+variant,+hp,+generation,+age,+seed,+radius}:
-      goal_data(tick,px,py,kind,x,y,U32.show(seed) ++ ":" ++ U32.show(bodyKind) ++ ":" ++ U32.show(variant) ++ ":" ++ U32.show(age),resource_metadata(bodyKind,G.xp_amount(G.Body{x,y,bodyKind,variant,hp,generation,age,seed,radius}),generation))
-
-def maybe_entity(enabled: Bool,+tick: U32,+px: F32,+py: F32,body: G.Body,kind: String,tail: String) -> String:
-  match enabled:
-    case True{}: "," ++ entity_goal(tick,px,py,body,kind) ++ tail
-    case False{}: tail
-
-def entity_goals(rows: List<&2,G.Body>,+tick: U32,+px: F32,+py: F32) -> String:
+def pickup_goal(+tick: U32,+px: F32,+py: F32,+x: F32,+y: F32,+age: U32,+slot: U32,+generation: U32,item: Pickup.Item) -> String:
+  match item:
+    case Pickup.Xp{amount,_}: "," ++ goal_data(tick,px,py,"approach_experience",x,y,U32.show(slot) ++ ":xp:" ++ U32.show(age),resource_metadata(2,amount,generation))
+    case Pickup.Chest{}: "," ++ goal(tick,px,py,"approach_chest",x,y,U32.show(slot) ++ ":chest:" ++ U32.show(age))
+    case Pickup.Relic{_}: "," ++ goal(tick,px,py,"approach_relic",x,y,U32.show(slot) ++ ":relic:" ++ U32.show(age))
+    case _: ""
+def entity_goals(rows: List<&2,G.Snapshot>,+tick: U32,+px: F32,+py: F32) -> String:
   match rows:
     case []: ""
-    case G.Body{+x,+y,2,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      maybe_entity(U32.is_lt(0,hp),tick,px,py,G.Body{x,y,2,variant,hp,maxHp,age,seed,radius},"approach_experience",entity_goals(rest,tick,px,py))
-    case G.Body{+x,+y,5,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      "," ++ entity_goal(tick,px,py,G.Body{x,y,5,variant,hp,maxHp,age,seed,radius},"approach_chest") ++ entity_goals(rest,tick,px,py)
-    case G.Body{+x,+y,9,+variant,+hp,+maxHp,+age,+seed,+radius} <> rest:
-      "," ++ entity_goal(tick,px,py,G.Body{x,y,9,variant,hp,maxHp,age,seed,radius},"approach_relic") ++ entity_goals(rest,tick,px,py)
+    case G.PickupSnapshot{Pickup.State{Space.Spatial{x,y,age,_},Pickup.Payload{item,generation,True{}},slot}} <> rest: pickup_goal(tick,px,py,x,y,age,slot,generation,item) ++ entity_goals(rest,tick,px,py)
     case _ <> rest: entity_goals(rest,tick,px,py)
 
-def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,bodies: List<&2,G.Body>) -> String:
+def catalog_live(active: Bool,+tick: U32,+px: F32,+py: F32,snapshots: List<&2,G.Snapshot>) -> String:
   match active:
     case False{}: "[]"
     case True{}:
-      "[" ++ goal(tick,px,py,"move_north",px,F32.max(G.world_margin(),(py - 160.0 : F32)),"north") ++ "," ++ goal(tick,px,py,"move_east",F32.min((G.world_size() - G.world_margin() : F32),(px + 160.0 : F32)),py,"east") ++ "," ++ goal(tick,px,py,"move_south",px,F32.min((G.world_size() - G.world_margin() : F32),(py + 160.0 : F32)),"south") ++ "," ++ goal(tick,px,py,"move_west",F32.max(G.world_margin(),(px - 160.0 : F32)),py,"west") ++ entity_goals(bodies,tick,px,py) ++ "]"
+      "[" ++ goal(tick,px,py,"move_north",px,F32.max(G.world_margin(),(py - 160.0 : F32)),"north") ++ "," ++ goal(tick,px,py,"move_east",F32.min((G.world_size() - G.world_margin() : F32),(px + 160.0 : F32)),py,"east") ++ "," ++ goal(tick,px,py,"move_south",px,F32.min((G.world_size() - G.world_margin() : F32),(py + 160.0 : F32)),"south") ++ "," ++ goal(tick,px,py,"move_west",F32.max(G.world_margin(),(px - 160.0 : F32)),py,"west") ++ entity_goals(snapshots,tick,px,py) ++ "]"
 
-def catalog(run: G.Run,bodies: List<&2,G.Body>) -> String:
+def catalog(run: G.Run,snapshots: List<&2,G.Snapshot>) -> String:
   match run:
-    case G.Run{phase,tick,px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}:
-      catalog_live(U32.is_le(phase,2),tick,px,py,bodies)
+    case G.Run{RS.Session{phase,tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{px,py,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}:
+      catalog_live(U32.is_le(phase,2),tick,px,py,snapshots)
 
 # Mechanical context comes from the exact functions used by live gameplay.
 # Damage is a per-hit base, not DPS; previews do not simulate future combat.
@@ -81,12 +77,12 @@ def weapon_stats(rows: List<&2,U32>,+id: U32,+passives: List<&2,U32>,+meta: U32,
 
 def engine_stats(run: G.Run) -> String:
   match run:
-    case G.Run{_,_,_,_,hp,maxHp,_,_,_,_,gold,+character,+weapons,+passives,_,_,_,+arcana,+meta,_,_,_,_,_,_,_,_,_,_}:
-      "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ G.nums_json(weapons) ++ "],\"passives\":[" ++ G.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"pickupRadius\":" ++ F32.show(G.pickup_radius(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
+    case G.Run{RS.Session{_,_,_,_,_,_,gold,_,_,_,_,_,_},RS.PlayerState{_,_,hp,maxHp,+character,+weapons,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
+      "{\"hp\":" ++ U32.show(hp) ++ ",\"maxHp\":" ++ U32.show(maxHp) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"weapons\":[" ++ Encoder.nums_json(weapons) ++ "],\"passives\":[" ++ Encoder.nums_json(passives) ++ "],\"speedMultiplier\":" ++ F32.show(G.speed_bonus(passives,meta,arcana,character)) ++ ",\"pickupRadius\":" ++ F32.show(G.pickup_radius(passives,meta,arcana,character)) ++ ",\"xpAwardFor100BaseXp\":" ++ U32.show(G.earned_xp(100,passives,meta,arcana)) ++ ",\"durationMultiplier\":" ++ F32.show(G.duration_bonus(passives,arcana)) ++ ",\"projectileSpeedMultiplier\":" ++ F32.show(G.projectile_speed(passives,arcana)) ++ ",\"weaponStats\":[" ++ weapon_stats(weapons,0,passives,meta,arcana,character) ++ "]}"
 
 def preview_stats(offer: G.Offer,run: G.Run) -> String: engine_stats(G.upgrade(offer,run))
 def preview_json(+index: U32,+offer: G.Offer,run: G.Run) -> String:
-  "{\"offerIndex\":" ++ U32.show(index) ++ ",\"offer\":" ++ G.offer_json(offer) ++ ",\"after\":" ++ preview_stats(offer,run) ++ "}"
+  "{\"offerIndex\":" ++ U32.show(index) ++ ",\"offer\":" ++ Encoder.offer_json(offer) ++ ",\"after\":" ++ preview_stats(offer,run) ++ "}"
 def preview_rows(offers: List<&2,G.Offer>,+index: U32,+run: G.Run) -> String:
   match offers:
     case []: ""
@@ -95,14 +91,14 @@ def preview_rows(offers: List<&2,G.Offer>,+index: U32,+run: G.Run) -> String:
 def mechanics(+run: G.Run,offers: List<&2,G.Offer>) -> String:
   "{\"source\":\"Bend game functions\",\"notes\":\"Immediate pure upgrade preview; baseHitDamage is not DPS; cooldown is ticks, not a combat rollout.\",\"current\":" ++ engine_stats(run) ++ ",\"offers\":[" ++ preview_rows(offers,0,run) ++ "]}"
 
-def observed_state(state: G.State,frame: Maybe<&2,G.Observation>) -> Observed:
+def observed_state(state: G.State) -> Observed:
   match state:
-    case G.State{world,+run,+bodies,+offers,snapshots,pending}:
-      Observed{G.State{world,run,bodies,offers,snapshots,pending},frame,catalog(run,bodies),mechanics(run,offers)}
+    case G.State{world,+run,+offers,+snapshots,pending}:
+      Observed{G.State{world,run,offers,snapshots,pending},G.observation(run,offers,snapshots),catalog(run,snapshots),mechanics(run,offers)}
 
 def observed_packet(packet: G.Packet) -> Observed:
   match packet:
-    case G.Packet{state,frame}: observed_state(state,frame)
+    case G.Packet{state}: observed_state(state)
     case G.Failed{error}: ObserveFailed{error}
 
 def observe(state: G.State) -> Observed: observed_packet(G.packet(state))
@@ -119,15 +115,15 @@ def banish(state: G.State,index: U32) -> G.Packet: G.banish(state,index)
 
 def start_unlocks(packet: G.Packet,mask: U32) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure_unlocks(state,mask)
+    case G.Packet{state}: G.configure_unlocks(state,mask)
     case G.Failed{error}: G.Failed{error}
 def start_mode(packet: G.Packet,mode: U32) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.set_mode(state,mode)
+    case G.Packet{state}: G.set_mode(state,mode)
     case G.Failed{error}: G.Failed{error}
 def start_configured(packet: G.Packet,stage: U32,arcana: U32) -> G.Packet:
   match packet:
-    case G.Packet{state,_}: G.configure(state,stage,arcana)
+    case G.Packet{state}: G.configure(state,stage,arcana)
     case G.Failed{error}: G.Failed{error}
 # Same fresh profile, stage and mode as the native UI. No profile injection.
 def fresh_start_seed(seed: U32) -> G.Packet:
@@ -139,21 +135,3 @@ def advanced_start_seed(seed: U32) -> G.Packet:
   start_mode(start_configured(G.start_seed(2,364304237,seed),0,9),0)
 
 def advanced_start() -> G.Packet: advanced_start_seed(12345)
-
-# Quiet presets share the presentation presets' exact parameters and operations.
-def start_unlocks_quiet(packet: G.Packet,mask: U32) -> G.Packet:
-  match packet:
-    case G.Packet{state,_}: G.configure_unlocks_quiet(state,mask)
-    case G.Failed{error}: G.Failed{error}
-def start_mode_quiet(packet: G.Packet,mode: U32) -> G.Packet:
-  match packet:
-    case G.Packet{state,_}: G.set_mode_quiet(state,mode)
-    case G.Failed{error}: G.Failed{error}
-def start_configured_quiet(packet: G.Packet,stage: U32,arcana: U32) -> G.Packet:
-  match packet:
-    case G.Packet{state,_}: G.configure_quiet(state,stage,arcana)
-    case G.Failed{error}: G.Failed{error}
-def fresh_start_seed_quiet(seed: U32) -> G.Packet:
-  start_unlocks_quiet(start_mode_quiet(start_configured_quiet(G.start_seed_quiet(0,P.meta(P.fresh()),seed),0,0),0),P.weapon_mask(P.fresh()))
-def advanced_start_seed_quiet(seed: U32) -> G.Packet:
-  start_mode_quiet(start_configured_quiet(G.start_seed_quiet(2,364304237,seed),0,9),0)

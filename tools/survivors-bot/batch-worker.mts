@@ -5,11 +5,13 @@ import { parentPort, workerData } from "node:worker_threads"
 import { runBot } from "./runner.mts"
 // This entry point deliberately has no provider import or network dependency.
 const port = defined(parentPort)
-const { default: Game } = await bendModule<BendABI.BotActions.API>()(
-  text(object(workerData).bundleURL),
-  ["fresh_start", "advanced_start", "fresh_start_seed", "advanced_start_seed", "observe", "advance", "choose"],
-  ["observed_packet"]
-)
+const { default: Game } = await bendModule<BendABI.BotActions.API>()(text(object(workerData).bundleURL), [
+  "fresh_start_seed",
+  "advanced_start_seed",
+  "advance",
+  "choose",
+  "observed_packet"
+])
 if (typeof Game.fresh_start_seed !== "function" || typeof Game.advanced_start_seed !== "function")
   throw new Error("Seeded facade required")
 port.on("message", (job: Job) => {

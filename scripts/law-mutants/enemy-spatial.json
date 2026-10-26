@@ -1,0 +1,18 @@
+[
+  {
+    "label": "enemy movement must advance age once",
+    "source": "examples/survivors/enemy-spatial.bend",
+    "old": "(age + 1 : U32)",
+    "new": "age",
+    "proof": "examples/survivors/enemy-spatial/PROOF.bend",
+    "law": "age_advances_once"
+  },
+  {
+    "label": "enemy movement must preserve collision radius",
+    "source": "examples/survivors/enemy-spatial.bend",
+    "old": "(age + 1 : U32),radius}",
+    "new": "(age + 1 : U32),0.0}",
+    "proof": "examples/survivors/enemy-spatial/PROOF.bend",
+    "law": "radius_preserved"
+  }
+]

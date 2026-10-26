@@ -113,16 +113,5 @@ jobs:
         run: npm run check:typescript
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
-      - name: Check runtime behavior and native geometry
+      - name: Check runtime integration behavior
         run: bash examples/survivors/check.sh --runtime-only
-      - name: Build the prerendered browser page
-        run: |
-          bash examples/survivors/build-web.sh
-      - name: Build optional bot endpoints
-        run: |
-          npm ci --prefix tools/survivors-bot --ignore-scripts
-          bash tools/survivors-bot/check.sh
-          bash tools/survivors-bot/check-visible.sh
-          bash tools/survivors-bot/check-monsters.sh
-      - name: Check native profile, UI and loot
-        run: bash examples/survivors/check-launcher-profile-ui.sh

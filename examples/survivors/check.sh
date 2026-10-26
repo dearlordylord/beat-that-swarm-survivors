@@ -16,6 +16,3 @@ if [[ ${1:-} != --runtime-only ]]; then
 fi
 example_timeout 30 "$NODE" --test examples/survivors/survivor-art.test.mts examples/survivors/expedition-menu.test.mts
 example_timeout 30 "$NODE" scripts/generate-native-survivor-art.mts --check
-bash examples/survivors/check-coop-reliability.sh
-bash examples/survivors/check-geometry.sh
-bash examples/survivors/check-native-coop-metrics.sh

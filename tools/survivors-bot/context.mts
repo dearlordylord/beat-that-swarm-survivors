@@ -256,17 +256,17 @@ function hazards(f: Frame) {
   }
 }
 function threats(f: Frame) {
-  const enemies = (f.bodies ?? []).filter((b) => b[2] === 0 && b[4] > 0)
-  const distances = enemies.map((b) => Math.hypot(b[0] - f.px, b[1] - f.py))
+  const enemies = f.enemies.filter((b) => b.health > 0)
+  const distances = enemies.map((b) => Math.hypot(b.x - f.px, b.y - f.py))
   return {
-    source: "Observed engine body rows; geometric counts, not predicted danger or DPS.",
+    source: "Observed typed enemy and projectile records; geometric counts, not predicted danger or DPS.",
     livingEnemies: enemies.length,
     within60: distances.filter((d) => d <= 60).length,
     within150: distances.filter((d) => d <= 150).length,
     nearestEnemyDistance: distances.length ? Math.min(...distances) : null,
-    bosses: enemies.filter((b) => b[3] >= 20 && b[3] < 30).length,
-    dawnReapers: enemies.filter((b) => b[3] === 30).length,
-    hostileProjectiles: (f.bodies ?? []).filter((b) => b[2] === 7).length
+    bosses: enemies.filter((b) => b.archetype >= 20 && b.archetype < 30).length,
+    dawnReapers: enemies.filter((b) => b.archetype === 30).length,
+    hostileProjectiles: f.projectiles.filter((b) => b.hostile).length
   }
 }
 function candidateEffect(o: Offer, f: Frame, meta: number) {
@@ -535,7 +535,8 @@ function catalogOf(frame: Frame, catalog: Goal[]) {
     )
       throw new Error("Invalid, duplicate or expired engine goal")
     if (g.kind === "approach_experience") {
-      const [seed, kind, variant, age] = g.id.split(":").slice(2).map(Number),
+      const [slot, itemKind, ageText] = g.id.split(":").slice(2),
+        age = Number(ageText),
         r = g.resource
       if (
         !r ||
@@ -544,17 +545,17 @@ function catalogOf(frame: Frame, catalog: Goal[]) {
         !Number.isSafeInteger(r.generation) ||
         r.generation < 0 ||
         r.autoClaimTicks !== null ||
-        !frame.bodies.some(
-          (b) =>
-            b[7] === seed &&
-            b[2] === kind &&
-            kind === 2 &&
-            b[3] === variant &&
-            b[6] === age &&
-            b[4] === r.baseXp &&
-            b[5] === r.generation &&
-            b[0] === g.target.x &&
-            b[1] === g.target.y
+        !frame.pickups.some(
+          (p) =>
+            p.active &&
+            p.slot === Number(slot) &&
+            p.item.kind === itemKind &&
+            p.item.kind === "xp" &&
+            p.age === age &&
+            p.item.amount === r.baseXp &&
+            p.generation === r.generation &&
+            p.x === g.target.x &&
+            p.y === g.target.y
         )
       )
         throw new Error("XP goal does not match a current persistent engine pile")
@@ -644,9 +645,9 @@ export function buildGoalDecision(
     approach_relic:
       "Approach the stage relic, which unlocks its associated weapon for future runs. It does not guarantee immediate combat power or a safe route."
   }
-  const enemies = (frame.bodies ?? []).filter((b) => b[2] === 0 && b[4] > 0)
+  const enemies = frame.enemies.filter((b) => b.health > 0)
   const candidates = selected.map((goal) => {
-    const targetThreats = enemies.map((b) => Math.hypot(b[0] - goal.target.x, b[1] - goal.target.y))
+    const targetThreats = enemies.map((b) => Math.hypot(b.x - goal.target.x, b.y - goal.target.y))
     const effect = Object.assign(
       {
         intent: goal.kind,
@@ -667,12 +668,13 @@ export function buildGoalDecision(
       effectExtensions()
     )
     if (goal.kind === "approach_experience") {
-      const [seed, _kind, variant, age] = goal.id.split(":").slice(2).map(Number)
+      const [slot, itemKind, ageText] = goal.id.split(":").slice(2),
+        age = Number(ageText)
       effect.resource = {
         ...safeCopy(goal.resource ?? {}),
         kind: "experience",
-        seed,
-        variant,
+        slot: Number(slot),
+        itemKind,
         ageTicks: age,
         autoClaimTicks: null,
         pickupRadius: engineMechanics?.current?.pickupRadius ?? null,

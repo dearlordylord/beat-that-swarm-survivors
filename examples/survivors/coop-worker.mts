@@ -73,7 +73,7 @@ function packet(result: BendABI.CoopCore.CorePacket) {
     emit({ type: "rejected", message: result.message, connectionEpoch })
     return null
   }
-  const frame = coreFrame(result.frame)
+  const frame = coreFrame(result.observation)
   if (frame && Number.isInteger(frame.tick)) currentWorldTick = frame.tick
   return frame
 }
@@ -97,7 +97,10 @@ function publish(remote = true, initial = false) {
     connectionReady: Connection.running(gate)
   })
   if (remote) {
-    const guest = display(Game.core_observe(core, 1))
+    const guestPacket = Game.core_observe(core, 1)
+    const guest = display(guestPacket)
+    if (guestPacket.$ !== "CorePacket" || guestPacket.observation.$ !== "ViewObservation")
+      throw Error("Missing remote display observation")
     guestEligible = guest.predictionAllowed === true
     if (!guestEligible) guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
     const publication = initial ? handshake({ $: "Prepared", observation }) : null
@@ -109,7 +112,8 @@ function publish(remote = true, initial = false) {
         connectionVersion: Connection.protocol_version(),
         token,
         initial,
-        frame: { ...guest, runId },
+        frame: guestPacket.observation,
+        runId,
         admission: session,
         receipt: guestReceipt,
         observationSeq: observation,

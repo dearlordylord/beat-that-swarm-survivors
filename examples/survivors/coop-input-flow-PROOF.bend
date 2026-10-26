@@ -92,7 +92,7 @@ def L.parser_gate_exact(allowed,rows):
     case False{}: {==}
     case True{}: {==}
 
-def L.batch_decoding_exact(rows,text): {==}
+def L.batch_decoding_exact(rows): {==}
 
 def L.decode_public_exact(text): {==}
 
@@ -123,14 +123,12 @@ def L.empty_row_parser(): {==}
 
 def L.allowed_frame_dispatches(text): {==}
 
-def L.packet_dispatch_exact(rows,text):
+def L.packet_dispatch_exact(rows):
   match rows:
     case []: {==}
     case _ <> _: {==}
 
-def L.single_command_preserved(command): {==}
-
-def L.malformed_single_refuses(): {==}
+def L.empty_packet_refuses(): {==}
 
 def line_join(+newline:Bool,+prefix:String,+a:List<&2,String>,+b:List<&2,String>,+c:List<&2,String>,+d:List<&2,String>,ab:{a == b : List<&2,String>},cd:{c == d : List<&2,String>}) -> {F.line_choice(newline,u => prefix <> a,u => c) == F.line_choice(newline,u => prefix <> b,u => d) : List<&2,String>}:
   match newline:
@@ -144,7 +142,7 @@ def L.line_split_exact(text,acc):
 
 def L.nonready_prepare_preserves(state): {==}
 
-def L.batch_kind_exact(rows,text): {==}
-def L.single_kind_exact(rows,text): {==}
+def L.batch_kind_exact(rows): {==}
+def L.unknown_kind_refuses(rows): {==}
 def L.newline_choice_exact(yes,no): {==}
 def L.character_choice_exact(yes,no): {==}

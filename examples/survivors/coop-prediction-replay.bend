@@ -21,4 +21,4 @@ def guard(~A:Data,~advance:A -> U32 -> U32 -> A,allowed:Bool,frame:A,x:U32,y:U32
 def eligible(phase:U32,hp:U32,+x:U32,+y:U32) -> Bool:
   Bool.and(Bool.and(U32.is_eq(phase,0),U32.is_gt(hp,0)),Bool.and(U32.is_le(x,2),U32.is_le(y,2)))
 def generation(player:U32,tick:U32,age:U32,owner:U32,slot:U32) -> String:
-  U32.show(player) ++ ":" ++ U32.show((tick - age : U32)) ++ ":" ++ U32.show(owner) ++ ":" ++ U32.show((slot % 65536 : U32))
+  U32.show(player) ++ ":" ++ U32.show((tick - age : U32)) ++ ":" ++ U32.show(owner) ++ ":" ++ U32.show(slot)

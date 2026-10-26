@@ -237,11 +237,10 @@ function consume(
 function accept(packet: BendABI.Game.Packet | { $: "Failed"; error: string }) {
   if (packet.$ === "Failed") throw Error(packet.error)
   if (packet.$ !== "Packet") throw Error("Invalid simulation response")
-  state = packet.state
+  const observed = Game.observe(packet.state)
+  state = observed.state
   const old = frame
-  const observed = gameFrame(packet.frame)
-  if (!observed) return
-  frame = observed
+  frame = gameFrame(observed.observation)
   if (old?.phase === 0 && [1, 2].includes(frame.phase)) upgradeOpen = true
   runHistory = observeRun(runHistory, { weapons: frame.weapons })
   frame.stage ??= stage

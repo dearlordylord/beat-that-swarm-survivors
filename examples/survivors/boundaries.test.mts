@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { parseBody, parseCoopFrame, parseFrame } from "./frame.mts"
+import { parseCoopFrame, parseFrame } from "./frame.mts"
 import type { Frame } from "./frame.mts"
 import { admitSnapshot } from "./snapshot-envelope.mts"
 
@@ -35,7 +35,11 @@ const frame: Frame = {
   weapons: [0],
   passives: [],
   offers: [{ kind: 0, id: 0, level: 1 }],
-  bodies: [[1, 2, 0, 0, 10, 10, 0, 12, 4]]
+  enemies: [],
+  projectiles: [],
+  pickups: [],
+  actorOrder: [],
+  players: []
 }
 const scene: BendABI.CoopCombatPrediction.Scene = {
   $: "Scene",
@@ -58,22 +62,9 @@ const journal: BendABI.CoopHitJournal.State = {
   overflow: 0,
   expired: 0
 }
-const envelope = {
-  type: "frame",
-  connectionVersion: 1,
-  token: 2,
-  initial: true,
-  frame: { ...coop, runId: "fixture", coop: true, choicePending: false, roundId: 0, requiredPlayers: [], players: [] },
-  admission: { $: "State", session: 1, clock: 1, host: lane, guest: lane, guestConnected: true, ended: false },
-  receipt: { $: "Receipt", seq: 0, worldTick: 1, x: 1, y: 1, applied: false },
-  observationSeq: 1,
-  contactJournal: journal,
-  inputTiming: { worldTick: 1, lastRejected: null }
-}
 await test("round-trips complete observations and leaves game eligibility in Bend", () => {
   assert.deepEqual(parseFrame(frame), frame)
   assert.deepEqual(parseCoopFrame(coop), coop)
-  assert.deepEqual(admitSnapshot(envelope), envelope)
   assert.equal(parseFrame({ ...frame, hp: 90 }).hp, 90, "shape parser must not implement game HP policy")
   assert.throws(() => parseCoopFrame(frame), TypeError)
 })
@@ -84,48 +75,104 @@ await test("rejects malformed nested numeric, tuple, ADT and session fields befo
     "frame",
     { ...frame, hp: "70" },
     { ...frame, tick: Infinity },
-    { ...frame, bodies: [[1, 2]] },
+    { ...frame, enemies: [{ identity: 1 }] },
     { ...frame, offers: [{ kind: 0, id: "0", level: 1 }] }
   ])
     assert.throws(() => parseFrame(invalid), TypeError)
-  assert.throws(
-    () =>
-      admitSnapshot({
-        ...envelope,
-        frame: { ...envelope.frame, combatForecast: { ...scene, directions: { ...scene.directions, x0: "0" } } }
-      }),
-    TypeError
-  )
-  assert.throws(
-    () => admitSnapshot({ ...envelope, admission: { ...envelope.admission, host: { ...lane, lastSeq: "0" } } }),
-    TypeError
-  )
-  assert.throws(
-    () =>
-      admitSnapshot({
-        ...envelope,
-        contactJournal: { ...journal, events: { $: "Con", head: {}, tail: { $: "Nil" } } }
-      }),
-    TypeError
-  )
-  assert.throws(() => admitSnapshot({ ...envelope, receipt: { ...envelope.receipt, applied: "false" } }), TypeError)
 })
-await test("preserves all serialized Body positions including optional generation and presentation metadata", () => {
-  assert.deepEqual(parseBody([1, 2, 0, 0, 10, 10, 0, 12, 4, "generation", 1, 42, 0.45]), [
-    1,
-    2,
-    0,
-    0,
-    10,
-    10,
-    0,
-    12,
-    4,
-    "generation",
-    1,
-    42,
-    0.45
+await test("rejects obsolete presentation snapshots and invalid connection versions", () => {
+  for (const connectionVersion of [0, 1, 2, 3])
+    assert.throws(() => admitSnapshot({ type: "frame", connectionVersion, frame: coop }), TypeError)
+})
+const nil = { $: "Nil" } satisfies BendList<never>
+const raw: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }> = {
+  $: "ViewObservation",
+  game: {
+    $: "Observation",
+    presentation: {
+      $: "PresentationContext",
+      worldSize: 14400,
+      worldMargin: 100,
+      relicX: 0,
+      relicY: 0,
+      runLength: 36000
+    },
+    run: {
+      $: "Run",
+      session: {
+        $: "Session",
+        phase: 0,
+        tick: 1,
+        xp: 0,
+        xpNeed: 20,
+        level: 1,
+        kills: 0,
+        gold: 0,
+        seed: 1,
+        stage: 0,
+        bosses: 0,
+        mode: 0,
+        enemyKinds: nil,
+        relicCollected: 0
+      },
+      player: {
+        $: "PlayerState",
+        px: 0,
+        py: 0,
+        hp: 70,
+        maxHp: 70,
+        character: 0,
+        weapons: nil,
+        passives: nil,
+        invuln: 0,
+        arcana: 0,
+        meta: 0,
+        revivals: 0,
+        rerolls: 0,
+        banishes: 0,
+        skips: 0,
+        bannedWeapons: 0,
+        bannedPassives: 0
+      }
+    },
+    offers: nil,
+    enemies: nil,
+    order: nil,
+    projectiles: nil,
+    pickups: nil
+  },
+  predictionAllowed: true,
+  stepDistance: 2,
+  ownPlayerId: 0,
+  choicePending: false,
+  round: 0,
+  required: nil,
+  players: nil,
+  forecast: scene
+}
+const envelope = {
+  type: "frame",
+  connectionVersion: 1,
+  token: 2,
+  initial: true,
+  runId: "fixture",
+  frame: raw,
+  admission: { $: "State", session: 1, clock: 1, host: lane, guest: lane, guestConnected: true, ended: false },
+  receipt: { $: "Receipt", seq: 0, worldTick: 1, x: 1, y: 1, applied: false },
+  observationSeq: 1,
+  contactJournal: journal,
+  inputTiming: { worldTick: 1, lastRejected: null }
+}
+await test("admits only the complete current raw Data graph at version one", () => {
+  assert.equal(admitSnapshot(envelope), envelope)
+  for (const version of [0, 2, 3]) assert.throws(() => admitSnapshot({ ...envelope, connectionVersion: version }))
+  for (const invalid of [
+    { ...raw, extra: true },
+    { ...raw, $: "NoObservation" },
+    { ...raw, game: { ...raw.game, run: { ...raw.game.run, session: { ...raw.game.run.session, tick: -1 } } } },
+    { ...raw, game: { ...raw.game, presentation: { ...raw.game.presentation, worldSize: Infinity } } },
+    { ...raw, game: { ...raw.game, pickups: { $: "Con", head: { $: "Body" }, tail: nil } } },
+    { ...raw, forecast: { ...scene, directions: { ...scene.directions, x0: "0" } } }
   ])
-  for (const value of [null, [1], [1, 2, 0, 0, 10, 10, 0, 12, 4, false], [1, 2, 0, 0, 10, 10, 0, 12, 4, "g", "owner"]])
-    assert.throws(() => parseBody(value), TypeError)
+    assert.throws(() => admitSnapshot({ ...envelope, frame: invalid }), TypeError)
 })

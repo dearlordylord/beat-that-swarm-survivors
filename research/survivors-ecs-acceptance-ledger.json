@@ -1,0 +1,569 @@
+{
+  "sourceCommit": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+  "overall": "complete-under-direct-user-performance-override",
+  "issues": [
+    {
+      "number": 5,
+      "title": "Survivors: make enemy combat, death and rebirth use explicit state",
+      "status": "complete",
+      "criteria": [
+        {
+          "criterion": "Migrate health, status/effects, damage/contact outcomes, dormant and boss respawn, spawn admission, and affected co-op enemy prediction without reconstructing overloaded Body/Motion inputs.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/enemy-combat.bend",
+            "examples/survivors/enemy-effects.bend",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "5.1"
+        },
+        {
+          "criterion": "Birth itself constructs clean status and prevents contacts/effects from the previous lifetime carrying over.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/enemy-lifecycle.bend",
+            "/tmp/survivors-store-carrier-birth-control/receipt.json"
+          ],
+          "missing": null,
+          "id": "5.2"
+        },
+        {
+          "criterion": "Add a concrete birth-transition law, a production-caller integration scenario, and a detected wiring mutant bypassing clean birth or retaining old status; preserve applicable existing proofs and mutants.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/enemy-lifecycle/LAWS.bend",
+            "examples/survivors/enemy-lifecycle/PROOF.bend",
+            "examples/survivors/enemy-birth-wiring-control.py",
+            "/tmp/survivors-store-carrier-birth-control/receipt.json"
+          ],
+          "missing": null,
+          "id": "5.3"
+        },
+        {
+          "criterion": "Preserve contact identity/order, health display, spawn admission and lifetime reset behavior; update actual read/write contracts and capability controls.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/capability-controls.test.py",
+            "research/survivors-enemy-migration.md",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "5.4"
+        },
+        {
+          "criterion": "Define an explicit typed death/reward handoff for the pickup ticket. This ticket owns enemy death/birth; the pickup ticket owns subsequent non-XP loot transitions and collection even when currently routed through enemy slots.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/enemy-combat.bend",
+            "examples/survivors/pickup-from-death.bend",
+            "examples/survivors/game.bend"
+          ],
+          "missing": null,
+          "id": "5.5"
+        },
+        {
+          "criterion": "Update this slice's native, renderer, co-op, observations and replay consumers together; strict current-stage replay and baseline semantic comparisons pass.",
+          "status": "passed",
+          "evidence": [
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "tools/survivors-bot/current_replay_schema.py",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "5.6"
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "Survivors: make player and hostile projectile lifetimes explicit",
+      "status": "complete",
+      "criteria": [
+        {
+          "criterion": "Player and hostile shots use explicit damage, trajectory, age/lifetime, ownership and identity without overloaded health fields or reconstructed Motion.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/projectile-state.bend",
+            "examples/survivors/game-components.bend"
+          ],
+          "missing": null,
+          "id": "6.1"
+        },
+        {
+          "criterion": "Preserve allocation, caps, pierce, visited contacts, expiry, ownership, slot reuse and significant hit ordering.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/projectile-state-check.mts",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "6.2"
+        },
+        {
+          "criterion": "Consume the explicit enemy target/contact and combat contracts; preserve swept hits and hostile-shot damage to players.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/projectile-contact.bend",
+            "examples/survivors/coop-hit-source-check.mts",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "6.3"
+        },
+        {
+          "criterion": "Migrate contact planning, co-op forecasts/journal witnesses, current-schema codecs, native/browser presentation and replay consumers together; remove projectile-related legacy interpretations.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/coop-combat-prediction.bend",
+            "examples/survivors/coop-playback-wire.bend",
+            "examples/survivors/observations.mts",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "6.4"
+        },
+        {
+          "criterion": "Specify projectile snapshot validity and refresh rules; verify lifetime reuse and ownership through existing high-level behavior seams.",
+          "status": "passed",
+          "evidence": [
+            "research/survivors-projectile-migration.md",
+            "examples/survivors/projectile-ownership-check.mts",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "6.5"
+        },
+        {
+          "criterion": "Relevant laws, mutants, actual-accessor capability controls, strict current-stage replay and baseline comparisons pass; altered damage is detected.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/projectile-state/PROOF.bend",
+            "examples/survivors/capability-controls.test.py",
+            "/tmp/survivors-store-carrier-inspection/shared-reader-controls.json",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "6.6"
+        },
+        {
+          "criterion": "Do not redesign unrelated transport/prediction, change pool limits or defer this slice's consumer migration to final cleanup.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pools.bend",
+            "bendhub-dependencies.json",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "6.7"
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Survivors: make pickup production, collection and rewards explicit",
+      "status": "complete",
+      "criteria": [
+        {
+          "criterion": "XP amount, generation, occupancy and relevant variant/lifecycle data have explicit authority and are never encoded in health fields.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pickup-state.bend",
+            "examples/survivors/game-storage.bend"
+          ],
+          "missing": null,
+          "id": "7.1"
+        },
+        {
+          "criterion": "Consume the typed death/reward handoff and preserve placement, accumulation, overflow, admission, collection and slot reuse.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pickup-from-death.bend",
+            "examples/survivors/pickup-xp-pool.bend",
+            "examples/survivors/geometry-game-check.bend",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "7.2"
+        },
+        {
+          "criterion": "Own gold, healing, chest and relic transitions/collection as well as XP, including non-XP loot currently passing through enemy-slot lifecycle code.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pickup-state.bend",
+            "examples/survivors/pickup-relic.bend",
+            "examples/survivors/pickup-wiring-check.mts"
+          ],
+          "missing": null,
+          "id": "7.3"
+        },
+        {
+          "criterion": "Preserve reward/progression policy and co-op collector/allocation behavior without changing balance, pools or gameplay limits.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pickup-state-check.mts",
+            "examples/survivors/pickup-wiring-check.mts",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "7.4"
+        },
+        {
+          "criterion": "Update native/browser rendering, audio and identity observations, co-op, bot/offline consumers and replay for every affected pickup kind in this ticket.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/observations.mts",
+            "examples/survivors/native-test.bend",
+            "tools/survivors-bot/planner-objective.test.mts",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "7.5"
+        },
+        {
+          "criterion": "Remove pickup packing/unpacking and legacy field interpretations; narrow access rights to actual operation responsibilities.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/game.bend",
+            "examples/survivors/capability-controls.test.py",
+            "tools/survivors-bot/current_replay_schema.py"
+          ],
+          "missing": null,
+          "id": "7.6"
+        },
+        {
+          "criterion": "Applicable laws/mutants, pickup scenarios, strict current-stage replay and baseline comparisons pass; XP and generation changes are detected.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pickup-state/PROOF.bend",
+            "/tmp/survivors-store-carrier-inspection/shared-reader-controls.json",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "7.7"
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "Survivors: remove player/run compatibility projections and declare state authority",
+      "status": "complete",
+      "criteria": [
+        {
+          "criterion": "Identify and remove actual detached compatibility projections, synthetic legacy rule inputs and duplicate writable authority.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/run-state.bend",
+            "examples/survivors/game-components.bend",
+            "examples/survivors/coop-core.bend"
+          ],
+          "missing": null,
+          "id": "8.1"
+        },
+        {
+          "criterion": "Retain legitimate session/run records and scoped observations, including intentional spectator viewpoints; do not delete a view merely because of its name.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/coop-core.bend",
+            "examples/survivors/player-authority-check.mts"
+          ],
+          "missing": null,
+          "id": "8.2"
+        },
+        {
+          "criterion": "Declare authority and permitted consumers for shared session facts versus personal player facts; do not prescribe a redesign of every Run field.",
+          "status": "passed",
+          "evidence": [
+            "research/survivors-player-authority.md",
+            "examples/survivors/run-state.bend",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "8.3"
+        },
+        {
+          "criterion": "Preserve initialization, movement, damage, progression, offers, reward decisions, revival/death, disconnect, spectator behavior and run completion.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/player-authority-check.mts",
+            "examples/survivors/offline-coop-metrics-check.bend",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "8.4"
+        },
+        {
+          "criterion": "Update affected native, browser, co-op, profile-result and replay consumers; introduce no old-format fallback reader or unrelated persistence rewrite.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/offline-coop-batch.bend",
+            "examples/survivors/offline-coop-metrics-check.bend",
+            "examples/survivors/observations.mts",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "8.5"
+        },
+        {
+          "criterion": "Representative public-input solo/co-op journeys, strict current-stage replay and baseline semantic comparisons pass.",
+          "status": "passed",
+          "evidence": [
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "tools/survivors-bot/current_replay_schema.py",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "8.6"
+        },
+        {
+          "criterion": "Document retained immutable planning views and their validity; do not defer this slice's consumers to final cleanup.",
+          "status": "passed",
+          "evidence": [
+            "research/survivors-enemy-migration.md",
+            "research/survivors-player-authority.md",
+            "examples/survivors/README.md"
+          ],
+          "missing": null,
+          "id": "8.7"
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "Survivors: delete residual legacy contracts and enforce one current schema",
+      "status": "complete",
+      "criteria": [
+        {
+          "criterion": "Remove now-unused overloaded aggregates, packing helpers, fallback readers, obsolete entry points and temporary migration adapters; no permanent compatibility APIs or v2/v3.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/game.bend",
+            "examples/survivors/game-storage.bend",
+            "scripts/check-typescript-sources.py",
+            "examples/survivors/snapshot-envelope.mts"
+          ],
+          "missing": null,
+          "id": "9.1"
+        },
+        {
+          "criterion": "All production consumers have already been migrated by their owning slices. This ticket must not absorb deferred consumer migration.",
+          "status": "passed",
+          "evidence": [
+            "research/survivors-ecs-integration.md",
+            "examples/survivors/observations.mts",
+            "examples/survivors/renderer.mts",
+            "tools/survivors-bot/runner.mts"
+          ],
+          "missing": null,
+          "id": "9.2"
+        },
+        {
+          "criterion": "Finish old/new qualification before retiring temporary old-model comparison support; retain provenance and receipts without maintaining the old model as a product feature.",
+          "status": "passed",
+          "evidence": [
+            "research/survivors-contract-cleanup-receipt.json",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "9.3"
+        },
+        {
+          "criterion": "Ordinary replay is strict for the current schema with no migration exclusions; preserve current identity and physical-state validation.",
+          "status": "passed",
+          "evidence": [
+            "tools/survivors-bot/current_replay_schema.py",
+            "tools/survivors-bot/replay_compare.py",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "9.4"
+        },
+        {
+          "criterion": "Audit retained snapshots/indexes/candidate lists for source, construction, validity, consumers and invalidation.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/README.md",
+            "research/survivors-enemy-migration.md",
+            "research/survivors-projectile-migration.md"
+          ],
+          "missing": null,
+          "id": "9.5"
+        },
+        {
+          "criterion": "Verify directed imports: domain rules independent of ECS/encoders/hosts, encoders consume observations, queries/access visible beside systems, repetitive storage mechanics separate.",
+          "status": "passed",
+          "evidence": [
+            "scripts/source-boundaries.test.mts",
+            "examples/survivors/game-components.bend",
+            "examples/survivors/game-storage.bend",
+            "examples/survivors/game.bend"
+          ],
+          "missing": null,
+          "id": "9.6"
+        },
+        {
+          "criterion": "Update developer documentation and verify published BendHub reachability after import changes; verify the registry if a concretely necessary package-pin change occurred.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/README.md",
+            "scripts/check-dependencies.py",
+            "bendhub-dependencies.json"
+          ],
+          "missing": null,
+          "id": "9.7"
+        },
+        {
+          "criterion": "Keep balance, pool sizes, gameplay limits and dependency pin unchanged absent a concrete documented necessity.",
+          "status": "passed",
+          "evidence": [
+            "examples/survivors/pools.bend",
+            "bendhub-dependencies.json",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "9.8"
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "Survivors: qualify fresh builds and record completion evidence",
+      "status": "complete-under-direct-user-performance-override",
+      "criteria": [
+        {
+          "criterion": "Identify the final source snapshot and provenance; build fresh rather than reusing stale outputs.",
+          "status": "passed",
+          "evidence": [
+            "/tmp/survivors-current-master-source-manifest-c9c9ae8.json",
+            "/tmp/survivors-current-master-final-c9c9ae8-light-gates/receipt.json",
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json"
+          ],
+          "missing": null,
+          "id": "10.1"
+        },
+        {
+          "criterion": "Run applicable documented build, ordinary, native, full-run, co-op, geometry and presentation checks; preserve laws, semantic mutants, birth wiring controls and paired capability controls.",
+          "status": "passed",
+          "evidence": [
+            "/tmp/survivors-current-master-final-gates-e54992c/ordinary.log",
+            "/tmp/survivors-current-master-final-gates-e54992c/semantic-mutants.log",
+            "/tmp/survivors-current-master-final-c9c9ae8-light-gates/receipt.json",
+            "/tmp/survivors-final-manual-game-c9c9ae8/receipt.json",
+            "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+            "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+            "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json"
+          ],
+          "missing": null,
+          "id": "10.2"
+        },
+        {
+          "criterion": "Confirm native launch without Node.js and strict replay of the current schema. Do not weaken assertions to achieve passing checks.",
+          "status": "passed",
+          "evidence": [
+            "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+            "tools/survivors-bot/current_replay_schema.py",
+            "tools/survivors-bot/replay_compare.py"
+          ],
+          "missing": null,
+          "id": "10.3"
+        },
+        {
+          "criterion": "Run the bounded paired baseline/candidate performance series chosen in the baseline ticket with matching toolchain, build mode, workload and conditions.",
+          "status": "passed",
+          "evidence": [
+            "/tmp/survivors-carrier-performance-c9c9ae8/plan.json",
+            "/tmp/survivors-carrier-performance-c9c9ae8/interpreted-verdict.json"
+          ],
+          "missing": null,
+          "id": "10.4"
+        },
+        {
+          "criterion": "Repeat only to resolve noise, investigate regression or verify its correction; confirmed slowdown blocks completion.",
+          "status": "failed",
+          "evidence": [
+            "/tmp/survivors-carrier-performance-c9c9ae8/interpreted-verdict.json",
+            "User explicitly accepted approximately ten percent overhead and asked to stop further optimization without a strong short lead."
+          ],
+          "missing": null,
+          "id": "10.5",
+          "approvedAlternative": {
+            "accepted": true,
+            "decision": "Accept approximately ten percent overhead and stop further performance work without a strong short lead.",
+            "approvalTranslation": "Maybe 10 percent is not that much. If you do not have any immediate leads right now, we can skip it.",
+            "translationLabel": "English translation of direct user approval on 2026-10-25.",
+            "conditionAssessment": "No high-confidence short remaining fix; coordinator stopped further optimization.",
+            "originalCriterionStatus": "failed",
+            "currentApprovedOutcome": "accepted",
+            "normalPairedMedianPercent": 6.3159810702584585,
+            "normalVerdict": "inconclusive: overlapping ranges, paired median slower, one pair faster",
+            "terminalPairedMedianPercent": 8.651064948724695,
+            "terminalVerdict": "confirmed slowdown under approved separated-range criterion"
+          }
+        },
+        {
+          "criterion": "Record evidence, passed checks, measurements and limits without claiming whole-game proof or universal performance guarantees; avoid redundant heavy reruns without a changed snapshot or unresolved concern.",
+          "status": "passed",
+          "evidence": [
+            "DRAFT completion-receipt.json",
+            "DRAFT acceptance-ledger.json",
+            "research/survivors-ecs-integration.md"
+          ],
+          "missing": null,
+          "id": "10.6",
+          "publicationNote": "Completion evidence published at 5d0ad0f and children 5\u201310 closed; parent issue remains open and unmodified."
+        },
+        {
+          "criterion": "Confirm completion of all parent acceptance criteria without modifying or closing the parent issue. Do not package or publish a release.",
+          "status": "passed",
+          "evidence": [
+            "DRAFT parent-acceptance-audit.json",
+            "Issue 1 remains open and must not be modified or closed.",
+            "No release packaging or publication performed."
+          ],
+          "missing": null,
+          "id": "10.7",
+          "publicationNote": "Completion evidence published at 5d0ad0f and children 5\u201310 closed; parent issue remains open and unmodified."
+        }
+      ]
+    }
+  ],
+  "remainingCommonGates": [],
+  "parentRule": "Do not modify or close parent issue1 under GH10 acceptance; audit parent criteria only.",
+  "originalCriteriaSummary": {
+    "passed": 41,
+    "failedWithAcceptedAlternative": 1,
+    "partial": 0
+  },
+  "qualifiedCodeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+  "qualifiedBrowserSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+  "deliveredMaster": "6ce61ea940d6a4d0f78290a07affe6b1825d0070",
+  "qualifiedUiSource": "0caf4861125111d24d5e311f5653737c49ccf978",
+  "qualifiedVerifierSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+  "deliveryUiGate": {
+    "status": "passed",
+    "receipt": "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json",
+    "runtimeBinding": "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json"
+  },
+  "verificationDiagnosticsFollowup": {
+    "source": "3e3fdcd5059378c81a1aff0aa02e5fabc69735e8",
+    "status": "Reviewed local diagnostic checks passed; new-head CI pending.",
+    "receipt": "research/survivors-ecs-completion-receipt.json#verificationDiagnosticsFollowup",
+    "originalCriteriaChanged": false
+  }
+}

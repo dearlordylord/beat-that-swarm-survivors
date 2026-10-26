@@ -1,5 +1,5 @@
 import { parseObservation } from "./observations.mts"
-import { object, errorCode, defined } from "../../examples/survivors/host-values.mts"
+import { object, errorCode, errorMessage, defined } from "../../examples/survivors/host-values.mts"
 import type { Frame } from "../../examples/survivors/frame.mts"
 import type { ChildProcess } from "node:child_process"
 import { parseArgs } from "node:util"
@@ -121,6 +121,7 @@ try {
   exited = new Promise<void>((resolveExit) => {
     launched.on("error", (e) => {
       failure = e
+      reason = "spawn-failure"
       done = true
       resolveExit()
     })
@@ -167,9 +168,23 @@ try {
     emit({ type: "command", sequence, tick: defined(lastFrame).tick, command })
   }
   if (failure) throw failure
-} catch {
-  if (reason !== "native-error") reason = "controller-error"
-  emit({ type: "error", reason: "Visible session failed; inspect native diagnostics." })
+} catch (error) {
+  const fields = typeof error === "object" && error !== null ? object(error) : {}
+  const diagnostic = {
+    message: errorMessage(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    ...Object.fromEntries(
+      ["code", "errno", "path", "syscall"].flatMap((key) => {
+        const value = fields[key]
+        return typeof value === "string" || typeof value === "number" ? [[key, value]] : []
+      })
+    ),
+    command: [binary],
+    nativeExit
+  }
+  console.error("Visible session failed", diagnostic)
+  if (reason !== "native-error" && reason !== "spawn-failure") reason = "controller-error"
+  emit({ type: "error", reason: "Visible session failed; inspect native diagnostics.", diagnostic })
   process.exitCode = 1
 } finally {
   if (child && exited) {

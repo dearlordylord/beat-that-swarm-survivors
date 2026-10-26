@@ -21,7 +21,7 @@ export interface RenderRow extends Omit<LastFrame, "choicePending"> {
   remotePresentation: Frame["remotePresentation"]
   presentationMeasurement: { sampledAt: number; callbackEntry: number; onDisplayEnd: number } | undefined
   players: Player[] | undefined
-  enemies: [number, number, string | number][]
+  enemies: { x: number; y: number; identity: number; lifetime: string }[]
 }
 export interface InputResolution {
   wall: number

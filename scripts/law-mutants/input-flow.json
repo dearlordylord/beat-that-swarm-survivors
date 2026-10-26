@@ -178,5 +178,13 @@
     "new": "def max_frame_bytes() -> U32: 2580",
     "proof": "examples/survivors/coop-input-flow-PROOF.bend",
     "law": "limits_exact"
+  },
+  {
+    "label": "unrecognized input header enters batch parsing",
+    "source": "examples/survivors/coop-input-flow.bend",
+    "old": "case False{}: None{}\ndef decode_lines",
+    "new": "case False{}: parse_selected(rows_allowed(rows),rows)\ndef decode_lines",
+    "proof": "examples/survivors/coop-input-flow-PROOF.bend",
+    "law": "unknown_kind_refuses"
   }
 ]

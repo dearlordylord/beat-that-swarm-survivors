@@ -65,9 +65,8 @@ def L.join_lines_empty(): {==}
 def L.join_lines_single(head): {==}
 def L.join_lines_cons(head,next,tail): {==}
 def L.command_field_absent(): {==}
-def L.fallback_receipt(token,observation,text): {==}
-def L.fallback_commands(text): {==}
-def L.decode_packet_lines(receipt,commands,text): {==}
+def L.encode_command_exact(command): {==}
+def L.decode_packet_lines(receipt,commands): {==}
 def L.decode_refused(text): {==}
 def L.decode_allowed(text): {==}
 def L.decode_entry(text): {==}
@@ -88,6 +87,6 @@ def L.composite_multi(head,next,tail): {==}
 def L.packet_lines_nil(): {==}
 def L.packet_lines_single(head): {==}
 def L.packet_lines_multi(head,receipt,commands): {==}
-def L.decode_kind_packet(rows,text): {==}
-def L.decode_kind_legacy(rows,text): {==}
-def L.decode_lines_entry(rows,text): {==}
+def L.decode_kind_packet(rows): {==}
+def L.decode_kind_noncomposite_refuses(rows): {==}
+def L.decode_lines_entry(rows): {==}

@@ -50,9 +50,9 @@
   {
     "source": "examples/survivors/coop-connection.bend",
     "proof": "examples/survivors/coop-connection-PROOF.bend",
-    "label": "connection-reverts-to-old-wire-version-four",
-    "old": "def protocol_version() -> U32: 5",
-    "new": "def protocol_version() -> U32: 4",
+    "label": "connection-reverts-to-unsupported-wire-version-five",
+    "old": "def protocol_version() -> U32: 1",
+    "new": "def protocol_version() -> U32: 5",
     "law": "protocol_version_exact",
     "fails_in": "guest_hello_out"
   },

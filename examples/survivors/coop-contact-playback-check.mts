@@ -22,7 +22,7 @@ const enemy = (key: number, x: number, extra = {}) => ({
   x,
   y: 0,
   age: 20,
-  hp: 10,
+  alive: true,
   owner: 0,
   ...extra
 })
@@ -34,7 +34,7 @@ const shot = (key: number, x: number, extra = {}) => ({
   x,
   y: 0,
   age: 3,
-  hp: 4,
+  alive: true,
   owner: 1,
   ...extra
 })
@@ -121,7 +121,7 @@ check(defined(defined(array(out.contacts))[0]).x !== 11.5, "FX does not stay at 
 f = fixture([enemy(42, 10), shot(50, 0)], [], [event()])
 out = display(f, 101, 750000)
 check(defined(body(out, 42)).x === 11.75, "dying target reconstructs the last observed path")
-check(defined(body(out, 42)).hp === 10, "presentation preserves original health metadata")
+check(defined(body(out, 42)).alive === true, "presentation preserves original health metadata")
 out = display(f, 104)
 check(defined(body(out, 42)).x === 13.5 && !body(out, 50), "target holds impact point after shot removal")
 check(defined(defined(array(out.contacts))[0]).x === 11.5, "dying target FX shares the same contact point")

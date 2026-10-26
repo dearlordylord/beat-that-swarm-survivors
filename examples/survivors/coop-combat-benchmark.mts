@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { coreFrame } from "./observations.mts"
 import { list, rows as array, defined } from "./host-values.mts"
 import { bendModule } from "../bend-module.mts"
 import { corePacket } from "./coop-fixtures.mts"
@@ -42,68 +41,50 @@ const [{ default: Core }, { default: C }, { default: P }, { default: S }] = awai
 // /tmp/bendvy-combat-perf.mjs diagnostic. The mixed variant changes pierce only.
 let state = corePacket(Core.core_join(corePacket(Core.core_start(0, 0, 1)).state, 0, 0, 0)).state
 state = corePacket(Core.core_step(state, 0, 0, 0, 0)).state
-const initialFrame = defined(coreFrame(corePacket(Core.core_observe(state, 1)).frame))
-if (!("combatForecast" in initialFrame)) throw Error("Missing display frame")
-const initial = initialFrame.combatForecast
-const source = array(initial.snapshots).find((snapshot) => snapshot.body.kind === 1)
+const observed = corePacket(Core.core_observe(state, 1))
+if (observed.observation.$ !== "ViewObservation") throw Error("Missing display observation")
+const initial = observed.observation.forecast
+const source = array(initial.snapshots).find((snapshot) => snapshot.$ === "ProjectileSnapshot")
 if (!source) throw new Error("Fixture bootstrap has no projectile snapshot")
-const enemies = Array.from({ length: 400 }, (_, i) => ({
-  ...source,
-  body: {
-    ...source.body,
-    seed: i,
-    kind: 0,
-    variant: 1,
-    x: 7000 + (i % 20) * 40,
-    y: 6800 + Math.floor(i / 20) * 40,
-    hp: 100000,
-    maxHp: 100000,
-    age: 1,
-    radius: 8
-  },
-  motion: {
-    ...source.motion,
-    vx: 0,
-    vy: 0,
-    life: 0,
-    pierce: 0,
-    visited: list([]),
-    slow: 0,
-    burn: 0,
-    ownerBase: 0,
-    logicalSlot: 0
+const enemies: Extract<BendABI.Game.Snapshot, { $: "EnemySnapshot" }>[] = Array.from({ length: 400 }, (_, i) => ({
+  $: "EnemySnapshot",
+  enemy: {
+    $: "State",
+    identity: i,
+    archetype: 1,
+    spatial: { $: "Spatial", x: 7000 + (i % 20) * 40, y: 6800 + Math.floor(i / 20) * 40, age: 1, radius: 8 },
+    vitals: { $: "Vitals", health: 100000, maximum: 100000 },
+    status: {
+      $: "Status",
+      slow: { $: "Slow", ticks: 0, frozen: false },
+      burn: { $: "Burn", ticks: 0, sourcePlayer: { $: "None" } }
+    }
   }
 }))
-const shots = Array.from({ length: 100 }, (_, i) => ({
-  ...source,
-  body: {
-    ...source.body,
-    seed: 512 + i,
-    kind: 1,
-    variant: 0,
-    x: 6200 + (i % 10) * 10,
-    y: 6200 + Math.floor(i / 10) * 10,
-    hp: 11,
-    maxHp: 11,
-    age: 1,
-    radius: 5
-  },
-  motion: {
-    ...source.motion,
-    vx: 7.5,
-    vy: 0,
-    life: 1000,
-    pierce: variant === "mixed-area" && i % 4 === 0 ? 9999 : 50,
-    visited: list([]),
-    slow: 0,
-    burn: 0,
-    ownerBase: 0,
-    logicalSlot: (i % 2) * 65536 + (Math.floor(i / 2) % 8)
+const shots: Extract<BendABI.Game.Snapshot, { $: "ProjectileSnapshot" }>[] = Array.from({ length: 100 }, (_, i) => ({
+  $: "ProjectileSnapshot",
+  projectile: {
+    $: "State",
+    identity: 512 + i,
+    side: { $: "PlayerShot" },
+    spatial: { $: "Spatial", x: 6200 + (i % 10) * 10, y: 6200 + Math.floor(i / 10) * 10, age: 1, radius: 5 },
+    payload: { $: "ShotPayload", weapon: 0, damage: 11, active: true },
+    trajectory: {
+      $: "Trajectory",
+      vx: 7.5,
+      vy: 0,
+      life: 1000,
+      pierce: variant === "mixed-area" && i % 4 === 0 ? 9999 : 50,
+      visited: list([]),
+      weaponOwner: 0,
+      logicalSlot: Math.floor(i / 2) % 8,
+      sourcePlayer: { $: "Some", value: i % 2 }
+    }
   }
 }))
-const scene = C.receive(C.initialize(1, initial.players, list([...enemies, ...shots])), S.fresh(123))
+const scene = C.receive(C.initialize(1, initial.tick, initial.players, list([...enemies, ...shots])), S.fresh(123))
 const own = defined(array(scene.players).find((player) => player.id === 1)).run
-let input = P.fresh(own.px, own.py, 2.5, true, scene.tick, 0)
+let input = P.fresh(own.player.px, own.player.py, 2.5, true, scene.tick, 0)
 for (let i = 1; i <= 30; i++) input = P.tick(P.command(input, i, 2, 1))
 const forecastMs = []
 let warmupForecastMs

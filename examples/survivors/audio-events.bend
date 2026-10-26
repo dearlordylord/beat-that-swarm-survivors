@@ -4,55 +4,80 @@ import ./body-index.bend as BI
 # Cosmetic observation only: no world, damage resolver or progression authority.
 # A network impact sound represents a coalesced confirmed contact tick, not one
 # oscillator per target in a large area attack.
-type Body is Data: Body{seed:U32,kind:U32,variant:U32,age:U32,hp:U32,x:F32,radius:F32,generation:String}
-type Stamp is Data: Stamp{body:Body,born:U32}
+type Identity is Data: Identity{slot:U32,lifetime:String}
+type SoundSubject is Data:
+  Enemy{identity:Identity,archetype:U32,health:U32,x:F32}
+  FriendlyProjectile{identity:Identity,weapon:U32,radius:F32,x:F32}
+  HostileProjectile{identity:Identity,weapon:U32,x:F32}
 type Meta is Data: Meta{run:String,tick:U32,phase:U32,round:U32,hp:U32,kills:U32,gold:U32,xp:U32,level:U32,px:F32,confirmed:Bool}
 type Sound is Data: Sound{kind:U32,pan:F32}
 type Impact is Data: Impact{tick:U32,x:F32}
-type State is Data: State{ready:Bool,meta:Meta,bodies:BI.Index<Stamp>,impactTick:U32}
+type State is Data: State{ready:Bool,meta:Meta,subjects:BI.Index<SoundSubject>,impactTick:U32}
 type Out is Data: Out{state:State,events:List<&2,Sound>}
-type Scanned is Data: Scanned{bodies:BI.Index<Stamp>,events:List<&2,Sound>}
+type Scanned is Data: Scanned{subjects:BI.Index<SoundSubject>,events:List<&2,Sound>}
 def fresh() -> State: State{False{},Meta{"",0,0,0,0,0,0,0,0,0.0,False{}},BI.Empty{},0}
 def pan(+x:F32,+viewer:F32) -> F32: F32.clamp(((x - viewer) / 400.0 : F32),(0.0 - 0.8 : F32),0.8)
-def born(+tick:U32,+age:U32) -> U32: (tick - U32.min(tick,age) : U32)
-def stamp(+body:Body,+tick:U32) -> Stamp:
-  match body:
-    case Body{_,_,_,+age,_,_,_,_}: Stamp{body,born(tick,age)}
-def same_generation(+a:String,+b:String,+aBorn:U32,+bBorn:U32) -> Bool:
-  Bool.pick(Bool,Bool.and(Bool.not(String.eq(a,"")),Bool.not(String.eq(b,""))),String.eq(a,b),U32.is_eq(aBorn,bBorn))
-def same(+a:Stamp,+b:Stamp) -> Bool:
+def same_identity(a:Identity,b:Identity) -> Bool:
   match a b:
-    case Stamp{Body{+aSeed,+ak,+av,_,_,_,_,+ag},+ab} Stamp{Body{+bSeed,+bk,+bv,_,_,_,_,+bg},+bb}: Bool.and(U32.is_eq(aSeed,bSeed),Bool.and(U32.is_eq(ak,bk),Bool.and(U32.is_eq(av,bv),same_generation(ag,bg,ab,bb))))
-def attack(+kind:U32) -> Bool: Bool.or(U32.is_eq(kind,1),Bool.or(U32.is_eq(kind,6),U32.is_eq(kind,7)))
-def attack_kind(+kind:U32) -> U32: Bool.pick(U32,U32.is_eq(kind,7),6,Bool.pick(U32,U32.is_eq(kind,6),7,0))
+    case Identity{aSlot,aLife} Identity{bSlot,bLife}: Bool.and(U32.is_eq(aSlot,bSlot),String.eq(aLife,bLife))
+def identity(subject:SoundSubject) -> Identity:
+  match subject:
+    case Enemy{value,_,_,_}: value
+    case FriendlyProjectile{value,_,_,_}: value
+    case HostileProjectile{value,_,_}: value
+def identity_slot(value:Identity) -> U32:
+  match value:
+    case Identity{value,_}: value
+def slot(subject:SoundSubject) -> U32: identity_slot(identity(subject))
+def subject_x(subject:SoundSubject) -> F32:
+  match subject:
+    case Enemy{_,_,_,x}: x
+    case FriendlyProjectile{_,_,_,x}: x
+    case HostileProjectile{_,_,x}: x
+def same(a:SoundSubject,b:SoundSubject) -> Bool:
+  match a b:
+    case Enemy{ai,av,_,_} Enemy{bi,bv,_,_}: Bool.and(same_identity(ai,bi),U32.is_eq(av,bv))
+    case FriendlyProjectile{ai,av,_,_} FriendlyProjectile{bi,bv,_,_}: Bool.and(same_identity(ai,bi),U32.is_eq(av,bv))
+    case HostileProjectile{ai,av,_} HostileProjectile{bi,bv,_}: Bool.and(same_identity(ai,bi),U32.is_eq(av,bv))
+    case _ _: False{}
+def attack(subject:SoundSubject) -> Bool:
+  match subject:
+    case Enemy{_,_,_,_}: False{}
+    case _: True{}
+def attack_kind(subject:SoundSubject) -> U32:
+  match subject:
+    case HostileProjectile{_,_,_}: 6
+    case _: 0
 def add(+allowed:Bool,+kind:U32,+x:F32,+viewer:F32,+events:List<&2,Sound>) -> List<&2,Sound>:
   match allowed:
     case True{}: Sound{kind,pan(x,viewer)} <> events
     case False{}: events
-def changed_events(+matching:Bool,+old:Stamp,+current:Stamp,+viewer:F32,+confirmed:Bool,+events:List<&2,Sound>) -> List<&2,Sound>:
+def changed_events(+matching:Bool,+old:SoundSubject,+current:SoundSubject,+viewer:F32,+confirmed:Bool,+events:List<&2,Sound>) -> List<&2,Sound>:
   match old current:
-    case Stamp{Body{_,_,_,_,+oldHp,_,+oldRadius,_},_} Stamp{Body{_,+kind,_,_,+hp,+x,+radius,_},_}:
-      add(Bool.and(matching,Bool.and(U32.is_eq(kind,1),Bool.and(F32.is_gt(oldRadius,0.0),Bool.and(F32.is_gt(radius,oldRadius),F32.is_ge(radius,(oldRadius * 2.0 : F32)))))),8,x,viewer,
-      add(Bool.and(matching,Bool.and(Bool.not(confirmed),Bool.and(U32.is_eq(kind,0),U32.is_lt(hp,oldHp)))),1,x,viewer,
-      add(Bool.and(Bool.not(matching),attack(kind)),attack_kind(kind),x,viewer,events)))
-def row_events(+previous:Maybe<&2,Stamp>,+current:Stamp,+viewer:F32,+confirmed:Bool,+events:List<&2,Sound>) -> List<&2,Sound>:
-  match previous current:
-    case None{} Stamp{Body{_,+kind,_,_,_,+x,_,_},_}: add(attack(kind),attack_kind(kind),x,viewer,events)
-    case Some{+old} _: changed_events(same(old,current),old,current,viewer,confirmed,events)
-def scan(+rows:List<&2,Body>,+previous:BI.Index<Stamp>,+tick:U32,+viewer:F32,+confirmed:Bool,+index:BI.Index<Stamp>,+events:List<&2,Sound>) -> Scanned:
+    case Enemy{_,_,oldHealth,_} Enemy{_,_,health,x}:
+      add(Bool.and(matching,Bool.and(Bool.not(confirmed),U32.is_lt(health,oldHealth))),1,x,viewer,events)
+    case FriendlyProjectile{_,_,oldRadius,_} FriendlyProjectile{_,_,radius,x}:
+      add(Bool.and(matching,Bool.and(F32.is_gt(oldRadius,0.0),Bool.and(F32.is_gt(radius,oldRadius),F32.is_ge(radius,(oldRadius * 2.0 : F32))))),8,x,viewer,
+      add(Bool.not(matching),0,x,viewer,events))
+    case _ _: add(Bool.and(Bool.not(matching),attack(current)),attack_kind(current),subject_x(current),viewer,events)
+def row_events(+previous:Maybe<&2,SoundSubject>,+current:SoundSubject,+viewer:F32,+confirmed:Bool,+events:List<&2,Sound>) -> List<&2,Sound>:
+  match previous:
+    case None{}: add(attack(current),attack_kind(current),subject_x(current),viewer,events)
+    case Some{old}: changed_events(same(old,current),old,current,viewer,confirmed,events)
+def scan(+rows:List<&2,SoundSubject>,+previous:BI.Index<SoundSubject>,+viewer:F32,+confirmed:Bool,+index:BI.Index<SoundSubject>,+events:List<&2,Sound>) -> Scanned:
   match rows:
     case []: Scanned{index,List.reverse(&2,Sound,events)}
-    case Body{+seed,+kind,+variant,+age,+hp,+x,+radius,+generation} <> tail:
-      scan(tail,previous,tick,viewer,confirmed,
-        BI.insert(~Stamp,index,seed,stamp(Body{seed,kind,variant,age,hp,x,radius,generation},tick)),
-        row_events(BI.find(~Stamp,previous,seed),stamp(Body{seed,kind,variant,age,hp,x,radius,generation},tick),viewer,confirmed,events))
+    case head <> tail:
+      scan(tail,previous,viewer,confirmed,
+        BI.insert(~SoundSubject,index,slot(head),head),
+        row_events(BI.find(~SoundSubject,previous,slot(head)),head,viewer,confirmed,events))
 
 def baseline_ready(+meta:Meta,+result:Scanned) -> Out:
   match meta result:
-    case Meta{_,+tick,_,_,_,_,_,_,_,_,_} Scanned{+bodies,_}: Out{State{True{},meta,bodies,tick},[]}
-def baseline(+meta:Meta,+rows:List<&2,Body>) -> Out:
+    case Meta{_,+tick,_,_,_,_,_,_,_,_,_} Scanned{+subjects,_}: Out{State{True{},meta,subjects,tick},[]}
+def baseline(+meta:Meta,+rows:List<&2,SoundSubject>) -> Out:
   match meta:
-    case Meta{_,+tick,_,_,_,_,_,_,_,+px,+confirmed}: baseline_ready(meta,scan(rows,BI.Empty{},tick,px,confirmed,BI.Empty{},[]))
+    case Meta{_,+tick,_,_,_,_,_,_,_,+px,+confirmed}: baseline_ready(meta,scan(rows,BI.Empty{},px,confirmed,BI.Empty{},[]))
 def meta_events(+old:Meta,+current:Meta,+events:List<&2,Sound>) -> List<&2,Sound>:
   match old current:
     case Meta{_,_,+oldPhase,+oldRound,+oldHp,+oldKills,+oldGold,+oldXp,+oldLevel,_,_} Meta{_,_,+phase,+round,+hp,+kills,+gold,+xp,+level,_,+confirmed}:
@@ -67,27 +92,27 @@ def meta_events(+old:Meta,+current:Meta,+events:List<&2,Sound>) -> List<&2,Sound
       add(U32.is_lt(hp,oldHp),2,0.0,0.0,events)))))))))
 def observed(+old:Meta,+current:Meta,+impactTick:U32,+result:Scanned) -> Out:
   match result:
-    case Scanned{+bodies,+events}: Out{State{True{},current,bodies,impactTick},meta_events(old,current,events)}
-def observe_same(+newer:Bool,+old:Meta,+current:Meta,+bodies:BI.Index<Stamp>,+impactTick:U32,+rows:List<&2,Body>) -> Out:
+    case Scanned{+subjects,+events}: Out{State{True{},current,subjects,impactTick},meta_events(old,current,events)}
+def observe_same(+newer:Bool,+old:Meta,+current:Meta,+subjects:BI.Index<SoundSubject>,+impactTick:U32,+rows:List<&2,SoundSubject>) -> Out:
   match newer current:
-    case True{} Meta{_,+tick,_,_,_,_,_,_,_,+px,+confirmed}: observed(old,current,impactTick,scan(rows,bodies,tick,px,confirmed,BI.Empty{},[]))
-    case False{} _: observed(old,current,impactTick,Scanned{bodies,[]})
+    case True{} Meta{_,+tick,_,_,_,_,_,_,_,+px,+confirmed}: observed(old,current,impactTick,scan(rows,subjects,px,confirmed,BI.Empty{},[]))
+    case False{} _: observed(old,current,impactTick,Scanned{subjects,[]})
 def meta_tick(+meta:Meta) -> U32:
   match meta:
     case Meta{_,+tick,_,_,_,_,_,_,_,_,_}: tick
-def observe_configuring(+configuring:Bool,+old:Meta,+current:Meta,+bodies:BI.Index<Stamp>,+impactTick:U32,+rows:List<&2,Body>) -> Out:
+def observe_configuring(+configuring:Bool,+old:Meta,+current:Meta,+subjects:BI.Index<SoundSubject>,+impactTick:U32,+rows:List<&2,SoundSubject>) -> Out:
   match configuring:
     case True{}: baseline(current,rows)
-    case False{}: observe_same(U32.is_gt(meta_tick(current),meta_tick(old)),old,current,bodies,impactTick,rows)
-def observe_time(+stale:Bool,+state:State,+old:Meta,+current:Meta,+bodies:BI.Index<Stamp>,+impactTick:U32,+rows:List<&2,Body>) -> Out:
+    case False{}: observe_same(U32.is_gt(meta_tick(current),meta_tick(old)),old,current,subjects,impactTick,rows)
+def observe_time(+stale:Bool,+state:State,+old:Meta,+current:Meta,+subjects:BI.Index<SoundSubject>,+impactTick:U32,+rows:List<&2,SoundSubject>) -> Out:
   match stale:
     case True{}: Out{state,[]}
-    case False{}: observe_configuring(Bool.and(U32.is_eq(meta_tick(old),0),U32.is_eq(meta_tick(current),0)),old,current,bodies,impactTick,rows)
-def observe_existing(+sameRun:Bool,+state:State,+current:Meta,+rows:List<&2,Body>) -> Out:
+    case False{}: observe_configuring(Bool.and(U32.is_eq(meta_tick(old),0),U32.is_eq(meta_tick(current),0)),old,current,subjects,impactTick,rows)
+def observe_existing(+sameRun:Bool,+state:State,+current:Meta,+rows:List<&2,SoundSubject>) -> Out:
   match sameRun state current:
     case False{} _ _: baseline(current,rows)
-    case True{} State{_,+old,+bodies,+impactTick} Meta{_,+tick,_,_,_,_,_,_,_,_,_}: observe_time(U32.is_lt(tick,meta_tick(old)),state,old,current,bodies,impactTick,rows)
-def observe(+state:State,+current:Meta,+rows:List<&2,Body>) -> Out:
+    case True{} State{_,+old,+subjects,+impactTick} Meta{_,+tick,_,_,_,_,_,_,_,_,_}: observe_time(U32.is_lt(tick,meta_tick(old)),state,old,current,subjects,impactTick,rows)
+def observe(+state:State,+current:Meta,+rows:List<&2,SoundSubject>) -> Out:
   match state current:
     case State{False{},_,_,_} _: baseline(current,rows)
     case State{_,Meta{+run,_,_,_,_,_,_,_,_,_,_},_,_} Meta{+other,_,_,_,_,_,_,_,_,_,_}: observe_existing(String.eq(run,other),state,current,rows)
@@ -112,7 +137,7 @@ def meta_x(+meta:Meta) -> F32:
 def impact_result(+state:State,+result:Maybe<&2,Impact>) -> Out:
   match state result:
     case _ None{}: Out{state,[]}
-    case State{+ready,+meta,+bodies,_} Some{Impact{+tick,+x}}: Out{State{ready,meta,bodies,tick},[Sound{1,pan(x,meta_x(meta))}]}
+    case State{+ready,+meta,+subjects,_} Some{Impact{+tick,+x}}: Out{State{ready,meta,subjects,tick},[Sound{1,pan(x,meta_x(meta))}]}
 def impacts(+state:State,+rows:List<&2,Impact>) -> Out:
   match state:
     case State{False{},_,_,_}: Out{state,[]}

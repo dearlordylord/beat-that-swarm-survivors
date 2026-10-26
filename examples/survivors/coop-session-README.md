@@ -16,7 +16,7 @@ when a worker cannot respond. Worker crashes are handled without asking that
 failed worker to process its own error. Browser/transport adapters execute the
 returned actions; the formal laws do not prove their IO implementation.
 
-The public module contract is version five. Keep both tabs updated. A mismatch
+The public module contract is version one. Keep both tabs updated. A mismatch
 is shown beside the guest heading; the static lobby does not assert that an
 uncontacted host is available. Peer rejection retains the host endpoint and
 invitation so a compatible guest can try again.
@@ -92,7 +92,7 @@ restore that run. An ended admission session cannot be revived by reconnect.
 The reconnect laws pin the complete session transition. The generic
 [attachment dispatcher laws](coop-attach-LAWS.bend) prove that a two-player
 attachment sends the original affine state directly to its resume adapter,
-ignoring new setup. Production wires that adapter to `Core.quiet`, which returns
+ignoring new setup. Production wires that adapter to `Core.completed`, which returns
 the unchanged state; the full core wiring is checked by source review and
 executed state equality. This is not a kernel proof of all game/core functions
 or of browser/Iroh lifecycle behavior.

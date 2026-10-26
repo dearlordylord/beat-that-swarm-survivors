@@ -1,0 +1,112 @@
+{
+  "issue": 8,
+  "status": "passed",
+  "authoritySourceCommit": "9f2a949e5cfd36d5601375a36952b0c948612068",
+  "provenance": "Native and co-op captures use committed authority implementation plus development-only checks. The final follow-up removes unused domain field helpers and adds verification/docs; final fresh-build qualification remains issue10. Original dirty master edits were excluded.",
+  "solo": {
+    "normal": {
+      "status": "passed",
+      "fixture": "seed100-profile0-warm0-end1200",
+      "checkpoints": 5,
+      "semanticSha256": "653c6aa980b8dee432e5d809716baa60c74a47a9d0e622b3dc4f4f2b2d9d36b6",
+      "baselineSha256": "8b924d8df2ef562caf0e1e76ca54481d06222459264234af3faf2b1b3420f96e",
+      "candidateSha256": "8b924d8df2ef562caf0e1e76ca54481d06222459264234af3faf2b1b3420f96e",
+      "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+      "comparison": "exact-sparse-ecs",
+      "layout": {
+        "enemyCount": 512,
+        "relicSeed": 511,
+        "playerStart": 512,
+        "hostileStart": 1024,
+        "xpStart": 1056,
+        "totalCount": 1456
+      },
+      "layoutSha256": "bc97652d52b5fbf2cd922e92e3f29e3819802f476a0c8037e498da07c9813c3c"
+    },
+    "advanced": {
+      "status": "passed",
+      "fixture": "seed100-profile1-warm0-end1200",
+      "checkpoints": 6,
+      "semanticSha256": "fe8a33d8a29e987ce21efb1f0c2a7a0e1df84e56bb9786fab747aae9473e284e",
+      "baselineSha256": "71166eba2e1aaf473b00cc7670d9f9e49244d87686abf8f4676f7070dbcea2cd",
+      "candidateSha256": "71166eba2e1aaf473b00cc7670d9f9e49244d87686abf8f4676f7070dbcea2cd",
+      "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+      "comparison": "exact-sparse-ecs",
+      "layout": {
+        "enemyCount": 512,
+        "relicSeed": 511,
+        "playerStart": 512,
+        "hostileStart": 1024,
+        "xpStart": 1056,
+        "totalCount": 1456
+      },
+      "layoutSha256": "bc97652d52b5fbf2cd922e92e3f29e3819802f476a0c8037e498da07c9813c3c"
+    },
+    "terminal": {
+      "status": "passed",
+      "fixture": "seed100-profile0-warm0-end6000",
+      "checkpoints": 4,
+      "semanticSha256": "8f99726da6a940cda7778962be1242c2325ab4cd6acc0f27087d4455a635f979",
+      "baselineSha256": "3dae6f230ae8dc8b1012af536bc49d28e72ebbd6510cb579e250ce822d2352ac",
+      "candidateSha256": "3dae6f230ae8dc8b1012af536bc49d28e72ebbd6510cb579e250ce822d2352ac",
+      "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+      "comparison": "exact-sparse-ecs",
+      "layout": {
+        "enemyCount": 512,
+        "relicSeed": 511,
+        "playerStart": 512,
+        "hostileStart": 1024,
+        "xpStart": 1056,
+        "totalCount": 1456
+      },
+      "layoutSha256": "bc97652d52b5fbf2cd922e92e3f29e3819802f476a0c8037e498da07c9813c3c"
+    }
+  },
+  "coop": {
+    "status": "passed",
+    "checkpoints": 6,
+    "comparison": "exact after explicit authority partition/tag changes",
+    "physicalMetadataCompared": true,
+    "controls": [
+      "personal-health",
+      "personal-revivals",
+      "session-xp",
+      "session-gold",
+      "session-tick"
+    ]
+  },
+  "focusedChecks": [
+    "player-authority-check: real solo/co-op steps, once-only shared gold, duplicate choice rejection, spectator camera ownership, eligibility, retained owner stats, scoped personal health outcome",
+    "check-coop-reliability.sh: passed after initializing the existing pinned proof submodule",
+    "qualification-trace-capture: 12 requested ticks yielded 12 actual actions and finite phase/tick header",
+    "check-dependencies.py: published BendHub audit passed, 200 modules"
+  ],
+  "artifactRoot": "/tmp",
+  "artifacts": {
+    "issue8-native-replay": {
+      "path": "/tmp/issue8-native-replay",
+      "bytes": 2832936,
+      "sha256": "8855f033f57a5fd70b6795d2343cfa1b739c35d00412dcf890aea5eac45fbd58"
+    },
+    "issue8-coop-candidate.json": {
+      "path": "/tmp/issue8-coop-candidate.json",
+      "bytes": 12496817,
+      "sha256": "d1bf7f769dc8adf6e53d49419c7fd67fbd3d655ea06ffc0c28cb941709b427de"
+    },
+    "issue8-player-qualification.json": {
+      "path": "/tmp/issue8-player-qualification.json",
+      "bytes": 279,
+      "sha256": "95e85916f2fccbcc54f665c28e6e6716deb1a513ed7c98cd9eaad29281915d80"
+    },
+    "issue8-coop-check-final.log": {
+      "path": "/tmp/issue8-coop-check-final.log",
+      "bytes": 6142,
+      "sha256": "a1d4a3774a51fec39a08b27a834614ccf73a3be9a5cb3befecb57630d846d395"
+    },
+    "issue8-trace-smoke.trace": {
+      "path": "/tmp/issue8-trace-smoke.trace",
+      "bytes": 361,
+      "sha256": "e8ea54dc1a35137dea437d5e9662ff43300f3e377b62a7d4d30a9832e585095b"
+    }
+  }
+}

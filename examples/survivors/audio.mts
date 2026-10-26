@@ -1,4 +1,4 @@
-import { at } from "./host-values.mts"
+import { at, defined } from "./host-values.mts"
 import type { Frame } from "./frame.mts"
 import Game from "./dist/game.mjs"
 import Sounds from "./dist/audio-events.mjs"
@@ -286,24 +286,54 @@ export class AudioEngine {
       this.event(Sounds.name(rows.head.kind), rows.head.pan)
   }
   observe(frame: Frame) {
-    let rows: BendList<BendABI.AudioEvents.Body> = { $: "Nil" }
-    for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
-      const body = at(frame.bodies, i)
-      rows = {
-        $: "Con",
-        head: {
-          $: "Body",
-          seed: body[7] >>> 0,
-          kind: body[2] >>> 0,
-          variant: body[3] >>> 0,
-          age: body[6] >>> 0,
-          hp: body[4] >>> 0,
-          x: Math.fround(body[0]),
-          radius: Math.fround(body[8]),
-          generation: typeof body[9] === "string" ? body[9] : ""
-        },
-        tail: rows
-      }
+    let rows: BendList<BendABI.AudioEvents.SoundSubject> = { $: "Nil" }
+    const identity = (subject: { identity: number; lifetime: string }) => {
+      if (typeof subject.lifetime !== "string" || !subject.lifetime.length)
+        throw new Error("Sound subject requires an explicit lifetime")
+      return { $: "Identity" as const, slot: subject.identity >>> 0, lifetime: subject.lifetime }
+    }
+    const enemies = new Map(frame.enemies.map((enemy) => [enemy.identity, enemy]))
+    const enemyFades = new Map((frame.enemyFades || []).map((enemy) => [enemy.lifetime, enemy]))
+    const projectiles = new Map(frame.projectiles.map((projectile) => [projectile.identity, projectile]))
+    const localProjectiles = new Map(
+      (frame.localProjectiles || []).map((projectile) => [projectile.lifetime, projectile])
+    )
+    for (let i = frame.actorOrder.length - 1; i >= 0; i--) {
+      const reference = at(frame.actorOrder, i)
+      // Pickup sounds are derived from authoritative reward totals in Meta.
+      if ("pickup" in reference) continue
+      let observation: BendABI.AudioEvents.SoundSubject
+      if ("enemy" in reference || "enemyFade" in reference) {
+        const enemy =
+          "enemy" in reference ? defined(enemies.get(reference.enemy)) : defined(enemyFades.get(reference.enemyFade))
+        observation = {
+          $: "Enemy",
+          identity: identity(enemy),
+          archetype: enemy.archetype >>> 0,
+          health: enemy.health >>> 0,
+          x: Math.fround(enemy.x)
+        }
+      } else if ("projectile" in reference || "localProjectile" in reference) {
+        const projectile =
+          "projectile" in reference
+            ? defined(projectiles.get(reference.projectile))
+            : defined(localProjectiles.get(reference.localProjectile))
+        observation = projectile.hostile
+          ? {
+              $: "HostileProjectile",
+              identity: identity(projectile),
+              weapon: projectile.weapon >>> 0,
+              x: Math.fround(projectile.x)
+            }
+          : {
+              $: "FriendlyProjectile",
+              identity: identity(projectile),
+              weapon: projectile.weapon >>> 0,
+              radius: Math.fround(projectile.radius),
+              x: Math.fround(projectile.x)
+            }
+      } else throw new Error("Unknown sound actor reference")
+      rows = { $: "Con", head: observation, tail: rows }
     }
     this._playSounds(
       Sounds.observe(
@@ -338,28 +368,27 @@ export class AudioEngine {
   _refreshDanger(now: number, force = false) {
     if (!this.frame || (!force && now - this.lastDanger < 0.1)) return
     const frame = this.frame
-    let bodies: BendList<BendABI.Game.Body> = { $: "Nil" }
-    for (let i = (frame.bodies?.length || 0) - 1; i >= 0; i--) {
-      const b = at(frame.bodies, i)
-      if (b[2] !== 0 && b[2] !== 7) continue
-      bodies = {
+    let hostiles: BendList<BendABI.Music.ProjectileThreat> = { $: "Nil" }
+    for (let i = frame.projectiles.length - 1; i >= 0; i--) {
+      const projectile = at(frame.projectiles, i)
+      if (!projectile.hostile) continue
+      hostiles = {
         $: "Con",
-        head: {
-          $: "Body",
-          x: b[0],
-          y: b[1],
-          kind: b[2],
-          variant: b[3],
-          hp: b[4],
-          maxHp: b[5],
-          age: b[6],
-          seed: b[7],
-          radius: b[8]
-        },
-        tail: bodies
+        head: { $: "ProjectileThreat", x: Math.fround(projectile.x), y: Math.fround(projectile.y) },
+        tail: hostiles
       }
     }
-    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, bodies)
+    let enemies: BendList<BendABI.Music.Threat> = { $: "Nil" }
+    const visibleEnemies = frame.enemies.concat(frame.enemyFades || [])
+    for (let i = visibleEnemies.length - 1; i >= 0; i--) {
+      const enemy = at(visibleEnemies, i)
+      enemies = {
+        $: "Con",
+        head: { $: "Threat", x: Math.fround(enemy.x), y: Math.fround(enemy.y), archetype: enemy.archetype >>> 0 },
+        tail: enemies
+      }
+    }
+    const raw = Game.music_danger(frame.hp, frame.maxHp, frame.px, frame.py, hostiles, enemies)
     this.danger = Game["music:smooth"](this.danger, raw)
     this.targetBand = Game["music:target_band"](this.targetBand, this.danger)
     this.lastDanger = now

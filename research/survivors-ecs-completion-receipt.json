@@ -1,0 +1,527 @@
+{
+  "status": "complete-under-direct-user-performance-override",
+  "originalCriterionStatus": "The no-slowdown criterion failed.",
+  "currentApprovedOutcome": "All functional criteria passed; the user directly accepted the original failed performance criterion.",
+  "publicationStatus": "Completion evidence published and children 5\u201310 closed. Diagnostics, proof-cost and geometry-check follow-ups await new-head CI and merge.",
+  "delivery": [
+    "Explicit enemy, projectile and pickup component authority; no universal Body/Motion or permanent old-format adapters.",
+    "Queries and access contracts remain beside systems; storage wiring is separate.",
+    "Session and personal state have distinct authority; native and all TypeScript consumers migrated.",
+    "Trusted local Data projection and strict current-version-one network validation; no local JSON roundtrip required.",
+    "Current-only strict replay records physical actor/player state, identity, generations, stamps, allocators and order."
+  ],
+  "qualification": {
+    "nativeCheckpoints": 15,
+    "coopCheckpoints": 6,
+    "nativeWithoutNode": true,
+    "nativeBinarySha256": "ee08ebaf7012f6354935db537a1c4731108871687ce63c9fa9fb19034ce85cc4",
+    "nativeMetadata": "Exact current physical validation and equality to frozen semantic facts; carrier cohort native raw observations match prior raw observations.",
+    "coopMetadata": "All actor/player columns, refs, lifecycle stamps, allocator data, rosters and shared state are validated before the narrow external archived comparison.",
+    "ordinaryGate": "Passed on e549; source-closure evidence and targeted follow-up gates bind later reviewed changes.",
+    "semanticMutants": {
+      "passed": 397,
+      "source": "e54992c",
+      "followUp": "Connection proof/eight mutants requalified after version-one fix; carrier changes no laws."
+    },
+    "typeScript": {
+      "status": "passed",
+      "boundaryTests": 16,
+      "abiTests": 4
+    },
+    "finalEntrypointChecks": 18,
+    "finalEntrypointSourceUnchanged": true,
+    "currentReaderTests": 7,
+    "strictReplayTests": 11,
+    "dependencyModules": 228,
+    "finalLauncherProfileUi": "passed",
+    "finalManualGame": "passed",
+    "finalManualGameResult": "tick=36786 phase=4 level=32 kills=2941 gold=871 decisions=36 boss=1 chest=1 evolved=1",
+    "browserOnRuntimeSource": {
+      "productionSmoke": "passed",
+      "actualIroh": "passed",
+      "networkCases": [
+        {
+          "sendDelayMs": 0,
+          "authorityLagP95Ticks": 26,
+          "errors": 0,
+          "workerErrors": 0
+        },
+        {
+          "sendDelayMs": 200,
+          "authorityLagP95Ticks": 27,
+          "errors": 0,
+          "workerErrors": 0
+        }
+      ],
+      "recoveryTouchMapAndActiveRejoin": "passed",
+      "unchangedExistingAssertions": true,
+      "sourceCommit": "c9c9ae866b161aab3627cf15c048d12813d8ced5"
+    },
+    "finalDeliveryBrowser": {
+      "sourceCommit": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+      "status": "passed",
+      "productionBuild": {
+        "root": "/workspace/formal-proofs/bendvy-survivors-current-integration/examples/survivors/dist/web",
+        "files": 71,
+        "manifestSha256": "b8c6feec0c56a4b878a1324c7efda46200a85ddef632da1be5cf3b72a3e06ed8",
+        "version": {
+          "schemaVersion": 1,
+          "revision": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+          "dirty": false,
+          "buildContext": "local-development",
+          "builtAt": "2026-10-25T23:46:35.388Z"
+        }
+      },
+      "rewardTouchTest": "Passed against the real browser and production DOM helper with the existing proper browser SDK environment.",
+      "receipt": "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json",
+      "productionSmoke": "passed on the byte-identical UI source",
+      "productionSmokeSource": "0caf4861125111d24d5e311f5653737c49ccf978",
+      "actualIroh": "passed",
+      "actualIrohSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+      "recoveryTouchMapAndActiveRejoin": "passed",
+      "networkCases": [
+        {
+          "sendDelayMs": 0,
+          "authorityLagP95Ticks": 26,
+          "errors": 0,
+          "workerErrors": 0
+        },
+        {
+          "sendDelayMs": 200,
+          "authorityLagP95Ticks": 27,
+          "errors": 0,
+          "workerErrors": 0
+        }
+      ],
+      "sourceAndArtifactStable": true
+    },
+    "sharedReaderNegativeControls": 14
+  },
+  "performance": {
+    "originalNoSlowdownCriterion": "not met",
+    "acceptedAlternative": {
+      "accepted": true,
+      "decision": "Accept approximately ten percent overhead and stop further performance work without a strong short lead.",
+      "approvalTranslation": "Maybe 10 percent is not that much. If you do not have any immediate leads right now, we can skip it.",
+      "translationLabel": "English translation of direct user approval on 2026-10-25.",
+      "conditionAssessment": "No high-confidence short remaining fix; coordinator stopped further optimization.",
+      "originalCriterionStatus": "failed",
+      "currentApprovedOutcome": "accepted",
+      "normalPairedMedianPercent": 6.3159810702584585,
+      "normalVerdict": "inconclusive: overlapping ranges, paired median slower, one pair faster",
+      "terminalPairedMedianPercent": 8.651064948724695,
+      "terminalVerdict": "confirmed slowdown under approved separated-range criterion"
+    },
+    "pairsPerScenario": 3,
+    "order": "Alternating AB/BA",
+    "metric": "native replay-summary.windowMs",
+    "runtimeThreads": 1,
+    "normal": {
+      "referenceMs": [
+        5670,
+        5443,
+        5494
+      ],
+      "candidateMs": [
+        5531,
+        6589,
+        5841
+      ],
+      "referenceMedianMs": 5494,
+      "candidateMedianMs": 5841,
+      "pairedRatios": [
+        0.9754850088183421,
+        1.2105456549696858,
+        1.0631598107025846
+      ],
+      "pairedMedianRatio": 1.0631598107025846,
+      "referenceRangeMs": [
+        5443,
+        5670
+      ],
+      "candidateRangeMs": [
+        5531,
+        6589
+      ],
+      "preliminaryVerdict": "inconclusive",
+      "finalVerdict": "inconclusive: overlapping ranges, paired median slower, one pair faster",
+      "extraThreePairsEligible": true
+    },
+    "terminal": {
+      "referenceMs": [
+        3803,
+        4058,
+        3986
+      ],
+      "candidateMs": [
+        4132,
+        4690,
+        4165
+      ],
+      "referenceMedianMs": 3986,
+      "candidateMedianMs": 4165,
+      "pairedRatios": [
+        1.086510649487247,
+        1.1557417447018234,
+        1.044907175112895
+      ],
+      "pairedMedianRatio": 1.086510649487247,
+      "referenceRangeMs": [
+        3803,
+        4058
+      ],
+      "candidateRangeMs": [
+        4132,
+        4690
+      ],
+      "preliminaryVerdict": "confirmed slowdown",
+      "finalVerdict": "confirmed slowdown under approved separated-range criterion",
+      "extraThreePairsEligible": false
+    },
+    "limiter": {
+      "processCPUToWallRange": [
+        0.9414622162380267,
+        0.9962939227808575
+      ],
+      "finding": "CPU execution dominates with one runtime worker; counters do not identify a hotspot or rule out shared CPU frequency/cache effects.",
+      "hostLoad1MinuteRange": [
+        4.90869140625,
+        7.72265625
+      ],
+      "crossCohortCaution": "Do not infer a speedup from raw earlier676 and currentc9 times: host conditions differ. Each conclusion uses paired frozen-reference runs in its own cohort."
+    },
+    "extraSeriesRun": false,
+    "claimLimit": "Finite observed scenarios on this shared host. No universal speedup, no-slowdown or whole-game proof claim."
+  },
+  "artifacts": [
+    {
+      "path": "/tmp/survivors-carrier-qualification-c9c9ae8/terminal.json",
+      "bytes": 2685,
+      "sha256": "ccf03b2849c96a5b6766675a02f1fba9f80567303e62cb7f17f1a93c4a08683d",
+      "scope": "Final source. Fifteen native checkpoints without Node and six complete co-op world checkpoints."
+    },
+    {
+      "path": "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/receipt.json",
+      "bytes": 7136,
+      "sha256": "c2b6ce87f7fc1f5d558582770b1605046f2bb90a06f68a17f2ecd6425f70d159",
+      "scope": "Final source. Production smoke and stock Iroh matrix with stable source and artifacts."
+    },
+    {
+      "path": "/tmp/survivors-current-browser-verification-c9c9ae8-attempt3/iroh/summary.json",
+      "bytes": 21839,
+      "sha256": "dccab44ee4b6922ee3f4c8fbf741d684649c18f125e7621139861e0908e4f1a2",
+      "scope": "Final source. Zero/200 ms send delay, reload/rejoin, worker recovery, touch and map checks."
+    },
+    {
+      "path": "/tmp/survivors-carrier-performance-c9c9ae8/interpreted-verdict.json",
+      "bytes": 2415,
+      "sha256": "2980e5eef763f4cab00fc0c7067a34f7f7d0fc27a562b1683190512a8db03ef3",
+      "scope": "Final source. Three alternating reference/candidate pairs per scenario, ranges, CPU limiter and host-noise interpretation."
+    },
+    {
+      "path": "/tmp/survivors-carrier-performance-c9c9ae8/plan.json",
+      "bytes": 2494,
+      "sha256": "413ba66503d4e901b755c0a051e4a1d9697b73f4b42dcdf7b3a27561c29f9120",
+      "scope": "Frozen binary, evaluator, input and toolchain bindings and bounded sampling plan."
+    },
+    {
+      "path": "/tmp/survivors-current-master-final-c9c9ae8-light-gates/receipt.json",
+      "bytes": 3380,
+      "sha256": "7ce3e4ae975e715bac5678987dd832795f7fe49c4a9e7caa6d3aa7bba8bcd907",
+      "scope": "Final source. Renamed launcher/profile/UI gate and fresh production build."
+    },
+    {
+      "path": "/tmp/survivors-current-master-final-gates-e54992c/receipt.json",
+      "bytes": 9554,
+      "sha256": "93279f885c3f4893d4305466c0663dbeb3c876b8ef2c13ecddd2c25951e77b04",
+      "scope": "Earlier complete ordinary/proof/mutant gates; preserves initial missing-SDK native-build failure."
+    },
+    {
+      "path": "/tmp/survivors-current-master-final-gates-e54992c-sdk-continuation/receipt.json",
+      "bytes": 13087,
+      "sha256": "709fa7d6e1bbfd0584733115f6661e9344bdbd2667013e5433855b7b5d5859c7",
+      "scope": "Earlier real-SDK native build/audio/full run and browser build continuation."
+    },
+    {
+      "path": "/tmp/survivors-current-master-protocol-676ad85/receipt.json",
+      "bytes": 40725,
+      "sha256": "ab548c34b5a6c92a82516c294387d3f53913e34f55b5694be586ea0064dfb29e",
+      "scope": "Affected protocol proof/eight mutants, full TypeScript, co-op and fresh browser build."
+    },
+    {
+      "path": "/tmp/survivors-store-carrier-birth-control/receipt.json",
+      "bytes": 304,
+      "sha256": "a4695c0088e03cef75c888204ea0d8da28f3a305fa1525b3ffefb7ecdd459c80",
+      "scope": "Final storage carrier production birth wiring. Pristine and mutant compile; stale-status mutant fails the expected assertion."
+    },
+    {
+      "path": "/tmp/survivors-store-carrier-inspection/shared-reader-controls.json",
+      "bytes": 500,
+      "sha256": "1a22e2c85fad6b33ad9be337bdaaeabe00e70b52d81420e6ca07aa274e757065",
+      "scope": "Six complete co-op checkpoints, fourteen actual-source negative controls and noncanonical carrier refusal."
+    },
+    {
+      "path": "/tmp/survivors-final-proof-source-bindings-c9c9ae8.json",
+      "bytes": 384,
+      "sha256": "81f7edc85426cfab63e2f57902a7efc43f4338afd326df995b4e64757d26508d",
+      "scope": "All tracked proof import closures unchanged from full gate except separately requalified connection proof."
+    },
+    {
+      "path": "/tmp/survivors-final-entrypoints-c9c9ae8/receipt.json",
+      "bytes": 3956,
+      "sha256": "5201397a275d8d926c331eecdb219a93addd671fce4351dcc05fc72b8275de11",
+      "scope": "All eighteen final-source entrypoints passed with a sixty-second wall limit and no CPU cap."
+    },
+    {
+      "path": "/tmp/survivors-final-manual-game-c9c9ae8/receipt.json",
+      "bytes": 841,
+      "sha256": "0a516c98bf6d309f38f0c3acdb27bf344ae96d0d6dc5b397ecd32ae82dd28b19",
+      "scope": "Final source. Explicit opt-in manual full-game command with source guard."
+    },
+    {
+      "path": "/tmp/survivors-final-manual-game-c9c9ae8/full-game-manual.log",
+      "bytes": 7117,
+      "sha256": "461e59a8c132b37652e32baa49a0c32288bdcdb9f1e1b6c9e8c2cbd702d10cd4",
+      "scope": "Final source. Complete public-input game trajectory and final assertions."
+    },
+    {
+      "path": "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json",
+      "bytes": 1611,
+      "sha256": "692195eefec10c89750b2c1f557041de84d7b37db517be96760fb2ed62b5b3d6",
+      "scope": "UI/runtime binding. All 234 Bend files and 669 prior files remain byte-identical; only three UI files and one new test differ."
+    },
+    {
+      "path": "/tmp/survivors-motion-oracle-final-15b52cd/binding.json",
+      "bytes": 945,
+      "sha256": "921c78d32b2b7405eec7f19c6a170b986d8b8ffa504544b7d095c5c68d985f9b",
+      "scope": "Verifier/UI binding. Only five tool and test-gate paths differ; all SUT browser/native/schema/protocol bytes remain identical."
+    },
+    {
+      "path": "/tmp/survivors-motion-oracle-final-15b52cd/browser-build/receipt.json",
+      "bytes": 1313,
+      "sha256": "417e7e4ce3c22c5ab508835ae57fdbb2b2eb007cb70a14d3d494874a0eba3a93",
+      "scope": "Fresh final delivery browser build, version and source guard."
+    },
+    {
+      "path": "/tmp/survivors-delivery-master6ce-merge/typescript.log",
+      "bytes": 2634,
+      "sha256": "06a9fd6eaea4dbb71a418b355439105413f05f4f5b9e12a8b3c39aa4210f26b9",
+      "scope": "Full TypeScript quality checks on the delivery merge."
+    },
+    {
+      "path": "/tmp/survivors-delivery-master6ce-merge/reward-touch-proper-browser-env.log",
+      "bytes": 207,
+      "sha256": "53bb12d021dc65fbfac9fbda41505bf61b191defd80531a0087b969c74e6a7c3",
+      "scope": "Explicit real-browser secondary-touch regression test passed."
+    },
+    {
+      "path": "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json",
+      "bytes": 7067,
+      "sha256": "fb0a9723ef35b2f76db2f73211a35d8d88e53e1e5c3f937af84d58a59c1f7350",
+      "scope": "Direct final delivery stock production smoke and complete real-Iroh matrix."
+    },
+    {
+      "path": "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/iroh/summary.json",
+      "bytes": 22025,
+      "sha256": "61adb68a42e052ad37f6d68409023bb86eb32f6ce8d8c48783f967b48f49b712",
+      "scope": "Final delivery network, recovery, touch, map and active-rejoin assertions."
+    }
+  ],
+  "reproduction": [
+    "Use the qualified commit and the existing pinned BendHub package and proof submodule.",
+    "Use Bend 2.0.38 and Clang 14.0.6 for the recorded native baseline comparisons.",
+    "npm ci; npm ci --prefix tools/survivors-bot; npm ci --prefix examples/survivors/web; npm run check:typescript",
+    "bash examples/survivors/check.sh",
+    "npm run check:mutants:manual",
+    "bash examples/survivors/check-launcher-profile-ui.sh",
+    "npm run test:full-game:manual",
+    "bash examples/survivors/build-web.sh",
+    "Use the retained frozen input traces and archived external oracle for old/new comparison; ordinary replay remains current-only."
+  ],
+  "publication": {
+    "parentIssue": 1,
+    "parentIssueAction": "Leave open and unmodified.",
+    "releasePublication": false,
+    "subsequentCommitRule": "After evidence-only commit 5d0ad0f, separately reviewed verification diagnostics, proof-only factoring and finite geometry-check removals followed. Native game functions and browser UI/schema/protocol remain unchanged.",
+    "qualifiedCodeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+    "qualifiedBrowserSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+    "qualifiedUiSource": "0caf4861125111d24d5e311f5653737c49ccf978",
+    "qualifiedVerifierSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+    "deliveredMaster": "6ce61ea940d6a4d0f78290a07affe6b1825d0070",
+    "receiptPath": "research/survivors-ecs-completion-receipt.json",
+    "acceptanceLedgerPath": "research/survivors-ecs-acceptance-ledger.json",
+    "qualifiedExecutableAndUiSourcesUnmodified": true,
+    "completionSnapshotNote": "Commit 5d0ad0f published documentation and receipts only after qualified source 15b52cd. The later diagnostics follow-up changes verification tools and tests, not the qualified game or UI.",
+    "childIssuesClosed": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "completionEvidenceCommit": "5d0ad0f89658b2c0ffd18a6083a825cf8e3faaf2"
+  },
+  "limits": [
+    "Finite baseline scenarios and one complete manual game do not prove every possible game or balance outcome.",
+    "Native headless UI/capture and direct no-Node replay passed; no actual native window test is claimed.",
+    "Earlier SDK, browser and shared-lock attempts remain in external evidence, separate from later passing runs.",
+    "The original no-slowdown criterion failed; completion depends on the explicit user-approved performance alternative."
+  ],
+  "qualifiedCodeSource": {
+    "commit": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+    "scope": "Native and Bend simulation, strict physical/semantic comparison, final manual game, all eighteen Bend entrypoints and paired performance.",
+    "trackedSourceFiles": 672,
+    "manifestSha256": "9043daca1c3898eb52a90b26147053761624d5712f01de479d6027ccd23e90e6"
+  },
+  "qualifiedBrowserSource": {
+    "commit": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+    "scope": "Final production artifact and verifier after the reviewed motion-clock correction; UI/SUT files remain identical to 0caf.",
+    "status": "passed",
+    "trackedSourceFiles": 675,
+    "manifestSha256": "15b7a0acd2837be921a65a7cd6e62c2fe595cd85b0c74ba4d1c12703fd8bb1cb"
+  },
+  "deliveredMaster": "6ce61ea940d6a4d0f78290a07affe6b1825d0070",
+  "qualifiedUiSource": "0caf4861125111d24d5e311f5653737c49ccf978",
+  "qualifiedVerifierSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+  "uiToVerifierBinding": {
+    "sourceCommit": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+    "sutBrowserSource": "0caf4861125111d24d5e311f5653737c49ccf978",
+    "qualifiedNativeRuntimeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+    "changedPaths": [
+      "examples/survivors/check.sh",
+      "tools/survivors-bot/actor-consumers.test.mts",
+      "tools/survivors-bot/coop-motion-oracle.mts",
+      "tools/survivors-bot/coop-motion-oracle.test.mts",
+      "tools/survivors-bot/coop-reliability-browser-check.mts"
+    ],
+    "scope": "Verifier and maintained test gate only; all SUT browser/native/runtime/schema/protocol files remain byte-identical.",
+    "unchangedPreviousTrackedFiles": 670,
+    "trackedFiles": 675,
+    "sourceManifestSha256": "15b7a0acd2837be921a65a7cd6e62c2fe595cd85b0c74ba4d1c12703fd8bb1cb",
+    "oracleTestsPassed": 8,
+    "ordinaryLifetimeCoverage": "Maintained through added coop-motion-oracle.test.mts in check.sh Node test list.",
+    "thresholdsUnchanged": true
+  },
+  "originalBaseline": "01b4164612cd6e37d39aa75b16fab2dd253ebb0d",
+  "originalMasterWorktreeModifiedByThisTask": false,
+  "runtimeToUiBinding": {
+    "qualifiedRuntimeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
+    "absorbedMaster": "6ce61ea940d6a4d0f78290a07affe6b1825d0070",
+    "oldTrackedFiles": 672,
+    "unchangedFiles": 669,
+    "unchangedBendFiles": 234,
+    "changedPreviousPaths": [
+      "examples/survivors/browser.mts",
+      "examples/survivors/coop-ui.mts",
+      "examples/survivors/dom.mts"
+    ],
+    "addedPath": "examples/survivors/reward-touch.test.mts",
+    "scope": "All previously qualified source bytes outside three UI files remain identical; schemas, protocol, current validators, native/co-op logic and all Bend inputs are unchanged.",
+    "masterTouchFilesExact": [
+      "coop-ui.mts",
+      "dom.mts",
+      "reward-touch.test.mts"
+    ],
+    "deliveryCommit": "0caf4861125111d24d5e311f5653737c49ccf978",
+    "deliveryTrackedFiles": 673,
+    "deliverySourceManifestSha256": "d0c532f9a253361f6076fa5ed018368712ebbe14f467c753e3f438efa1ec0672",
+    "typeScriptExit": 0,
+    "rewardTouchFirstAttempt": "Browser launch failed due missing libatk without existing browser SDK environment; behavior not evaluated.",
+    "rewardTouchProperEnvironmentExit": 0,
+    "rewardTouchEnvironment": {
+      "LD_LIBRARY_PATH": "/tmp/bendvy-typescript-browser-libs/root/usr/lib/aarch64-linux-gnu:/tmp/dalph-playwright-libs/usr/lib/aarch64-linux-gnu:/tmp/hapsland-playwright-libs/root/usr/lib/aarch64-linux-gnu"
+    }
+  },
+  "verifierCorrection": {
+    "commit": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
+    "scope": "Tool-only measurement correction. No SUT, threshold, input denominator or recovery-policy change.",
+    "defect": "The old motion oracle divided selected presentation-coordinate movement by later draw/observer time. A recorded legal 3.585449-unit move had a 23.9 ms coordinate-sample interval but only 6 ms observer-wall interval, yielding a false violation.",
+    "correction": "Use finite actual remotePresentation.sampledAt and require the telemetry wrapper to match that exact clock.",
+    "unchangedBounds": {
+      "unitsPer60HzTick": 4,
+      "distanceTolerance": 1,
+      "maxPairGapMs": 250,
+      "minimumEligiblePairs": 100,
+      "allowedViolations": 0,
+      "inputDenominator": "All eligible recorded gameplay steps, unchanged."
+    },
+    "reviews": "Independent Spec and Standards passed round two after closing clock provenance and maintained test-wiring findings.",
+    "oracleTestsPassed": 8,
+    "maintainedGate": "examples/survivors/check.sh includes coop-motion-oracle.test.mts in the existing Node test command.",
+    "controls": [
+      "Legal trajectory remains legal under variable post-sample draw delay.",
+      "True overspeed still produces a violation.",
+      "Recorded 200 ms recovery jump still produces a violation.",
+      "Recycled enemy identities pair only matching lifetimes.",
+      "Missing, mismatched or nonfinite actual clocks fail."
+    ]
+  },
+  "failedBrowserAttempts": [
+    {
+      "path": "/tmp/survivors-current-browser-verification-0caf486-attempt4",
+      "status": "failed",
+      "observations": "200 ms case input coverage 293/587 below 0.5; separate lag/recovery failures remain independent of the corrected clock. No waiver or threshold change."
+    },
+    {
+      "path": "/tmp/survivors-current-browser-verification-0caf486-attempt5-contention",
+      "status": "failed",
+      "observations": "A recorded 6 ms observer-wall interval versus 23.9 ms actual sample interval produced a false motion violation. The correction is independently regression-tested. External compiler load was observed but is not established as the cause of other failures."
+    }
+  ],
+  "verificationDiagnosticsFollowup": {
+    "source": "3e3fdcd5059378c81a1aff0aa02e5fabc69735e8",
+    "scope": "Global verification failure diagnostics; no game logic, law, browser UI, observation schema or protocol change.",
+    "reviews": "Independent Standards and Spec reviews passed.",
+    "checks": {
+      "directDiagnosticCommands": 6,
+      "directDiagnosticCommandsStatus": "PASS",
+      "fullTypeScript": "PASS after dependency preparation; initial missing-dependency failure retained",
+      "generatedTypes": "PASS",
+      "dependencyAudit": "PASS: 228 modules",
+      "diffWhitespace": "PASS"
+    },
+    "receipt": {
+      "path": "/tmp/survivors-combined-verification-diagnostics-3e3fdcd/receipt.json",
+      "sha256": "cb3a036324b776e85694b62afb3a2ccdf9e2aae4dcfc35d0262d3a1613e985ac"
+    },
+    "runtimeBinding": "All 234 Bend files and browser UI/schema/protocol sources remain identical to the previously qualified code sources. Verification runners, failure reporting and maintained fault tests changed.",
+    "priorCi": {
+      "source": "5d0ad0f89658b2c0ffd18a6083a825cf8e3faaf2",
+      "firstAttempt": "55/56 proofs passed; failing child exit code and signal were not recorded, so cause is unknown.",
+      "retry": "Entire unchanged job passed in 8m41s.",
+      "controlledReproduction": "Known SIGKILL child reproduced opaque logging; it does not establish the cause of the historical CI failure."
+    },
+    "newHeadCi": "Pending; local diagnostic and TypeScript checks are not a claim that CI passed.",
+    "report": "research/verification-diagnostics.md"
+  },
+  "proofAndGeometryFollowup": {
+    "source": "9ea5c97",
+    "currentTrackedBendFiles": 232,
+    "changes": {
+      "removedFiniteFixtures": [
+        "examples/survivors/geometry-game-check.bend",
+        "examples/survivors/geometry-spawn-check.bend"
+      ],
+      "removedWrapper": "examples/survivors/check-geometry.sh",
+      "proofFactoring": "examples/survivors/native-record/PROOF.bend: same five laws, abstract paid profile before substituting full payment expressions.",
+      "commentOnly": [
+        "examples/survivors/arena.bend",
+        "examples/survivors/spawn-policy.bend"
+      ]
+    },
+    "runtimeBinding": "Native game functions, browser UI, schemas and protocol remain unchanged. File-count reduction reflects deleted finite executable checks, not a new universal floating-point proof.",
+    "checks": {
+      "sixDirectDiagnosticCommands": "PASS",
+      "dependencyAudit": "PASS: 226 modules",
+      "focusedNativeRecordProof": "PASS under unchanged CPU10/wall60; wall4.084s, aggregate reaped-child CPU5.924s (user5.656s, system0.268s)",
+      "targetedSemanticMutant": "Prior1/1PASS rebound to byte-identical proof patch.",
+      "receipt": "/tmp/survivors-proof-geometry-followup-9ea5c97/receipt.json",
+      "receiptSha256": "437ffce25359ca6a9c02afbb5f894b81f7927ad4044f7eaf44ad522a94aeaa62"
+    },
+    "costInterpretation": "Local sampled evidence places most cost in Bend frontend elaboration. Factoring modestly reduced local cost; it does not establish the cause or resolution of the CI termination.",
+    "ci6ebde30": "Recorded Bend child SIGKILL(-9), wall timeout false, elapsed6.719s, empty stdout/stderr. Signal cause remains unknown.",
+    "telemetry": "Existing process helper now reports observed aggregate reaped-child user/system CPU and successful proof wall/CPU timing; aggregate CPU is not a per-process limit or cause verdict.",
+    "newHeadCi": "Pending"
+  }
+}

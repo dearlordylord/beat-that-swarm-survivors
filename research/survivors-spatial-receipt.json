@@ -1,0 +1,287 @@
+{
+  "status": "passed",
+  "issue": 4,
+  "createdUtc": "2026-10-25T17:59:44.052453+00:00",
+  "integrationBase": "1f183e23ed8efd763a0b05f1cf87ce823f61304c",
+  "gameplaySourceCommit": "1ea25d7790e695759ea26f51afd71a5a17f2abf6",
+  "gameplaySourceClean": true,
+  "sourceExplanation": "Gameplay commit is frozen. Final uncommitted additions are README, migration contract, compact receipt and temporary development co-op qualification exporter; they do not alter the compiled gameplay snapshot.",
+  "authoredSourceFingerprint": "38785e9f97b7d491bac0552f6bd454f546a9105b1b9b0b0eb5d48afedd2f33af",
+  "authoredSourceFiles": 260,
+  "artifactRoot": "/tmp/survivors-issue4/qualified",
+  "toolchain": {
+    "bend": "Bend 2.0.38: check, run, build and publish Bend programs.",
+    "clang": "Debian clang version 14.0.6",
+    "python": "3.11.2",
+    "node": "v24.20.0",
+    "machine": "aarch64"
+  },
+  "checks": {
+    "nativeBaseline": [
+      {
+        "scenario": "normal",
+        "baselineFactsEqual": true,
+        "controls": [
+          "raw-source-damage",
+          "raw-source-xp",
+          "raw-source-generation",
+          "raw-source-status",
+          "raw-source-spatial-age",
+          "representation-clock-positive"
+        ],
+        "strict": {
+          "status": "passed",
+          "fixture": "seed100-profile0-warm0-end1200",
+          "checkpoints": 5,
+          "semanticSha256": "459984392d3351c40c4f3885f27d9fd2b6467310a7bb9cc33293f671da088feb",
+          "baselineSha256": "b3121ac11df32cb60f2651fc1acf94bd74578c599a036bca6f8ce7566b6aca19",
+          "candidateSha256": "b3121ac11df32cb60f2651fc1acf94bd74578c599a036bca6f8ce7566b6aca19",
+          "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+          "comparison": "exact-sparse-ecs",
+          "layout": {
+            "enemyCount": 512,
+            "relicSeed": 511,
+            "playerStart": 512,
+            "hostileStart": 1024,
+            "xpStart": 1056,
+            "totalCount": 1456
+          }
+        },
+        "rawSha256": "b3121ac11df32cb60f2651fc1acf94bd74578c599a036bca6f8ce7566b6aca19",
+        "factsSha256": "5d90f09e01950a0d171b7a08fc152f7db52bf5b578216afe49ef78800da77bba"
+      },
+      {
+        "scenario": "terminal",
+        "baselineFactsEqual": true,
+        "controls": [
+          "raw-source-damage",
+          "raw-source-xp",
+          "raw-source-generation",
+          "raw-source-status",
+          "raw-source-spatial-age",
+          "representation-clock-positive"
+        ],
+        "strict": {
+          "status": "passed",
+          "fixture": "seed100-profile0-warm0-end6000",
+          "checkpoints": 4,
+          "semanticSha256": "26e392faadffeba154d2ce3f97db4f17c22e0cc8928b5d0110a57aa6d2c9c078",
+          "baselineSha256": "29666d666bb3ea1125a6c3ac3f3a6cc1b8f628d2c2c6ec64aeca2bcd981c9fff",
+          "candidateSha256": "29666d666bb3ea1125a6c3ac3f3a6cc1b8f628d2c2c6ec64aeca2bcd981c9fff",
+          "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+          "comparison": "exact-sparse-ecs",
+          "layout": {
+            "enemyCount": 512,
+            "relicSeed": 511,
+            "playerStart": 512,
+            "hostileStart": 1024,
+            "xpStart": 1056,
+            "totalCount": 1456
+          }
+        },
+        "rawSha256": "29666d666bb3ea1125a6c3ac3f3a6cc1b8f628d2c2c6ec64aeca2bcd981c9fff",
+        "factsSha256": "cb41138b81d8792f2903c97948d9bb5c55f33e64770170c157de57373e4762ff"
+      },
+      {
+        "scenario": "advanced",
+        "baselineFactsEqual": true,
+        "controls": [
+          "raw-source-damage",
+          "raw-source-xp",
+          "raw-source-generation",
+          "raw-source-status",
+          "raw-source-spatial-age",
+          "representation-clock-positive"
+        ],
+        "strict": {
+          "status": "passed",
+          "fixture": "seed100-profile1-warm0-end1200",
+          "checkpoints": 6,
+          "semanticSha256": "c583bc353114f1f94957f9d3d033e079009ce20d37d9bd5c42457801b95268a0",
+          "baselineSha256": "b156ebba52e1aff3cb029c43756dc1241773cdbd3e5f28b8ece0048b72d3699e",
+          "candidateSha256": "b156ebba52e1aff3cb029c43756dc1241773cdbd3e5f28b8ece0048b72d3699e",
+          "scope": "Exact complete sparse ECS payloads, actual component stamps, World clocks and routing observations; no schema-migration projection. Timing fields excluded only at record root.",
+          "comparison": "exact-sparse-ecs",
+          "layout": {
+            "enemyCount": 512,
+            "relicSeed": 511,
+            "playerStart": 512,
+            "hostileStart": 1024,
+            "xpStart": 1056,
+            "totalCount": 1456
+          }
+        },
+        "rawSha256": "b156ebba52e1aff3cb029c43756dc1241773cdbd3e5f28b8ece0048b72d3699e",
+        "factsSha256": "eebb757048825c39bbb8f0479bd0cedaa77f545911ceb51b6fb77ed6f913dec6"
+      }
+    ],
+    "coopBaseline": {
+      "status": "passed",
+      "checkpoints": 6,
+      "comparison": "exact after explicit player partition and spatial ownership projection",
+      "allCommonPhysicalMetadataCompared": true,
+      "actualSpatialCompositionAndStampsValidated": true,
+      "controls": [
+        "raw-source-spatial-age",
+        "duplicate-position",
+        "missing-member",
+        "future-stamp"
+      ]
+    },
+    "freshCoopReliabilitySuite": "passed, full documented suite; source fingerprint unchanged",
+    "capabilities": "9 paired positive/negative actual accessors passed",
+    "laws": "age_advances_once and radius_preserved accepted by kernel",
+    "mutants": "2 type-correct semantic mutants rejected by named laws",
+    "comparators": "15 exact replay tests +11 historical migration verifier controls passed",
+    "typechecks": [
+      "native",
+      "native-full-run",
+      "native-pacing-run"
+    ],
+    "dependencyAudit": "passed,206modules; published BendHub pin unchanged",
+    "whitespace": "git diff --check passed"
+  },
+  "commands": [
+    "timeout 300 bend examples/survivors/native-replay.bend -o /tmp/survivors-issue4/qualified/native-replay",
+    "NIGHTFALL_REPLAY_TRACE=BASELINE/{normal,terminal,advanced}.trace NIGHTFALL_REPLAY_CHECKPOINT_EVERY=300 native-replay +RTS --threads 1 -RTS",
+    "qualification_projection.export + raw-source controls; compare exact named facts to frozen baseline; replay_compare.compare(candidate,candidate,layout,trace)",
+    "bash examples/survivors/check-coop-reliability.sh",
+    "node tools/survivors-bot/qualification-coop-capture.mjs CORE OUTPUT ENCODER",
+    "python3 -B tools/survivors-bot/qualification_spatial_projection.py BASELINE/coop.json CANDIDATE/coop.json --output RECEIPT",
+    "python3 -B scripts/check-bend-laws.py examples/survivors/enemy-spatial/PROOF.bend",
+    "python3 -B scripts/check-bend-mutants.py scripts/law-mutants/enemy-spatial.json",
+    "python3 -B examples/survivors/capability-controls.test.py",
+    "python3 -B tools/survivors-bot/replay_compare_test.py",
+    "python3 -B tools/survivors-bot/ecs_migration_compare_test.py",
+    "python3 scripts/check-dependencies.py"
+  ],
+  "artifacts": [
+    {
+      "path": "/tmp/survivors-issue4/qualified/capabilities.log",
+      "bytes": 712,
+      "sha256": "ad99be523de0a34683b627f8bb18f1a5302ddaefb9144b690e10735e80b0d812"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/coop-check.log",
+      "bytes": 6227,
+      "sha256": "286e942d8d9ac3d4bc5f76d1f9189024febe66f3cdcd971032e0ca5fc952b35f"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/coop-core.mjs",
+      "bytes": 1781162,
+      "sha256": "2af40bec5d2e4c3b4ef26affbbf9f51e9f4dcc50804d41586d6d32ca39b4d3c5"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/coop-encoder.mjs",
+      "bytes": 1831076,
+      "sha256": "b5e509cef536f5f00da08cd9d58b675457f6bf03e7ee01fe32a306885965417e"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/coop-qualification.json",
+      "bytes": 352,
+      "sha256": "31d56751aa0318285d5741cb8430d79c3bc40279d58ce5afd3b098f55550776d"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/coop.json",
+      "bytes": 13033635,
+      "sha256": "9b841db20dc6b00247d15bb2dff9748e3f08389e8ebe0280842c6c729376b221"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/full-run-check.log",
+      "bytes": 100,
+      "sha256": "ecf8d3a5c1442beb196e693aa873aa45c33f34211b79d3156d05c828fae3fae4"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/laws.log",
+      "bytes": 118,
+      "sha256": "bb868d2b7d2de96477048a91b3db02637001694897d3c2bebf6a753f65540780"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/migration-tests.log",
+      "bytes": 110,
+      "sha256": "b5d0a1a6a710a54805d401cd3ebdafbd334950cff97fdb89bf42201de0af0378"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/mutants.log",
+      "bytes": 197,
+      "sha256": "48de0c0c3f056ce37ee1296fe5bb72b27ba18888d9659856fd6f770b2872ced3"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/native-build.log",
+      "bytes": 42,
+      "sha256": "e6507990eab9fc6daa96afb7100877ba694454b2c5a061726b71d6978334b679"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/native-check.log",
+      "bytes": 100,
+      "sha256": "ecf8d3a5c1442beb196e693aa873aa45c33f34211b79d3156d05c828fae3fae4"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/native-replay",
+      "bytes": 3178384,
+      "sha256": "976dd8e72aa07493da0b98913e810d006e2a0be8c4b01a49bd998a9a185ec1bc"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/qualification-receipt.json",
+      "bytes": 3802,
+      "sha256": "578711ab12b4d4c0582aa1cce41fb3b9dc1daa288616121fa138d1d471841d69"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/replay-tests.log",
+      "bytes": 114,
+      "sha256": "88a91be2a4663a52ccc1c09e2a9dbdce0c51fc5f23be939ed110d3c61ab54bbf"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-advanced.facts.json",
+      "bytes": 2935850,
+      "sha256": "eebb757048825c39bbb8f0479bd0cedaa77f545911ceb51b6fb77ed6f913dec6"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-advanced.jsonl",
+      "bytes": 2969998,
+      "sha256": "b156ebba52e1aff3cb029c43756dc1241773cdbd3e5f28b8ece0048b72d3699e"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-advanced.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-normal.facts.json",
+      "bytes": 2400691,
+      "sha256": "5d90f09e01950a0d171b7a08fc152f7db52bf5b578216afe49ef78800da77bba"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-normal.jsonl",
+      "bytes": 2451287,
+      "sha256": "b3121ac11df32cb60f2651fc1acf94bd74578c599a036bca6f8ce7566b6aca19"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-normal.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-terminal.facts.json",
+      "bytes": 1869665,
+      "sha256": "cb41138b81d8792f2903c97948d9bb5c55f33e64770170c157de57373e4762ff"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-terminal.jsonl",
+      "bytes": 1935090,
+      "sha256": "29666d666bb3ea1125a6c3ac3f3a6cc1b8f628d2c2c6ec64aeca2bcd981c9fff"
+    },
+    {
+      "path": "/tmp/survivors-issue4/qualified/solo-terminal.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "No claim that enemy/projectile/pickup legacy is already fully removed; explicit remaining boundaries belong to issues5/6/7.",
+    "No whole-game proof; laws cover the stated local movement properties.",
+    "No paired performance acceptance was performed in this slice; issue10 owns the predeclared bounded final comparison.",
+    "Native UI/full-run programs were typechecked here; finite native replay and fresh co-op runtime scenarios are the behavioral evidence for this slice.",
+    "An unrelated TypeScript web build temporarily held the shared lock; bounded flock wait acquired it normally before the final co-op suite."
+  ]
+}

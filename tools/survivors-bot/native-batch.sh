@@ -102,11 +102,16 @@ for ((worker=0; worker<workers; worker++)); do
 done
 status=0
 : > "$output_dir/worker-statuses"
+worker=0
 for pid in "${pids[@]}"; do
   worker_status=0
   wait "$pid" || worker_status=$?
   printf '%s %s\n' "$pid" "$worker_status" >> "$output_dir/worker-statuses"
-  ((worker_status == 0)) || status=1
+  if ((worker_status != 0)); then
+    printf 'Native batch worker %s (pid %s) failed: exit=%s; stdout=%s/worker-%s.jsonl stderr=%s/worker-%s.stderr\n' "$worker" "$pid" "$worker_status" "$output_dir" "$worker" "$output_dir" "$worker" >&2
+    status=1
+  fi
+  worker=$((worker + 1))
 done
 pids=()
 for ((worker=0; worker<workers; worker++)); do cat "$output_dir/worker-$worker.jsonl"; done
@@ -115,7 +120,10 @@ for ((worker=0; worker<workers; worker++)); do
   lines=$(wc -l < "$output_dir/worker-$worker.jsonl")
   records=$((records + lines))
 done
-((records == count)) || status=1
+if ((records != count)); then
+  printf 'Native batch summary count mismatch: expected=%s actual=%s; inspect %s/worker-*.jsonl and worker-*.stderr\n' "$count" "$records" "$output_dir" >&2
+  status=1
+fi
 printf '{"exitStatus":%d,"requestedCount":%d,"summaryLines":%d}\n' "$status" "$count" "$records" > "$output_dir/completion.json"
 printf '%s\n' "$status" > "$output_dir/exit-status"
 exit "$status"

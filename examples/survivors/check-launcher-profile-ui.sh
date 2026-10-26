@@ -23,7 +23,11 @@ cache_key="$(python3 -B scripts/native-check-cache-key.py "$example_repo" "$BEND
 cache_dir="${NIGHTFALL_NATIVE_CHECK_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/bendvy-native-checks}/$cache_key"
 mkdir -p "$cache_dir"
 unchanged_sources() {
-  if [[ "$(python3 -B scripts/native-check-cache-key.py "$example_repo" "$BEND" "$CLANG")" != "$cache_key" ]]; then
+  local current_key status
+  current_key="$(python3 -B scripts/native-check-cache-key.py "$example_repo" "$BEND" "$CLANG")" || {
+    status=$?; printf 'Native check cache fingerprint command failed (exit %s): python3 -B scripts/native-check-cache-key.py\n' "$status" >&2; return "$status";
+  }
+  if [[ "$current_key" != "$cache_key" ]]; then
     echo 'Native check inputs changed during the run; retry with a stable source snapshot.' >&2
     exit 75
   fi
@@ -35,7 +39,7 @@ for source in "${sources[@]}"; do
     # when TMPDIR and XDG_CACHE_HOME live on different mounts.
     cache_build_dir="$(mktemp -d "$cache_dir/.build-$source-XXXXXX")"
     example_timeout 300 "${example_cpu[@]}" "$BEND" "$app_dir/$source.bend" -o "$cache_build_dir/$source"
-    [[ -x "$cache_build_dir/$source" ]]
+    [[ -x "$cache_build_dir/$source" ]] || { echo "Native compilation did not produce executable: $cache_build_dir/$source" >&2; exit 1; }
     unchanged_sources
     mv "$cache_build_dir/$source" "$cache_dir/$source"
     rmdir "$cache_build_dir"

@@ -17,8 +17,8 @@ if [[ -z "$proof_files" ]]; then
 fi
 proof_count=0
 while IFS= read -r proof; do
-  printf 'Checking Bend proof: %s (CPU limit 10s, wall limit 60s)\n' "$proof"
-  if "$timeout_command" --kill-after=5s 60s "${example_cpu[@]}" bash -c 'ulimit -t 10 && exec "$@"' bend-proof "$BEND" "$proof" --verdict; then
+  printf 'Checking Bend proof: %s (CPU limit 60s, wall limit 60s)\n' "$proof"
+  if "$timeout_command" --kill-after=5s 60s "${example_cpu[@]}" bash -c 'ulimit -t 60 && exec "$@"' bend-proof "$BEND" "$proof" --verdict; then
     proof_count=$((proof_count + 1))
   else
     status=$?

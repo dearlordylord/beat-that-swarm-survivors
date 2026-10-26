@@ -13,7 +13,10 @@ interface ViewerFrame {
   hp?: number
   level?: number
   kills?: number
-  bodies: [number, number, number, number, number][]
+  enemies: { identity: number; x: number; y: number; health: number }[]
+  projectiles: { identity: number; x: number; y: number }[]
+  pickups: { slot: number; x: number; y: number; active: boolean; item: { kind: string } }[]
+  actorOrder: ({ enemy: number } | { projectile: number } | { pickup: number })[]
 }
 interface Candidate {
   id: string
@@ -104,8 +107,32 @@ function frame(value: unknown): value is ViewerFrame {
     finite(value.px) &&
     finite(value.py) &&
     numbers(value, ["hp", "level", "kills"]) &&
-    Array.isArray(value.bodies) &&
-    value.bodies.every((body) => Array.isArray(body) && [0, 1, 2, 3, 4].every((index) => finite(body[index])))
+    Array.isArray(value.enemies) &&
+    value.enemies.every(
+      (enemy) => object(enemy) && finite(enemy.identity) && finite(enemy.x) && finite(enemy.y) && finite(enemy.health)
+    ) &&
+    Array.isArray(value.projectiles) &&
+    value.projectiles.every(
+      (projectile) => object(projectile) && finite(projectile.identity) && finite(projectile.x) && finite(projectile.y)
+    ) &&
+    Array.isArray(value.pickups) &&
+    value.pickups.every(
+      (pickup) =>
+        object(pickup) &&
+        finite(pickup.slot) &&
+        finite(pickup.x) &&
+        finite(pickup.y) &&
+        typeof pickup.active === "boolean" &&
+        object(pickup.item) &&
+        string(pickup.item.kind)
+    ) &&
+    Array.isArray(value.actorOrder) &&
+    value.actorOrder.every(
+      (ref) =>
+        object(ref) &&
+        Object.keys(ref).length === 1 &&
+        (finite(ref.enemy) || finite(ref.projectile) || finite(ref.pickup))
+    )
   )
 }
 function journalRecord(value: unknown): value is JournalRecord {
@@ -192,21 +219,39 @@ function draw(frame: ViewerFrame | null, decision: JournalRecord | undefined) {
     ctx.lineTo(640, p * scale)
     ctx.stroke()
   }
-  const colors: Partial<Record<number, string>> = {
-    0: "#f47579",
-    2: "#75bfff",
-    1: "#d3b266",
-    5: "#ffd36e",
-    7: "#eeeeee",
-    9: "#c398ff",
-    10: "#70ddf4",
-    11: "#75d692"
+  const enemies = new Map(frame.enemies.map((enemy) => [enemy.identity, enemy]))
+  const projectiles = new Map(frame.projectiles.map((projectile) => [projectile.identity, projectile]))
+  const pickups = new Map(frame.pickups.map((pickup) => [pickup.slot, pickup]))
+  const pickupColors: Record<string, string> = {
+    xp: "#75bfff",
+    gold: "#d3b266",
+    healing: "#70ddf4",
+    chest: "#ffd36e",
+    relic: "#c398ff"
   }
-  for (const b of frame.bodies || []) {
-    if (b[2] === 0 && b[4] <= 0) continue
-    ctx.fillStyle = colors[b[2]] || "#61738b"
+  for (const ref of frame.actorOrder) {
+    let actor: Point | undefined,
+      color: string,
+      radius = 2
+    if ("enemy" in ref) {
+      const enemy = enemies.get(ref.enemy)
+      if (!enemy || enemy.health <= 0) continue
+      actor = enemy
+      color = "#f47579"
+    } else if ("projectile" in ref) {
+      actor = projectiles.get(ref.projectile)
+      color = "#eeeeee"
+    } else {
+      const pickup = pickups.get(ref.pickup)
+      if (!pickup || !pickup.active) continue
+      actor = pickup
+      color = pickupColors[pickup.item.kind] ?? "#61738b"
+      radius = ["chest", "relic"].includes(pickup.item.kind) ? 4 : 2
+    }
+    if (!actor) continue
+    ctx.fillStyle = color
     ctx.beginPath()
-    ctx.arc(b[0] * scale, b[1] * scale, [5, 9, 10, 11].includes(b[2]) ? 4 : 2, 0, Math.PI * 2)
+    ctx.arc(actor.x * scale, actor.y * scale, radius, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.fillStyle = "#fff"

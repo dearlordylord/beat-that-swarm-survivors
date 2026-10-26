@@ -134,7 +134,7 @@ law identity_exact:
   for x0:F32
   for y0:F32
   for a0:U32
-  for +h0:U32
+  for +h0:Bool
   for +o0:U32
   for +k1:U32
   for +t1:U32
@@ -142,9 +142,9 @@ law identity_exact:
   for x1:F32
   for y1:F32
   for a1:U32
-  for +h1:U32
+  for +h1:Bool
   for +o1:U32
-  {P.identity(P.Actor{k0,t0,g0,x0,y0,a0,h0,o0},P.Actor{k1,t1,g1,x1,y1,a1,h1,o1}) == Bool.and(U32.is_eq(k0,k1),Bool.and(U32.is_eq(t0,t1),Bool.and(String.eq(g0,g1),Bool.and(U32.is_eq(o0,o1),Bool.and(U32.is_gt(h0,0),U32.is_gt(h1,0)))))) : Bool}
+  {P.identity(P.Actor{k0,t0,g0,x0,y0,a0,h0,o0},P.Actor{k1,t1,g1,x1,y1,a1,h1,o1}) == Bool.and(U32.is_eq(k0,k1),Bool.and(U32.is_eq(t0,t1),Bool.and(String.eq(g0,g1),Bool.and(U32.is_eq(o0,o1),Bool.and(h0,h1))))) : Bool}
 
 # Guarantees: An actor absent from the future frame keeps its older authoritative state.
 # Why it matters: A disappearing actor remains in the coherent older inventory until its transition tick.
@@ -170,7 +170,7 @@ law blend_only_positions:
   for +x0:F32
   for +y0:F32
   for +age:U32
-  for +hp:U32
+  for +alive:Bool
   for +owner:U32
   for k1:U32
   for t1:U32
@@ -178,10 +178,10 @@ law blend_only_positions:
   for +x1:F32
   for +y1:F32
   for a1:U32
-  for h1:U32
+  for h1:Bool
   for o1:U32
   for +alpha:F32
-  {P.blended(True{},P.Actor{key,kind,generation,x0,y0,age,hp,owner},P.Actor{k1,t1,g1,x1,y1,a1,h1,o1},alpha) == P.Actor{key,kind,generation,F32.lerp(x0,x1,alpha),F32.lerp(y0,y1,alpha),age,hp,owner} : P.Actor}
+  {P.blended(True{},P.Actor{key,kind,generation,x0,y0,age,alive,owner},P.Actor{k1,t1,g1,x1,y1,a1,h1,o1},alpha) == P.Actor{key,kind,generation,F32.lerp(x0,x1,alpha),F32.lerp(y0,y1,alpha),age,alive,owner} : P.Actor}
 
 # Guarantees: An empty timeline has no renderable sample.
 # Why it matters: No fake frame is fabricated before handshake snapshot admission.
@@ -431,9 +431,9 @@ law actor_key_exact:
   for x:F32
   for y:F32
   for age:U32
-  for hp:U32
+  for alive:Bool
   for owner:U32
-  {P.actor_key(P.Actor{key,kind,generation,x,y,age,hp,owner}) == key : U32}
+  {P.actor_key(P.Actor{key,kind,generation,x,y,age,alive,owner}) == key : U32}
 
 def frame_count(state:P.State) -> Nat:
   match state:

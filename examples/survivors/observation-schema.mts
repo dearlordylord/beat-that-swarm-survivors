@@ -8,7 +8,7 @@ export type Spec =
       array?: Spec
       tuple?: readonly Spec[]
       record?: Fields
-      literal?: string | boolean
+      literal?: string | boolean | number
       nullable?: Spec
       unchecked?: boolean
     }

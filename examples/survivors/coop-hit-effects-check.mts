@@ -44,7 +44,7 @@ const target = (x = 100, y = 200, generation = "enemy:42:7") => ({
   x,
   y,
   age: 1,
-  hp: 10,
+  alive: true,
   owner: 0
 })
 const sample = (tick: number, bodies = [target()], fraction = 0) => ({

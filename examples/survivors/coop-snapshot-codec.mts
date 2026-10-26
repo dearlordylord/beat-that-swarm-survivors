@@ -84,10 +84,10 @@ function hasGzipAt(bytes: Uint8Array, offset: number) {
   )
 }
 
-function isSnapshotEnvelopeCandidate(bytes: Uint8Array) {
-  // The second check identifies a compressed envelope whose four-byte magic
-  // was damaged, while allowing ordinary text/control frames through.
-  return startsWithReservedMagic(bytes) || hasGzipAt(bytes, HEADER_BYTES)
+function assertSnapshotHeader(bytes: Uint8Array) {
+  if (!startsWithReservedMagic(bytes)) throw new TypeError("Compressed snapshot has an invalid BSZ1 magic header.")
+  if (bytes.byteLength < HEADER_BYTES) throw new TypeError("Compressed snapshot header is truncated.")
+  if (bytes[3] !== HEADER[3]) throw new TypeError("Compressed snapshot version is unsupported.")
 }
 
 function readU32LE(bytes: Uint8Array, offset: number) {
@@ -147,14 +147,7 @@ export async function decodeSnapshot(bytes: unknown) {
   if (!isBytes(bytes)) throw new TypeError("Snapshot input must be a Uint8Array.")
   assertCompressedLimit(bytes.byteLength)
 
-  if (!isSnapshotEnvelopeCandidate(bytes)) {
-    assertRawLimit(bytes.byteLength)
-    return Uint8Array.from(bytes)
-  }
-
-  if (!startsWithReservedMagic(bytes)) throw new TypeError("Compressed snapshot has an invalid BSZ1 magic header.")
-  if (bytes.byteLength < HEADER_BYTES) throw new TypeError("Compressed snapshot header is truncated.")
-  if (bytes[3] !== HEADER[3]) throw new TypeError("Compressed snapshot version is unsupported.")
+  assertSnapshotHeader(bytes)
 
   const gzip = Uint8Array.from(bytes.subarray(HEADER_BYTES))
   const metadata = gzipMetadata(gzip)
@@ -205,10 +198,7 @@ export class SnapshotDecoder {
     if (!isBytes(bytes)) throw new TypeError("Snapshot input must be a Uint8Array.")
     assertCompressedLimit(bytes.byteLength)
 
-    if (!isSnapshotEnvelopeCandidate(bytes)) {
-      assertRawLimit(bytes.byteLength)
-      return Uint8Array.from(bytes)
-    }
+    assertSnapshotHeader(bytes)
 
     const copy = Uint8Array.from(bytes)
     if (

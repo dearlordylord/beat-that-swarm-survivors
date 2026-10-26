@@ -60,7 +60,11 @@ def resolve(text, owner, bindings=None):
     if name in ('List', 'Maybe'):
         if len(arguments) != 1:
             raise ValueError(f'Invalid {name}: {text}')
-        return {name.lower(): arguments[0]}
+        if name == 'List':
+            return {'list': arguments[0]}
+        key = 'Maybe' + re.sub(r'\W', '', json.dumps(arguments, sort_keys=True))
+        graph[key] = {'None': [], 'Some': [['value', arguments[0]]]}
+        return {'ref': key}
     if '.' in name:
         alias, name = name.split('.', 1)
         owner = imports[owner][alias]
@@ -79,7 +83,7 @@ def resolve(text, owner, bindings=None):
 
 
 roots = {name: resolve(type_, owner) for name, type_, owner in [
-    ('game', 'Observation', 'game'), ('core', 'Observation', 'coop-core'), ('details', 'Details', 'coop-core'),
+    ('game', 'Observation', 'game'), ('core', 'Observation', 'coop-core'),
     ('journal', 'State', 'coop-hit-journal'), ('admission', 'State', 'coop-session'),
     ('receipt', 'Receipt', 'coop-session'),
 ]}
