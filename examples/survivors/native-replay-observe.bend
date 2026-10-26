@@ -11,14 +11,14 @@ import game.bend as G
 import enemy-spatial.bend as Space
 import pools.bend as PL
 import entity-role.bend as GRole
-import bendvy-ecs-core@0.1.0.1/world.bend as W
-import bendvy-ecs-core@0.1.0.1/column.bend as Col
-import bendvy-ecs-core@0.1.0.1/lifecycle.bend as L
-import bendvy-ecs-core@0.1.0.1/change_tick.bend as Tick
-import bendvy-ecs-core@0.1.0.1/clock_state.bend as Clock
-import bendvy-ecs-core@0.1.0.1/entity_allocator.bend as A
-import bendvy-ecs-core@0.1.0.1/entity_key.bend as K
-import bendvy-ecs-core@0.1.0.1/deferred_command.bend as Deferred
+import bendvy-ecs-core@0.1.0.2/world.bend as W
+import bendvy-ecs-core@0.1.0.2/column.bend as Col
+import bendvy-ecs-core@0.1.0.2/lifecycle.bend as L
+import bendvy-ecs-core@0.1.0.2/change_tick.bend as Tick
+import bendvy-ecs-core@0.1.0.2/clock_state.bend as Clock
+import bendvy-ecs-core@0.1.0.2/entity_allocator.bend as A
+import bendvy-ecs-core@0.1.0.2/entity_key.bend as K
+import bendvy-ecs-core@0.1.0.2/deferred_command.bend as Deferred
 
 # Development-only exact observer. It returns the same affine owners.
 # Every float is its raw U32 bit pattern; lifecycle metadata is not normalized.
