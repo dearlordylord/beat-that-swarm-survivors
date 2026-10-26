@@ -1,6 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {"rootDir":".","outDir":"../../.typescript/journal","noEmit":false,"noEmitOnError":true,"types":[]},
-  "include":["journal-client.mts"],
-  "exclude":["dist","node_modules"]
-}

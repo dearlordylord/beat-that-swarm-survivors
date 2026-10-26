@@ -17,8 +17,7 @@
     "**/node_modules",
     "**/dist",
     "vendor",
-    "examples/survivors/content.mts",
-    "examples/survivors/bend-codecs.generated.mts"
+    "examples/survivors/content.mts"
   ],
   "plugins": [
     "https://plugins.dprint.dev/oxc-0.32.0.wasm"

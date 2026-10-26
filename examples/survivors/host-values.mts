@@ -47,28 +47,17 @@ export function defined<T>(value: T | null | undefined): T {
   if (value === undefined || value === null) throw new TypeError("Missing required value")
   return value
 }
-export function some<T>(value: BendMaybe<T>): T {
-  if (value.$ !== "Some") throw new TypeError("Expected a Bend Some value")
-  return value.value
-}
-
 export function displayText(value: unknown): string {
   const rendered = String(value)
   return value === null || value === undefined ? "" : rendered
 }
+export function escapeHtml(value: unknown): string {
+  return displayText(value).replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c
+  )
+}
 
 export function parseJson(source: string): unknown {
   return JSON.parse(source)
-}
-
-export function parseBendList<T>(value: unknown, parse: (value: unknown) => T): BendList<T> {
-  const result: T[] = []
-  let current = value
-  for (;;) {
-    const row = object(current)
-    if (row.$ === "Nil") return list(result)
-    if (row.$ !== "Con") throw new TypeError("Expected a Bend list")
-    result.push(parse(row.head))
-    current = row.tail
-  }
 }

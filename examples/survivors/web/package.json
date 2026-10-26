@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bash ../build-web.sh"
+    "build": "bash ../build-web.sh",
+    "preview": "astro preview --host 127.0.0.1 --port 8713"
   },
   "engines": {
     "node": ">=24.20.0"

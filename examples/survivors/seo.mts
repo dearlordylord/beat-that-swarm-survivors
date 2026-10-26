@@ -1,6 +1,6 @@
 // Build-time metadata only. Static tags are readable without running the game.
 export const SITE_ORIGIN = "https://survivors.dearlordylord.com"
-export const SITE_NAME = "Bendvy ECS examples"
+const SITE_NAME = "Bendvy ECS examples"
 export const PAGE_META = Object.freeze({
   home: {
     path: "/",
@@ -25,7 +25,7 @@ const escape = (value: unknown) =>
     /[&<>"']/g,
     (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char
   )
-export function pageMetadata(key: keyof typeof PAGE_META) {
+function pageMetadata(key: keyof typeof PAGE_META) {
   const page = PAGE_META[key]
   if (!page) throw Error(`Unknown SEO page: ${key}`)
   const url = SITE_ORIGIN + page.path,

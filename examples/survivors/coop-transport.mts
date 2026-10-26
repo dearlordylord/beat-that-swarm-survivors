@@ -1,9 +1,9 @@
-export type NativeEvent =
+type NativeEvent =
   | { type: "connected" | "disconnected" | "ready" | "connecting"; peerId: string }
   | { type: "message"; peerId: string; bytes: Uint8Array }
   | { type: "error"; message: string }
   | { type: "closed" }
-export interface NativeTransport {
+interface NativeTransport {
   endpointId(): string
   invitation(): string
   join(ticket: string): Promise<unknown>
@@ -11,12 +11,11 @@ export interface NativeTransport {
   disconnectPeer(): void
   close(): void
 }
-export type NativeCallback = (event: NativeEvent) => void
-export type TransportFactory = (callback: NativeCallback) => Promise<NativeTransport>
+type NativeCallback = (event: NativeEvent) => void
 interface NativeFactory {
-  create: TransportFactory
+  create: (callback: NativeCallback) => Promise<NativeTransport>
 }
-export interface TransportState {
+interface TransportState {
   endpoint: string
   peer: string
   connected: boolean
@@ -26,16 +25,12 @@ export interface TransportState {
   pendingBytes: number
 }
 export type TransportEvent = NativeEvent & { connectionEpoch: number; state: TransportState }
-export type TransportCallback = (event: TransportEvent) => void
-interface TransportOptions {
-  moduleUrl?: string
-  transportFactory?: TransportFactory
-}
+type TransportCallback = (event: TransportEvent) => void
 // IO only: authenticated Iroh bytes. Bend owns message parsing and game admission.
-export const MAX_FRAME_BYTES = 1024 * 1024
-export const MAX_PENDING_MESSAGES = 16
-export const MAX_PENDING_BYTES = 4 * MAX_FRAME_BYTES
-const initialized = new Map<string, Promise<NativeFactory>>()
+const MAX_FRAME_BYTES = 1024 * 1024
+const MAX_PENDING_MESSAGES = 16
+const MAX_PENDING_BYTES = 4 * MAX_FRAME_BYTES
+let initialized: Promise<NativeFactory> | undefined
 function parseNativeEvent(value: unknown): NativeEvent {
   if (typeof value !== "object" || value === null || !("type" in value))
     throw TypeError("Invalid native transport event.")
@@ -96,9 +91,10 @@ function parseNativeTransport(value: unknown): NativeTransport {
     }
   }
 }
-async function defaultFactory(callback: NativeCallback, moduleUrl: string) {
-  let loading = initialized.get(moduleUrl)
+async function defaultFactory(callback: NativeCallback) {
+  let loading = initialized
   if (!loading) {
+    const moduleUrl = new URL("./iroh/iroh_transport.js", import.meta.url).href
     loading = import(moduleUrl).then(async (value: unknown): Promise<NativeFactory> => {
       if (typeof value !== "object" || value === null || !("default" in value) || !("Transport" in value))
         throw TypeError("Invalid native transport module.")
@@ -111,9 +107,9 @@ async function defaultFactory(callback: NativeCallback, moduleUrl: string) {
         create: async (event) => parseNativeTransport(await create((raw: unknown) => event(parseNativeEvent(raw))))
       }
     })
-    initialized.set(moduleUrl, loading)
+    initialized = loading
     void loading.catch(() => {
-      if (initialized.get(moduleUrl) === loading) initialized.delete(moduleUrl)
+      if (initialized === loading) initialized = undefined
     })
   }
   return (await loading).create(callback)
@@ -128,18 +124,12 @@ export class CoopTransport {
   #peer = ""
   #pending = 0
   #pendingBytes = 0
-  static async create(
-    callback: TransportCallback,
-    {
-      moduleUrl = new URL("./iroh/iroh_transport.js", import.meta.url).href,
-      transportFactory = (event) => defaultFactory(event, moduleUrl)
-    }: TransportOptions = {}
-  ) {
+  static async create(callback: TransportCallback) {
     const pendingEvents: NativeEvent[] = []
     let deliver: NativeCallback = (event) => {
       pendingEvents.push(event)
     }
-    const transport = await transportFactory((event) => deliver(event))
+    const transport = await defaultFactory((event) => deliver(event))
     const channel = new CoopTransport(transport, callback)
     deliver = (event) => channel.#event(event)
     for (const event of pendingEvents) channel.#event(event)
@@ -149,9 +139,6 @@ export class CoopTransport {
     this.#transport = transport
     this.#callback = callback
   }
-  endpointId() {
-    return this.#transport.endpointId() || ""
-  }
   invitation() {
     return this.#transport.invitation()
   }
@@ -159,9 +146,9 @@ export class CoopTransport {
     if (this.#closed) return Promise.reject(Error("Transport is closed."))
     return this.#transport.join(ticket)
   }
-  snapshot(): TransportState {
+  #snapshot(): TransportState {
     return {
-      endpoint: this.endpointId(),
+      endpoint: this.#transport.endpointId(),
       peer: this.#peer,
       connected: this.#connected,
       closed: this.#closed,
@@ -171,7 +158,7 @@ export class CoopTransport {
     }
   }
   #emit(event: NativeEvent) {
-    this.#callback({ ...event, connectionEpoch: this.#epoch, state: this.snapshot() })
+    this.#callback({ ...event, connectionEpoch: this.#epoch, state: this.#snapshot() })
   }
   #reset() {
     this.#epoch++

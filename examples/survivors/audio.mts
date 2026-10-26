@@ -10,10 +10,8 @@ const SFX_LEVEL = 2
 export class AudioEngine {
   context!: AudioContext | null
   master!: GainNode | null
-  enabled!: boolean
   muted!: boolean
   volume!: number
-  voices!: number
   musicVoices!: number
   sfxVoices!: number
   timer!: ReturnType<typeof setTimeout> | null
@@ -34,10 +32,8 @@ export class AudioEngine {
   constructor() {
     this.context = null
     this.master = null
-    this.enabled = true
     this.muted = false
     this.volume = 0.42
-    this.voices = 0
     this.musicVoices = 0
     this.sfxVoices = 0
     this.timer = null
@@ -57,7 +53,6 @@ export class AudioEngine {
     this.soundState = Sounds.fresh()
   }
   unlock() {
-    if (!this.enabled) return
     try {
       if (!this.context) {
         const C = globalThis.AudioContext || globalThis.webkitAudioContext
@@ -75,7 +70,7 @@ export class AudioEngine {
   _gain() {
     if (this.master && this.context)
       this.master.gain.setTargetAtTime(
-        this.enabled && !this.muted ? Math.max(0, Math.min(1, this.volume)) * 0.45 : 0,
+        !this.muted ? Math.max(0, Math.min(1, this.volume)) * 0.45 : 0,
         this.context.currentTime,
         0.035
       )
@@ -89,11 +84,6 @@ export class AudioEngine {
     this.volume = Math.max(0, Math.min(1, Number(value) || 0))
     this._gain()
   }
-  setEnabled(value: boolean) {
-    this.enabled = Boolean(value)
-    this._gain()
-    if (!this.enabled) this.stop()
-  }
   _tone(
     frequency: number,
     duration: number,
@@ -106,8 +96,7 @@ export class AudioEngine {
   ) {
     gain *= bus === "music" ? MUSIC_LEVEL : SFX_LEVEL
     const c = this.context
-    if (!c || !this.master || !this.enabled || this.muted || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24)) return
-    this.voices++
+    if (!c || !this.master || this.muted || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24)) return
     this[`${bus}Voices`]++
     const osc = c.createOscillator(),
       env = c.createGain(),
@@ -128,7 +117,6 @@ export class AudioEngine {
     this.nodes.set(osc, bus)
     osc.onended = () => {
       if (this.nodes.delete(osc)) {
-        this.voices = Math.max(0, this.voices - 1)
         this[`${bus}Voices`] = Math.max(0, this[`${bus}Voices`] - 1)
       }
       osc.disconnect()
@@ -139,7 +127,7 @@ export class AudioEngine {
     osc.stop(t + duration + 0.015)
   }
   event(name: string, x = 0) {
-    if (!this.context || !this.enabled || this.muted) return
+    if (!this.context || this.muted) return
     const now = this.context.currentTime,
       limits: Partial<Record<string, number>> = {
         shot: 0.065,
@@ -211,7 +199,7 @@ export class AudioEngine {
   ) {
     gain *= bus === "music" ? MUSIC_LEVEL : SFX_LEVEL
     const c = this.context
-    if (!c || !this.master || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24) || this.muted || !this.enabled) return
+    if (!c || !this.master || this[`${bus}Voices`] >= (bus === "music" ? 32 : 24) || this.muted) return
     if (!this.noiseBuffer) {
       this.noiseBuffer = c.createBuffer(1, c.sampleRate, c.sampleRate)
       const data = this.noiseBuffer.getChannelData(0)
@@ -235,12 +223,10 @@ export class AudioEngine {
     source.connect(filter)
     filter.connect(env)
     env.connect(this.master)
-    this.voices++
     this[`${bus}Voices`]++
     this.nodes.set(source, bus)
     source.onended = () => {
       if (this.nodes.delete(source)) {
-        this.voices--
         this[`${bus}Voices`]--
       }
       source.disconnect()
@@ -395,7 +381,7 @@ export class AudioEngine {
   }
   _schedule() {
     const c = this.context
-    if (!this.playing || !this.frame || !c || c.state !== "running" || !this.enabled || this.muted) return
+    if (!this.playing || !this.frame || !c || c.state !== "running" || this.muted) return
     const now = c.currentTime
     this.scheduled = this.scheduled.filter((note) => note.time > now)
     this._refreshDanger(now)
@@ -418,7 +404,7 @@ export class AudioEngine {
   }
   update(frame: Frame, playing = true) {
     this.frame = frame
-    if (!playing || !this.context || !this.enabled || this.muted || this.context.state !== "running") {
+    if (!playing || !this.context || this.muted || this.context.state !== "running") {
       this.stop()
       return
     }
@@ -444,7 +430,6 @@ export class AudioEngine {
         node.stop()
       } catch {}
       if (this.nodes.delete(node)) {
-        this.voices = Math.max(0, this.voices - 1)
         this[`${bus}Voices`] = Math.max(0, this[`${bus}Voices`] - 1)
       }
     }

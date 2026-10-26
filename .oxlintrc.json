@@ -12,7 +12,6 @@
     "**/node_modules/**",
     ".typescript/**",
     "examples/survivors/content.mts",
-    "examples/survivors/bend-codecs.generated.mts",
     "**/.astro/**"
   ],
   "rules": {

@@ -36,7 +36,6 @@ Use Node.js 24.20.0 or newer and Python 3 for development. Install the pinned to
 
 ```sh
 npm ci
-npm ci --prefix tools/survivors-bot --ignore-scripts
 npm ci --prefix examples/survivors/web
 npm run check:typescript
 ```

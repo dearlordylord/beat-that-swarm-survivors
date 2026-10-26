@@ -1,165 +1,152 @@
 import Base
 import ../menu-progression.bend as P
+import ../menu-amount.bend as A
 import LAWS.bend as Laws
 import ../proof-facts.bend as F
 import ../../../vendor/bendlib/packages/bend-mathlib/list.bend as ML
 import ../../../vendor/bendlib/packages/bend-mathlib/nat.bend as MN
 import ../../../vendor/bendlib/packages/bend-mathlib/bool.bend as MB
-import ../../../vendor/bendlib/packages/bend-mathlib/string.bend as MS
 
-def Laws.receipt_decision_exact(seen,profile,paid): {==}
-
-def lookup_new(+key: String,+value: P.Value) -> {P.get(P.JObject{[key],[value]},key) == value : P.Value}:
-  %Equal.sym(Bool,String.eq(key,key),True{},F.string_eq_refl(key)) : {P.pick(_,value,P.JNull{}) == value : P.Value}
-  {==}
-
-def lookup_prepend(+name: String,+old: P.Value,rows: P.ObjectRows,+key: String) -> {P.get(P.object_value(P.prepend_object(name,old,rows)),key) == P.pick(String.eq(name,key),old,P.get(P.object_value(rows),key)) : P.Value}:
-  match rows:
-    case P.ObjectRows{+keys,+values}: {==}
-
-def lookup_branch(same: Bool,+name: String,+keys: List<&2,String>,+old: P.Value,+values: List<&2,P.Value>,+key: String,+value: P.Value,+next: P.ObjectRows,h: {same == String.eq(name,key) : Bool},found: {P.get(P.object_value(next),key) == value : P.Value}) -> {P.get(P.object_value(P.set_head(same,name,keys,old,values,value,next)),key) == value : P.Value}:
-  match same:
-    case True{}:
-      %h : {P.pick(_,value,P.get_rows(keys,values,key)) == value : P.Value}
-      {==}
-    case False{}:
-      %Equal.sym(P.Value,P.get(P.object_value(P.prepend_object(name,old,next)),key),P.pick(String.eq(name,key),old,P.get(P.object_value(next),key)),lookup_prepend(name,old,next,key)) : {_ == value : P.Value}
-      %h : {P.pick(_,old,P.get(P.object_value(next),key)) == value : P.Value}
-      found
-
-def lookup_rows(+keys: List<&2,String>,+values: List<&2,P.Value>,+key: String,+value: P.Value) -> {P.get(P.object_value(P.set_rows(keys,values,key,value)),key) == value : P.Value}:
-  match keys values:
-    case Con{+name,+restKeys} Con{+old,+restValues}:
-      lookup_branch(String.eq(name,key),name,restKeys,old,restValues,key,value,P.set_rows(restKeys,restValues,key,value),{==},lookup_rows(restKeys,restValues,key,value))
-    case Nil{} _: lookup_new(key,value)
-    case Con{_,_} Nil{}: lookup_new(key,value)
-
-def Laws.object_field_roundtrip(object,key,value):
-  match object:
-    case P.JObject{keys,values}: lookup_rows(keys,values,key,value)
-    case P.JNull{}: lookup_new(key,value)
-    case P.JBoolean{_}: lookup_new(key,value)
-    case P.JNumber{_,_,_}: lookup_new(key,value)
-    case P.JText{_}: lookup_new(key,value)
-    case P.JDecimal{_,_,_,_}: lookup_new(key,value)
-    case P.JRatio{_,_}: lookup_new(key,value)
-    case P.JSequence{_}: lookup_new(key,value)
-
-
-def Laws.wallet_credit_exact(awards,old,gained):
-  Laws.object_field_roundtrip(awards,"gold",P.add(old,gained))
-
-def recent_append(+rows: List<&2,P.Value>,+token: String) -> {P.recent(List.append(&2,P.Value,rows,[P.JText{token}])) == List.append(&2,P.Value,List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),[P.JText{token}]) : List<&2,P.Value>}:
-  %ML.length_append_sym(&2,P.Value,rows,[P.JText{token}]) : {List.drop(&2,P.Value,List.append(&2,P.Value,rows,[P.JText{token}]),Nat.sub(_,100n)) == List.append(&2,P.Value,List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),[P.JText{token}]) : List<&2,P.Value>}
-  %MN.add_succ_sym(List.length(&2,P.Value,rows),0n) : {List.drop(&2,P.Value,List.append(&2,P.Value,rows,[P.JText{token}]),Nat.sub(_,100n)) == List.append(&2,P.Value,List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),[P.JText{token}]) : List<&2,P.Value>}
-  %MN.add_zero_sym(List.length(&2,P.Value,rows)) : {List.drop(&2,P.Value,List.append(&2,P.Value,rows,[P.JText{token}]),Nat.sub(1n+_,100n)) == List.append(&2,P.Value,List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),[P.JText{token}]) : List<&2,P.Value>}
-  ML.drop_append_of_le_length(&2,P.Value,rows,[P.JText{token}],Nat.sub(List.length(&2,P.Value,rows),99n),MN.sub_le(List.length(&2,P.Value,rows),99n))
-
-def recent_contains(+rows: List<&2,P.Value>,+token: String) -> {P.contains(P.recent(List.append(&2,P.Value,rows,[P.JText{token}])),P.JText{token}) == True{} : Bool}:
-  %Equal.sym(List<&2,P.Value>,P.recent(List.append(&2,P.Value,rows,[P.JText{token}])),List.append(&2,P.Value,List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),[P.JText{token}]),recent_append(rows,token)) : {P.contains(_,P.JText{token}) == True{} : Bool}
-  %ML.contains_append_sym(~P.Value,~P.value_equal,List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),[P.JText{token}],P.JText{token}) : {_ == True{} : Bool}
-  %Equal.sym(Bool,String.eq(token,token),True{},F.string_eq_refl(token)) : {Bool.or(P.contains(List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),P.JText{token}),List.any.if(u => False{},_)) == True{} : Bool}
-  MB.or_true(P.contains(List.drop(&2,P.Value,rows,Nat.sub(List.length(&2,P.Value,rows),99n)),P.JText{token}))
-
-
-def Laws.receipt_stamp_retained(awards,history,token):
-  %Equal.sym(P.Value,P.get(P.set(awards,"recorded",P.JSequence{P.recent(List.append(&2,P.Value,history,[P.JText{token}]))}),"recorded"),P.JSequence{P.recent(List.append(&2,P.Value,history,[P.JText{token}]))},Laws.object_field_roundtrip(awards,"recorded",P.JSequence{P.recent(List.append(&2,P.Value,history,[P.JText{token}]))})) : {P.contains(P.sequence(_),P.JText{token}) == True{} : Bool}
-  recent_contains(history,token)
-
-def Laws.recorded_run_unchanged(profile,frame,catalog,recorded):
-  %recorded : {P.pick(_,P.JObject{["profile","added"],[profile,P.JSequence{[]}]},P.recording(profile,frame,catalog)) == P.JObject{["profile","added"],[profile,P.JSequence{[]}]} : P.Value}
-  {==}
+def Laws.receipt_decision_exact(seen,profile,paid):
+  match seen:
+    case True{}: {==}
+    case False{}: {==}
 
 def Laws.arcana_catalog_membership(profile,id,catalog): {==}
+def upgrade_admission_entry(+entry: Maybe<&2,P.Upgrade>,+profile: P.Progress,+id: U32) -> {Bool.and(P.has_upgrade(entry),Bool.and(Bool.not(Nat.is_ge(P.rank_at(P.progress_meta(profile),U32.to_nat(id)),P.upgrade_cap(entry))),A.ge(P.progress_gold(profile),P.cost_value(P.upgrade_quoted(entry,profile,id))))) == Bool.and(P.has_upgrade(entry),Bool.and(Bool.not(Nat.is_ge(P.rank_at(P.progress_meta(profile),U32.to_nat(id)),Laws.upgrade_limit(entry))),A.ge(P.progress_gold(profile),Laws.upgrade_quote(entry,P.rank_at(P.progress_meta(profile),U32.to_nat(id)))))) : Bool}:
+  match entry:
+    case None{}: {==}
+    case Some{P.Upgrade{_,_,_}}: {==}
 
+def Laws.upgrade_admission_exact(profile,id,catalog):
+  upgrade_admission_entry(P.upgrade_item(catalog,id),profile,id)
+def unlock_admission_entry(+entry: Maybe<&2,P.UnlockEntry>,+kind: P.SelectionKind,+profile: P.Progress,+id: U32,+catalog: P.Catalog) -> {Bool.and(P.purchasable(kind),Bool.and(P.has_unlock(entry),Bool.and(Bool.not(P.unlocked(profile,kind,id,catalog)),Bool.and(P.requirements_met(profile,P.unlock_condition(entry)),A.ge(P.progress_gold(profile),P.unlock_cost(entry)))))) == Bool.and(Laws.purchasable(kind),Bool.and(P.has_unlock(entry),Bool.and(Bool.not(P.unlocked(profile,kind,id,catalog)),Bool.and(P.requirements_met(profile,Laws.unlock_requirement(entry)),A.ge(P.progress_gold(profile),Laws.unlock_quote(entry)))))) : Bool}:
+  match entry kind:
+    case None{} P.Character{}: {==}
+    case None{} P.Stage{}: {==}
+    case None{} P.Arcana{}: {==}
+    case None{} P.Mode{}: {==}
+    case None{} P.Weapon{}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Character{}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Stage{}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Arcana{}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Mode{}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Weapon{}: {==}
 
-def Laws.upgrade_admission_exact(profile,id,catalog): {==}
+def Laws.unlock_admission_exact(profile,kind,id,catalog):
+  unlock_admission_entry(P.unlock_item(kind,catalog,id),kind,profile,id,catalog)
 
-def Laws.unlock_admission_exact(profile,kind,id,catalog): {==}
+def upgrade_replacement_entry(+entry: Maybe<&2,P.Upgrade>,+profile: P.Progress,+id: U32) -> {P.set_meta(P.set_gold(profile,A.subtract(P.progress_gold(profile),P.cost_value(P.upgrade_quoted(entry,profile,id)))),P.replace_at(P.progress_meta(profile),U32.to_nat(id),Nat.add(P.rank_at(P.progress_meta(profile),U32.to_nat(id)),1n))) == P.set_meta(P.set_gold(profile,A.subtract(P.progress_gold(profile),Laws.upgrade_quote(entry,P.rank_at(P.progress_meta(profile),U32.to_nat(id))))),P.replace_at(P.progress_meta(profile),U32.to_nat(id),Nat.add(P.rank_at(P.progress_meta(profile),U32.to_nat(id)),1n))) : P.Progress}:
+  match entry:
+    case None{}: {==}
+    case Some{P.Upgrade{_,_,_}}: {==}
+
+def upgrade_replacement_equal(+profile: P.Progress,+id: U32,+catalog: P.Catalog) -> {P.buy_upgrade_ok(profile,id,catalog) == Laws.upgrade_replacement(profile,id,catalog) : P.Progress}:
+  upgrade_replacement_entry(P.upgrade_item(catalog,id),profile,id)
+
+def unlock_replacement_entry(+entry: Maybe<&2,P.UnlockEntry>,+kind: P.SelectionKind,+profile: P.Progress,+id: U32,+catalog: P.Catalog) -> {P.award(P.refresh_counts(P.add_owned(P.set_gold(profile,A.subtract(P.progress_gold(profile),P.unlock_cost(entry))),kind,id)),catalog) == P.award(P.refresh_counts(P.set_owned(P.set_gold(profile,A.subtract(P.progress_gold(profile),Laws.unlock_quote(entry))),kind,P.append_id(P.owned(profile,kind),id))),catalog) : P.Progress}:
+  match entry kind profile:
+    case None{} P.Character{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case None{} P.Stage{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case None{} P.Arcana{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case None{} P.Mode{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case None{} P.Weapon{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Character{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Stage{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Arcana{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Mode{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+    case Some{P.UnlockEntry{_,_,_}} P.Weapon{} P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+
+def unlock_replacement_equal(+profile: P.Progress,+kind: P.SelectionKind,+id: U32,+catalog: P.Catalog) -> {P.purchase_ok(profile,kind,id,catalog) == Laws.unlock_replacement(profile,kind,id,catalog) : P.Progress}:
+  unlock_replacement_entry(P.unlock_item(kind,catalog,id),kind,profile,id,catalog)
+
+def purchase_decision(+test: Bool,+profile: P.Progress) -> {P.purchase_decided(test,profile) == Bool.pick(Maybe<&2,P.Progress>,test,Some{profile},None{}) : Maybe<&2,P.Progress>}:
+  match test:
+    case True{}: {==}
+    case False{}: {==}
+
+def Laws.upgrade_decision_exact(profile,id,catalog):
+  %Laws.upgrade_admission_exact(profile,id,catalog) : {P.buy_upgrade(profile,id,catalog) == Bool.pick(Maybe<&2,P.Progress>,_,Some{Laws.upgrade_replacement(profile,id,catalog)},None{}) : Maybe<&2,P.Progress>}
+  %upgrade_replacement_equal(profile,id,catalog) : {P.buy_upgrade(profile,id,catalog) == Bool.pick(Maybe<&2,P.Progress>,P.upgrade_status_canBuy(P.upgrade_status(profile,id,catalog)),Some{_},None{}) : Maybe<&2,P.Progress>}
+  purchase_decision(P.upgrade_admitted(profile,id,catalog),P.buy_upgrade_ok(profile,id,catalog))
+
+def Laws.unlock_decision_exact(profile,kind,id,catalog):
+  %Laws.unlock_admission_exact(profile,kind,id,catalog) : {P.purchase(profile,kind,id,catalog) == Bool.pick(Maybe<&2,P.Progress>,_,Some{Laws.unlock_replacement(profile,kind,id,catalog)},None{}) : Maybe<&2,P.Progress>}
+  %unlock_replacement_equal(profile,kind,id,catalog) : {P.purchase(profile,kind,id,catalog) == Bool.pick(Maybe<&2,P.Progress>,P.purchase_status_canBuy(P.purchase_status(profile,kind,id,catalog)),Some{_},None{}) : Maybe<&2,P.Progress>}
+  purchase_decision(P.purchase_admitted(profile,kind,id,catalog),P.purchase_ok(profile,kind,id,catalog))
 
 def Laws.upgrade_success_exact(profile,id,catalog,accepted):
-  %accepted : {P.pick(_,P.buy_upgrade_ok(profile,id,catalog),P.JNull{}) == P.set(P.set(profile,"gold",P.subtract(P.get(profile,"gold"),P.upgrade_cost(profile,id,catalog))),"meta",P.JSequence{P.replace_at(P.sequence(P.get(profile,"meta")),P.integer(id),P.add(P.at(P.sequence(P.get(profile,"meta")),P.integer(id)),P.one()))}) : P.Value}
+  %Equal.sym(Maybe<&2,P.Progress>,P.buy_upgrade(profile,id,catalog),Bool.pick(Maybe<&2,P.Progress>,Laws.upgrade_eligible(profile,id,catalog),Some{Laws.upgrade_replacement(profile,id,catalog)},None{}),Laws.upgrade_decision_exact(profile,id,catalog)) : {_ == Some{Laws.upgrade_replacement(profile,id,catalog)} : Maybe<&2,P.Progress>}
+  %accepted : {Bool.pick(Maybe<&2,P.Progress>,_,Some{Laws.upgrade_replacement(profile,id,catalog)},None{}) == Some{Laws.upgrade_replacement(profile,id,catalog)} : Maybe<&2,P.Progress>}
   {==}
 
 def Laws.unlock_success_exact(profile,kind,id,catalog,accepted):
-  %accepted : {P.pick(_,P.purchase_ok(profile,kind,id,catalog),P.JNull{}) == P.award(P.refresh_counts(P.set(P.set(profile,"gold",P.subtract(P.get(profile,"gold"),P.get(P.item(catalog,kind,id),"cost"))),P.owned_list(kind),P.JSequence{P.append_unique(P.sequence(P.get(P.set(profile,"gold",P.subtract(P.get(profile,"gold"),P.get(P.item(catalog,kind,id),"cost"))),P.owned_list(kind))),id)})),catalog) : P.Value}
+  %Equal.sym(Maybe<&2,P.Progress>,P.purchase(profile,kind,id,catalog),Bool.pick(Maybe<&2,P.Progress>,Laws.unlock_eligible(profile,kind,id,catalog),Some{Laws.unlock_replacement(profile,kind,id,catalog)},None{}),Laws.unlock_decision_exact(profile,kind,id,catalog)) : {_ == Some{Laws.unlock_replacement(profile,kind,id,catalog)} : Maybe<&2,P.Progress>}
+  %accepted : {Bool.pick(Maybe<&2,P.Progress>,_,Some{Laws.unlock_replacement(profile,kind,id,catalog)},None{}) == Some{Laws.unlock_replacement(profile,kind,id,catalog)} : Maybe<&2,P.Progress>}
   {==}
-
-
-def Laws.upgrade_decision_exact(profile,id,catalog): {==}
-
-def Laws.unlock_decision_exact(profile,kind,id,catalog): {==}
 
 def Laws.rank_replacement_preserves_other_slots(prefix,old,suffix,replacement):
   match prefix:
     case Nil{}: {==}
     case Con{+head,+tail}:
-      Equal.cong(List<&2,P.Value>,List<&2,P.Value>,rows => head <> rows,P.replace_at(List.append(&2,P.Value,tail,old <> suffix),List.length(&2,P.Value,tail),replacement),List.append(&2,P.Value,tail,replacement <> suffix),Laws.rank_replacement_preserves_other_slots(tail,old,suffix,replacement))
+      Equal.cong(List<&2,Nat>,List<&2,Nat>,rows => head <> rows,P.replace_at(List.append(&2,Nat,tail,old <> suffix),List.length(&2,Nat,tail),replacement),List.append(&2,Nat,tail,replacement <> suffix),Laws.rank_replacement_preserves_other_slots(tail,old,suffix,replacement))
 
+def Laws.wallet_credit_exact(awards,old,gained):
+  match awards:
+    case P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
 
-def recording_contains(+profile: P.Value,+frame: P.Value,+catalog: P.Value,+token: String,signature: {P.JText{token} == P.record_signature(frame) : P.Value}) -> {P.contains(P.sequence(P.get(P.get(P.recording(profile,frame,catalog),"profile"),"recorded")),P.JText{token}) == True{} : Bool}:
-  %signature : {P.contains(P.sequence(P.get(P.set(P.run_payment(profile,frame,catalog),"recorded",P.JSequence{P.recent(List.append(&2,P.Value,P.sequence(P.get(profile,"recorded")),[_]))}),"recorded")),P.JText{token}) == True{} : Bool}
-  %Equal.sym(P.Value,P.get(P.set(P.run_payment(profile,frame,catalog),"recorded",P.JSequence{P.recent(List.append(&2,P.Value,P.sequence(P.get(profile,"recorded")),[P.JText{token}]))}),"recorded"),P.JSequence{P.recent(List.append(&2,P.Value,P.sequence(P.get(profile,"recorded")),[P.JText{token}]))},Laws.object_field_roundtrip(P.run_payment(profile,frame,catalog),"recorded",P.JSequence{P.recent(List.append(&2,P.Value,P.sequence(P.get(profile,"recorded")),[P.JText{token}]))})) : {P.contains(P.sequence(_),P.JText{token}) == True{} : Bool}
-  recent_contains(P.sequence(P.get(profile,"recorded")),token)
+def recent_append(+rows: List<&2,String>,+token: String) -> {P.recent(List.append(&2,String,rows,[token])) == List.append(&2,String,List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),[token]) : List<&2,String>}:
+  %ML.length_append_sym(&2,String,rows,[token]) : {List.drop(&2,String,List.append(&2,String,rows,[token]),Nat.sub(_,100n)) == List.append(&2,String,List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),[token]) : List<&2,String>}
+  %MN.add_succ_sym(List.length(&2,String,rows),0n) : {List.drop(&2,String,List.append(&2,String,rows,[token]),Nat.sub(_,100n)) == List.append(&2,String,List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),[token]) : List<&2,String>}
+  %MN.add_zero_sym(List.length(&2,String,rows)) : {List.drop(&2,String,List.append(&2,String,rows,[token]),Nat.sub(1n+_,100n)) == List.append(&2,String,List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),[token]) : List<&2,String>}
+  ML.drop_append_of_le_length(&2,String,rows,[token],Nat.sub(List.length(&2,String,rows),99n),MN.sub_le(List.length(&2,String,rows),99n))
 
-def receipt_branch(seen: Bool,+profile: P.Value,+frame: P.Value,+catalog: P.Value,+token: String,signature: {P.JText{token} == P.record_signature(frame) : P.Value},condition: {seen == P.contains(P.sequence(P.get(profile,"recorded")),P.record_signature(frame)) : Bool}) -> {P.contains(P.sequence(P.get(P.get(P.pick(seen,P.JObject{["profile","added"],[profile,P.JSequence{[]}]},P.recording(profile,frame,catalog)),"profile"),"recorded")),P.JText{token}) == True{} : Bool}:
+def recent_contains(+rows: List<&2,String>,+token: String) -> {P.contains_text(P.recent(List.append(&2,String,rows,[token])),token) == True{} : Bool}:
+  %Equal.sym(List<&2,String>,P.recent(List.append(&2,String,rows,[token])),List.append(&2,String,List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),[token]),recent_append(rows,token)) : {P.contains_text(_,token) == True{} : Bool}
+  %ML.contains_append_sym(~String,~String.eq,List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),[token],token) : {_ == True{} : Bool}
+  %Equal.sym(Bool,String.eq(token,token),True{},F.string_eq_refl(token)) : {Bool.or(P.contains_text(List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),token),List.any.if(u => False{},_)) == True{} : Bool}
+  MB.or_true(P.contains_text(List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),99n)),token))
+
+def Laws.receipt_stamp_retained(awards,history,token):
+  match awards:
+    case P.Progress{_,_,_,_,_,_,_,_,_,_}: recent_contains(history,token)
+
+def Laws.recorded_run_unchanged(profile,frame,catalog,recorded):
+  %recorded : {P.record_decided(_,profile,P.recording(profile,frame,catalog)) == P.RecordResult{profile,[]} : P.RecordResult}
+  {==}
+
+def stamp_recorded(+profile: P.Progress,+history: List<&2,String>,+token: String) -> {P.progress_recorded(P.stamp_receipt(profile,history,token)) == P.recent(List.append(&2,String,history,[token])) : List<&2,String>}:
+  match profile:
+    case P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
+
+def recording_contains(+profile: P.Progress,+frame: P.RunReceipt,+catalog: P.Catalog) -> {P.contains_text(P.progress_recorded(P.record_profile(P.recording(profile,frame,catalog))),P.run_runId(frame)) == True{} : Bool}:
+  %Equal.sym(List<&2,String>,P.progress_recorded(P.stamp_receipt(P.run_payment(profile,frame,catalog),P.progress_recorded(profile),P.run_runId(frame))),P.recent(List.append(&2,String,P.progress_recorded(profile),[P.run_runId(frame)])),stamp_recorded(P.run_payment(profile,frame,catalog),P.progress_recorded(profile),P.run_runId(frame))) : {P.contains_text(_,P.run_runId(frame)) == True{} : Bool}
+  recent_contains(P.progress_recorded(profile),P.run_runId(frame))
+
+def receipt_branch(seen: Bool,+profile: P.Progress,+frame: P.RunReceipt,+catalog: P.Catalog,condition: {seen == P.contains_text(P.progress_recorded(profile),P.run_runId(frame)) : Bool}) -> {P.contains_text(P.progress_recorded(P.record_profile(P.record_decided(seen,profile,P.recording(profile,frame,catalog)))),P.run_runId(frame)) == True{} : Bool}:
   match seen:
-    case True{}:
-      Equal.sym(Bool,True{},P.contains(P.sequence(P.get(profile,"recorded")),P.JText{token}),Equal.trans(Bool,True{},P.contains(P.sequence(P.get(profile,"recorded")),P.record_signature(frame)),P.contains(P.sequence(P.get(profile,"recorded")),P.JText{token}),condition,Equal.cong(P.Value,Bool,value => P.contains(P.sequence(P.get(profile,"recorded")),value),P.record_signature(frame),P.JText{token},Equal.sym(P.Value,P.JText{token},P.record_signature(frame),signature))))
-    case False{}: recording_contains(profile,frame,catalog,token,signature)
+    case True{}: Equal.sym(Bool,True{},P.contains_text(P.progress_recorded(profile),P.run_runId(frame)),condition)
+    case False{}: recording_contains(profile,frame,catalog)
 
-def Laws.recorded_receipt_retained(profile,frame,catalog,token,signature):
-  receipt_branch(P.contains(P.sequence(P.get(profile,"recorded")),P.record_signature(frame)),profile,frame,catalog,token,signature,{==})
+def Laws.recorded_receipt_retained(profile,frame,catalog):
+  receipt_branch(P.contains_text(P.progress_recorded(profile),P.run_runId(frame)),profile,frame,catalog,{==})
 
-def Laws.public_record_idempotent(profile,frame,catalog,token,signature):
-  %signature : {P.get(P.pick(P.contains(P.sequence(P.get(P.get(P.record_run(profile,frame,catalog),"profile"),"recorded")),_),P.JObject{["profile","added"],[P.get(P.record_run(profile,frame,catalog),"profile"),P.JSequence{[]}]},P.recording(P.get(P.record_run(profile,frame,catalog),"profile"),frame,catalog)),"profile") == P.get(P.record_run(profile,frame,catalog),"profile") : P.Value}
-  %Equal.sym(Bool,P.contains(P.sequence(P.get(P.get(P.record_run(profile,frame,catalog),"profile"),"recorded")),P.JText{token}),True{},Laws.recorded_receipt_retained(profile,frame,catalog,token,signature)) : {P.get(P.pick(_,P.JObject{["profile","added"],[P.get(P.record_run(profile,frame,catalog),"profile"),P.JSequence{[]}]},P.recording(P.get(P.record_run(profile,frame,catalog),"profile"),frame,catalog)),"profile") == P.get(P.record_run(profile,frame,catalog),"profile") : P.Value}
+def Laws.public_record_idempotent(profile,frame,catalog):
+  %Equal.sym(Bool,P.contains_text(P.progress_recorded(P.record_profile(P.record_run(profile,frame,catalog))),P.run_runId(frame)),True{},Laws.recorded_receipt_retained(profile,frame,catalog)) : {P.record_profile(P.record_decided(_,P.record_profile(P.record_run(profile,frame,catalog)),P.recording(P.record_profile(P.record_run(profile,frame,catalog)),frame,catalog))) == P.record_profile(P.record_run(profile,frame,catalog)) : P.Progress}
   {==}
 
+def stamp_gold(+profile: P.Progress,+history: List<&2,String>,+token: String) -> {P.progress_gold(P.stamp_receipt(profile,history,token)) == P.progress_gold(profile) : A.Amount}:
+  match profile:
+    case P.Progress{_,_,_,_,_,_,_,_,_,_}: {==}
 
-def other_name_false(+name: String,+writeKey: String,+readKey: String,same: {True{} == String.eq(name,writeKey) : Bool},different: {False{} == String.eq(writeKey,readKey) : Bool}) -> {False{} == String.eq(name,readKey) : Bool}:
-  Equal.trans(Bool,False{},String.eq(writeKey,readKey),String.eq(name,readKey),different,Equal.cong(String,Bool,k => String.eq(k,readKey),writeKey,name,Equal.sym(String,name,writeKey,MS.eq_of_eq_true(name,writeKey,Equal.sym(Bool,True{},String.eq(name,writeKey),same)))))
+def recording_gold(+profile: P.Progress,+frame: P.RunReceipt,+catalog: P.Catalog) -> {P.progress_gold(P.record_profile(P.recording(profile,frame,catalog))) == A.add(P.progress_gold(profile),A.whole(P.run_gold(frame))) : A.Amount}:
+  %Equal.sym(A.Amount,P.progress_gold(P.stamp_receipt(P.run_payment(profile,frame,catalog),P.progress_recorded(profile),P.run_runId(frame))),P.progress_gold(P.run_payment(profile,frame,catalog)),stamp_gold(P.run_payment(profile,frame,catalog),P.progress_recorded(profile),P.run_runId(frame))) : {_ == A.add(P.progress_gold(profile),A.whole(P.run_gold(frame))) : A.Amount}
+  Laws.wallet_credit_exact(P.run_awards(profile,frame,catalog),P.progress_gold(profile),A.whole(P.run_gold(frame)))
 
-def other_branch(same: Bool,+name: String,+keys: List<&2,String>,+old: P.Value,+values: List<&2,P.Value>,+writeKey: String,+readKey: String,+value: P.Value,+next: P.ObjectRows,h: {same == String.eq(name,writeKey) : Bool},different: {False{} == String.eq(writeKey,readKey) : Bool},found: {P.get(P.object_value(next),readKey) == P.get_rows(keys,values,readKey) : P.Value}) -> {P.get(P.object_value(P.set_head(same,name,keys,old,values,value,next)),readKey) == P.get_rows(name <> keys,old <> values,readKey) : P.Value}:
-  match same:
-    case True{}:
-      %other_name_false(name,writeKey,readKey,h,different) : {P.pick(_,value,P.get_rows(keys,values,readKey)) == P.pick(_,old,P.get_rows(keys,values,readKey)) : P.Value}
-      {==}
-    case False{}:
-      %Equal.sym(P.Value,P.get(P.object_value(P.prepend_object(name,old,next)),readKey),P.pick(String.eq(name,readKey),old,P.get(P.object_value(next),readKey)),lookup_prepend(name,old,next,readKey)) : {_ == P.get_rows(name <> keys,old <> values,readKey) : P.Value}
-      Equal.cong(P.Value,P.Value,item => P.pick(String.eq(name,readKey),old,item),P.get(P.object_value(next),readKey),P.get_rows(keys,values,readKey),found)
-
-def other_new(+writeKey: String,+readKey: String,+value: P.Value,different: {False{} == String.eq(writeKey,readKey) : Bool}) -> {P.get(P.JObject{[writeKey],[value]},readKey) == P.JNull{} : P.Value}:
-  %different : {P.pick(_,value,P.JNull{}) == P.JNull{} : P.Value}
-  {==}
-
-def other_rows(+keys: List<&2,String>,+values: List<&2,P.Value>,+writeKey: String,+readKey: String,+value: P.Value,+different: {False{} == String.eq(writeKey,readKey) : Bool}) -> {P.get(P.object_value(P.set_rows(keys,values,writeKey,value)),readKey) == P.get_rows(keys,values,readKey) : P.Value}:
-  match keys values:
-    case Con{+name,+restKeys} Con{+old,+restValues}:
-      other_branch(String.eq(name,writeKey),name,restKeys,old,restValues,writeKey,readKey,value,P.set_rows(restKeys,restValues,writeKey,value),{==},different,other_rows(restKeys,restValues,writeKey,readKey,value,different))
-    case Nil{} _: other_new(writeKey,readKey,value,different)
-    case Con{_,_} Nil{}: other_new(writeKey,readKey,value,different)
-
-def Laws.object_other_field_preserved(object,writeKey,readKey,value,different):
-  match object:
-    case P.JObject{keys,values}: other_rows(keys,values,writeKey,readKey,value,different)
-    case P.JNull{}: other_new(writeKey,readKey,value,different)
-    case P.JBoolean{_}: other_new(writeKey,readKey,value,different)
-    case P.JNumber{_,_,_}: other_new(writeKey,readKey,value,different)
-    case P.JText{_}: other_new(writeKey,readKey,value,different)
-    case P.JDecimal{_,_,_,_}: other_new(writeKey,readKey,value,different)
-    case P.JRatio{_,_}: other_new(writeKey,readKey,value,different)
-    case P.JSequence{_}: other_new(writeKey,readKey,value,different)
-
-
-def recording_gold(+profile: P.Value,+frame: P.Value,+catalog: P.Value) -> {P.get(P.get(P.recording(profile,frame,catalog),"profile"),"gold") == P.add(P.get(profile,"gold"),P.whole(P.get(frame,"gold"))) : P.Value}:
-  %Equal.sym(P.Value,P.get(P.set(P.run_payment(profile,frame,catalog),"recorded",P.JSequence{P.recent(List.append(&2,P.Value,P.sequence(P.get(profile,"recorded")),[P.record_signature(frame)]))}),"gold"),P.get(P.run_payment(profile,frame,catalog),"gold"),Laws.object_other_field_preserved(P.run_payment(profile,frame,catalog),"recorded","gold",P.JSequence{P.recent(List.append(&2,P.Value,P.sequence(P.get(profile,"recorded")),[P.record_signature(frame)]))},{==})) : {_ == P.add(P.get(profile,"gold"),P.whole(P.get(frame,"gold"))) : P.Value}
-  Laws.object_field_roundtrip(P.run_awards(profile,frame,catalog),"gold",P.add(P.get(profile,"gold"),P.whole(P.get(frame,"gold"))))
-
-def record_gold_branch(seen: Bool,+profile: P.Value,+frame: P.Value,+catalog: P.Value) -> {P.get(P.get(P.pick(seen,P.JObject{["profile","added"],[profile,P.JSequence{[]}]},P.recording(profile,frame,catalog)),"profile"),"gold") == P.pick(seen,P.get(profile,"gold"),P.add(P.get(profile,"gold"),P.whole(P.get(frame,"gold")))) : P.Value}:
+def record_gold_branch(seen: Bool,+profile: P.Progress,+frame: P.RunReceipt,+catalog: P.Catalog) -> {P.progress_gold(P.record_profile(P.record_decided(seen,profile,P.recording(profile,frame,catalog)))) == A.choose(seen,P.progress_gold(profile),A.add(P.progress_gold(profile),A.whole(P.run_gold(frame)))) : A.Amount}:
   match seen:
     case True{}: {==}
     case False{}: recording_gold(profile,frame,catalog)
 
 def Laws.public_record_gold_exact(profile,frame,catalog):
-  record_gold_branch(P.contains(P.sequence(P.get(profile,"recorded")),P.record_signature(frame)),profile,frame,catalog)
+  record_gold_branch(P.contains_text(P.progress_recorded(profile),P.run_runId(frame)),profile,frame,catalog)

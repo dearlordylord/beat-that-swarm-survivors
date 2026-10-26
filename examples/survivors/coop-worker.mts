@@ -85,8 +85,8 @@ function display(result: BendABI.CoopCore.CorePacket) {
 function publish(remote = true, initial = false) {
   const observation = ++observationSeq
   const local = display(Game.core_observe(core, 0))
-  currentPhase = local.phase ?? currentPhase
-  const round = local.roundId ?? currentRound
+  currentPhase = local.phase
+  const round = local.roundId
   if (round !== currentRound || currentPhase !== 0) guestQueue = InputQueue.fresh(round, currentWorldTick)
   currentRound = round
   emit({
@@ -178,8 +178,6 @@ function acceptCommand(command: BendABI.CoopSession.Command, peer: number) {
     packet(Game.core_choose(core, peer, action.round, action.index))
     publish()
   } else if (action.$ === "Setup" && peer === 1) {
-    // The model decides both compatibility of a premature legacy Setup and
-    // whether a duplicate Setup can request world preparation.
     if (handshake({ $: "Setup" }).$ === "PrepareWorld") prepareWorld(action)
   }
 }
@@ -214,12 +212,7 @@ function schedule() {
       if (pending.state.worldTick !== frame.tick) throw Error("Input clock disagreed with the authoritative game step.")
       guestQueue = pending.state
       session = Session.applied(frame.tick, session)
-      contactJournal = HitJournal.ingest_capped(
-        contactJournal,
-        frame.tick,
-        frame.contacts || { $: "Nil" },
-        frame.contactsOmitted || 0
-      )
+      contactJournal = HitJournal.ingest_capped(contactJournal, frame.tick, frame.contacts, frame.contactsOmitted)
     }
     if (frame && frame.phase !== lastPhase) {
       lastPhase = frame.phase
@@ -289,7 +282,7 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         if (message.player === 0 || message.connectionEpoch === connectionEpoch) accept(message.text, message.player)
         break
       case "disconnect":
-        connectionEpoch = message.connectionEpoch ?? connectionEpoch
+        connectionEpoch = message.connectionEpoch
         handshake({ $: "Lost" })
         accumulator = 0
         guestQueue = InputQueue.fresh(currentRound, currentWorldTick)

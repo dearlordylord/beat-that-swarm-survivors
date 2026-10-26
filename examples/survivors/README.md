@@ -99,15 +99,11 @@ For browser builds and local play, use the Node.js version supported by [web/pac
 ```sh
 npm ci
 npm ci --prefix examples/survivors/web
-node examples/survivors/launch.mts
+npm run build --prefix examples/survivors/web
+npm run preview --prefix examples/survivors/web
 ```
 
-This opens http://127.0.0.1:8713. For static hosting, build from the repository root:
-
-```sh
-bash examples/survivors/build-web.sh
-python3 -m http.server 8713 --directory examples/survivors/dist/web
-```
+Open http://127.0.0.1:8713 for solo play or http://127.0.0.1:8713/coop.html for co-op. Astro preview serves the completed static build. Stop it with `npm run preview --prefix examples/survivors/web -- stop`. After changing source, stop preview, rebuild and start preview again.
 
 A local build writes `version.json` with the Git revision, dirty state and
 `buildContext: "local-development"`; it has no source fingerprint. The

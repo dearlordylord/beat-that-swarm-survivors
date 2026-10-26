@@ -1,9 +1,9 @@
-import { displayText, at, defined } from "./host-values.mts"
-import type { Profile, Setup, SetupKind, MenuState } from "./profile.mts"
+import { escapeHtml as esc, at, defined } from "./host-values.mts"
+import { profileStat, type Profile, type Setup, type SetupKind, type MenuState } from "./profile.mts"
 import { survivorColor, survivorSvg } from "./survivor-art.mts"
-import { startControl } from "./menu-controls.mts"
 import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS } from "./content.mts"
 import { isUnlocked, purchaseStatus } from "./progression.mts"
+const startControl = `<span class="cta-surface"><span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor"><path d="M11 1A7 7 0 1 0 15 12a6 6 0 0 1-4-11zm2 0h1v2h2v1h-2v2h-1V4h-2V3h2V1z"/></svg></span><span class="cta-label">Start Run</span><span class="cta-cap" aria-hidden="true"></span></span>`
 interface SelectionItem {
   id: number
   name: string
@@ -23,15 +23,10 @@ const catalog: Record<SetupKind, readonly SelectionItem[]> = {
 }
 const kinds: SetupKind[] = ["character", "stage", "arcana", "mode"]
 const labels = { character: "Survivor", stage: "Stage", arcana: "Arcana", mode: "Mode" }
-const esc = (value: unknown) =>
-  displayText(value).replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c
-  )
 export function portrait(id = 0, size = "large") {
   return `<div class="pixel-portrait portrait-${size}" style="--survivor:${survivorColor(id)}" aria-label="${esc((CHARACTERS[id] || at(CHARACTERS, 0)).name)}">${survivorSvg(id)}</div>`
 }
-export function stageArt(id = 0) {
+function stageArt(id = 0) {
   return `<div class="stage-art stage-art-${id}" aria-hidden="true"><div class="moon"></div><div class="ridge ridge-back"></div><div class="ridge"></div><div class="ground"></div><div class="tomb tomb-one"></div><div class="tomb tomb-two"></div><div class="tree tree-one"></div><div class="tree tree-two"></div><span class="stage-art-coordinate">${esc(at(STAGES, id).name.toUpperCase())}</span></div>`
 }
 
@@ -44,9 +39,6 @@ function icon(kind: SetupKind, item: SelectionItem) {
   if (kind === "character") return portrait(item.id, "small")
   return `<span class="choice-glyph" aria-hidden="true">${esc(kind === "arcana" ? item.icon : kind === "stage" ? ["☾", "▤", "♧", "❄", "♨"][item.id] : ["◷", "◑", "∞", "⚔"][item.id])}</span>`
 }
-function unlocked(profile: Profile, kind: SetupKind, id: number) {
-  return isUnlocked(profile, kind, id)
-}
 function inspector(profile: Profile, pending: MenuState["pendingUnlock"], kind: SetupKind) {
   if (!pending || pending.kind !== kind) return ""
   const item = catalog[kind].find((x) => x.id === pending.id)
@@ -57,12 +49,12 @@ function inspector(profile: Profile, pending: MenuState["pendingUnlock"], kind: 
   const buyable = kind === "character" || kind === "stage"
   const character = kind === "character"
   const condition = item.condition
-  const current = condition ? Math.min(condition.value, profile.stats?.[condition.stat] || 0) : 0
+  const current = condition ? Math.min(condition.value, profileStat(profile.stats, condition.stat)) : 0
   return `<section id="unlock-details-${kind}-${item.id}" class="unlock-inspector ${character ? "unlock-inspector--row" : "banner-panel"}" data-unlock-details tabindex="-1" aria-label="${esc(item.name)} unlock details">${character ? `<button class="unlock-close" data-close-unlock aria-label="Close ${esc(item.name)} details">×</button>` : ""}<div class="${character ? "unlock-heading" : "banner-heading"}">${character ? portrait(item.id, "small") : ""}<div><span class="eyebrow">${owned ? "Available" : "Locked " + labels[kind].toLowerCase()}</span><h3>${esc(item.name)}</h3>${character ? `<small>${esc(item.title)}</small>` : ""}</div></div><p>${esc(item.description)}</p>${character ? `<p class="starting-weapon-line">${startingWeapon(item.weapon ?? 0)}</p>` : ""}${item.hint ? `<div class="unlock-requirement"><p class="requirement">${eligible ? "✓ Requirement met: " : "Requirement: "}${esc(item.hint)}</p>${character && condition ? `<progress value="${current}" max="${condition.value}" aria-label="${esc(item.name)} unlock progress"></progress><small>${current.toLocaleString()} / ${condition.value.toLocaleString()}</small>` : ""}</div>` : ""}${buyable ? `<div class="purchase-line"><span>Price <strong>${item.cost} gold</strong> · Your balance <strong>${profile.gold} gold</strong></span><button class="primary" data-buy-kind="${kind}" data-buy-id="${item.id}" ${status.canBuy ? "" : "disabled"}>${owned ? "Unlocked" : "Unlock " + item.name + " · " + item.cost + " gold"}</button></div>${!owned && !eligible ? '<p class="requirement">Complete the requirement to unlock.</p>' : ""}${!owned && !status.affordable ? `<p class="requirement">Earn ${status.missingGold} more gold to buy this ${labels[kind].toLowerCase()}.</p>` : ""}` : "<p>Unlock this mode by completing its requirement.</p>"}</section>`
 }
 function picker(state: MenuState, kind: SetupKind) {
   const choices = catalog[kind].map((item) => {
-    const open = unlocked(state.profile, kind, item.id)
+    const open = isUnlocked(state.profile, kind, item.id)
     const selected = open && state[kind] === item.id
     const inspecting = state.pendingUnlock?.kind === kind && state.pendingUnlock.id === item.id
     return `<button class="choice ${selected ? "is-selected" : ""} ${open ? "" : "is-locked"} ${inspecting ? "is-inspecting" : ""}" data-${kind}="${item.id}" aria-pressed="${selected}"${!open ? ` aria-expanded="${inspecting}"${inspecting ? ` aria-controls="unlock-details-${kind}-${item.id}"` : ""}` : ""}>${icon(kind, item)}<span class="choice-copy"><strong>${esc(item.name)}</strong><small>${kind === "character" ? startingWeapon(item.weapon ?? 0, false) : esc(item.description)}</small>${selected && kind === "character" ? '<span class="equipped-badge">✓ Equipped</span>' : ""}${!open ? `<span class="locked-badge">${kind === "mode" ? "Locked · View requirement" : "Locked · " + item.cost + " gold"}</span>` : ""}${inspecting ? '<span class="viewing-badge">Viewing details</span>' : ""}</span><span class="choice-check" aria-hidden="true">${inspecting ? "−" : selected ? "✓" : open ? "+" : "◇"}</span></button>`
@@ -79,7 +71,7 @@ function picker(state: MenuState, kind: SetupKind) {
   return `<div class="choice-list choice-list--character" role="group" aria-label="Choose survivor">${rows}</div>`
 }
 
-export function renderRunCard({ character = 0, stage = 0, arcana = 0, mode = 0 }: Partial<Setup>) {
+function renderRunCard({ character = 0, stage = 0, arcana = 0, mode = 0 }: Partial<Setup>) {
   const c = CHARACTERS[character] || at(CHARACTERS, 0)
   const destination = STAGES[stage] || at(STAGES, 0)
   const charm = ARCANA[arcana] || at(ARCANA, 0)

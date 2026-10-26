@@ -2,11 +2,10 @@ import {
   parseAstroVersion,
   parseDependency,
   parseHosting,
-  parseJson,
   parseReceipt,
   parseVersion
 } from "./survivors-publication-values.mts"
-import { defined, errorCode, object } from "../examples/survivors/host-values.mts"
+import { defined, errorCode, object, parseJson } from "../examples/survivors/host-values.mts"
 import { createHash } from "node:crypto"
 import { execFile, spawn } from "node:child_process"
 import { promisify } from "node:util"
@@ -43,7 +42,6 @@ const scopes = [
   "tsconfig.json",
   "types",
   "scripts/generate-bend-types.py",
-  "scripts/generate-bend-codecs.mts",
   "scripts/generate-native-survivor-art.mts",
   "scripts/write-survivors-version.mts",
   "scripts/native-toolchain.sh",
@@ -64,7 +62,6 @@ const validRelative = (name: string) =>
   name && !path.isAbsolute(name) && !name.split("/").some((p) => p === ".." || p === "" || p === ".")
 const include = (name: string) =>
   name !== "examples/survivors/content.mts" &&
-  name !== "examples/survivors/bend-codecs.generated.mts" &&
   !name.split("/").some((p) => ["dist", "node_modules", ".astro"].includes(p))
 async function git(repo: string, args: string[]) {
   try {

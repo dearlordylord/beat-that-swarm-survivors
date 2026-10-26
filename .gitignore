@@ -22,6 +22,5 @@ __pycache__/
 .typescript/
 
 # Runtime boundary codecs derived from the checked Bend ABI
-examples/survivors/bend-codecs.generated.mts
 
 examples/survivors/network-schema.generated.mts

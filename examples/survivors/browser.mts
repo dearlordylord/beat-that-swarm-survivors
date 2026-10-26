@@ -1,5 +1,5 @@
 import { gameFrame } from "./observations.mts"
-import { displayText, defined, errorMessage, at, text } from "./host-values.mts"
+import { escapeHtml as esc, displayText, defined, errorMessage, at, text } from "./host-values.mts"
 import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { AudioEngine } from "./audio.mts"
 import type { Renderer } from "./renderer.mts"
@@ -123,11 +123,6 @@ const runResult = () => ({ ...frame, runId, ...runHistory })
 const keys = new Set(),
   touch = { x: 0, y: 0 },
   STEP = 1000 / 60
-const esc = (s: unknown) =>
-  displayText(s).replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c
-  )
 const time = (t: number) =>
   `${Math.floor(t / 60)
     .toString()

@@ -1,4 +1,4 @@
-import { displayText, defined, errorMessage } from "./host-values.mts"
+import { escapeHtml as esc, displayText, defined, errorMessage } from "./host-values.mts"
 import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { Setup, SetupKind, Profile } from "./profile.mts"
 import type { Offer, Frame } from "./frame.mts"
@@ -33,11 +33,6 @@ export interface CoopCallbacks {
 const kinds: SetupKind[] = ["character", "stage", "arcana", "mode"]
 
 // Presentation and device IO only. The controller supplies authoritative Bend frames.
-const esc = (value: unknown) =>
-  displayText(value).replace(
-    /[&<>"']/g,
-    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char
-  )
 const time = (ticks: number) =>
   `${Math.floor(ticks / 3600)
     .toString()
@@ -48,7 +43,7 @@ const catalogs = { character: CHARACTERS, arcana: ARCANA, stage: STAGES, mode: R
 const movementKeys = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"])
 // Device IO: select the nearest of the keyboard's eight directions. Independent
 // axis signs turn virtually every off-centre thumb position into a diagonal.
-export function touchDirection(x: number, y: number, radius: number) {
+function touchDirection(x: number, y: number, radius: number) {
   if (Math.hypot(x, y) < radius * 0.2) return { x: 0, y: 0 }
   const diagonalThreshold = Math.SQRT2 - 1 // tan(22.5 degrees)
   return {
@@ -56,7 +51,7 @@ export function touchDirection(x: number, y: number, radius: number) {
     y: Math.abs(y) > Math.abs(x) * diagonalThreshold ? Math.sign(y) : 0
   }
 }
-export function invitationTicket(value: unknown, base = globalThis.location?.href) {
+function invitationTicket(value: unknown, base = globalThis.location?.href) {
   const text = displayText(value || "").trim()
   try {
     const url = new URL(text, base)
@@ -67,7 +62,7 @@ export function invitationTicket(value: unknown, base = globalThis.location?.hre
   }
   return text
 }
-export function offerPresentation(offer: Offer) {
+function offerPresentation(offer: Offer) {
   const item =
     offer.kind === 5
       ? UNIONS[offer.id]
@@ -92,7 +87,7 @@ export function offerPresentation(offer: Offer) {
 }
 // The Bend progression core owns awards and durable receipt deduplication.
 // This adapter only observes rendered equipment and supplies an IO run/player key.
-export class CoopRunProgress {
+class CoopRunProgress {
   profile!: Profile
   history!: ReturnType<typeof observeRun>
   savedReceipt!: string | null

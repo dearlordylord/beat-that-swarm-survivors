@@ -8,7 +8,7 @@ export type WorkerRequest =
   | { type: "connected"; connectionEpoch: number }
   | { type: "handshake"; signal: BendABI.CoopConnection.Signal; connectionEpoch: number }
   | { type: "command"; player: number; text: string; deliveryId: number; connectionEpoch: number }
-  | { type: "disconnect"; connectionEpoch?: number }
+  | { type: "disconnect"; connectionEpoch: number }
   | { type: "stop" }
 export type WorkerReply =
   | { type: "command-consumed"; deliveryId: number }

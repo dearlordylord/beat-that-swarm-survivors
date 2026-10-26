@@ -1,479 +1,596 @@
-# All browser progression decisions live here. The host only transports values and stores JSON.
-# Exact non-negative rational arithmetic avoids F32 precision loss in accumulated gold and kills.
 import Base
+import menu-amount.bend as A
 
-type Value is Data:
-  JNull{}
-  JBoolean{value: Bool}
-  JNumber{numerator: Nat,denominator: Nat,negative: Bool}
-  JText{value: String}
-  JDecimal{value: String,numerator: List<&2,Nat>,denominator: List<&2,Nat>,negative: Bool}
-  JRatio{numerator: List<&2,Nat>,denominator: List<&2,Nat>}
-  JSequence{values: List<&2,Value>}
-  JObject{keys: List<&2,String>,values: List<&2,Value>}
+type Stat is Data:
+  Kills{}
+  TotalGold{}
+  Survive{}
+  Wins{}
+  Evolutions{}
+  Levels{}
+  Characters{}
+  Stages{}
+  Weapons{}
+  Revivals{}
+  BossKills{}
+  CharacterWins{}
+  Relics{}
 
-type DivisionStep is Data: DivisionStep{remainder: List<&2,Nat>,digit: Nat}
-def step_remainder(+step: DivisionStep) -> List<&2,Nat>:
-  match step:
-    case DivisionStep{remainder,_}: remainder
-def step_digit(+step: DivisionStep) -> Nat:
-  match step:
-    case DivisionStep{_,digit}: digit
+type SelectionKind is Data: Character{} Stage{} Arcana{} Mode{} Weapon{}
 
-# Small decimal limbs keep exact arithmetic within Bend's immediate Nat bound.
-def big_trim_zero(+rows: List<&2,Nat>) -> List<&2,Nat>:
-  match rows:
-    case Con{0n,rest}: big_trim_zero(rest)
-    case rows: rows
-def big_trim(+rows: List<&2,Nat>) -> List<&2,Nat>: List.reverse(&2,Nat,big_trim_zero(List.reverse(&2,Nat,rows)))
-def big_from_go(+fuel: Nat,+n: Nat) -> List<&2,Nat>:
-  match fuel n:
-    case _ 0n: []
-    case 0n _: []
-    case 1n+p n: Nat.mod(n,10n) <> big_from_go(p,Nat.div(n,10n))
-def big_from(+n: Nat) -> List<&2,Nat>: big_from_go(16n,n)
-def big_lex(+a: List<&2,Nat>,+b: List<&2,Nat>) -> U32:
-  match a b:
-    case Nil{} Nil{}: 1
-    case Con{+x,xs} Con{+y,ys}: Bool.pick(U32,Nat.is_eq(x,y),big_lex(xs,ys),Bool.pick(U32,Nat.is_lt(x,y),0,2))
-    case _ _: 1
-def big_cmp(+a: List<&2,Nat>,+b: List<&2,Nat>) -> U32:
-  +al = List.length(&2,Nat,a)
-  +bl = List.length(&2,Nat,b)
-  Bool.pick(U32,Nat.is_eq(al,bl),big_lex(List.reverse(&2,Nat,a),List.reverse(&2,Nat,b)),Bool.pick(U32,Nat.is_lt(al,bl),0,2))
-def big_ge(+a: List<&2,Nat>,+b: List<&2,Nat>) -> Bool: U32.is_ne(big_cmp(a,b),0)
-def big_add(+a: List<&2,Nat>,+b: List<&2,Nat>,+carry: Nat) -> List<&2,Nat>:
-  match a b:
-    case Nil{} Nil{}: big_from(carry)
-    case Con{x,xs} Nil{}:
-      +sum = Nat.add(x,carry)
-      Nat.mod(sum,10n) <> big_add(xs,[],Nat.div(sum,10n))
-    case Nil{} Con{y,ys}:
-      +sum = Nat.add(y,carry)
-      Nat.mod(sum,10n) <> big_add([],ys,Nat.div(sum,10n))
-    case Con{x,xs} Con{y,ys}:
-      +sum = Nat.add(Nat.add(x,y),carry)
-      Nat.mod(sum,10n) <> big_add(xs,ys,Nat.div(sum,10n))
-def big_sub(+a: List<&2,Nat>,+b: List<&2,Nat>,+borrow: Nat) -> List<&2,Nat>:
-  match a b:
-    case Nil{} _: []
-    case Con{+x,xs} Nil{}:
-      +owes = borrow
-      Bool.pick(Nat,Nat.is_ge(x,owes),Nat.sub(x,owes),Nat.sub(Nat.add(x,10n),owes)) <> big_sub(xs,[],Bool.pick(Nat,Nat.is_ge(x,owes),0n,1n))
-    case Con{+x,xs} Con{y,ys}:
-      +owes = Nat.add(y,borrow)
-      Bool.pick(Nat,Nat.is_ge(x,owes),Nat.sub(x,owes),Nat.sub(Nat.add(x,10n),owes)) <> big_sub(xs,ys,Bool.pick(Nat,Nat.is_ge(x,owes),0n,1n))
-def big_mul_digit(+a: List<&2,Nat>,+digit: Nat,+carry: Nat) -> List<&2,Nat>:
-  match a:
-    case Nil{}: big_from(carry)
-    case Con{x,xs}:
-      +sum = Nat.add(Nat.mul(x,digit),carry)
-      Nat.mod(sum,10n) <> big_mul_digit(xs,digit,Nat.div(sum,10n))
-def big_mul(+a: List<&2,Nat>,+b: List<&2,Nat>) -> List<&2,Nat>:
-  match a:
-    case Nil{}: []
-    case Con{x,xs}: big_trim(big_add(big_mul_digit(b,x,0n),0n <> big_mul(xs,b),0n))
-def big_div_digit(+fuel: Nat,+remainder: List<&2,Nat>,+denominator: List<&2,Nat>,+digit: Nat) -> DivisionStep:
-  match fuel:
-    case 0n: DivisionStep{remainder,digit}
-    case 1n+p:
-      +enough = big_ge(remainder,denominator)
-      big_div_digit(p,Bool.pick(List<&2,Nat>,enough,big_trim(big_sub(remainder,denominator,0n)),remainder),denominator,Nat.add(digit,U32.to_nat(Bool.to_u32(enough))))
-def big_div_go(+digits: List<&2,Nat>,+denominator: List<&2,Nat>,+remainder: List<&2,Nat>,+quotient: List<&2,Nat>) -> List<&2,Nat> & List<&2,Nat>:
-  match digits:
-    case Nil{}: (big_trim(quotient),remainder)
-    case Con{head,rest}:
-      +step = big_div_digit(10n,big_trim(head <> remainder),denominator,0n)
-      big_div_go(rest,denominator,step_remainder(step),step_digit(step) <> quotient)
-def big_div(+numerator: List<&2,Nat>,+denominator: List<&2,Nat>) -> List<&2,Nat> & List<&2,Nat>: big_div_go(List.reverse(&2,Nat,numerator),denominator,[],[])
-def big_quotient(result: List<&2,Nat> & List<&2,Nat>) -> List<&2,Nat>:
-  match result:
-    case (quotient,_): quotient
-def big_remainder(result: List<&2,Nat> & List<&2,Nat>) -> List<&2,Nat>:
-  match result:
-    case (_,remainder): remainder
-def bounded_digit(+tooBig: Bool,+acc: Nat,+digit: Nat) -> Nat:
-  match tooBig:
-    case True{}: Nat.add(Nat.mul(65536n,4294967295n),65535n)
-    case False{}: Nat.add(Nat.mul(acc,10n),digit)
-def big_to_go(+rows: List<&2,Nat>,+acc: Nat) -> Nat:
-  match rows:
-    case Nil{}: acc
-    case Con{head,rest}: big_to_go(rest,bounded_digit(Nat.is_gt(acc,Nat.sub(Nat.div(Nat.add(Nat.mul(65536n,4294967295n),65535n),10n),1n)),acc,head))
-def big_to(+rows: List<&2,Nat>) -> Nat: big_to_go(List.reverse(&2,Nat,rows),0n)
+type Stats is Data: Stats{kills: A.Amount,totalgold: A.Amount,survive: A.Amount,wins: A.Amount,evolutions: A.Amount,levels: A.Amount,characters: A.Amount,stages: A.Amount,weapons: A.Amount,revivals: A.Amount,bosskills: A.Amount,characterwins: A.Amount,relics: A.Amount}
 
-def pick(+test: Bool,+yes: Value,+no: Value) -> Value:
+type Collection is Data: Collection{weapons: List<&2,U32>,evolutions: List<&2,U32>,enemies: List<&2,U32>}
+
+type Progress is Data: Progress{gold: A.Amount,meta: List<&2,Nat>,characters: List<&2,U32>,stages: List<&2,U32>,achievements: List<&2,String>,stats: Stats,collection: Collection,stageRelics: List<&2,U32>,wonCharacters: List<&2,U32>,recorded: List<&2,String>}
+
+type Setup is Data: Setup{character: U32,stage: U32,arcana: U32,mode: U32}
+
+type Condition is Data: Condition{stat: Stat,threshold: A.Amount}
+
+type UnlockEntry is Data: UnlockEntry{id: U32,cost: A.Amount,condition: Maybe<&2,Condition>}
+
+type ModeEntry is Data: ModeEntry{id: U32,condition: Maybe<&2,Condition>}
+
+type Upgrade is Data: Upgrade{id: U32,costBase: Nat,maxLevel: Nat}
+
+type WeaponUnlock is Data: WeaponUnlock{id: U32,condition: Maybe<&2,Condition>,stageRelic: Maybe<&2,U32>}
+
+type Achievement is Data: Achievement{id: String,conditions: List<&2,Condition>}
+
+type Catalog is Data: Catalog{characters: List<&2,UnlockEntry>,stages: List<&2,UnlockEntry>,arcana: List<&2,U32>,modes: List<&2,ModeEntry>,upgrades: List<&2,Upgrade>,weapons: List<&2,U32>,weaponUnlocks: List<&2,WeaponUnlock>,achievements: List<&2,Achievement>}
+
+type History is Data: History{usedWeapons: List<&2,U32>,evolvedWeapons: List<&2,U32>}
+
+type RunReceipt is Data: RunReceipt{runId: String,character: U32,stage: U32,tick: Nat,gold: A.Amount,kills: A.Amount,level: A.Amount,phase: U32,revivalsUsed: A.Amount,bossesKilled: A.Amount,relicCollected: Bool,weapons: List<&2,Nat>,enemiesKilled: List<&2,U32>,history: History}
+
+type UpgradeStatus is Data: UpgradeStatus{rank: Nat,cost: Maybe<&2,A.Amount>,maxed: Bool,canBuy: Bool}
+
+type PurchaseStatus is Data: PurchaseStatus{owned: Bool,eligible: Bool,affordable: Bool,canBuy: Bool,missingGold: A.Amount,cost: Maybe<&2,A.Amount>}
+
+type RecordResult is Data: RecordResult{profile: Progress,added: List<&2,String>}
+
+def progress_gold(+value: Progress) -> A.Amount:
+  match value:
+    case Progress{gold,_,_,_,_,_,_,_,_,_}: gold
+
+def progress_meta(+value: Progress) -> List<&2,Nat>:
+  match value:
+    case Progress{_,meta,_,_,_,_,_,_,_,_}: meta
+
+def progress_characters(+value: Progress) -> List<&2,U32>:
+  match value:
+    case Progress{_,_,characters,_,_,_,_,_,_,_}: characters
+
+def progress_stages(+value: Progress) -> List<&2,U32>:
+  match value:
+    case Progress{_,_,_,stages,_,_,_,_,_,_}: stages
+
+def progress_achievements(+value: Progress) -> List<&2,String>:
+  match value:
+    case Progress{_,_,_,_,achievements,_,_,_,_,_}: achievements
+
+def progress_stats(+value: Progress) -> Stats:
+  match value:
+    case Progress{_,_,_,_,_,stats,_,_,_,_}: stats
+
+def progress_collection(+value: Progress) -> Collection:
+  match value:
+    case Progress{_,_,_,_,_,_,collection,_,_,_}: collection
+
+def progress_stageRelics(+value: Progress) -> List<&2,U32>:
+  match value:
+    case Progress{_,_,_,_,_,_,_,stageRelics,_,_}: stageRelics
+
+def progress_wonCharacters(+value: Progress) -> List<&2,U32>:
+  match value:
+    case Progress{_,_,_,_,_,_,_,_,wonCharacters,_}: wonCharacters
+
+def progress_recorded(+value: Progress) -> List<&2,String>:
+  match value:
+    case Progress{_,_,_,_,_,_,_,_,_,recorded}: recorded
+
+def catalog_characters(+value: Catalog) -> List<&2,UnlockEntry>:
+  match value:
+    case Catalog{characters,_,_,_,_,_,_,_}: characters
+
+def catalog_stages(+value: Catalog) -> List<&2,UnlockEntry>:
+  match value:
+    case Catalog{_,stages,_,_,_,_,_,_}: stages
+
+def catalog_arcana(+value: Catalog) -> List<&2,U32>:
+  match value:
+    case Catalog{_,_,arcana,_,_,_,_,_}: arcana
+
+def catalog_modes(+value: Catalog) -> List<&2,ModeEntry>:
+  match value:
+    case Catalog{_,_,_,modes,_,_,_,_}: modes
+
+def catalog_upgrades(+value: Catalog) -> List<&2,Upgrade>:
+  match value:
+    case Catalog{_,_,_,_,upgrades,_,_,_}: upgrades
+
+def catalog_weapons(+value: Catalog) -> List<&2,U32>:
+  match value:
+    case Catalog{_,_,_,_,_,weapons,_,_}: weapons
+
+def catalog_weaponUnlocks(+value: Catalog) -> List<&2,WeaponUnlock>:
+  match value:
+    case Catalog{_,_,_,_,_,_,weaponUnlocks,_}: weaponUnlocks
+
+def catalog_achievements(+value: Catalog) -> List<&2,Achievement>:
+  match value:
+    case Catalog{_,_,_,_,_,_,_,achievements}: achievements
+
+def run_runId(+value: RunReceipt) -> String:
+  match value:
+    case RunReceipt{runId,_,_,_,_,_,_,_,_,_,_,_,_,_}: runId
+
+def run_character(+value: RunReceipt) -> U32:
+  match value:
+    case RunReceipt{_,character,_,_,_,_,_,_,_,_,_,_,_,_}: character
+
+def run_stage(+value: RunReceipt) -> U32:
+  match value:
+    case RunReceipt{_,_,stage,_,_,_,_,_,_,_,_,_,_,_}: stage
+
+def run_tick(+value: RunReceipt) -> Nat:
+  match value:
+    case RunReceipt{_,_,_,tick,_,_,_,_,_,_,_,_,_,_}: tick
+
+def run_gold(+value: RunReceipt) -> A.Amount:
+  match value:
+    case RunReceipt{_,_,_,_,gold,_,_,_,_,_,_,_,_,_}: gold
+
+def run_kills(+value: RunReceipt) -> A.Amount:
+  match value:
+    case RunReceipt{_,_,_,_,_,kills,_,_,_,_,_,_,_,_}: kills
+
+def run_level(+value: RunReceipt) -> A.Amount:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,level,_,_,_,_,_,_,_}: level
+
+def run_phase(+value: RunReceipt) -> U32:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,phase,_,_,_,_,_,_}: phase
+
+def run_revivalsUsed(+value: RunReceipt) -> A.Amount:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,_,revivalsUsed,_,_,_,_,_}: revivalsUsed
+
+def run_bossesKilled(+value: RunReceipt) -> A.Amount:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,_,_,bossesKilled,_,_,_,_}: bossesKilled
+
+def run_relicCollected(+value: RunReceipt) -> Bool:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,_,_,_,relicCollected,_,_,_}: relicCollected
+
+def run_weapons(+value: RunReceipt) -> List<&2,Nat>:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,_,_,_,_,weapons,_,_}: weapons
+
+def run_enemiesKilled(+value: RunReceipt) -> List<&2,U32>:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,_,_,_,_,_,enemiesKilled,_}: enemiesKilled
+
+def run_history(+value: RunReceipt) -> History:
+  match value:
+    case RunReceipt{_,_,_,_,_,_,_,_,_,_,_,_,_,history}: history
+
+def history_usedWeapons(+value: History) -> List<&2,U32>:
+  match value:
+    case History{usedWeapons,_}: usedWeapons
+
+def history_evolvedWeapons(+value: History) -> List<&2,U32>:
+  match value:
+    case History{_,evolvedWeapons}: evolvedWeapons
+
+def collection_weapons(+value: Collection) -> List<&2,U32>:
+  match value:
+    case Collection{weapons,_,_}: weapons
+
+def upgrade_id(+value: Upgrade) -> U32:
+  match value:
+    case Upgrade{id,_,_}: id
+
+def upgrade_maxLevel(+value: Upgrade) -> Nat:
+  match value:
+    case Upgrade{_,_,maxLevel}: maxLevel
+
+def unlockentry_id(+value: UnlockEntry) -> U32:
+  match value:
+    case UnlockEntry{id,_,_}: id
+
+def modeentry_id(+value: ModeEntry) -> U32:
+  match value:
+    case ModeEntry{id,_}: id
+
+def weaponunlock_id(+value: WeaponUnlock) -> U32:
+  match value:
+    case WeaponUnlock{id,_,_}: id
+
+def upgrade_status_canBuy(+value: UpgradeStatus) -> Bool:
+  match value:
+    case UpgradeStatus{_,_,_,canBuy}: canBuy
+
+def purchase_status_canBuy(+value: PurchaseStatus) -> Bool:
+  match value:
+    case PurchaseStatus{_,_,_,canBuy,_,_}: canBuy
+
+def record_profile(+value: RecordResult) -> Progress:
+  match value:
+    case RecordResult{profile,_}: profile
+
+def record_added(+value: RecordResult) -> List<&2,String>:
+  match value:
+    case RecordResult{_,added}: added
+
+def setup_character(+value: Setup) -> U32:
+  match value:
+    case Setup{character,_,_,_}: character
+
+def setup_stage(+value: Setup) -> U32:
+  match value:
+    case Setup{_,stage,_,_}: stage
+
+def setup_arcana(+value: Setup) -> U32:
+  match value:
+    case Setup{_,_,arcana,_}: arcana
+
+def setup_mode(+value: Setup) -> U32:
+  match value:
+    case Setup{_,_,_,mode}: mode
+
+def set_gold(+profile: Progress,+value: A.Amount) -> Progress:
+  match profile:
+    case Progress{_,meta,characters,stages,achievements,stats,collection,stageRelics,wonCharacters,recorded}: Progress{value,meta,characters,stages,achievements,stats,collection,stageRelics,wonCharacters,recorded}
+
+def set_meta(+profile: Progress,+value: List<&2,Nat>) -> Progress:
+  match profile:
+    case Progress{gold,_,characters,stages,achievements,stats,collection,stageRelics,wonCharacters,recorded}: Progress{gold,value,characters,stages,achievements,stats,collection,stageRelics,wonCharacters,recorded}
+
+def set_characters(+profile: Progress,+value: List<&2,U32>) -> Progress:
+  match profile:
+    case Progress{gold,meta,_,stages,achievements,stats,collection,stageRelics,wonCharacters,recorded}: Progress{gold,meta,value,stages,achievements,stats,collection,stageRelics,wonCharacters,recorded}
+
+def set_stages(+profile: Progress,+value: List<&2,U32>) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,_,achievements,stats,collection,stageRelics,wonCharacters,recorded}: Progress{gold,meta,characters,value,achievements,stats,collection,stageRelics,wonCharacters,recorded}
+
+def set_achievements(+profile: Progress,+value: List<&2,String>) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,stages,_,stats,collection,stageRelics,wonCharacters,recorded}: Progress{gold,meta,characters,stages,value,stats,collection,stageRelics,wonCharacters,recorded}
+
+def set_stats(+profile: Progress,+value: Stats) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,stages,achievements,_,collection,stageRelics,wonCharacters,recorded}: Progress{gold,meta,characters,stages,achievements,value,collection,stageRelics,wonCharacters,recorded}
+
+def set_collection(+profile: Progress,+value: Collection) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,stages,achievements,stats,_,stageRelics,wonCharacters,recorded}: Progress{gold,meta,characters,stages,achievements,stats,value,stageRelics,wonCharacters,recorded}
+
+def set_stageRelics(+profile: Progress,+value: List<&2,U32>) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,stages,achievements,stats,collection,_,wonCharacters,recorded}: Progress{gold,meta,characters,stages,achievements,stats,collection,value,wonCharacters,recorded}
+
+def set_wonCharacters(+profile: Progress,+value: List<&2,U32>) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,stages,achievements,stats,collection,stageRelics,_,recorded}: Progress{gold,meta,characters,stages,achievements,stats,collection,stageRelics,value,recorded}
+
+def set_recorded(+profile: Progress,+value: List<&2,String>) -> Progress:
+  match profile:
+    case Progress{gold,meta,characters,stages,achievements,stats,collection,stageRelics,wonCharacters,_}: Progress{gold,meta,characters,stages,achievements,stats,collection,stageRelics,wonCharacters,value}
+
+def stat(+key: Stat,+stats: Stats) -> A.Amount:
+  match key stats:
+
+    case Kills{} Stats{kills,_,_,_,_,_,_,_,_,_,_,_,_}: kills
+
+    case TotalGold{} Stats{_,totalgold,_,_,_,_,_,_,_,_,_,_,_}: totalgold
+
+    case Survive{} Stats{_,_,survive,_,_,_,_,_,_,_,_,_,_}: survive
+
+    case Wins{} Stats{_,_,_,wins,_,_,_,_,_,_,_,_,_}: wins
+
+    case Evolutions{} Stats{_,_,_,_,evolutions,_,_,_,_,_,_,_,_}: evolutions
+
+    case Levels{} Stats{_,_,_,_,_,levels,_,_,_,_,_,_,_}: levels
+
+    case Characters{} Stats{_,_,_,_,_,_,characters,_,_,_,_,_,_}: characters
+
+    case Stages{} Stats{_,_,_,_,_,_,_,stages,_,_,_,_,_}: stages
+
+    case Weapons{} Stats{_,_,_,_,_,_,_,_,weapons,_,_,_,_}: weapons
+
+    case Revivals{} Stats{_,_,_,_,_,_,_,_,_,revivals,_,_,_}: revivals
+
+    case BossKills{} Stats{_,_,_,_,_,_,_,_,_,_,bosskills,_,_}: bosskills
+
+    case CharacterWins{} Stats{_,_,_,_,_,_,_,_,_,_,_,characterwins,_}: characterwins
+
+    case Relics{} Stats{_,_,_,_,_,_,_,_,_,_,_,_,relics}: relics
+
+def set_stat(+key: Stat,+stats: Stats,+value: A.Amount) -> Stats:
+  match key stats:
+
+    case Kills{} Stats{_,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{value,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case TotalGold{} Stats{kills,_,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,value,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case Survive{} Stats{kills,totalgold,_,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,value,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case Wins{} Stats{kills,totalgold,survive,_,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,value,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case Evolutions{} Stats{kills,totalgold,survive,wins,_,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,wins,value,levels,characters,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case Levels{} Stats{kills,totalgold,survive,wins,evolutions,_,characters,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,wins,evolutions,value,characters,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case Characters{} Stats{kills,totalgold,survive,wins,evolutions,levels,_,stages,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,wins,evolutions,levels,value,stages,weapons,revivals,bosskills,characterwins,relics}
+
+    case Stages{} Stats{kills,totalgold,survive,wins,evolutions,levels,characters,_,weapons,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,wins,evolutions,levels,characters,value,weapons,revivals,bosskills,characterwins,relics}
+
+    case Weapons{} Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,_,revivals,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,value,revivals,bosskills,characterwins,relics}
+
+    case Revivals{} Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,_,bosskills,characterwins,relics}: Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,value,bosskills,characterwins,relics}
+
+    case BossKills{} Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,_,characterwins,relics}: Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,value,characterwins,relics}
+
+    case CharacterWins{} Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,_,relics}: Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,value,relics}
+
+    case Relics{} Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,_}: Stats{kills,totalgold,survive,wins,evolutions,levels,characters,stages,weapons,revivals,bosskills,characterwins,value}
+
+def contains_id(+rows: List<&2,U32>,+id: U32) -> Bool: List.contains(~U32,~U32.is_eq,rows,id)
+def contains_text(+rows: List<&2,String>,+id: String) -> Bool: List.contains(~String,~String.eq,rows,id)
+def append_id_decided(+seen: Bool,+rows: List<&2,U32>,+id: U32) -> List<&2,U32>:
+  match seen:
+    case True{}: rows
+    case False{}: List.append(&2,U32,rows,[id])
+def append_id(+rows: List<&2,U32>,+id: U32) -> List<&2,U32>: append_id_decided(contains_id(rows,id),rows,id)
+def maybe_id(+test: Bool,+rows: List<&2,U32>,+id: U32) -> List<&2,U32>:
   match test:
-    case True{}: yes
-    case False{}: no
-
-def natural(+value: Nat) -> Value: JNumber{value,1n,False{}}
-def zero() -> Value: natural(0n)
-def one() -> Value: natural(1n)
-def is_null(+value: Value) -> Bool:
-  match value:
-    case JNull{}: True{}
-    case _: False{}
-def flag(+value: Bool) -> Value: JBoolean{value}
-def sequence(+values: Value) -> List<&2,Value>:
-  match values:
-    case JSequence{rows}: rows
-    case _: []
-def object_keys(+value: Value) -> List<&2,String>:
-  match value:
-    case JObject{keys,_}: keys
-    case _: []
-def text(+value: Value) -> String:
-  match value:
-    case JText{value}: value
-    case _: ""
-def get_rows(+keys: List<&2,String>,+values: List<&2,Value>,+key: String) -> Value:
-  match keys values:
-    case Con{name,restKeys} Con{value,restValues}:
-      pick(String.eq(name,key),value,get_rows(restKeys,restValues,key))
-    case _ _: JNull{}
-def get(+object: Value,+key: String) -> Value:
-  match object:
-    case JObject{keys,values}: get_rows(keys,values,key)
-    case _: JNull{}
-# Object updates carry their shape in the type, so lookup laws need no malformed-value premise.
-type ObjectRows is Data: ObjectRows{keys: List<&2,String>,values: List<&2,Value>}
-def prepend_object(+name: String,+old: Value,+value: ObjectRows) -> ObjectRows:
-  match value:
-    case ObjectRows{keys,values}: ObjectRows{name <> keys,old <> values}
-def set_head(+test: Bool,+name: String,+restKeys: List<&2,String>,+old: Value,+restValues: List<&2,Value>,+value: Value,+next: ObjectRows) -> ObjectRows:
-  match test:
-    case True{}: ObjectRows{name <> restKeys,value <> restValues}
-    case False{}: prepend_object(name,old,next)
-def set_rows(+keys: List<&2,String>,+values: List<&2,Value>,+key: String,+value: Value) -> ObjectRows:
-  match keys values:
-    case Con{+name,+restKeys} Con{old,+restValues}: set_head(String.eq(name,key),name,restKeys,old,restValues,value,set_rows(restKeys,restValues,key,value))
-    case _ _: ObjectRows{[key],[value]}
-def object_value(rows: ObjectRows) -> Value:
-  match rows:
-    case ObjectRows{keys,values}: JObject{keys,values}
-def set(+object: Value,+key: String,+value: Value) -> Value:
-  match object:
-    case JObject{keys,values}: object_value(set_rows(keys,values,key,value))
-    case _: JObject{[key],[value]}
-def is_sequence(+value: Value) -> Bool:
-  match value:
-    case JSequence{_}: True{}
-    case _: False{}
-def read_natural(+result: Maybe<&2,Nat>) -> Value:
-  match result:
-    case Some{value}: natural(value)
-    case None{}: zero()
-def ratio(+value: Value) -> Value:
-  match value:
-    case JNumber{n,d,_}: JRatio{big_from(n),big_from(d)}
-    case JRatio{n,d}: JRatio{n,d}
-    case JDecimal{_,n,d,_}: JRatio{n,d}
-    case _: JRatio{[],[1n]}
-def decimal_digit(+char: Char) -> Nat:
-  match char:
-    case Chr{code}: U32.to_nat(U32.sub(code,48))
-def valid_decimal_digits(+chars: List<&2,Char>) -> Bool:
-  match chars:
-    case Nil{}: True{}
-    case Con{head,rest}: Bool.and(Nat.is_lt(decimal_digit(head),10n),valid_decimal_digits(rest))
-def decimal_digits(+chars: List<&2,Char>) -> List<&2,Nat>:
-  match chars:
-    case Nil{}: []
-    case Con{head,rest}: decimal_digit(head) <> decimal_digits(rest)
-def parsed_decimal(+whole: String,+fraction: String) -> Value:
-  +digits = String.to_list(whole ++ fraction)
-  pick(valid_decimal_digits(digits),JRatio{big_trim(List.reverse(&2,Nat,decimal_digits(digits))),List.append(&2,Nat,List.replicate(Nat,String.length(fraction),0n),[1n])},zero())
-def decimal_parts(+parts: List<&2,String>) -> Value:
-  match parts:
-    case Con{whole,Nil{}}: parsed_decimal(whole,"")
-    case Con{whole,Con{fraction,Nil{}}}: parsed_decimal(whole,fraction)
-    case _: zero()
-def decimal_unsigned(+value: String) -> Value: decimal_parts(String.split(value,'.'))
-def decimal_sign(+value: String) -> Value:
-  match value:
-    case SCon{'-',_}: zero()
-    case SCon{'+',rest}: decimal_unsigned(rest)
-    case value: decimal_unsigned(value)
-def parse_number(+value: String) -> Value: decimal_sign(String.trim(value))
-def number(+value: Value) -> Value:
-  match value:
-    case JNumber{n,+d,False{}}: pick(Nat.is_gt(d,0n),JNumber{n,d,False{}},zero())
-    case JDecimal{v,n,+d,False{}}: pick(Nat.is_gt(List.length(&2,Nat,d),0n),JDecimal{v,n,d,False{}},zero())
-    case JRatio{n,+d}: pick(Nat.is_gt(List.length(&2,Nat,d),0n),JRatio{n,d},zero())
-    case JText{value}: parse_number(value)
-    case JBoolean{True{}}: one()
-    case _: zero()
-def integer_data(+value: Value) -> Nat:
-  match value:
-    case JRatio{n,d}: big_to(big_quotient(big_div(n,d)))
-    case _: 0n
-def integer(+value: Value) -> Nat: integer_data(ratio(number(value)))
-def whole_ratio(+value: Value) -> Value:
-  match value:
-    case JRatio{n,d}: JRatio{big_quotient(big_div(n,d)),[1n]}
-    case _: zero()
-def whole(+value: Value) -> Value: whole_ratio(ratio(number(value)))
-def integer_value(+value: Value) -> Bool:
-  match value:
-    case JNumber{n,+d,_}: Bool.and(Nat.is_gt(d,0n),Nat.is_eq(Nat.mod(n,d),0n))
-    case _: False{}
-def equal(+a: Value,+b: Value) -> Bool:
-  match a b:
-    case JNull{} JNull{}: True{}
-    case JBoolean{x} JBoolean{y}: Bool.not(Bool.xor(x,y))
-    case JText{x} JText{y}: String.eq(x,y)
-    case JNumber{n,d,s} JNumber{m,e,t}: Bool.and(Bool.not(Bool.xor(s,t)),Nat.is_eq(Nat.mul(n,e),Nat.mul(m,d)))
-    case _ _: False{}
-def at(+values: List<&2,Value>,+index: Nat) -> Value:
-  match values index:
+    case True{}: append_id(rows,id)
+    case False{}: rows
+def rank_at(+rows: List<&2,Nat>,+index: Nat) -> Nat:
+  match rows index:
     case Con{head,_} 0n: head
-    case Con{_,tail} 1n+p: at(tail,p)
-    case _ _: JNull{}
-def value_equal(a: Value,b: Value) -> Bool: equal(a,b)
-def contains(+values: List<&2,Value>,+value: Value) -> Bool:
-  List.contains(~Value,~value_equal,values,value)
-def append_unique_if(+test: Bool,+values: List<&2,Value>,+value: Value) -> List<&2,Value>:
-  match test:
-    case True{}: values
-    case False{}: List.append(&2,Value,values,[value])
-def append_unique(+values: List<&2,Value>,+value: Value) -> List<&2,Value>: append_unique_if(contains(values,value),values,value)
-def maybe_append(+test: Bool,+values: List<&2,Value>,+value: Value) -> List<&2,Value>:
-  match test:
-    case True{}: append_unique(values,value)
-    case False{}: values
-def unique_go(+values: List<&2,Value>,+acc: List<&2,Value>) -> List<&2,Value>:
-  match values:
-    case Nil{}: acc
-    case Con{head,tail}: unique_go(tail,append_unique(acc,head))
-def unique(+value: Value) -> Value: JSequence{unique_go(sequence(value),[])}
-def ge_data(+a: Value,+b: Value) -> Bool:
-  match a b:
-    case JRatio{n,d} JRatio{m,e}: big_ge(big_mul(n,e),big_mul(m,d))
-    case _ _: False{}
-def ge(+a: Value,+b: Value) -> Bool: ge_data(ratio(number(a)),ratio(number(b)))
-def add_data(+a: Value,+b: Value) -> Value:
-  match a b:
-    case JRatio{n,+d} JRatio{m,+e}: JRatio{big_trim(big_add(big_mul(n,e),big_mul(m,d),0n)),big_mul(d,e)}
-    case _ _: zero()
-def add(+a: Value,+b: Value) -> Value: add_data(ratio(number(a)),ratio(number(b)))
-def subtract_data(+a: Value,+b: Value) -> Value:
-  match a b:
-    case JRatio{n,+d} JRatio{m,+e}:
-      +left = big_mul(n,e)
-      +right = big_mul(m,d)
-      pick(big_ge(left,right),JRatio{big_trim(big_sub(left,right,0n)),big_mul(d,e)},zero())
-    case _ _: zero()
-def subtract(+a: Value,+b: Value) -> Value: subtract_data(ratio(number(a)),ratio(number(b)))
-def maximum(+a: Value,+b: Value) -> Value: pick(ge(a,b),a,b)
-def minimum(+a: Value,+b: Value) -> Value: pick(ge(a,b),b,a)
-def length(+value: Value) -> Value: natural(List.length(&2,Value,sequence(value)))
-def fresh() -> Value: JObject{["version","gold","meta","characters","stages","achievements","stats","collection","stageRelics","wonCharacters","recorded","settings"],[JNumber{1n,1n,False{}},JNumber{0n,1n,False{}},JSequence{[JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}}]},JSequence{[JNumber{0n,1n,False{}}]},JSequence{[JNumber{0n,1n,False{}}]},JSequence{[]},JObject{["kills","totalgold","survive","wins","evolutions","levels","characters","stages","weapons","revivals","bosskills","characterwins","relics"],[JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{1n,1n,False{}},JNumber{1n,1n,False{}},JNumber{1n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}},JNumber{0n,1n,False{}}]},JObject{["weapons","evolutions","enemies"],[JSequence{[]},JSequence{[]},JSequence{[]}]},JSequence{[]},JSequence{[]},JSequence{[]},JObject{["muted","volume","reducedMotion","showDamage"],[JBoolean{False{}},JNumber{35n,100n,False{}},JBoolean{False{}},JBoolean{True{}}]}]}
-
-def merge_rows(+keys: List<&2,String>,+values: List<&2,Value>,+object: Value) -> Value:
-  match keys values:
-    case Con{key,restKeys} Con{value,restValues}: merge_rows(restKeys,restValues,set(object,key,value))
-    case _ _: object
-def merge(+object: Value,+extra: Value) -> Value:
-  match extra:
-    case JObject{keys,values}: merge_rows(keys,values,object)
-    case _: object
-def copy_rows(+keys: List<&2,String>,+raw: Value,+base: Value) -> Value:
-  match keys:
-    case Nil{}: base
-    case Con{+key,rest}: copy_rows(rest,raw,set(base,key,pick(is_null(get(raw,key)),get(base,key),get(raw,key))))
-def by_id(+rows: List<&2,Value>,+id: Value) -> Value:
-  match rows:
-    case Nil{}: JNull{}
-    case Con{+head,tail}: pick(equal(get(head,"id"),id),head,by_id(tail,id))
-def catalog_name(+kind: String) -> String:
-  match kind:
-    case "character": "CHARACTERS"
-    case "stage": "STAGES"
-    case "mode": "RUN_MODES"
-    case "weapon": "WEAPONS"
-    case "arcana": "ARCANA"
-    case _: ""
-def item(+catalog: Value,+kind: String,+id: Value) -> Value: by_id(sequence(get(catalog,catalog_name(kind))),id)
-def normalize_meta(+rows: List<&2,Value>,+ranks: List<&2,Value>,+index: Nat) -> List<&2,Value>:
-  match rows:
-    case Nil{}: []
-    case Con{head,tail}: minimum(whole(at(ranks,index)),get(head,"maxLevel")) <> normalize_meta(tail,ranks,1n+index)
-def valid_catalog_ids(+values: List<&2,Value>,+catalog: List<&2,Value>,+acc: List<&2,Value>) -> List<&2,Value>:
-  match values:
-    case Nil{}: acc
-    case Con{+head,tail}: valid_catalog_ids(tail,catalog,maybe_append(Bool.not(is_null(by_id(catalog,head))),acc,head))
-def valid_integers(+values: List<&2,Value>,+acc: List<&2,Value>) -> List<&2,Value>:
-  match values:
-    case Nil{}: acc
-    case Con{+head,tail}: valid_integers(tail,maybe_append(integer_value(head),acc,head))
-def valid_relics(+values: List<&2,Value>,+acc: List<&2,Value>) -> List<&2,Value>:
-  match values:
-    case Nil{}: acc
-    case Con{+head,tail}: valid_relics(tail,maybe_append(Bool.and(integer_value(head),Bool.and(equal(head,number(head)),Bool.not(ge(head,natural(5n))))),acc,head))
-def normalize_stats(+keys: List<&2,String>,+stats: Value,+acc: Value) -> Value:
-  match keys:
-    case Nil{}: acc
-    case Con{+key,rest}: normalize_stats(rest,stats,set(acc,key,number(get(stats,key))))
-def normalize_sequences(+keys: List<&2,String>,+raw: Value,+base: Value) -> Value:
-  match keys:
-    case Nil{}: base
-    case Con{+key,rest}: normalize_sequences(rest,raw,set(base,key,pick(is_sequence(get(raw,key)),get(raw,key),get(fresh(),key))))
-def normalized(+raw: Value,+catalog: Value) -> Value:
-  +base0 = copy_rows(["gold","meta","characters","stages","achievements","stageRelics","wonCharacters","recorded"],raw,fresh())
-  +stats = merge(get(base0,"stats"),get(raw,"stats"))
-  +collections = merge(get(base0,"collection"),get(raw,"collection"))
-  +base1 = set(set(set(base0,"stats",normalize_stats(object_keys(stats),stats,JObject{[],[]})),"collection",collections),"settings",merge(get(base0,"settings"),get(raw,"settings")))
-  +base2 = set(set(base1,"gold",whole(get(base1,"gold"))),"meta",JSequence{normalize_meta(sequence(get(catalog,"META_UPGRADES")),sequence(get(base1,"meta")),0n)})
-  +base3 = normalize_sequences(["characters","stages","achievements","stageRelics","wonCharacters","recorded"],base2,base2)
-  +base4 = set(set(set(base3,"characters",JSequence{valid_catalog_ids(sequence(get(base3,"characters")),sequence(get(catalog,"CHARACTERS")),[zero()])}),"stages",JSequence{valid_catalog_ids(sequence(get(base3,"stages")),sequence(get(catalog,"STAGES")),[zero()])}),"stageRelics",JSequence{valid_relics(sequence(get(base3,"stageRelics")),[])})
-  +c0 = set(collections,"weapons",JSequence{valid_integers(sequence(get(collections,"weapons")),[])})
-  +c1 = set(c0,"evolutions",JSequence{valid_integers(sequence(get(collections,"evolutions")),[])})
-  set(base4,"collection",set(c1,"enemies",JSequence{valid_integers(sequence(get(collections,"enemies")),[])}))
-def normalize(+raw: Value,+catalog: Value) -> Value: pick(equal(get(raw,"version"),one()),normalized(raw,catalog),fresh())
-def requirements_met(+profile: Value,+item: Value) -> Bool:
-  +condition = get(item,"condition")
-  Bool.or(is_null(condition),ge(get(get(profile,"stats"),text(get(condition,"stat"))),get(condition,"value")))
-def upgrade_item(+catalog: Value,+id: Value) -> Value: by_id(sequence(get(catalog,"META_UPGRADES")),id)
-def upgrade_cost(+profile: Value,+id: Value,+catalog: Value) -> Value:
-  +entry = upgrade_item(catalog,id)
-  +base = integer(get(entry,"costBase"))
-  +rank = integer(at(sequence(get(profile,"meta")),integer(id)))
-  pick(is_null(entry),JNull{},natural(Nat.div(Nat.mul(base,Nat.add(4n,Nat.mul(rank,3n))),4n)))
-def weapon_allowed(+profile: Value,+entry: Value) -> Bool:
-  +relic = get(entry,"stageRelic")
-  Bool.pick(Bool,is_null(relic),requirements_met(profile,entry),contains(sequence(get(profile,"stageRelics")),relic))
-def allowed_go(+rows: List<&2,Value>,+profile: Value,+mask: U32) -> U32:
-  match rows:
-    case Nil{}: mask
-    case Con{+head,tail}: allowed_go(tail,profile,U32.and(mask,U32.not((Bool.to_u32(Bool.not(weapon_allowed(profile,head))) * U32.shln(1,integer(get(head,"id"))) : U32))))
-def allowed_weapons(+profile: Value,+catalog: Value) -> U32: allowed_go(sequence(get(catalog,"WEAPON_UNLOCKS")),profile,16777215)
-def owned_list(+kind: String) -> String:
-  match kind:
-    case "character": "characters"
-    case _: "stages"
-def unlocked_kind(+kind: String,+profile: Value,+id: Value,+catalog: Value) -> Bool:
-  match kind:
-    case "arcana": Bool.not(is_null(item(catalog,"arcana",id)))
-    case "mode": Bool.and(Bool.not(is_null(item(catalog,"mode",id))),requirements_met(profile,item(catalog,"mode",id)))
-    case "weapon": U32.is_ne(U32.and(allowed_weapons(profile,catalog),U32.shln(1,integer(id))),0)
-    case _: contains(sequence(get(profile,owned_list(kind))),id)
-def unlocked(+profile: Value,+kind: String,+id: Value,+catalog: Value) -> Bool: unlocked_kind(kind,profile,id,catalog)
-def meta_go(+rows: List<&2,Value>,+index: Nat) -> U32:
-  match rows:
-    case Nil{}: 0
-    case Con{head,tail}: U32.or(U32.shln(U32.from_nat(integer(minimum(head,natural(7n)))),Nat.mul(index,3n)),meta_go(tail,1n+index))
-def meta_code(+profile: Value) -> U32: meta_go(sequence(get(profile,"meta")),0n)
-def conditions_met(+keys: List<&2,String>,+conditions: Value,+stats: Value) -> Bool:
-  match keys:
-    case Nil{}: True{}
-    case Con{+key,rest}: Bool.and(ge(get(stats,key),get(conditions,key)),conditions_met(rest,conditions,stats))
-def qualifies(+profile: Value,+achievement: Value) -> Bool:
-  +conditions = get(achievement,"conditions")
-  Bool.pick(Bool,is_null(conditions),requirements_met(profile,achievement),conditions_met(object_keys(conditions),conditions,get(profile,"stats")))
-def award_go(+rows: List<&2,Value>,+profile: Value) -> Value:
-  match rows:
-    case Nil{}: profile
-    case Con{+entry,tail}: award_go(tail,set(profile,"achievements",JSequence{maybe_append(qualifies(profile,entry),sequence(get(profile,"achievements")),get(entry,"id"))}))
-def award(+profile: Value,+catalog: Value) -> Value: award_go(sequence(get(catalog,"ACHIEVEMENTS")),profile)
-def set_stat(+profile: Value,+key: String,+value: Value) -> Value: set(profile,"stats",set(get(profile,"stats"),key,value))
-def refresh_counts(+profile: Value) -> Value:
-  +p0 = set_stat(profile,"characters",length(get(profile,"characters")))
-  set_stat(p0,"stages",length(get(p0,"stages")))
-def replace_at(+rows: List<&2,Value>,+index: Nat,+value: Value) -> List<&2,Value>:
+    case Con{_,tail} 1n+p: rank_at(tail,p)
+    case _ _: 0n
+def replace_at(+rows: List<&2,Nat>,+index: Nat,+value: Nat) -> List<&2,Nat>:
   match rows index:
     case Con{_,tail} 0n: value <> tail
     case Con{head,tail} 1n+p: head <> replace_at(tail,p,value)
     case _ _: []
-def buy_upgrade_ok(+profile: Value,+id: Value,+catalog: Value) -> Value:
-  +ranks = sequence(get(profile,"meta"))
-  set(set(profile,"gold",subtract(get(profile,"gold"),upgrade_cost(profile,id,catalog))),"meta",JSequence{replace_at(ranks,integer(id),add(at(ranks,integer(id)),one()))})
-def upgrade_status(+profile: Value,+id: Value,+catalog: Value) -> Value:
-  +entry = upgrade_item(catalog,id)
-  +cost = upgrade_cost(profile,id,catalog)
-  +rank = at(sequence(get(profile,"meta")),integer(id))
-  +maxed = ge(rank,get(entry,"maxLevel"))
-  JObject{["rank","cost","maxed","canBuy"],[rank,cost,flag(maxed),flag(Bool.and(Bool.not(is_null(entry)),Bool.and(Bool.not(maxed),ge(get(profile,"gold"),cost))))]}
-def boolean(+value: Value) -> Bool:
-  match value:
-    case JBoolean{value}: value
+def fresh() -> Progress:
+  Progress{A.zero(),[0n,0n,0n,0n,0n,0n,0n,0n,0n,0n],[0],[0],[],Stats{A.zero(),A.zero(),A.zero(),A.zero(),A.zero(),A.one(),A.one(),A.one(),A.zero(),A.zero(),A.zero(),A.zero(),A.zero()},Collection{[],[],[]},[],[],[]}
+def upgrade_find(+rows: List<&2,Upgrade>,+id: U32) -> Maybe<&2,Upgrade>:
+  match rows:
+    case Nil{}: None{}
+    case Con{+head,tail}: Bool.pick(Maybe<&2,Upgrade>,U32.is_eq(upgrade_id(head),id),Some{head},upgrade_find(tail,id))
+def upgrade_item(+catalog: Catalog,+id: U32) -> Maybe<&2,Upgrade>: upgrade_find(catalog_upgrades(catalog),id)
+def unlock_find(+rows: List<&2,UnlockEntry>,+id: U32) -> Maybe<&2,UnlockEntry>:
+  match rows:
+    case Nil{}: None{}
+    case Con{+head,tail}: Bool.pick(Maybe<&2,UnlockEntry>,U32.is_eq(unlockentry_id(head),id),Some{head},unlock_find(tail,id))
+def unlock_item(+kind: SelectionKind,+catalog: Catalog,+id: U32) -> Maybe<&2,UnlockEntry>:
+  match kind:
+    case Character{}: unlock_find(catalog_characters(catalog),id)
+    case Stage{}: unlock_find(catalog_stages(catalog),id)
+    case _: None{}
+def mode_find(+rows: List<&2,ModeEntry>,+id: U32) -> Maybe<&2,ModeEntry>:
+  match rows:
+    case Nil{}: None{}
+    case Con{+head,tail}: Bool.pick(Maybe<&2,ModeEntry>,U32.is_eq(modeentry_id(head),id),Some{head},mode_find(tail,id))
+def has_unlock(+entry: Maybe<&2,UnlockEntry>) -> Bool:
+  match entry:
+    case Some{_}: True{}
+    case None{}: False{}
+def has_upgrade(+entry: Maybe<&2,Upgrade>) -> Bool:
+  match entry:
+    case Some{_}: True{}
+    case None{}: False{}
+def mode_present(+entry: Maybe<&2,ModeEntry>) -> Bool:
+  match entry:
+    case Some{_}: True{}
+    case None{}: False{}
+def catalog_member(+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Bool:
+  match kind:
+    case Character{}: has_unlock(unlock_find(catalog_characters(catalog),id))
+    case Stage{}: has_unlock(unlock_find(catalog_stages(catalog),id))
+    case Arcana{}: contains_id(catalog_arcana(catalog),id)
+    case Mode{}: mode_present(mode_find(catalog_modes(catalog),id))
+    case Weapon{}: contains_id(catalog_weapons(catalog),id)
+def requirements_met(+profile: Progress,+condition: Maybe<&2,Condition>) -> Bool:
+  match condition:
+    case None{}: True{}
+    case Some{Condition{key,threshold}}: A.ge(stat(key,progress_stats(profile)),threshold)
+def mode_allowed(+entry: Maybe<&2,ModeEntry>,+profile: Progress) -> Bool:
+  match entry:
+    case None{}: False{}
+    case Some{ModeEntry{_,condition}}: requirements_met(profile,condition)
+def weapon_allowed(+entry: WeaponUnlock,+profile: Progress) -> Bool:
+  match entry:
+    case WeaponUnlock{_,condition,None{}}: requirements_met(profile,condition)
+    case WeaponUnlock{_,_,Some{relic}}: contains_id(progress_stageRelics(profile),relic)
+def allowed_go(+rows: List<&2,WeaponUnlock>,+profile: Progress,+mask: U32) -> U32:
+  match rows:
+    case Nil{}: mask
+    case Con{+head,tail}: allowed_go(tail,profile,U32.and(mask,U32.not((Bool.to_u32(Bool.not(weapon_allowed(head,profile))) * U32.shln(1,U32.to_nat(weaponunlock_id(head))) : U32))))
+def allowed_weapons(+profile: Progress,+catalog: Catalog) -> U32: allowed_go(catalog_weaponUnlocks(catalog),profile,16777215)
+def owned(+profile: Progress,+kind: SelectionKind) -> List<&2,U32>:
+  match kind:
+    case Character{}: progress_characters(profile)
+    case _: progress_stages(profile)
+def set_owned(+profile: Progress,+kind: SelectionKind,+rows: List<&2,U32>) -> Progress:
+  match kind:
+    case Character{}: set_characters(profile,rows)
+    case _: set_stages(profile,rows)
+def add_owned(+profile: Progress,+kind: SelectionKind,+id: U32) -> Progress: set_owned(profile,kind,append_id(owned(profile,kind),id))
+def unlocked(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Bool:
+  match kind:
+    case Arcana{}: contains_id(catalog_arcana(catalog),id)
+    case Mode{}: mode_allowed(mode_find(catalog_modes(catalog),id),profile)
+    case Weapon{}: U32.is_ne(U32.and(allowed_weapons(profile,catalog),U32.shln(1,U32.to_nat(id))),0)
+    case kind: contains_id(owned(profile,kind),id)
+def upgrade_quoted(+entry: Maybe<&2,Upgrade>,+profile: Progress,+id: U32) -> Maybe<&2,A.Amount>:
+  match entry:
+    case None{}: None{}
+    case Some{Upgrade{_,base,_}}: Some{A.natural(Nat.div(Nat.mul(base,Nat.add(4n,Nat.mul(rank_at(progress_meta(profile),U32.to_nat(id)),3n))),4n))}
+def upgrade_cost(+profile: Progress,+id: U32,+catalog: Catalog) -> Maybe<&2,A.Amount>: upgrade_quoted(upgrade_item(catalog,id),profile,id)
+def cost_value(+cost: Maybe<&2,A.Amount>) -> A.Amount:
+  match cost:
+    case None{}: A.zero()
+    case Some{cost}: cost
+def upgrade_cap(+entry: Maybe<&2,Upgrade>) -> Nat:
+  match entry:
+    case None{}: 0n
+    case Some{Upgrade{_,_,cap}}: cap
+def upgrade_admitted(+profile: Progress,+id: U32,+catalog: Catalog) -> Bool:
+  Bool.and(has_upgrade(upgrade_item(catalog,id)),Bool.and(Bool.not(Nat.is_ge(rank_at(progress_meta(profile),U32.to_nat(id)),upgrade_cap(upgrade_item(catalog,id)))),A.ge(progress_gold(profile),cost_value(upgrade_cost(profile,id,catalog)))))
+def upgrade_status(+profile: Progress,+id: U32,+catalog: Catalog) -> UpgradeStatus:
+  UpgradeStatus{rank_at(progress_meta(profile),U32.to_nat(id)),upgrade_cost(profile,id,catalog),Nat.is_ge(rank_at(progress_meta(profile),U32.to_nat(id)),upgrade_cap(upgrade_item(catalog,id))),upgrade_admitted(profile,id,catalog)}
+def buy_upgrade_ok(+profile: Progress,+id: U32,+catalog: Catalog) -> Progress:
+  set_meta(set_gold(profile,A.subtract(progress_gold(profile),cost_value(upgrade_cost(profile,id,catalog)))),replace_at(progress_meta(profile),U32.to_nat(id),Nat.add(rank_at(progress_meta(profile),U32.to_nat(id)),1n)))
+def purchase_decided(+admitted: Bool,+paid: Progress) -> Maybe<&2,Progress>:
+  match admitted:
+    case True{}: Some{paid}
+    case False{}: None{}
+def buy_upgrade(+profile: Progress,+id: U32,+catalog: Catalog) -> Maybe<&2,Progress>: purchase_decided(upgrade_admitted(profile,id,catalog),buy_upgrade_ok(profile,id,catalog))
+def unlock_cost(+entry: Maybe<&2,UnlockEntry>) -> A.Amount:
+  match entry:
+    case None{}: A.zero()
+    case Some{UnlockEntry{_,cost,_}}: cost
+def unlock_price(+entry: Maybe<&2,UnlockEntry>) -> Maybe<&2,A.Amount>:
+  match entry:
+    case None{}: None{}
+    case Some{UnlockEntry{_,cost,_}}: Some{cost}
+def unlock_condition(+entry: Maybe<&2,UnlockEntry>) -> Maybe<&2,Condition>:
+  match entry:
+    case None{}: None{}
+    case Some{UnlockEntry{_,_,condition}}: condition
+def mode_condition(+entry: Maybe<&2,ModeEntry>) -> Maybe<&2,Condition>:
+  match entry:
+    case None{}: None{}
+    case Some{ModeEntry{_,condition}}: condition
+def purchase_condition(+kind: SelectionKind,+catalog: Catalog,+id: U32) -> Maybe<&2,Condition>:
+  match kind:
+    case Mode{}: mode_condition(mode_find(catalog_modes(catalog),id))
+    case kind: unlock_condition(unlock_item(kind,catalog,id))
+def purchasable(+kind: SelectionKind) -> Bool:
+  match kind:
+    case Character{}: True{}
+    case Stage{}: True{}
     case _: False{}
-def buy_upgrade(+profile: Value,+id: Value,+catalog: Value) -> Value:
-  pick(boolean(get(upgrade_status(profile,id,catalog),"canBuy")),buy_upgrade_ok(profile,id,catalog),JNull{})
-def purchase_status(+profile: Value,+kind: String,+id: Value,+catalog: Value) -> Value:
-  +entry = item(catalog,kind,id)
-  +owned = unlocked(profile,kind,id,catalog)
-  +eligible = requirements_met(profile,entry)
-  +cost = get(entry,"cost")
-  +affordable = ge(get(profile,"gold"),cost)
-  +validKind = Bool.or(String.eq(kind,"character"),String.eq(kind,"stage"))
-  JObject{["owned","eligible","affordable","canBuy","missingGold","cost"],[flag(owned),flag(eligible),flag(affordable),flag(Bool.and(validKind,Bool.and(Bool.not(is_null(entry)),Bool.and(Bool.not(owned),Bool.and(eligible,affordable))))),subtract(cost,get(profile,"gold")),cost]}
-def purchase_ok(+profile: Value,+kind: String,+id: Value,+catalog: Value) -> Value:
-  +cost = get(item(catalog,kind,id),"cost")
-  +paid = set(profile,"gold",subtract(get(profile,"gold"),cost))
-  award(refresh_counts(set(paid,owned_list(kind),JSequence{append_unique(sequence(get(paid,owned_list(kind))),id)})),catalog)
-def purchase(+profile: Value,+kind: String,+id: Value,+catalog: Value) -> Value:
-  pick(boolean(get(purchase_status(profile,kind,id,catalog),"canBuy")),purchase_ok(profile,kind,id,catalog),JNull{})
-
-def collect_union(+rows: List<&2,Value>,+acc: List<&2,Value>) -> List<&2,Value>:
+def purchase_admitted(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Bool:
+  Bool.and(purchasable(kind),Bool.and(has_unlock(unlock_item(kind,catalog,id)),Bool.and(Bool.not(unlocked(profile,kind,id,catalog)),Bool.and(requirements_met(profile,unlock_condition(unlock_item(kind,catalog,id))),A.ge(progress_gold(profile),unlock_cost(unlock_item(kind,catalog,id)))))))
+def purchase_status(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> PurchaseStatus:
+  PurchaseStatus{unlocked(profile,kind,id,catalog),requirements_met(profile,purchase_condition(kind,catalog,id)),A.ge(progress_gold(profile),unlock_cost(unlock_item(kind,catalog,id))),purchase_admitted(profile,kind,id,catalog),A.subtract(unlock_cost(unlock_item(kind,catalog,id)),progress_gold(profile)),unlock_price(unlock_item(kind,catalog,id))}
+def conditions_met(+rows: List<&2,Condition>,+profile: Progress) -> Bool:
   match rows:
-    case Nil{}: acc
-    case Con{head,tail}: collect_union(tail,append_unique(acc,head))
-def add_property(+profile: Value,+key: String,+value: Value) -> Value: set(profile,key,JSequence{append_unique(sequence(get(profile,key)),value)})
-def add_stat(+profile: Value,+key: String,+value: Value) -> Value: set_stat(profile,key,add(get(get(profile,"stats"),key),value))
-def max_stat(+profile: Value,+key: String,+value: Value) -> Value: set_stat(profile,key,maximum(get(get(profile,"stats"),key),value))
-def used_levels(+rows: List<&2,Value>,+index: Nat,+threshold: Value,+acc: List<&2,Value>) -> List<&2,Value>:
+    case Nil{}: True{}
+    case Con{condition,tail}: Bool.and(requirements_met(profile,Some{condition}),conditions_met(tail,profile))
+def add_achievement_unseen(+seen: Bool,+profile: Progress,+id: String) -> Progress:
+  match seen:
+    case True{}: profile
+    case False{}: set_achievements(profile,List.append(&2,String,progress_achievements(profile),[id]))
+def add_achievement(+test: Bool,+profile: Progress,+id: String) -> Progress:
+  match test:
+    case False{}: profile
+    case True{}: add_achievement_unseen(contains_text(progress_achievements(profile),id),profile,id)
+def award_go(+rows: List<&2,Achievement>,+profile: Progress) -> Progress:
   match rows:
-    case Nil{}: acc
-    case Con{head,tail}: used_levels(tail,1n+index,threshold,maybe_append(ge(head,threshold),acc,natural(index)))
-def collection_add(+profile: Value,+key: String,+values: List<&2,Value>) -> Value:
-  +collection = get(profile,"collection")
-  set(profile,"collection",set(collection,key,JSequence{collect_union(values,sequence(get(collection,key)))}))
-def record_signature(+frame: Value) -> Value:
-  +runId = get(frame,"runId")
-  pick(is_null(runId),JText{Nat.show(integer(get(frame,"character"))) ++ ":" ++ Nat.show(integer(get(frame,"stage"))) ++ ":" ++ Nat.show(integer(get(frame,"tick"))) ++ ":" ++ Nat.show(integer(get(frame,"kills"))) ++ ":" ++ Nat.show(integer(get(frame,"gold"))) ++ ":" ++ Nat.show(integer(get(frame,"phase")))},runId)
-def recent(+rows: List<&2,Value>) -> List<&2,Value>:
-  List.drop(&2,Value,rows,Nat.sub(List.length(&2,Value,rows),100n))
-def newly_awarded(+rows: List<&2,Value>,+old: List<&2,Value>) -> List<&2,Value>:
+    case Nil{}: profile
+    case Con{Achievement{id,conditions},tail}: award_go(tail,add_achievement(conditions_met(conditions,profile),profile,id))
+def award(+profile: Progress,+catalog: Catalog) -> Progress: award_go(catalog_achievements(catalog),profile)
+def set_profile_stat(+profile: Progress,+key: Stat,+value: A.Amount) -> Progress: set_stats(profile,set_stat(key,progress_stats(profile),value))
+def add_stat(+profile: Progress,+key: Stat,+value: A.Amount) -> Progress: set_profile_stat(profile,key,A.add(stat(key,progress_stats(profile)),value))
+def max_stat(+profile: Progress,+key: Stat,+value: A.Amount) -> Progress: set_profile_stat(profile,key,A.maximum(stat(key,progress_stats(profile)),value))
+def refresh_counts(+profile: Progress) -> Progress:
+  set_profile_stat(set_profile_stat(profile,Characters{},A.natural(List.length(&2,U32,progress_characters(profile)))),Stages{},A.natural(List.length(&2,U32,progress_stages(profile))))
+def purchase_ok(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Progress:
+  award(refresh_counts(add_owned(set_gold(profile,A.subtract(progress_gold(profile),unlock_cost(unlock_item(kind,catalog,id)))),kind,id)),catalog)
+def purchase(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Maybe<&2,Progress>: purchase_decided(purchase_admitted(profile,kind,id,catalog),purchase_ok(profile,kind,id,catalog))
+def meta_go(+rows: List<&2,Nat>,+index: Nat) -> U32:
+  match rows:
+    case Nil{}: 0
+    case Con{head,tail}: U32.or(U32.shln(U32.from_nat(Nat.min(head,7n)),Nat.mul(index,3n)),meta_go(tail,1n+index))
+def meta_code(+profile: Progress) -> U32: meta_go(progress_meta(profile),0n)
+def normalize_meta(+rows: List<&2,Upgrade>,+ranks: List<&2,Nat>,+index: Nat) -> List<&2,Nat>:
   match rows:
     case Nil{}: []
-    case Con{+head,tail}:
-      List.append(&2,Value,sequence(pick(contains(old,head),JSequence{[]},JSequence{[head]})),newly_awarded(tail,old))
-def run_awards(+profile: Value,+frame: Value,+catalog: Value) -> Value:
-  +gained = whole(get(frame,"gold"))
-  +p2 = add_stat(add_stat(profile,"totalgold",gained),"kills",get(frame,"kills"))
-  +p3 = max_stat(p2,"survive",JNumber{integer(get(frame,"tick")),60n,False{}})
-  +p4 = max_stat(p3,"levels",pick(is_null(get(frame,"level")),one(),get(frame,"level")))
-  +p5 = add_stat(add_stat(p4,"revivals",get(frame,"revivalsUsed")),"bosskills",get(frame,"bossesKilled"))
-  +p6 = pick(equal(get(frame,"phase"),natural(4n)),add_property(add_stat(p5,"wins",one()),"wonCharacters",get(frame,"character")),p5)
-  +p7 = pick(equal(get(frame,"relicCollected"),one()),add_property(p6,"stageRelics",get(frame,"stage")),p6)
-  +p8 = set_stat(p7,"relics",length(get(p7,"stageRelics")))
-  +used = used_levels(sequence(get(frame,"weapons")),0n,one(),sequence(get(frame,"usedWeapons")))
-  +evolved = used_levels(sequence(get(frame,"weapons")),0n,natural(9n),sequence(get(frame,"evolvedWeapons")))
-  +p9 = collection_add(collection_add(collection_add(p8,"weapons",used),"evolutions",evolved),"enemies",sequence(get(frame,"enemiesKilled")))
-  +p10 = add_stat(p9,"evolutions",natural(List.length(&2,Value,evolved)))
-  +p11 = set_stat(set_stat(refresh_counts(p10),"weapons",length(get(get(p10,"collection"),"weapons"))),"characterwins",length(get(p10,"wonCharacters")))
+    case Con{head,tail}: Nat.min(rank_at(ranks,index),upgrade_maxLevel(head)) <> normalize_meta(tail,ranks,1n+index)
+def valid_catalog_ids(+rows: List<&2,U32>,+catalog: List<&2,UnlockEntry>,+acc: List<&2,U32>) -> List<&2,U32>:
+  match rows:
+    case Nil{}: acc
+    case Con{+head,tail}: valid_catalog_ids(tail,catalog,maybe_id(has_unlock(unlock_find(catalog,head)),acc,head))
+def valid_relics(+rows: List<&2,U32>,+acc: List<&2,U32>) -> List<&2,U32>:
+  match rows:
+    case Nil{}: acc
+    case Con{+head,tail}: valid_relics(tail,maybe_id(U32.is_lt(head,5),acc,head))
+def unique_ids(+rows: List<&2,U32>,+acc: List<&2,U32>) -> List<&2,U32>:
+  match rows:
+    case Nil{}: acc
+    case Con{head,tail}: unique_ids(tail,append_id(acc,head))
+def normalize_collection(+collection: Collection) -> Collection:
+  match collection:
+    case Collection{weapons,evolutions,enemies}: Collection{unique_ids(weapons,[]),unique_ids(evolutions,[]),unique_ids(enemies,[])}
+def normalize(+profile: Progress,+catalog: Catalog) -> Progress:
+  Progress{A.whole(progress_gold(profile)),normalize_meta(catalog_upgrades(catalog),progress_meta(profile),0n),valid_catalog_ids(progress_characters(profile),catalog_characters(catalog),[0]),valid_catalog_ids(progress_stages(profile),catalog_stages(catalog),[0]),progress_achievements(profile),progress_stats(profile),normalize_collection(progress_collection(profile)),valid_relics(progress_stageRelics(profile),[]),progress_wonCharacters(profile),progress_recorded(profile)}
+def setup_id(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> U32: Bool.pick(U32,Bool.and(catalog_member(kind,id,catalog),unlocked(profile,kind,id,catalog)),id,0)
+def validate_setup(+profile: Progress,+setup: Setup,+catalog: Catalog) -> Setup:
+  Setup{setup_id(profile,Character{},setup_character(setup),catalog),setup_id(profile,Stage{},setup_stage(setup),catalog),Bool.pick(U32,contains_id(catalog_arcana(catalog),setup_arcana(setup)),setup_arcana(setup),0),setup_id(profile,Mode{},setup_mode(setup),catalog)}
+def used_levels(+rows: List<&2,Nat>,+index: U32,+threshold: Nat,+acc: List<&2,U32>) -> List<&2,U32>:
+  match rows:
+    case Nil{}: acc
+    case Con{head,tail}: used_levels(tail,(index + 1 : U32),threshold,maybe_id(Nat.is_ge(head,threshold),acc,index))
+def observe_run(+history: History,+weapons: List<&2,Nat>) -> History:
+  History{used_levels(weapons,0,1n,history_usedWeapons(history)),used_levels(weapons,0,9n,history_evolvedWeapons(history))}
+def union_ids(+rows: List<&2,U32>,+acc: List<&2,U32>) -> List<&2,U32>:
+  match rows:
+    case Nil{}: acc
+    case Con{head,tail}: union_ids(tail,append_id(acc,head))
+def add_won(+test: Bool,+profile: Progress,+id: U32) -> Progress:
+  match test:
+    case True{}: set_wonCharacters(profile,append_id(progress_wonCharacters(profile),id))
+    case False{}: profile
+def add_relic(+test: Bool,+profile: Progress,+id: U32) -> Progress:
+  match test:
+    case True{}: set_stageRelics(profile,append_id(progress_stageRelics(profile),id))
+    case False{}: profile
+def record_collection(+collection: Collection,+history: History,+enemies: List<&2,U32>) -> Collection:
+  match collection history:
+    case Collection{weapons,evolutions,oldEnemies} History{used,evolved}: Collection{union_ids(used,weapons),union_ids(evolved,evolutions),union_ids(enemies,oldEnemies)}
+def run_win(+won: Bool,+profile: Progress,+id: U32) -> Progress:
+  match won:
+    case True{}: add_won(True{},add_stat(profile,Wins{},A.one()),id)
+    case False{}: profile
+def run_awards(+profile: Progress,+frame: RunReceipt,+catalog: Catalog) -> Progress:
+  +gained = A.whole(run_gold(frame))
+  +p2 = add_stat(add_stat(profile,TotalGold{},gained),Kills{},run_kills(frame))
+  +p3 = max_stat(p2,Survive{},A.ratio(run_tick(frame),60n))
+  +p4 = max_stat(p3,Levels{},run_level(frame))
+  +p5 = add_stat(add_stat(p4,Revivals{},run_revivalsUsed(frame)),BossKills{},run_bossesKilled(frame))
+  +p6 = run_win(U32.is_eq(run_phase(frame),4),p5,run_character(frame))
+  +p7 = add_relic(run_relicCollected(frame),p6,run_stage(frame))
+  +p8 = set_profile_stat(p7,Relics{},A.natural(List.length(&2,U32,progress_stageRelics(p7))))
+  +history = observe_run(run_history(frame),run_weapons(frame))
+  +p9 = set_collection(p8,record_collection(progress_collection(p8),history,run_enemiesKilled(frame)))
+  +p10 = add_stat(p9,Evolutions{},A.natural(List.length(&2,U32,history_evolvedWeapons(history))))
+  +p11 = set_profile_stat(set_profile_stat(refresh_counts(p10),Weapons{},A.natural(List.length(&2,U32,collection_weapons(progress_collection(p10))))),CharacterWins{},A.natural(List.length(&2,U32,progress_wonCharacters(p10))))
   award(p11,catalog)
-def pay_wallet(awards: Value,old: Value,gained: Value) -> Value:
-  set(awards,"gold",add(old,gained))
-def run_payment(+profile: Value,+frame: Value,+catalog: Value) -> Value:
-  pay_wallet(run_awards(profile,frame,catalog),get(profile,"gold"),whole(get(frame,"gold")))
-def stamp_receipt(awards: Value,history: List<&2,Value>,signature: Value) -> Value:
-  set(awards,"recorded",JSequence{recent(List.append(&2,Value,history,[signature]))})
-def recording(+profile: Value,+frame: Value,+catalog: Value) -> Value:
-  +result = stamp_receipt(run_payment(profile,frame,catalog),sequence(get(profile,"recorded")),record_signature(frame))
-  JObject{["profile","added"],[result,JSequence{newly_awarded(sequence(get(result,"achievements")),sequence(get(profile,"achievements")))}]}
-def record_decided(seen: Bool,+profile: Value,paid: Value) -> Value:
-  pick(seen,JObject{["profile","added"],[profile,JSequence{[]}]},paid)
-def record_run(+profile: Value,+frame: Value,+catalog: Value) -> Value:
-  record_decided(contains(sequence(get(profile,"recorded")),record_signature(frame)),profile,recording(profile,frame,catalog))
-def setup_id(+profile: Value,+setup: Value,+catalog: Value,+kind: String) -> Value:
-  +id = get(setup,kind)
-  pick(Bool.and(Bool.not(is_null(item(catalog,kind,id))),unlocked(profile,kind,id,catalog)),id,zero())
-def validate_setup(+profile: Value,+setup: Value,+catalog: Value) -> Value:
-  +arcana = get(setup,"arcana")
-  JObject{["character","stage","arcana","mode"],[setup_id(profile,setup,catalog,"character"),setup_id(profile,setup,catalog,"stage"),pick(is_null(item(catalog,"arcana",arcana)),zero(),arcana),setup_id(profile,setup,catalog,"mode")]}
-
-# Retain the history of weapons used before loadout swaps; thresholds stay in Bend.
-def observe_run(+history: Value,+frame: Value) -> Value:
-  JObject{["usedWeapons","evolvedWeapons"],[JSequence{used_levels(sequence(get(frame,"weapons")),0n,one(),sequence(get(history,"usedWeapons")))},JSequence{used_levels(sequence(get(frame,"weapons")),0n,natural(9n),sequence(get(history,"evolvedWeapons")))}]}
+def pay_wallet(+awards: Progress,+old: A.Amount,+gained: A.Amount) -> Progress: set_gold(awards,A.add(old,gained))
+def run_payment(+profile: Progress,+frame: RunReceipt,+catalog: Catalog) -> Progress: pay_wallet(run_awards(profile,frame,catalog),progress_gold(profile),A.whole(run_gold(frame)))
+def recent(+rows: List<&2,String>) -> List<&2,String>: List.drop(&2,String,rows,Nat.sub(List.length(&2,String,rows),100n))
+def stamp_receipt(+awards: Progress,+history: List<&2,String>,+signature: String) -> Progress: set_recorded(awards,recent(List.append(&2,String,history,[signature])))
+def newly_awarded(+rows: List<&2,String>,+old: List<&2,String>) -> List<&2,String>:
+  match rows:
+    case Nil{}: []
+    case Con{+head,tail}: List.append(&2,String,Bool.pick(List<&2,String>,contains_text(old,head),[],[head]),newly_awarded(tail,old))
+def recording(+profile: Progress,+frame: RunReceipt,+catalog: Catalog) -> RecordResult:
+  +result = stamp_receipt(run_payment(profile,frame,catalog),progress_recorded(profile),run_runId(frame))
+  RecordResult{result,newly_awarded(progress_achievements(result),progress_achievements(profile))}
+def record_decided(+seen: Bool,+profile: Progress,+paid: RecordResult) -> RecordResult:
+  match seen:
+    case True{}: RecordResult{profile,[]}
+    case False{}: paid
+def record_run(+profile: Progress,+frame: RunReceipt,+catalog: Catalog) -> RecordResult: record_decided(contains_text(progress_recorded(profile),run_runId(frame)),profile,recording(profile,frame,catalog))

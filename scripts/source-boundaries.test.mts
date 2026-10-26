@@ -103,8 +103,7 @@ await test("browser presentation closures remain free of Node and Effect runtime
     "examples/survivors/browser.mts",
     "examples/survivors/coop-browser.mts",
     "examples/survivors/coop-worker.mts",
-    "examples/survivors/entry-scripts.mts",
-    "tools/survivors-bot/journal-client.mts"
+    "examples/survivors/entry-scripts.mts"
   ])
     visit(path.join(root, entry))
 })

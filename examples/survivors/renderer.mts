@@ -8,7 +8,6 @@ const shotIdentity = (projectile: RenderProjectile) => {
   if (!projectile.lifetime.length) throw Error("A projectile observation requires its explicit lifetime.")
   return projectile.lifetime
 }
-type RenderEnemy = Enemy & { opacity?: number }
 type RenderProjectile = Pick<
   Projectile,
   "identity" | "lifetime" | "hostile" | "weapon" | "radius" | "age" | "x" | "y"
@@ -50,10 +49,6 @@ function hash(x: number, y = 0) {
   let n = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263)
   n = Math.imul(n ^ (n >>> 13), 1274126177)
   return (n >>> 0) / 4294967296
-}
-// Observed player positions only; this helper never advances or predicts gameplay.
-export function framePlayers(frame: Frame) {
-  return frame.players
 }
 function rect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string) {
   c.fillStyle = col
@@ -164,9 +159,7 @@ export class Renderer {
         throw Error("Unknown actor reference.")
       })
       .sort((left, right) => left.y - right.y)
-    const players = framePlayers(frame)
-      .slice()
-      .sort((a, b) => a.py - b.py || a.id - b.id)
+    const players = frame.players.slice().sort((a, b) => a.py - b.py || a.id - b.id)
     let playerIndex = 0
     for (const actor of ordered) {
       while (playerIndex < players.length && actor.y > at(players, playerIndex).py)
@@ -259,7 +252,7 @@ export class Renderer {
       c.closePath()
       c.fill()
     }
-    const players = framePlayers(frame)
+    const players = frame.players
     for (const player of players) {
       const [x, y] = point(player.px, player.py)
       const own = player.id === (frame.ownPlayerId ?? 0)
@@ -302,7 +295,7 @@ export class Renderer {
           this.setAlpha(1)
         }
         if (h < 0.062 && Math.hypot(ix * s - this.frame.px, iy * s - this.frame.py) > 65)
-          this.landmark(x + 30, y + 35, h, ix, iy)
+          this.landmark(x + 30, y + 35, ix, iy)
       }
     // Map limits remain visual; collision and movement belong to the simulation.
     const [a, b] = this.xy(0, 0)
@@ -453,7 +446,7 @@ export class Renderer {
     }
     c.restore()
   }
-  landmark(x: number, y: number, h: number, ix: number, iy: number) {
+  landmark(x: number, y: number, ix: number, iy: number) {
     const c = this.ctx,
       th = this.theme,
       stage = (this.frame.stage || 0) % 5
@@ -505,7 +498,7 @@ export class Renderer {
     c.ellipse(x, y + 3, rx, ry, 0, 0, TAU)
     c.fill()
   }
-  enemyHealthBar(enemy: RenderEnemy) {
+  enemyHealthBar(enemy: Enemy) {
     if (!(enemy.health > 0)) return
     const [x, y] = this.xy(enemy.x, enemy.y)
     const radius = Math.max(1, enemy.radius)
@@ -527,7 +520,7 @@ export class Renderer {
     this.ctx.restore()
     this.bodyOpacity = 1
   }
-  drawPickup(pickup: Pickup & { opacity?: number }) {
+  drawPickup(pickup: Pickup) {
     this.bodyOpacity = pickup.opacity !== undefined ? Math.max(0, Math.min(1, pickup.opacity)) : 1
     this.ctx.save()
     this.setAlpha(1)
@@ -538,7 +531,7 @@ export class Renderer {
   setAlpha(opacity: number) {
     this.ctx.globalAlpha = opacity * (this.bodyOpacity ?? 1)
   }
-  drawEnemy(enemy: RenderEnemy) {
+  drawEnemy(enemy: Enemy) {
     const [x, y] = this.xy(enemy.x, enemy.y)
     const margin = Math.max(100, enemy.radius)
     if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return
@@ -565,7 +558,7 @@ export class Renderer {
       c.restore()
     }
   }
-  pickup(pickup: Pickup & { opacity?: number }) {
+  pickup(pickup: Pickup) {
     const [x, y] = this.xy(pickup.x, pickup.y)
     const margin = Math.max(100, pickup.radius)
     if (x < -margin || x > this.width + margin || y < -margin || y > this.height + margin) return
@@ -764,7 +757,7 @@ export class Renderer {
     c.ellipse(x, y + 2, 15, 6, 0, 0, TAU)
     c.stroke()
   }
-  enemy(enemy: RenderEnemy) {
+  enemy(enemy: Enemy) {
     const [x, y] = this.xy(enemy.x, enemy.y)
     const v = enemy.archetype
     const c = this.ctx,
@@ -1021,7 +1014,7 @@ export class Renderer {
     }
     c.restore()
   }
-  damage(enemies: RenderEnemy[], dt: number) {
+  damage(enemies: Enemy[], dt: number) {
     const c = this.ctx,
       next = new Map<string, { health: number }>()
     for (const enemy of enemies) {

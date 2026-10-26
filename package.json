@@ -6,18 +6,15 @@
     "node": ">=24.20.0"
   },
   "scripts": {
-    "typecheck": "npm run generate:types && tsc --noEmit && tsc -p examples/survivors/tsconfig.browser.json --noEmit && tsc -p tools/survivors-bot/tsconfig.journal.json --noEmit && tsc -p tsconfig.bend-abi.json",
+    "typecheck": "npm run generate:types && tsc --noEmit && tsc -p examples/survivors/tsconfig.browser.json --noEmit && tsc -p tsconfig.bend-abi.json",
     "build:browser": "npm run generate:types && tsc -p examples/survivors/tsconfig.browser.json && esbuild examples/survivors/cbor.mts --bundle --format=esm --platform=browser --outfile=examples/survivors/dist/typescript-browser/cbor.mjs",
     "lint": "oxlint --deny-warnings",
     "format": "dprint fmt",
     "check:format": "dprint check",
     "check:typescript": "npm run typecheck && npm run lint && npm run check:format && npm run test:boundaries",
     "test:full-game:manual": "bash examples/survivors/check-full-game-manual.sh",
-    "build:journal": "tsc -p tools/survivors-bot/tsconfig.journal.json",
-    "journal": "node tools/survivors-bot/journal.mts",
-    "generate:types": "python3 scripts/generate-bend-types.py && node scripts/generate-bend-codecs.mts",
-    "test:boundaries": "node --test scripts/survivors-publication-values.test.mts examples/survivors/boundaries.test.mts scripts/source-boundaries.test.mts",
-    "benchmark:observations": "npm run generate:types && bash -c 'source examples/common.sh; \"$NODE\" examples/survivors/observation-benchmark.mts'"
+    "generate:types": "python3 scripts/generate-bend-types.py",
+    "test:boundaries": "node --test scripts/survivors-publication-values.test.mts examples/survivors/boundaries.test.mts scripts/source-boundaries.test.mts"
   },
   "devDependencies": {
     "@types/node": "25.2.0",

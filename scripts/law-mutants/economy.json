@@ -2,32 +2,32 @@
   {
     "label": "browser-upgrade-all-deny",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "pick(boolean(get(upgrade_status(profile,id,catalog),\"canBuy\")),buy_upgrade_ok(profile,id,catalog),JNull{})",
-    "new": "JNull{}",
+    "old": "purchase_decided(upgrade_admitted(profile,id,catalog),buy_upgrade_ok(profile,id,catalog))",
+    "new": "None{}",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "upgrade_success_exact"
   },
   {
     "label": "browser-upgrade-free",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "set(set(profile,\"gold\",subtract(get(profile,\"gold\"),upgrade_cost(profile,id,catalog))),\"meta\",",
-    "new": "set(set(profile,\"gold\",get(profile,\"gold\")),\"meta\",",
+    "old": "set_meta(set_gold(profile,A.subtract(progress_gold(profile),cost_value(upgrade_cost(profile,id,catalog)))),",
+    "new": "set_meta(profile,",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "upgrade_success_exact"
   },
   {
     "label": "browser-upgrade-two-ranks",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "replace_at(ranks,integer(id),add(at(ranks,integer(id)),one()))",
-    "new": "replace_at(ranks,integer(id),add(at(ranks,integer(id)),natural(2n)))",
+    "old": "Nat.add(rank_at(progress_meta(profile),U32.to_nat(id)),1n)",
+    "new": "Nat.add(rank_at(progress_meta(profile),U32.to_nat(id)),2n)",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "upgrade_success_exact"
   },
   {
     "label": "browser-unlock-all-deny",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "pick(boolean(get(purchase_status(profile,kind,id,catalog),\"canBuy\")),purchase_ok(profile,kind,id,catalog),JNull{})",
-    "new": "JNull{}",
+    "old": "purchase_decided(purchase_admitted(profile,kind,id,catalog),purchase_ok(profile,kind,id,catalog))",
+    "new": "None{}",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "unlock_success_exact"
   },
@@ -58,24 +58,24 @@
   {
     "label": "browser-first-reward-doubled",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "def pay_wallet(awards: Value,old: Value,gained: Value) -> Value:\n  set(awards,\"gold\",add(old,gained))",
-    "new": "def pay_wallet(awards: Value,old: Value,+gained: Value) -> Value:\n  set(awards,\"gold\",add(old,add(gained,gained)))",
+    "old": "def pay_wallet(+awards: Progress,+old: A.Amount,+gained: A.Amount) -> Progress: set_gold(awards,A.add(old,gained))",
+    "new": "def pay_wallet(+awards: Progress,+old: A.Amount,+gained: A.Amount) -> Progress: set_gold(awards,A.add(old,A.add(gained,gained)))",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "wallet_credit_exact"
   },
   {
     "label": "browser-terminal-receipt-lost",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "set(awards,\"recorded\",JSequence{recent(List.append(&2,Value,history,[signature]))})",
-    "new": "awards",
+    "old": "def stamp_receipt(+awards: Progress,+history: List<&2,String>,+signature: String) -> Progress: set_recorded(awards,recent(List.append(&2,String,history,[signature])))",
+    "new": "def stamp_receipt(+awards: Progress,+history: List<&2,String>,+signature: String) -> Progress: awards",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "receipt_stamp_retained"
   },
   {
     "label": "browser-duplicate-reward-admitted",
     "source": "examples/survivors/menu-progression.bend",
-    "old": "pick(seen,JObject{[\"profile\",\"added\"],[profile,JSequence{[]}]},paid)",
-    "new": "paid",
+    "old": "def record_decided(+seen: Bool,+profile: Progress,+paid: RecordResult) -> RecordResult:\n  match seen:\n    case True{}: RecordResult{profile,[]}\n    case False{}: paid",
+    "new": "def record_decided(+seen: Bool,+profile: Progress,+paid: RecordResult) -> RecordResult: paid",
     "proof": "examples/survivors/menu-progression/PROOF.bend",
     "law": "receipt_decision_exact"
   },

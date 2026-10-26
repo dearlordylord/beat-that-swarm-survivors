@@ -88,11 +88,12 @@ From the repository root, use the browser prerequisites in
 [README.md](README.md#browser-launch), then run:
 
 ```sh
-node examples/survivors/launch.mts
+npm run build --prefix examples/survivors/web
+npm run preview --prefix examples/survivors/web
 ```
 
-Open the printed co-op URL. Cross-device invitations require HTTPS. The launcher
-builds current source; publication uses the separate
+Open http://127.0.0.1:8713/coop.html. Cross-device invitations require HTTPS.
+Rebuild and restart preview after source changes. Publication uses the separate
 [fresh-build procedure](README.md#publication).
 
 ```sh
@@ -143,24 +144,15 @@ unused resolved-input receipt is absent. Rejected-input diagnostics remain in
 `inputTiming`. The compressed queue, connection fencing, latest pending snapshot,
 application receipt window and snapshot cadence retain their existing behavior.
 
-To compare full JSON, compact JSON and compact CBOR on the same fresh gameplay
-snapshots, run `BASELINE_REVISION=241f799 ARTIFACT_DIR=/tmp/snapshot-measurement npm run benchmark:observations`.
-The bounded interleaved measurement includes Bend projection, codec work, gzip,
-admission, Bend reconstruction and guest-visible projection. The baseline schema
-is loaded from the identified pre-migration commit. The report records source
-fingerprints, actor counts, byte counts and timing ranges. It measures processing
-work rather than Iroh latency or FPS. Captures stay outside tracked source.
-
 After `bash examples/survivors/build-web.sh`, run the existing boundary checks:
 
 ```sh
 node examples/survivors/observations-check.mts examples/survivors/dist/web/dist
 node examples/survivors/coop-snapshot-codec-check.mts examples/survivors/dist/web/dist/coop-connection.mjs
-node examples/survivors/coop-playback-wire-check.mts examples/survivors/dist/web/dist/coop-playback-wire.mjs examples/survivors/dist/web/dist
 npm run check:typescript
 ```
 
 The observation check covers phases, admission, reconnect, actor and contact
 identities, spectator views, ownership, ordering and input diagnostics through
 the production CBOR and gzip boundary. The codec check covers byte and queue
-bounds. The playback check uses emitted Bend projections and the browser adapter.
+bounds.

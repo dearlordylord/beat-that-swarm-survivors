@@ -19,25 +19,18 @@ export function drawSurvivor(context: CanvasRenderingContext2D, id: number, x: n
   // Lazy browser-only objects keep this module usable by Astro at build time.
   // Paths are compiled once, never rebuilt per player or per animation frame.
   const layers = survivorLayers(id)
-  if (!canvasLayers.has(layers)) {
-    canvasLayers.set(
-      layers,
-      layers.map(([paint, path]) => [paint, new Path2D(path)])
-    )
+  let paths = canvasLayers.get(layers)
+  if (!paths) {
+    paths = layers.map(([paint, path]) => [paint, new Path2D(path)])
+    canvasLayers.set(layers, paths)
   }
   context.save()
   // Source anchor (16, 37) is at the feet; match the existing 24px world width.
   context.translate(Math.round(x - 12), Math.round(y - 37 * 0.75 + bob))
   context.scale(0.75, 0.75)
-  for (const [paint, path] of atCanvasLayers(layers)) {
+  for (const [paint, path] of paths) {
     context.fillStyle = paint
     context.fill(path)
   }
   context.restore()
-}
-
-function atCanvasLayers(layers: SurvivorLayers) {
-  const cached = canvasLayers.get(layers)
-  if (!cached) throw new Error("Missing compiled survivor paths")
-  return cached
 }

@@ -107,10 +107,6 @@ const micros = (now: number) => {
   if (!Number.isSafeInteger(value) || value < 0) throw Error("Invalid local input clock.")
   return value
 }
-const each = <T,>(rows: BendList<T>, callback: (row: T) => void) => {
-  for (; rows.$ === "Con"; rows = rows.tail) callback(rows.head)
-}
-const bendBool = (value: unknown) => Boolean(value)
 function advanceLocalVisuals(now: number) {
   if (!localRun || !remoteFrame || !prediction?.enabled || !Connection.running(connectionState)) return
   const budget = ClientClock.consume(visualClock, micros(now))
@@ -191,7 +187,7 @@ function reconcilePrediction(envelope: SnapshotEnvelope, frame: CoopFrame) {
       frame.px,
       frame.py,
       frame.stepDistance,
-      bendBool(frame.predictionAllowed),
+      frame.predictionAllowed,
       frame.tick,
       predictionLead
     )
@@ -212,7 +208,7 @@ function reconcilePrediction(envelope: SnapshotEnvelope, frame: CoopFrame) {
     frame.px,
     frame.py,
     frame.stepDistance,
-    bendBool(frame.predictionAllowed),
+    frame.predictionAllowed,
     predictionLead
   )
   if (resync)
@@ -303,9 +299,8 @@ function prepareDisplayFrame(now: number) {
     pendingJournal = null
     const newContacts = HitJournal.collect(receivedContacts, contactJournal)
     receivedContacts = newContacts.state
-    each(newContacts.events, (event) => {
-      localShots = LocalProjectiles.confirm(localShots, event, defined(frame.remotePresentation).tick, localTargets)
-    })
+    for (let row = newContacts.events; row.$ === "Con"; row = row.tail)
+      localShots = LocalProjectiles.confirm(localShots, row.head, defined(frame.remotePresentation).tick, localTargets)
   }
   // Finish costly bootstrap/contact work before selecting the painted remote time.
   advancePrediction(performance.now())

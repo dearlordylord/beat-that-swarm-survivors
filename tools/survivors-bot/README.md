@@ -43,14 +43,3 @@ report, not a transport used to make decisions. No 100× speed claim is establis
 
 `balance-report.py` is an offline report analyzer, not a game runner. Strict audit
 comparison work continues separately in GitHub issue #11.
-
-## Archived decision journals
-
-```sh
-npm run journal -- --receipt /absolute/path/to/archived-run.jsonl --host 0.0.0.0
-```
-
-The optional Node journal server is a read-only viewer for older decision logs.
-The native bot does not feed that old journal protocol. The viewer never sends
-commands to the game. Classifier-backed Node controllers and their dependencies
-have been removed.

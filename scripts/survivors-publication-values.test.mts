@@ -1,10 +1,10 @@
+import { parseJson } from "../examples/survivors/host-values.mts"
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
   parseAstroVersion,
   parseDependency,
   parseHosting,
-  parseJson,
   parseReceipt,
   parseVersion
 } from "./survivors-publication-values.mts"

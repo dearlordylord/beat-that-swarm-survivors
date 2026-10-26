@@ -1,9 +1,5 @@
 import { array, boolean, number, object, text } from "../examples/survivors/host-values.mts"
 
-export function parseJson(source: string): unknown {
-  return JSON.parse(source)
-}
-
 function record<T>(value: unknown, parse: (entry: unknown) => T): Record<string, T> {
   return Object.fromEntries(Object.entries(object(value)).map(([key, entry]) => [key, parse(entry)]))
 }
