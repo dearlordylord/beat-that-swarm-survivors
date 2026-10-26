@@ -1,0 +1,52 @@
+[
+  {
+    "label": "unlimited-waits",
+    "source": "examples/survivors/bot-pacing.bend",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-pacing.bend",
+    "proof": "examples/survivors/bot-pacing-PROOF.bend",
+    "old": "case Unlimited{}: True{}",
+    "new": "case Unlimited{}: False{}",
+    "law": "unlimited_ready"
+  },
+  {
+    "label": "realtime-early",
+    "source": "examples/survivors/bot-pacing.bend",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-pacing.bend",
+    "proof": "examples/survivors/bot-pacing-PROOF.bend",
+    "old": "Nat.is_le(16n,Nat.sub(now,last))",
+    "new": "Nat.is_le(15n,Nat.sub(now,last))",
+    "law": "realtime_waits"
+  },
+  {
+    "label": "realtime-late",
+    "source": "examples/survivors/bot-pacing.bend",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-pacing.bend",
+    "proof": "examples/survivors/bot-pacing-PROOF.bend",
+    "old": "Nat.is_le(16n,Nat.sub(now,last))",
+    "new": "Nat.is_le(17n,Nat.sub(now,last))",
+    "law": "realtime_ready"
+  },
+  {
+    "label": "slice-early",
+    "source": "examples/survivors/bot-pacing.bend",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-pacing.bend",
+    "proof": "examples/survivors/bot-pacing-PROOF.bend",
+    "old": "Nat.is_le(8n,Nat.sub(now,started))",
+    "new": "Nat.is_le(7n,Nat.sub(now,started))",
+    "law": "slice_continues"
+  },
+  {
+    "label": "slice-late",
+    "source": "examples/survivors/bot-pacing.bend",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-pacing.bend",
+    "proof": "examples/survivors/bot-pacing-PROOF.bend",
+    "old": "Nat.is_le(8n,Nat.sub(now,started))",
+    "new": "Nat.is_le(9n,Nat.sub(now,started))",
+    "law": "slice_yields"
+  }
+]

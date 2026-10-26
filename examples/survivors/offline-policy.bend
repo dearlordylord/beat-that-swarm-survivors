@@ -6,13 +6,12 @@ import game.bend as G
 import enemy-combat.bend as Enemy
 import enemy-spatial.bend as Space
 import offline-threats.bend as Threats
-import bot-actions.bend as A
+import projectile.bend as Shots
 import offline-policy/risk-grid.bend as R
 import offline-policy/primitives.bend as Primitive
 
 # Native controller: typed observations only; no serialization or classifier.
-# The bounded spatial planner preserves JS operations with F32 arithmetic and
-# deterministic sorted-frontier ties rather than JS Float64/heap ties.
+# The bounded spatial planner uses F32 arithmetic and deterministic frontier ties.
 type Point is Data: Point{x: F32,y: F32}
 type Goal is Data: Goal{seed: U32,generation: U32,kind: U32,x: F32,y: F32,reward: F32,cluster: Point}
 type Choice is Data: Choice{goal: Goal,path: List<&2,Point>,score: F32}
@@ -177,7 +176,7 @@ def no_choice(current: Maybe<&2,Choice>) -> Bool:
     case None{}: True{}
     case _: False{}
 
-# Grid cell contact and risk, identical geometry to the JS policy.
+# Grid cell contact and risk.
 def cell_point(+index: U32) -> Point: Point{(U32.to_f32((index % 60 : U32)) * 60.0 + 30.0 : F32),(U32.to_f32((index / 60 : U32)) * 60.0 + 30.0 : F32)}
 def cell_index(+point: Point) -> U32:
   match point:
@@ -502,12 +501,21 @@ def nearest(+rows: List<&2,Enemy.State>,+here: Point,+best: Space.Spatial,+bestD
                   nearest(rest,here,best,bestDistance,(count + 1 : U32))
               ))
           ),(_ => nearest(rest,here,best,bestDistance,count)))
+def shot_radius(shot: Shots.Shot) -> F32:
+  match shot:
+    case Shots.Shot{_,_,_,_,radius,_,_}: radius
+
+def self_field_radius(enabled: Bool,id: U32,rank: U32,speed: F32,area: F32,duration: F32) -> F32:
+  match enabled:
+    case False{}: 0.0
+    case True{}: shot_radius(Shots.spawn(id,rank,0,0.0,0.0,0.0,0.0,1.0,0.0,speed,area,duration))
+
 def aura(+rows: List<&2,U32>,+index: U32,+passives: List<&2,U32>,+arcana: U32,+all: Bool,+maximum: F32,+count: U32) -> Bool & F32:
   match rows:
     case []: (Bool.and(all,U32.is_lt(0,count)),maximum)
     case 0 <> rest: aura(rest,(index + 1 : U32),passives,arcana,all,maximum,count)
     case +rank <> rest:
-      +radius=A.self_field_radius(Bool.and(U32.is_lt(rank,9),Bool.or(U32.is_eq(index,4),U32.is_eq(index,22))),index,rank,G.projectile_speed(passives,arcana),G.area_bonus(passives,arcana,rank),G.duration_bonus(passives,arcana))
+      +radius=self_field_radius(Bool.and(U32.is_lt(rank,9),Bool.or(U32.is_eq(index,4),U32.is_eq(index,22))),index,rank,G.projectile_speed(passives,arcana),G.area_bonus(passives,arcana,rank),G.duration_bonus(passives,arcana))
       aura(rest,(index + 1 : U32),passives,arcana,Bool.and(all,F32.is_lt(0.0,radius)),F32.max(maximum,radius),(count + 1 : U32))
 def point_x(+point: Point) -> F32:
   match point:

@@ -1,0 +1,69 @@
+#!/bin/sh
+set -eu
+
+repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+. "$repo/toolchains/clang.env"
+selection="$repo/.toolchains/clang-$BENDVY_CLANG_VERSION.path"
+mode=compile
+requested=${BENDVY_CLANG:-}
+if [ "${1:-}" = --select ]; then
+  [ "$#" -eq 2 ] || { echo 'Usage: tools/clang --select /path/to/clang' >&2; exit 2; }
+  mode=select
+  requested=$2
+elif [ "${1:-}" = --bendvy-compiler-path ]; then
+  [ "$#" -eq 1 ] || exit 2
+  mode=path
+fi
+
+is_wrapper() {
+  [ "$1" = "$repo/tools/clang" ] || { [ -f "$1" ] && [ "$1" -ef "$repo/tools/clang" ]; }
+}
+
+if [ -z "$requested" ] && [ -n "${CC:-}" ] && ! is_wrapper "$CC"; then requested=$CC; fi
+if [ -z "$requested" ] && [ -n "${CLANG:-}" ] && ! is_wrapper "$CLANG"; then requested=$CLANG; fi
+if [ -z "$requested" ] && [ -f "$selection" ]; then
+  IFS= read -r requested < "$selection" || true
+  [ -n "$requested" ] || { echo "Empty Clang selection: $selection" >&2; exit 1; }
+fi
+if [ -z "$requested" ]; then
+  for candidate in /opt/homebrew/opt/llvm@19/bin/clang /usr/local/opt/llvm@19/bin/clang clang-19 clang; do
+    if command -v "$candidate" >/dev/null 2>&1; then requested=$candidate; break; fi
+  done
+fi
+if [ -z "$requested" ] || ! compiler=$(command -v "$requested"); then
+  echo "LLVM Clang $BENDVY_CLANG_VERSION is required. Install llvm@19 or select it with tools/clang --select /path/to/clang." >&2
+  exit 1
+fi
+if is_wrapper "$compiler"; then
+  echo 'The Clang selection points to the repository wrapper itself.' >&2
+  exit 1
+fi
+compiler=$(CDPATH= cd -- "$(dirname -- "$compiler")" && pwd)/$(basename -- "$compiler")
+if ! version_output=$("$compiler" --version 2>&1); then
+  printf 'Cannot run selected Clang: %s\n%s\n' "$compiler" "$version_output" >&2
+  exit 1
+fi
+first_line=$(printf '%s\n' "$version_output" | sed -n '1p')
+version=$(printf '%s\n' "$first_line" | awk '{for(i=1;i<NF;i++) if($i=="clang" && $(i+1)=="version") {print $(i+2);exit}}')
+case "$first_line" in
+  *Apple*) echo "Expected LLVM Clang $BENDVY_CLANG_VERSION; Apple Clang is a different toolchain: $first_line" >&2; exit 1 ;;
+esac
+if [ "$version" != "$BENDVY_CLANG_VERSION" ]; then
+  printf 'Expected LLVM Clang %s; selected %s reports: %s\nSelect the pinned compiler with tools/clang --select /path/to/clang.\n' "$BENDVY_CLANG_VERSION" "$compiler" "$first_line" >&2
+  exit 1
+fi
+
+case "$mode" in
+  select)
+    case "$compiler" in *'
+'*) echo 'A compiler path cannot contain a newline.' >&2; exit 1 ;; esac
+    mkdir -p "$repo/.toolchains"
+    temporary="$selection.tmp.$$"
+    trap 'rm -f "$temporary"' 0 1 2 3 15
+    printf '%s\n' "$compiler" > "$temporary"
+    mv -f "$temporary" "$selection"
+    printf 'Selected LLVM Clang %s: %s\n' "$version" "$compiler"
+    ;;
+  path) printf '%s\n' "$compiler" ;;
+  compile) exec "$compiler" "$@" ;;
+esac

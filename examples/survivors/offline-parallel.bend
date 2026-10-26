@@ -4,6 +4,7 @@ import Base
 import game-components.bend as Components
 import game.bend as G
 import offline-policy.bend as Policy
+import bot-driver.bend as Driver
 import offline-batch.bend as Serial
 import parallel/scheduler.bend as Scheduler
 
@@ -28,11 +29,11 @@ type Finished is Data:
 
 def simulate(+fuel: Nat,+ticks: U32,+index: U32,+seed: U32,+profile: U32,observed: Serial.BatchReady) -> Finished:
   match fuel observed:
-    case _ Serial.BatchReady{_,Serial.Progress{_,G.Failed{error},_}}: Failed{error}
-    case _ Serial.BatchReady{True{},Serial.Progress{_,G.Packet{G.State{_,run,_,snapshots,_}},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,snapshots)}
+    case _ Serial.BatchReady{_,Driver.Progress{_,G.Failed{error},_}}: Failed{error}
+    case _ Serial.BatchReady{True{},Driver.Progress{_,G.Packet{G.State{_,run,_,snapshots,_}},choices}}: Complete{capture(index,seed,profile,choices,ticks,run,snapshots)}
     case 0n _: SafetyFuel{}
-    case 1n+rest Serial.BatchReady{False{},Serial.Progress{memory,G.Packet{G.State{world,+run,+offers,+snapshots,pending}},choices}}:
-      simulate(rest,ticks,index,seed,profile,Serial.gate(ticks,Serial.next(G.run_phase(run),G.State{world,run,offers,snapshots,pending},run,offers,memory,choices,snapshots)))
+    case 1n+rest Serial.BatchReady{False{},progress}:
+      simulate(rest,ticks,index,seed,profile,Serial.gate(ticks,Driver.step(progress)))
 # Parse profile names on the host once; mode 2 alternates by global job index.
 def profile_mode(name: String) -> U32:
   match name:
@@ -44,7 +45,7 @@ def select_profile(+mode: U32,+index: U32) -> U32:
     case 2: (index % 2 : U32)
     case _: mode
 def job(+ticks: U32,+seed: U32,+profile: U32,+index: U32) -> Finished:
-  simulate(U32.to_nat((ticks * 4 + 100 : U32)),ticks,index,(seed + index : U32),select_profile(profile,index),Serial.gate(ticks,Serial.Progress{Policy.initial(),Serial.start(select_profile(profile,index),(seed + index : U32)),0}))
+  simulate(U32.to_nat((ticks * 4 + 100 : U32)),ticks,index,(seed + index : U32),select_profile(profile,index),Serial.gate(ticks,Driver.Progress{Policy.initial(),Serial.start(select_profile(profile,index),(seed + index : U32)),0}))
 def emit(result: Finished) -> IO(Unit):
   match result:
     case Failed{error}: IO.die(Unit,1,"Native batch game failure: " ++ error)

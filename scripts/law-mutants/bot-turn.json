@@ -1,0 +1,52 @@
+[
+  {
+    "label": "phase-0-wrong-turn",
+    "source": "examples/survivors/bot-turn.bend",
+    "old": "case 0: MovementDecision{}",
+    "new": "case 0: StopDecision{}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-turn.bend",
+    "proof": "examples/survivors/bot-turn-PROOF.bend",
+    "law": "active_moves"
+  },
+  {
+    "label": "phase-1-wrong-turn",
+    "source": "examples/survivors/bot-turn.bend",
+    "old": "case 1: UpgradeDecision{}",
+    "new": "case 1: MovementDecision{}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-turn.bend",
+    "proof": "examples/survivors/bot-turn-PROOF.bend",
+    "law": "level_up_chooses"
+  },
+  {
+    "label": "phase-2-wrong-turn",
+    "source": "examples/survivors/bot-turn.bend",
+    "old": "case 2: UpgradeDecision{}",
+    "new": "case 2: MovementDecision{}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-turn.bend",
+    "proof": "examples/survivors/bot-turn-PROOF.bend",
+    "law": "chest_chooses"
+  },
+  {
+    "label": "phase-3-wrong-turn",
+    "source": "examples/survivors/bot-turn.bend",
+    "old": "case _: StopDecision{}",
+    "new": "case 3: MovementDecision{}\n    case _: StopDecision{}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-turn.bend",
+    "proof": "examples/survivors/bot-turn-PROOF.bend",
+    "law": "defeat_stops"
+  },
+  {
+    "label": "phase-4-wrong-turn",
+    "source": "examples/survivors/bot-turn.bend",
+    "old": "case _: StopDecision{}",
+    "new": "case 4: UpgradeDecision{}\n    case _: StopDecision{}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-turn.bend",
+    "proof": "examples/survivors/bot-turn-PROOF.bend",
+    "law": "victory_stops"
+  }
+]

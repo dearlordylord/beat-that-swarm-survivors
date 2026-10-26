@@ -101,10 +101,9 @@ jobs:
           PYTHON
           )"
           cargo install wasm-bindgen-cli --version "$bindgen_version" --locked
-      - name: Install pinned TypeScript and bot dependencies
+      - name: Install pinned TypeScript dependencies
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          npm ci --prefix tools/survivors-bot --ignore-scripts --no-audit --no-fund
       - name: Install pinned Astro build dependencies
         run: npm ci --prefix examples/survivors/web --no-audit --no-fund
       - name: Check TypeScript sources, types, lint and formatting

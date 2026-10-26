@@ -1,16 +1,6 @@
 import Base
 import game.bend as G
 import native-economy.bend as P
-import projectile.bend as Shots
-
-def shot_radius(shot: Shots.Shot) -> F32:
-  match shot:
-    case Shots.Shot{_,_,_,_,radius,_,_}: radius
-
-def self_field_radius(enabled: Bool,id: U32,rank: U32,speed: F32,area: F32,duration: F32) -> F32:
-  match enabled:
-    case False{}: 0.0
-    case True{}: shot_radius(Shots.spawn(id,rank,0,0.0,0.0,0.0,0.0,1.0,0.0,speed,area,duration))
 
 def start_unlocks(packet: G.Packet,mask: U32) -> G.Packet:
   match packet:
