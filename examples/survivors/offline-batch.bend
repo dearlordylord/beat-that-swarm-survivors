@@ -4,8 +4,9 @@ import run-state.bend as RS
 import Base
 import game-components.bend as Components
 import game.bend as G
-import bot-actions.bend as B
+import bot-profile.bend as B
 import offline-policy.bend as Policy
+import bot-driver.bend as Driver
 
 def environment(result: Result<&1,&1,U32 & String,String>) -> String:
   match result:
@@ -55,31 +56,18 @@ def report(+index: U32,+seed: U32,+profile: U32,+choices: U32,+started: Nat,+tic
         IO.print("{\"type\":\"summary\",\"backend\":\"native\",\"policy\":\"bend-resource-memory-v1\",\"index\":" ++ U32.show(index) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"profile\":\"" ++ profile_name(profile) ++ "\",\"status\":\"completed\",\"tick\":" ++ U32.show(tick) ++ ",\"requestedTicks\":" ++ U32.show(ticks) ++ ",\"outcome\":\"" ++ outcome(U32.is_le(3,phase)) ++ "\",\"phase\":" ++ U32.show(phase) ++ ",\"hp\":" ++ U32.show(hp) ++ ",\"level\":" ++ U32.show(level) ++ ",\"xp\":" ++ U32.show(xp) ++ ",\"xpNeed\":" ++ U32.show(xpNeed) ++ ",\"kills\":" ++ U32.show(kills) ++ ",\"gold\":" ++ U32.show(gold) ++ ",\"choices\":" ++ U32.show(choices) ++ ",\"xpPiles\":" ++ U32.show(piles(rows)) ++ ",\"uncollectedBaseXp\":" ++ U32.show(xp_sum(rows)) ++ ",\"wallMs\":" ++ Nat.show(Nat.sub(now,started)) ++ "}")
         # Bend buffers stdout; stderr progress flushes the completed JSONL record.
         IO.print_err("Completed native seed " ++ U32.show(seed) ++ " at tick " ++ U32.show(tick))
-def move(state: G.State,result: Policy.Memory & (F32 & F32)) -> Policy.Memory & G.Packet:
-  (memory,direction) = result
-  (dx,dy) = direction
-  (memory,G.advance(state,dx,dy))
-type Progress is Type: Progress{memory: Policy.Memory,packet: G.Packet,choices: U32}
-type BatchReady is Type: BatchReady{finished: Bool,progress: Progress}
-def moved(result: Policy.Memory & G.Packet,+choices: U32) -> Progress:
-  (memory,packet) = result
-  Progress{memory,packet,choices}
-def next(+currentPhase: U32,state: G.State,+run: G.Run,+offers: List<&2,G.Offer>,+memory: Policy.Memory,+choices: U32,snapshots: List<&2,G.Snapshot>) -> Progress:
-  match currentPhase:
-    case 1: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
-    case 2: Progress{memory,G.choose(state,Policy.upgrade(run,offers)),(choices + 1 : U32)}
-    case _: moved(move(state,Policy.movement(memory,run,snapshots)),choices)
-def gate(+ticks: U32,result: Progress) -> BatchReady:
+type BatchReady is Type: BatchReady{finished: Bool,progress: Driver.Progress}
+def gate(+ticks: U32,result: Driver.Progress) -> BatchReady:
   match result:
-    case Progress{memory,G.Packet{G.State{world,+run,offers,snapshots,pending}},choices}: BatchReady{Bool.or(U32.is_le(ticks,tick(run)),U32.is_le(3,phase(run))),Progress{memory,G.Packet{G.State{world,run,offers,snapshots,pending}},choices}}
+    case Driver.Progress{memory,G.Packet{G.State{world,+run,offers,snapshots,pending}},choices}: BatchReady{Bool.or(U32.is_le(ticks,tick(run)),U32.is_le(3,phase(run))),Driver.Progress{memory,G.Packet{G.State{world,run,offers,snapshots,pending}},choices}}
     case result: BatchReady{True{},result}
 def loop(+fuel: Nat,+ticks: U32,+index: U32,+seed: U32,+profile: U32,+started: Nat,observed: BatchReady) -> IO(Unit):
   match fuel observed:
-    case _ BatchReady{_,Progress{_,G.Failed{error},_}}: IO.die(Unit,1,"Native batch game failure: " ++ error)
-    case _ BatchReady{True{},Progress{_,G.Packet{G.State{_,run,_,snapshots,_}},choices}}: report(index,seed,profile,choices,started,ticks,run,snapshots)
+    case _ BatchReady{_,Driver.Progress{_,G.Failed{error},_}}: IO.die(Unit,1,"Native batch game failure: " ++ error)
+    case _ BatchReady{True{},Driver.Progress{_,G.Packet{G.State{_,run,_,snapshots,_}},choices}}: report(index,seed,profile,choices,started,ticks,run,snapshots)
     case 0n _: IO.die(Unit,1,"Native batch exhausted safety fuel before requested tick horizon")
-    case 1n+rest BatchReady{False{},Progress{memory,G.Packet{G.State{world,+run,+offers,+snapshots,pending}},choices}}:
-      loop(rest,ticks,index,seed,profile,started,gate(ticks,next(phase(run),G.State{world,run,offers,snapshots,pending},run,offers,memory,choices,snapshots)))
+    case 1n+rest BatchReady{False{},progress}:
+      loop(rest,ticks,index,seed,profile,started,gate(ticks,Driver.step(progress)))
 def batch(+left: Nat,+index: U32,+stride: U32,+seed: U32,+profile: String,+ticks: U32) -> IO(Unit):
   match left:
     case 0n:
@@ -88,7 +76,7 @@ def batch(+left: Nat,+index: U32,+stride: U32,+seed: U32,+profile: String,+ticks
     case 1n+rest:
       do IO<Unit>:
         started : Nat <- IO.now()
-        loop(U32.to_nat((ticks * 4 + 100 : U32)),ticks,index,(seed + index : U32),select_profile(profile,index),started,gate(ticks,Progress{Policy.initial(),start(select_profile(profile,index),(seed + index : U32)),0}))
+        loop(U32.to_nat((ticks * 4 + 100 : U32)),ticks,index,(seed + index : U32),select_profile(profile,index),started,gate(ticks,Driver.Progress{Policy.initial(),start(select_profile(profile,index),(seed + index : U32)),0}))
         batch(rest,(index + stride : U32),stride,seed,profile,ticks)
 def main() -> IO(Unit):
   do IO<Unit>:
