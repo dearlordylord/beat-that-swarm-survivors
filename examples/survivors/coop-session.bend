@@ -89,3 +89,12 @@ def reconnect(state: State) -> State:
 # explicit neutral fallback, not an invitation to shift a late packet forward.
 type Receipt is Data: Receipt{seq: U32,worldTick: U32,x: U32,y: U32,applied: Bool}
 def receipt_fresh() -> Receipt: Receipt{0,0,1,1,False{}}
+
+# Each authenticated remote seat has its own admission lane. Wire identity is
+# checked before its private lane is normalized to the session guest index.
+def receive_peer_selected(allowed: Bool,state: State,+command: Command) -> Admission:
+  match allowed command:
+    case True{} Command{session,_,seq,tick,action}: receive(state,1,Command{session,1,seq,tick,action})
+    case False{} command: Admission{state,False{},command}
+def receive_peer(state: State,+peer: U32,+command: Command) -> Admission:
+  receive_peer_selected(Bool.and(Bool.and(U32.is_gt(peer,0),U32.is_lt(peer,4)),U32.is_eq(command_player(command),peer)),state,command)

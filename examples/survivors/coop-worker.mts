@@ -9,32 +9,59 @@ import InputQueue from "./dist/coop-input-queue.mjs"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
 import HitJournal from "./dist/coop-hit-journal.mjs"
-// Browser scheduling and message IO only. Bend owns admission and the shared world.
+import Lobby from "./dist/coop-lobby.mjs"
 
-let core: BendABI.CoopCore.CoreState,
-  session: BendABI.CoopSession.State,
-  timer: ReturnType<typeof setInterval> | undefined,
-  last = 0,
-  accumulator = 0
-let gate = Connection.fresh({ $: "Host" })
-let lastSnapshot = 0,
-  observationSeq = 0,
-  lastPhase: number | undefined
-let guestQueue = InputQueue.fresh(0, 0)
+type Rejection = { reason: number; seq: number; targetWorldTick: number; worldTick: number }
+type Peer = {
+  player: number
+  gate: BendABI.CoopConnection.State
+  session: BendABI.CoopSession.State
+  queue: BendABI.CoopInputQueue.State
+  eligible: boolean
+  rejection: Rejection | null
+  epoch: number
+  journal: BendABI.CoopHitJournal.State
+  character: number
+  attached: boolean
+}
+let core: BendABI.CoopCore.CoreState
+let hostSession: BendABI.CoopSession.State
+let lobby: BendABI.CoopLobby.State
+const peers = new Map<number, Peer>()
+let timer: ReturnType<typeof setInterval> | undefined
+let last = 0,
+  accumulator = 0,
+  lastSnapshot = 0,
+  observationSeq = 0
 let currentRound = 0,
   currentPhase = 0,
-  currentWorldTick = 0,
-  guestEligible = false
-let lastInputRejection: { reason: number; seq: number; targetWorldTick: number; worldTick: number } | null = null,
-  connectionEpoch = 0
-let runId = ""
+  currentWorldTick = 0
+let lastPhase: number | undefined
+let runId = "",
+  sessionId = 0
 let contactJournal = HitJournal.fresh(0)
 const STEP = 1000 / 60
 function emit(message: WorkerReply, transfer: Transferable[] = []) {
   postMessage(message, { transfer })
 }
-function applyConnection(output: BendABI.CoopConnection.Out) {
-  gate = output.state
+function emitLobby() {
+  const players = []
+  for (let rows = Lobby.seats(lobby); rows.$ === "Con"; rows = rows.tail) players.push(rows.head)
+  emit({ type: "lobby", players, started: Lobby.started(lobby), canStart: Lobby.can_start(lobby) })
+}
+function updateSeat(peer: Peer) {
+  if (peer.attached)
+    lobby = Lobby.update(lobby, {
+      $: "Seat",
+      player: peer.player,
+      character: peer.character,
+      ready: Connection.running(peer.gate),
+      connected: Connection.reason(peer.gate).$ === "None"
+    })
+  emitLobby()
+}
+function applyConnection(peer: Peer, output: BendABI.CoopConnection.Out) {
+  peer.gate = output.state
   const action = output.action
   if (action.$ === "StartAndConfirm") {
     last = performance.now()
@@ -42,176 +69,209 @@ function applyConnection(output: BendABI.CoopConnection.Out) {
     accumulator = 0
   }
   if (!["Nothing", "PrepareWorld", "PublishInitial"].includes(action.$))
-    emit({ type: "handshake-action", state: gate, action, connectionEpoch })
+    emit({ type: "handshake-action", player: peer.player, state: peer.gate, action, connectionEpoch: peer.epoch })
+  updateSeat(peer)
   return action
 }
-function handshake(signal: BendABI.CoopConnection.Signal, eventEpoch = Connection.epoch(gate)) {
-  return applyConnection(Connection.step(gate, eventEpoch, signal))
+function handshake(peer: Peer, signal: BendABI.CoopConnection.Signal) {
+  return applyConnection(peer, Connection.step(peer.gate, Connection.epoch(peer.gate), signal))
 }
-function reject(reason: BendABI.CoopConnection.Reason["$"], error?: unknown) {
+function reject(peer: Peer, reason: BendABI.CoopConnection.Reason["$"], error?: unknown) {
   if (error)
     emit({
       type: "error",
+      player: peer.player,
       message: errorMessage(error),
+      connectionEpoch: peer.epoch,
       ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
-      connectionEpoch,
       context: {
         worldTick: currentWorldTick,
-        queueWorldTick: guestQueue.worldTick,
+        queueWorldTick: peer.queue.worldTick,
         round: currentRound,
         phase: currentPhase
       }
     })
-  handshake({ $: "Reject", reason: { $: reason } })
+  handshake(peer, { $: "Reject", reason: { $: reason } })
   accumulator = 0
-  guestEligible = false
+  peer.eligible = false
 }
 function packet(result: BendABI.CoopCore.CorePacket) {
   if ("state" in result) core = result.state
   if (result.$ === "CoreFailed") throw Error(result.message)
   if (result.$ === "CoreRejected") {
-    emit({ type: "rejected", message: result.message, connectionEpoch })
+    emit({ type: "rejected", player: 0, message: result.message, connectionEpoch: 0 })
     return null
   }
   const frame = coreFrame(result.observation)
   if (frame && Number.isInteger(frame.tick)) currentWorldTick = frame.tick
   return frame
 }
-function display(result: BendABI.CoopCore.CorePacket) {
-  const frame = packet(result)
-  if (!frame || !("combatForecast" in frame)) throw Error("Missing display observation")
-  return frame
+function publishPeer(peer: Peer, observation: number, initial = false) {
+  if (!peer.attached) return
+  const guestPacket = Game.core_network_observe(core, peer.player)
+  core = guestPacket.state
+  peer.eligible = Game.network_prediction_allowed(guestPacket.view)
+  if (!peer.eligible) peer.queue = InputQueue.fresh(currentRound, currentWorldTick)
+  const publication = initial ? handshake(peer, { $: "Prepared", observation }) : null
+  if (initial && publication?.$ !== "PublishInitial") return
+  const token = Connection.epoch(peer.gate)
+  const snapshot = Network.snapshot(token, initial, runId, observation, guestPacket.view, peer.session, peer.journal, {
+    $: "InputTiming",
+    worldTick: currentWorldTick,
+    lastRejected: peer.rejection ? { $: "Some", value: { $: "RejectedInput", ...peer.rejection } } : { $: "None" }
+  })
+  const bytes = encodeSnapshotValues(snapshot)
+  emit(
+    {
+      type: "remote-frame",
+      player: peer.player,
+      bytes,
+      observationSeq: observation,
+      connectionEpoch: peer.epoch,
+      token
+    },
+    [bytes.buffer]
+  )
 }
-function publish(remote = true, initial = false) {
+function publish(initialPeer?: Peer) {
   const observation = ++observationSeq
-  const local = display(Game.core_observe(core, 0))
+  const local = packet(Game.core_observe(core, 0))
+  if (!local || !("combatForecast" in local)) throw Error("Missing display observation")
   currentPhase = local.phase
-  const round = local.roundId
-  if (round !== currentRound || currentPhase !== 0) guestQueue = InputQueue.fresh(round, currentWorldTick)
-  currentRound = round
+  for (const peer of peers.values())
+    if (local.roundId !== currentRound || currentPhase !== 0)
+      peer.queue = InputQueue.fresh(local.roundId, currentWorldTick)
+  currentRound = local.roundId
   emit({
     type: "frame",
     frame: local,
     observationSeq: observation,
     contactJournal,
-    connectionReady: Connection.running(gate)
+    connectionReady: Lobby.running(lobby)
   })
-  if (remote) {
-    const guestPacket = Game.core_network_observe(core, 1)
-    core = guestPacket.state
-    guestEligible = Game.network_prediction_allowed(guestPacket.view)
-    if (!guestEligible) guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
-    const publication = initial ? handshake({ $: "Prepared", observation }) : null
-    if (initial && publication?.$ !== "PublishInitial") return
-    const token = Connection.epoch(gate)
-    const snapshot = Network.snapshot(token, initial, runId, observation, guestPacket.view, session, contactJournal, {
-      $: "InputTiming",
-      worldTick: currentWorldTick,
-      lastRejected: lastInputRejection
-        ? { $: "Some", value: { $: "RejectedInput", ...lastInputRejection } }
-        : { $: "None" }
-    })
-    const bytes = encodeSnapshotValues(snapshot)
-    emit({ type: "remote-frame", bytes, observationSeq: observation, connectionEpoch, token }, [bytes.buffer])
+  for (const peer of peers.values()) {
+    if (peer === initialPeer) publishPeer(peer, observation, true)
+    else if (Connection.running(peer.gate)) publishPeer(peer, observation)
   }
 }
-function prepareWorld(action: Extract<BendABI.CoopSession.Action, { $: "Setup" }>) {
+function prepareWorld(peer: Peer, action: Extract<BendABI.CoopSession.Action, { $: "Setup" }>) {
+  if (!Lobby.admit(lobby, peer.player)) return reject(peer, "SetupFailed")
   try {
-    const joined = Game.core_attach(core, action.character, action.meta, action.arcana, action.allowedWeapons)
+    const joined = Game.core_attach_player(
+      core,
+      peer.player,
+      action.character,
+      action.meta,
+      action.arcana,
+      action.allowedWeapons
+    )
     packet(joined)
-    if (joined.$ !== "CorePacket") {
-      reject("SetupFailed")
-      return
-    }
+    if (joined.$ !== "CorePacket") return reject(peer, "SetupFailed")
+    if (!peer.attached) peer.character = action.character
+    peer.attached = true
+    updateSeat(peer)
+    publish(peer)
   } catch (error) {
-    reject("SetupFailed", error)
-    return
-  }
-  // Observing is preparation, not permission to advance the world. Bend waits
-  // for this exact observation's ReadyAck before it returns StartAndConfirm.
-  try {
-    publish(true, true)
-  } catch (error) {
-    reject("SnapshotFailed", error)
+    reject(peer, "SetupFailed", error)
   }
 }
-function acceptCommand(command: BendABI.CoopSession.Command, peer: number) {
+function acceptCommand(command: BendABI.CoopSession.Command, player: number) {
+  const peer = peers.get(player)
   const action = command.action
-  if (action.$ === "Choice" && !Connection.running(gate)) {
-    emit({ type: "choice-unavailable", player: peer, connectionEpoch })
+  if (player !== 0 && !peer) return
+  if (action.$ === "Choice" && !Lobby.running(lobby)) {
+    emit({ type: "choice-unavailable", player, connectionEpoch: peer?.epoch ?? 0 })
     return
   }
-  if (peer === 1 && action.$ !== "Setup" && !Connection.running(gate)) return
-  const admission = Session.receive(session, peer, command)
-  session = admission.state
+  if (peer && action.$ !== "Setup" && !Connection.running(peer.gate)) return
+  const admission = peer
+    ? Session.receive_peer(peer.session, player, command)
+    : Session.receive(hostSession, 0, command)
+  if (peer) peer.session = admission.state
+  else hostSession = admission.state
   if (!admission.accepted) return
-  if (action.$ === "Movement" && peer === 1) {
-    reject("ProtocolError")
-    return
-  } else if (action.$ === "MovementTick" && peer === 1) {
-    const admission = InputQueue.push_active(
-      guestQueue,
+  if (action.$ === "Movement" && peer) return reject(peer, "ProtocolError")
+  if (action.$ === "MovementTick" && peer) {
+    const queued = InputQueue.push_active(
+      peer.queue,
       currentPhase,
-      guestEligible,
+      peer.eligible,
       action.round,
       command.seq,
       command.intendedTick,
       action.x,
       action.y
     )
-    if (!admission.accepted) {
-      lastInputRejection = {
-        reason: admission.reason,
+    if (!queued.accepted) {
+      peer.rejection = {
+        reason: queued.reason,
         seq: command.seq,
         targetWorldTick: command.intendedTick,
         worldTick: currentWorldTick
       }
-      emit({ type: "input-rejected", ...lastInputRejection, connectionEpoch })
+      emit({ type: "input-rejected", player, ...peer.rejection, connectionEpoch: peer.epoch })
     }
-    if (admission.reason === 8) {
-      guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
-      reject("ProtocolError")
-      return
-    }
-    guestQueue = admission.state
+    peer.queue = queued.state
+    if (queued.reason === 8) reject(peer, "ProtocolError")
   } else if (action.$ === "Choice") {
-    packet(Game.core_choose(core, peer, action.round, action.index))
+    packet(Game.core_choose(core, player, action.round, action.index))
     publish()
-  } else if (action.$ === "Setup" && peer === 1) {
-    if (handshake({ $: "Setup" }).$ === "PrepareWorld") prepareWorld(action)
-  }
+  } else if (action.$ === "Setup" && peer && handshake(peer, { $: "Setup" }).$ === "PrepareWorld")
+    prepareWorld(peer, action)
 }
-function accept(text: string, peer: number) {
+function accept(text: string, player: number) {
   const decoded = ClientDelivery.decode(text)
   if (decoded.$ !== "Some") {
-    if (peer === 1) reject("ProtocolError")
+    const peer = peers.get(player)
+    if (peer) reject(peer, "ProtocolError")
     return
   }
-  for (let rows = decoded.value.commands; rows.$ === "Con"; rows = rows.tail) acceptCommand(rows.head, peer)
+  for (let rows = decoded.value.commands; rows.$ === "Con"; rows = rows.tail) acceptCommand(rows.head, player)
 }
 function schedule() {
   const now = performance.now()
-  // Discard suspend time; at most four fixed steps per scheduling turn.
   const elapsed = Math.min(4 * STEP, Math.max(0, now - last))
   last = now
-  if (!Connection.running(gate)) {
+  if (!Lobby.running(lobby)) {
     accumulator = 0
     return
   }
   accumulator += elapsed
   let steps = 0
-  while (Connection.running(gate) && accumulator >= STEP && steps++ < 4) {
-    session = Session.clock(session)
-    const move = Session.directions(session)
-    const pending = InputQueue.take_at(guestQueue, currentWorldTick + 1)
-    const input = pending.tick.$ === "Some" ? pending.tick.value : null
-    const frame = packet(
-      Game.core_step(core, move.x0, move.y0, input ? Session.axis(input.x) : 0, input ? Session.axis(input.y) : 0)
-    )
+  while (Lobby.running(lobby) && accumulator >= STEP && steps++ < 4) {
+    hostSession = Session.clock(hostSession)
+    const move = Session.directions(hostSession)
+    const moves: BendABI.CoopCore.Movement[] = [{ $: "Movement", id: 0, x: move.x0, y: move.y0 }]
+    const pending = new Map<number, BendABI.CoopInputQueue.Taken>()
+    for (const peer of peers.values()) {
+      if (!peer.attached) continue
+      peer.session = Session.clock(peer.session)
+      const taken = InputQueue.take_at(peer.queue, currentWorldTick + 1)
+      pending.set(peer.player, taken)
+      const input = taken.tick.$ === "Some" ? taken.tick.value : null
+      moves.push({
+        $: "Movement",
+        id: peer.player,
+        x: input ? Session.axis(input.x) : 0,
+        y: input ? Session.axis(input.y) : 0
+      })
+    }
+    let rows: BendList<BendABI.CoopCore.Movement> = { $: "Nil" }
+    for (let i = moves.length - 1; i >= 0; i--) {
+      const head = moves[i]
+      if (head) rows = { $: "Con", head, tail: rows }
+    }
+    const frame = packet(Game.core_step_players(core, rows))
     if (frame && "advanced" in frame && frame.advanced) {
-      if (pending.state.worldTick !== frame.tick) throw Error("Input clock disagreed with the authoritative game step.")
-      guestQueue = pending.state
-      session = Session.applied(frame.tick, session)
+      for (const peer of peers.values()) {
+        const taken = pending.get(peer.player)
+        if (!taken) continue
+        if (taken.state.worldTick !== frame.tick) throw Error("Input clock disagreed with the authoritative game step.")
+        peer.queue = taken.state
+        peer.session = Session.applied(frame.tick, peer.session)
+        peer.journal = HitJournal.ingest_capped(peer.journal, frame.tick, frame.contacts, frame.contactsOmitted)
+      }
+      hostSession = Session.applied(frame.tick, hostSession)
       contactJournal = HitJournal.ingest_capped(contactJournal, frame.tick, frame.contacts, frame.contactsOmitted)
     }
     if (frame && frame.phase !== lastPhase) {
@@ -221,34 +281,26 @@ function schedule() {
     }
     accumulator -= STEP
   }
-  if (Connection.running(gate) && now - lastSnapshot >= 50) {
+  if (Lobby.running(lobby) && now - lastSnapshot >= 50) {
     lastSnapshot = now
     publish()
   }
 }
 onmessage = (event: MessageEvent<WorkerRequest>) => {
-  let consumedDelivery: number | undefined
+  const message = event.data
   try {
-    const message = event.data
-    if (message.type === "command") consumedDelivery = message.deliveryId
     switch (message.type) {
       case "init": {
-        runId = message.runId
         clearInterval(timer)
-        gate = Connection.fresh({ $: "Host" })
-        accumulator = 0
-        observationSeq = 0
+        peers.clear()
+        runId = message.runId
+        sessionId = message.session
+        accumulator = observationSeq = currentRound = currentPhase = currentWorldTick = 0
         lastPhase = undefined
-        currentRound = 0
-        currentPhase = 0
-        currentWorldTick = 0
-        guestEligible = false
-        guestQueue = InputQueue.fresh(0, 0)
-        lastInputRejection = null
-        const s = message.setup
-        connectionEpoch = 0
         contactJournal = HitJournal.fresh(0)
-        session = Session.fresh(message.session)
+        hostSession = Session.fresh(sessionId)
+        const s = message.setup
+        lobby = Lobby.fresh(s.character)
         packet(Game.core_start(s.character, s.meta, message.seed))
         packet(Game.core_configure(core, s.stage, s.mode, s.arcana))
         packet(Game.core_configure_unlocks(core, 0, s.allowedWeapons))
@@ -257,39 +309,70 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
           try {
             schedule()
           } catch (error) {
-            reject("RuntimeFailed", error)
+            for (const peer of peers.values()) reject(peer, "RuntimeFailed", error)
           }
         }, 4)
         emit({ type: "ready" })
+        emitLobby()
         break
       }
       case "connected": {
-        const transition = Connection.reconnect(gate, message.connectionEpoch)
+        if (!Lobby.admit(lobby, message.player)) break
+        let peer = peers.get(message.player)
+        if (!peer) {
+          peer = {
+            player: message.player,
+            gate: Connection.fresh({ $: "Host" }),
+            session: Session.fresh(sessionId),
+            queue: InputQueue.fresh(currentRound, currentWorldTick),
+            eligible: false,
+            rejection: null,
+            epoch: 0,
+            journal: HitJournal.fresh(0),
+            character: 0,
+            attached: false
+          }
+          peers.set(message.player, peer)
+        }
+        const transition = Connection.reconnect(peer.gate, message.connectionEpoch)
         if (transition.action.$ !== "SendHello") break
-        connectionEpoch = message.connectionEpoch
-        contactJournal = HitJournal.fresh(connectionEpoch)
+        peer.epoch = message.connectionEpoch
+        peer.journal = HitJournal.fresh(peer.epoch)
+        peer.session = Session.reconnect(peer.session)
+        peer.queue = InputQueue.fresh(currentRound, currentWorldTick)
+        peer.rejection = null
         accumulator = 0
-        session = Session.reconnect(session)
-        guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
-        lastInputRejection = null
-        applyConnection(transition)
+        applyConnection(peer, transition)
         break
       }
-      case "handshake":
-        if (message.connectionEpoch === connectionEpoch) handshake(message.signal, message.connectionEpoch)
+      case "handshake": {
+        const peer = peers.get(message.player)
+        if (peer && message.connectionEpoch === peer.epoch) handshake(peer, message.signal)
         break
-      case "command":
-        if (message.player === 0 || message.connectionEpoch === connectionEpoch) accept(message.text, message.player)
+      }
+      case "command": {
+        const peer = peers.get(message.player)
+        if (message.player === 0 || peer?.epoch === message.connectionEpoch) accept(message.text, message.player)
         break
-      case "disconnect":
-        connectionEpoch = message.connectionEpoch
-        handshake({ $: "Lost" })
+      }
+      case "disconnect": {
+        const peer = peers.get(message.player)
+        if (!peer) break
+        peer.epoch = message.connectionEpoch
+        handshake(peer, { $: "Lost" })
+        peer.queue = InputQueue.fresh(currentRound, currentWorldTick)
+        peer.eligible = false
+        peer.session = Session.disconnect(1, peer.session)
         accumulator = 0
-        guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
-        guestEligible = false
-        session = Session.disconnect(1, session)
-        // Connection loss is suspension, not player death or reward forfeiture.
-        publish(false)
+        publish()
+        break
+      }
+      case "start":
+        lobby = Lobby.start(lobby)
+        last = performance.now()
+        accumulator = 0
+        emitLobby()
+        publish()
         break
       case "stop":
         clearInterval(timer)
@@ -297,8 +380,17 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         break
     }
   } catch (error) {
-    reject("RuntimeFailed", error)
+    const peer = "player" in message ? peers.get(message.player) : undefined
+    if (peer) reject(peer, "RuntimeFailed", error)
+    else
+      emit({
+        type: "error",
+        player: 0,
+        message: errorMessage(error),
+        connectionEpoch: 0,
+        context: { worldTick: currentWorldTick }
+      })
   } finally {
-    if (consumedDelivery !== undefined) emit({ type: "command-consumed", deliveryId: consumedDelivery })
+    if (message.type === "command") emit({ type: "command-consumed", deliveryId: message.deliveryId })
   }
 }

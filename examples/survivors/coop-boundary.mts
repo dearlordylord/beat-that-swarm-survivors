@@ -5,12 +5,20 @@ import type { CoopSetup } from "./coop-ui.mts"
 export type SnapshotEnvelope = BendABI.CoopNetwork.Snapshot
 export type WorkerRequest =
   | { type: "init"; setup: CoopSetup; session: number; seed: number; runId: string }
-  | { type: "connected"; connectionEpoch: number }
-  | { type: "handshake"; signal: BendABI.CoopConnection.Signal; connectionEpoch: number }
+  | { type: "connected"; player: number; connectionEpoch: number }
+  | { type: "handshake"; player: number; signal: BendABI.CoopConnection.Signal; connectionEpoch: number }
   | { type: "command"; player: number; text: string; deliveryId: number; connectionEpoch: number }
-  | { type: "disconnect"; connectionEpoch: number }
+  | { type: "disconnect"; player: number; connectionEpoch: number }
+  | { type: "start" }
   | { type: "stop" }
+export type LobbyUpdate = {
+  type: "lobby"
+  players: Array<{ player: number; character: number; ready: boolean; connected: boolean }>
+  started: boolean
+  canStart: boolean
+}
 export type WorkerReply =
+  | LobbyUpdate
   | { type: "command-consumed"; deliveryId: number }
   | {
       type: "frame"
@@ -19,19 +27,35 @@ export type WorkerReply =
       contactJournal: BendABI.CoopHitJournal.State
       connectionReady: boolean
     }
-  | { type: "remote-frame"; bytes: Uint8Array; observationSeq: number; connectionEpoch: number; token: number }
+  | {
+      type: "remote-frame"
+      player: number
+      bytes: Uint8Array
+      observationSeq: number
+      connectionEpoch: number
+      token: number
+    }
   | {
       type: "handshake-action"
+      player: number
       state: BendABI.CoopConnection.State
       action: BendABI.CoopConnection.Action
       connectionEpoch: number
     }
   | { type: "choice-unavailable"; player: number; connectionEpoch: number }
   | { type: "ready" }
-  | { type: "error"; message: string; stack?: string; connectionEpoch: number; context: Record<string, unknown> }
-  | { type: "rejected"; message: string; connectionEpoch: number }
+  | {
+      type: "error"
+      player: number
+      message: string
+      stack?: string
+      connectionEpoch: number
+      context: Record<string, unknown>
+    }
+  | { type: "rejected"; player: number; message: string; connectionEpoch: number }
   | {
       type: "input-rejected"
+      player: number
       reason: number
       seq: number
       targetWorldTick: number

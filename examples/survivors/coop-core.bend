@@ -352,6 +352,38 @@ def core_attach(state: CoreState,character: U32,meta: U32,arcana: U32,mask: U32)
   match state:
     case CoreState{world,shared,+refs,snapshots,round,required,offers,pending}: Attach.dispatch(~CoreState,~CorePacket,~completed,~attach_initial,List.length(&2,PlayerRef,refs),CoreState{world,shared,refs,snapshots,round,required,offers,pending},character,meta,arcana,mask)
 
+def has_player(refs: List<&2,PlayerRef>,+id: U32) -> Bool:
+  match refs:
+    case []: False{}
+    case PlayerRef{+pid,_} <> rest: Bool.or(U32.is_eq(pid,id),has_player(rest,id))
+def join_player_allowed(allowed: Bool,state: CoreState,id: U32,character: U32,meta: U32,arcana: U32) -> CorePacket:
+  match allowed state:
+    case True{} CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: joined(shared,refs,snapshots,round,required,offers,pending,create_player(world,id,guest_player(shared,character,meta,arcana)))
+    case False{} state: CoreRejected{state,"The party is full or the match has started"}
+def attach_player_configured(+id: U32,mask: U32,packet: CorePacket) -> CorePacket:
+  match packet:
+    case CorePacket{state,_}: core_configure_unlocks(state,id,mask)
+    case packet: packet
+def attach_player_selected(exists: Bool,state: CoreState,+id: U32,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
+  match exists state:
+    case True{} state: completed(state)
+    case False{} CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: attach_player_configured(id,mask,join_player_allowed(Bool.and(U32.is_eq(RS.session_tick(shared),0),Bool.and(U32.is_gt(id,0),U32.is_lt(id,4))),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,U32.min(7,character),meta,U32.min(11,arcana)))
+def core_attach_player(state: CoreState,+id: U32,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
+  match state:
+    case CoreState{world,shared,+refs,snapshots,round,required,offers,pending}: attach_player_selected(has_player(refs,id),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,character,meta,arcana,mask)
+
+type Movement is Data: Movement{id: U32,x: F32,y: F32}
+def movement_at(rows: List<&2,Movement>,+id: U32) -> Movement:
+  match rows:
+    case []: Movement{id,0.0,0.0}
+    case Movement{+pid,x,y} <> rest: Bool.pick(Movement,U32.is_eq(pid,id),Movement{pid,x,y},movement_at(rest,id))
+def player_movement_view(+shared: RS.Session,player: Components.PlayerRecord,movement: Movement) -> G.PlayerView:
+  match player movement:
+    case Components.PlayerRecord{id,personal,connected,_} Movement{_,x,y}: G.PlayerView{id,player_step_context(RS.session_with_tick(shared,(RS.session_tick(shared) + 1 : U32)),personal),x,y,connected}
+def player_movement_views(+shared: RS.Session,+moves: List<&2,Movement>,players: List<&2,Components.PlayerRecord>) -> List<&2,G.PlayerView>:
+  match players:
+    case []: []
+    case +player <> rest: player_movement_view(shared,player,movement_at(moves,record_id(player))) <> player_movement_views(shared,moves,rest)
 # Views are immutable per-tick projections, never another gameplay authority.
 # Connected eligibility is explicit; every owner retains its real health and loadout.
 def player_view(+shared: RS.Session,+dx0: F32,+dy0: F32,+dx1: F32,+dy1: F32,player: Components.PlayerRecord) -> G.PlayerView:
@@ -573,6 +605,17 @@ def step_allowed(allowed: Bool,state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: 
 def core_step(state: CoreState,dx0: F32,dy0: F32,dx1: F32,dy1: F32) -> CorePacket:
   match state:
     case CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: step_allowed(U32.is_eq(RS.session_phase(shared),0),CoreState{world,shared,refs,snapshots,round,required,offers,pending},dx0,dy0,dx1,dy1)
+
+def players_step_loaded(+shared: RS.Session,refs: List<&2,PlayerRef>,snapshots: List<&2,G.Snapshot>,round: U32,moves: List<&2,Movement>,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
+  match result:
+    case (world,+players): core_team(shared,refs,snapshots,round,world,players,player_movement_views(shared,moves,players))
+def players_step_allowed(allowed: Bool,state: CoreState,moves: List<&2,Movement>) -> CorePacket:
+  match allowed state:
+    case False{} state: core_clock(state)
+    case True{} CoreState{world,+shared,+refs,snapshots,round,_,_,_}: players_step_loaded(shared,refs,snapshots,round,moves,load_players(refs,[],world))
+def core_step_players(state: CoreState,moves: List<&2,Movement>) -> CorePacket:
+  match state:
+    case CoreState{world,+shared,refs,snapshots,round,required,offers,pending}: players_step_allowed(U32.is_eq(RS.session_phase(shared),0),CoreState{world,shared,refs,snapshots,round,required,offers,pending},moves)
 
 def remove_offers(offers: List<&2,PlayerOffers>,+id: U32) -> List<&2,PlayerOffers>:
   match offers:

@@ -1,0 +1,19 @@
+import Base
+import ./coop-lobby.bend as L
+
+law unstarted_party_never_runs:
+  for seats:List<&2,L.Seat>
+  {L.running(L.State{False{},seats}) == False{} : Bool}
+
+law rejected_start_preserves_party:
+  for state:L.State
+  {L.start_selected(False{},state) == state : L.State}
+
+law solo_host_cannot_start:
+  for character:U32
+  {L.can_start(L.fresh(character)) == False{} : Bool}
+
+law invalid_seat_never_admitted:
+  for started:Bool
+  for seats:List<&2,L.Seat>
+  {L.admit(L.State{started,seats},4) == False{} : Bool}
