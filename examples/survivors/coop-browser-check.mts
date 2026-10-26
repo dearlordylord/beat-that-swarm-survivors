@@ -1,0 +1,108 @@
+import { chromium, type Page } from "playwright"
+import { defined } from "./host-values.mts"
+import assert from "node:assert/strict"
+const browser = await chromium.launch({
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
+    "--disable-backgrounding-occluded-windows"
+  ]
+})
+const pages: Page[] = []
+async function page(url: string) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  pages.push(page)
+  page.on("pageerror", (e) => console.log("PAGEERROR", e.message))
+  await page.goto(url)
+  return page
+}
+async function status(p: Page) {
+  return p.locator("#coop-status").innerText()
+}
+try {
+  const host = await page(new URL("coop.html", process.argv[2] ?? "http://127.0.0.1:8714/").href)
+  await host.locator("#coop-host").click()
+  await host.waitForFunction(() => document.querySelector<HTMLInputElement>("#coop-invite-link")?.value, null, {
+    timeout: 90000
+  })
+  const invite = await host.locator("#coop-invite-link").inputValue()
+  console.log("room ready")
+  await host.locator("#coop-invite-close").click()
+  const guests: Page[] = []
+  for (let i = 0; i < 3; i++) {
+    const guest = await page(invite)
+    await guest.locator("#coop-join").click()
+    guests.push(guest)
+    await host.waitForFunction(
+      (n) => document.querySelectorAll('#coop-party-roster [data-ready="true"]').length >= n,
+      i + 2,
+      { timeout: 90000 }
+    )
+    console.log("joined", i + 1, await status(guest))
+  }
+  await new Promise((r) => setTimeout(r, 2000))
+  assert.equal(await host.locator("#coop-play").isVisible(), false)
+  assert.equal(await host.locator("#coop-start").isEnabled(), true)
+  const fifth = await page(invite)
+  await fifth.locator("#coop-join").click()
+  await fifth.waitForFunction(
+    () =>
+      document.querySelector("#coop-status")?.textContent.includes("full") ||
+      document.querySelector("#coop-status")?.textContent.includes("unavailable"),
+    null,
+    { timeout: 90000 }
+  )
+  console.log("fifth refused")
+  await host.locator("#coop-start").click()
+  for (const p of [host, ...guests]) {
+    await p.locator("#coop-play").waitFor({ state: "visible", timeout: 30000 })
+    await p.waitForFunction(() => document.querySelectorAll("#coop-players .player-status").length === 4)
+  }
+  await defined(guests[0]).keyboard.down("ArrowRight")
+  await defined(guests[1]).keyboard.down("ArrowDown")
+  await defined(guests[2]).keyboard.down("ArrowLeft")
+  await host.keyboard.down("ArrowUp")
+  await new Promise((r) => setTimeout(r, 1500))
+  for (const p of [host, ...guests]) await p.keyboard.up("ArrowRight").catch(() => {})
+  for (const p of [host, ...guests]) await p.keyboard.up("ArrowDown").catch(() => {})
+  for (const p of [host, ...guests]) await p.keyboard.up("ArrowLeft").catch(() => {})
+  await host.keyboard.up("ArrowUp")
+  console.log(
+    "four running clocks",
+    await Promise.all([host, ...guests].map((p) => p.locator("#coop-clock").innerText()))
+  )
+  const rejoin = defined(guests[2]).url()
+  await defined(guests[2]).close()
+  await host.waitForFunction(() => document.querySelector("#coop-play-status")?.textContent.includes("paused"), null, {
+    timeout: 15000
+  })
+  const stopped = await host.locator("#coop-clock").innerText()
+  await defined(guests[0]).keyboard.down("ArrowRight")
+  await new Promise((r) => setTimeout(r, 2500))
+  await defined(guests[0]).keyboard.up("ArrowRight")
+  assert.equal(await host.locator("#coop-clock").innerText(), stopped)
+  console.log("shared paused", stopped)
+  const returned = await page(rejoin)
+  await returned.locator("#coop-join").click()
+  await returned.locator("#coop-play").waitFor({ state: "visible", timeout: 45000 })
+  await host.waitForFunction(() => !document.querySelector("#coop-play-status")?.textContent.includes("paused"), null, {
+    timeout: 30000
+  })
+  console.log("rejoined reserved seat", new URL(returned.url()).searchParams.get("seat"))
+  await new Promise((r) => setTimeout(r, 1500))
+  console.log(
+    "resumed clocks",
+    await host.locator("#coop-clock").innerText(),
+    await returned.locator("#coop-clock").innerText()
+  )
+  for (const p of [host, defined(guests[0]), defined(guests[1]), returned]) {
+    assert.equal(await p.locator(".coop-diagnostic:visible").count(), 0)
+    await p.screenshot({ path: `/tmp/network4-${pages.indexOf(p)}.png` })
+  }
+  console.log("PASS real Iroh four-player lobby, explicit start, capacity, shared pause and reserved-seat rejoin")
+} finally {
+  await browser.close()
+}

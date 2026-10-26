@@ -115,8 +115,17 @@ and [reliability plan](../../research/coop-reliability-plan.md).
 The [results report](../../research/coop-reliability-results.md) records the
 qualified scenarios and remaining limits.
 
-Real Iroh delivery, timing and reconnection require manual browser verification.
-The repository does not currently provide an automated two-browser network harness.
+After serving the build, run the real browser and Iroh check with Playwright:
+
+```sh
+node examples/survivors/coop-browser-check.mts http://127.0.0.1:8713/
+node examples/survivors/coop-four-player-check.mts examples/survivors/dist/web/dist
+```
+
+The browser check creates a host and three guests, refuses a fifth player, starts
+the run explicitly, then checks shared pause and reserved-seat rejoin. Playwright
+requires its Chromium browser and operating-system dependencies. Captures go to
+the system temporary directory. Cross-device timing still needs manual checks.
 
 The repository-only [netcode skill](../../skills/realtime-netcode/SKILL.md) records
 review rules and pitfalls. It is not installed globally. Primary-source reading

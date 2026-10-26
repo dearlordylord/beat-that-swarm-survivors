@@ -729,7 +729,6 @@ async function connect(
             }
             ui.lobby(lobby)
             if (roomStarted) ui.status(roomRunning ? "" : "Waiting for all teammates to rejoin. The run is paused.")
-            if (roomStarted && authorityFrame) ui.present(authorityFrame)
             return
           }
           const control = decodeControlFrame(event.bytes, (text) => Connection.decode(text))
@@ -799,7 +798,10 @@ async function connect(
     link.searchParams.set("seat", String(ownPlayer))
     history.replaceState(null, "", link)
   } catch (error) {
-    if (generation === epoch) transportFailure(error)
+    if (generation === epoch) {
+      transportFailure(error)
+      ui.status(errorMessage(error), { error: true })
+    }
   }
 }
 function showError(error: unknown) {

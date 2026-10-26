@@ -40,6 +40,13 @@ exact target world tick: a late command is rejected rather than shifted forward.
 Transport sequence numbers and world ticks are different clocks. The
 [worker](coop-worker.mts) connects these boundaries.
 
+Movement commands use a separate lobby input generation in their `round` field.
+The generation advances on a transport departure and on a reward-round change.
+Old queued or delayed movement cannot enter the resumed generation. Reward choices
+continue to carry the actual reward round. A shared pause stops guest prediction,
+drops unsent movement, and clears every authoritative movement queue while
+preserving snapshot receipts and in-flight transport identities.
+
 ## Separate clocks and prediction lead
 
 The co-op path keeps packet identity, observation freshness, authoritative world
