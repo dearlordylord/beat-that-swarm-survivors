@@ -225,16 +225,49 @@ def forecast_players(+shared: RS.Session,players: List<&2,Components.PlayerRecor
   match players:
     case []: []
     case Components.PlayerRecord{id,personal,connected} <> tail: G.PlayerSnapshot{id,player_step_context(shared,personal),connected} <> forecast_players(shared,tail)
+def view_observation(+shared: RS.Session,+players: List<&2,Components.PlayerRecord>,+snapshots: List<&2,G.Snapshot>,+id: U32,round: U32,+required: List<&2,U32>,offers: List<&2,G.Offer>,+personal: RS.PlayerState) -> Observation:
+  ViewObservation{G.observation(observer_context(shared,players,personal),offers,snapshots),Prediction.allowed(RS.session_phase(shared),RS.player_hp(personal),player_connected(players,id)),G.run_step_distance(player_step_context(shared,personal)),id,G.contains(required,id),round,required,players,CombatPrediction.initialize(id,RS.session_tick(shared),forecast_players(shared,players),snapshots)}
 def observe_player(+shared: RS.Session,+refs: List<&2,PlayerRef>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,world: Storage.World(),+players: List<&2,Components.PlayerRecord>,own: Maybe<&2,RS.PlayerState>) -> CorePacket:
   match own:
     case None{}: CoreRejected{CoreState{world,shared,refs,snapshots,round,required,offers,pending},"Unknown observing player"}
-    case Some{+personal}: CorePacket{CoreState{world,shared,refs,snapshots,round,required,offers,pending},ViewObservation{G.observation(observer_context(shared,players,personal),offers_for(offers,id),snapshots),Prediction.allowed(RS.session_phase(shared),RS.player_hp(personal),player_connected(players,id)),G.run_step_distance(player_step_context(shared,personal)),id,G.contains(required,id),round,required,players,CombatPrediction.initialize(id,RS.session_tick(shared),forecast_players(shared,players),snapshots)}}
+    case Some{+personal}: CorePacket{CoreState{world,shared,refs,snapshots,round,required,offers,pending},view_observation(shared,players,snapshots,id,round,required,offers_for(offers,id),personal)}
 def observe_loaded(+shared: RS.Session,+refs: List<&2,PlayerRef>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,+pending: List<&2,Reward>,+id: U32,result: Storage.World() & List<&2,Components.PlayerRecord>) -> CorePacket:
   match result:
     case (world,+players): observe_player(shared,refs,snapshots,round,required,offers,pending,id,world,players,find_player(players,id))
 def core_observe(state: CoreState,+id: U32) -> CorePacket:
   match state:
     case CoreState{world,+shared,+refs,+snapshots,+round,+required,+offers,+pending}: observe_loaded(shared,refs,snapshots,round,required,offers,pending,id,load_players(refs,[],world))
+type NetworkView is Data: NetworkView{shared: RS.Session,players: List<&2,Components.PlayerRecord>,snapshots: List<&2,G.Snapshot>,own: U32,round: U32,required: List<&2,U32>,offers: List<&2,G.Offer>}
+type NetworkPacket is Type: NetworkPacket{state: CoreState,view: NetworkView}
+def network_visible(snapshot: G.Snapshot) -> Bool:
+  match snapshot:
+    case G.EnemySnapshot{_}: True{}
+    case G.ProjectileSnapshot{projectile}: Shot.present(projectile)
+    case G.PickupSnapshot{pickup}: Pickup.active(pickup)
+def network_snapshots(rows: List<&2,G.Snapshot>) -> List<&2,G.Snapshot>:
+  match rows:
+    case []: []
+    case +head <> tail: List.filter.put(G.Snapshot,head,network_snapshots(tail),network_visible(head))
+def network_loaded(+shared: RS.Session,+refs: List<&2,PlayerRef>,+snapshots: List<&2,G.Snapshot>,+round: U32,+required: List<&2,U32>,+offers: List<&2,PlayerOffers>,pending: List<&2,Reward>,+id: U32,result: Storage.World() & List<&2,Components.PlayerRecord>) -> NetworkPacket:
+  match result:
+    case (world,players): NetworkPacket{CoreState{world,shared,refs,snapshots,round,required,offers,pending},NetworkView{shared,players,network_snapshots(snapshots),id,round,required,offers_for(offers,id)}}
+def core_network_observe(state: CoreState,id: U32) -> NetworkPacket:
+  match state:
+    case CoreState{world,+shared,+refs,+snapshots,+round,+required,+offers,+pending}: network_loaded(shared,refs,snapshots,round,required,offers,pending,id,load_players(refs,[],world))
+def restore_network_own(+shared: RS.Session,+players: List<&2,Components.PlayerRecord>,+snapshots: List<&2,G.Snapshot>,+id: U32,round: U32,+required: List<&2,U32>,offers: List<&2,G.Offer>,own: Maybe<&2,RS.PlayerState>) -> Observation:
+  match own:
+    case None{}: NoObservation{}
+    case Some{personal}: view_observation(shared,players,snapshots,id,round,required,offers,personal)
+def network_allowed_own(shared: RS.Session,+players: List<&2,Components.PlayerRecord>,id: U32,own: Maybe<&2,RS.PlayerState>) -> Bool:
+  match own:
+    case None{}: False{}
+    case Some{personal}: Prediction.allowed(RS.session_phase(shared),RS.player_hp(personal),player_connected(players,id))
+def network_prediction_allowed(view: NetworkView) -> Bool:
+  match view:
+    case NetworkView{shared,+players,_,+own,_,_,_}: network_allowed_own(shared,players,own,find_player(players,own))
+def restore_network(view: NetworkView) -> Observation:
+  match view:
+    case NetworkView{shared,+players,snapshots,+own,round,required,offers}: restore_network_own(shared,players,snapshots,own,round,required,offers,find_player(players,own))
 def completed(state: CoreState) -> CorePacket: CorePacket{state,NoObservation{}}
 type PlayerCreated is Type:
   PlayerCreated{world: Storage.World(),ref: PlayerRef}

@@ -140,5 +140,10 @@ promise continuous motion across arbitrary outages or overloaded host CPUs.
 Snapshots use the browser gzip codec in `coop-snapshot-codec.mts`. One serial
 receiver admits at most sixteen compressed jobs, including the active job, and
 16 MiB of compressed input. Each complete decoded snapshot is limited to 1 MiB;
-CRC/ISIZE must pass before JSON admission. These IO limits do not establish a
+CRC/ISIZE must pass before bounded CBOR decoding and schema admission. The
+`BCB1` frame carries a self-contained Bend snapshot. The CBOR tokenizer permits
+at most 16,384 entries per container, 32 nested containers, 262,144 tokens and
+4,096 bytes per string. Field validation enforces Bend numeric ranges. Tags,
+maps, indefinite lengths, undefined values, non-finite numbers, invalid UTF-8
+and trailing data are rejected. These IO limits do not establish a
 1 MiB bound on browser-internal decompressor allocation.

@@ -53,7 +53,7 @@ combat. Shot and target lifetimes identify the recipient. Bend maps confirmed
 shot endpoints and effects to the displayed target trajectory, with a recorded
 impact fallback when that lifetime is absent. Recent cosmetic history and effect
 storage are bounded; canonical outcomes remain in the host snapshots. The host
-emits at most the latest 512 ordered cosmetic receipts per step before JSON
+emits at most the latest 512 ordered cosmetic receipts per step before network
 serialization. Omitted receipts contribute to the cosmetic overflow counter;
 damage, kills, XP and rewards are still resolved in full.
 
@@ -120,14 +120,47 @@ presentation projection plus the detached prediction scene. Host adapters only
 reshape Bend collections for drawing. Local Bend and worker results are trusted
 through generated ABI types; they are not fully parsed again at runtime.
 
-The worker encodes a remote display envelope once as JSON/UTF-8 and transfers
-its owned buffer to the main thread. Compression consumes bytes. Incoming
-snapshots are decompressed within the existing bounds, decoded and checked once
-against a schema generated from Bend declarations before admission or receipts.
-The raw/compressed limits, connection epochs and application receipt window are
-unchanged. The normal local draw path and local projectile projection no longer
-format and parse Bend JSON strings.
+The worker projects `Core.NetworkView` from authoritative state and encodes
+`CoopNetwork.Snapshot` as standard CBOR with pinned cborg. Each shared session,
+player record and visible actor appears once. Actors retain their original mixed
+order, status, trajectory, ownership, visits and lifetime data. Bend reconstructs
+the existing observation and prediction scene with the same `view_observation`
+function used by the local view. Inactive pool entries and internal indexes do
+not cross the wire. Each snapshot is complete, including after reconnect.
 
-Run `npm run benchmark:observations` for the current production observation
-comparison against the fixed pre-change master. This measures serialization
-work, not Iroh latency or FPS; captures belong outside tracked source.
+The wire uses positional constructor variants and flat bounded sequences. The
+existing ABI generator derives field layouts and numeric ranges from Bend.
+Finite fractional values round-trip exactly without coordinate quantization.
+The `BCB1` frame contains gzip-compressed CBOR and remains within Iroh's 1 MiB
+message limit. Gzip CRC and size checks precede CBOR admission. The tokenizer
+rejects excessive depth, container lengths, strings and total token counts before
+recursive decoding. Maps, tags, indefinite lengths, undefined values, non-finite
+numbers, malformed UTF-8 and trailing bytes are rejected.
+
+`commandAck` is the guest command admission sequence used for input timing.
+It is distinct from the application receipt for a token and observation. The
+unused resolved-input receipt is absent. Rejected-input diagnostics remain in
+`inputTiming`. The compressed queue, connection fencing, latest pending snapshot,
+application receipt window and snapshot cadence retain their existing behavior.
+
+To compare full JSON, compact JSON and compact CBOR on the same fresh gameplay
+snapshots, run `BASELINE_REVISION=241f799 ARTIFACT_DIR=/tmp/snapshot-measurement npm run benchmark:observations`.
+The bounded interleaved measurement includes Bend projection, codec work, gzip,
+admission, Bend reconstruction and guest-visible projection. The baseline schema
+is loaded from the identified pre-migration commit. The report records source
+fingerprints, actor counts, byte counts and timing ranges. It measures processing
+work rather than Iroh latency or FPS. Captures stay outside tracked source.
+
+After `bash examples/survivors/build-web.sh`, run the existing boundary checks:
+
+```sh
+node examples/survivors/observations-check.mts examples/survivors/dist/web/dist
+node examples/survivors/coop-snapshot-codec-check.mts examples/survivors/dist/web/dist/coop-connection.mjs
+node examples/survivors/coop-playback-wire-check.mts examples/survivors/dist/web/dist/coop-playback-wire.mjs examples/survivors/dist/web/dist
+npm run check:typescript
+```
+
+The observation check covers phases, admission, reconnect, actor and contact
+identities, spectator views, ownership, ordering and input diagnostics through
+the production CBOR and gzip boundary. The codec check covers byte and queue
+bounds. The playback check uses emitted Bend projections and the browser adapter.

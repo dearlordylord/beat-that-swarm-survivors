@@ -2,6 +2,8 @@ import { coreFrame } from "./observations.mts"
 import type { WorkerRequest, WorkerReply } from "./coop-boundary.mts"
 import { errorMessage } from "./host-values.mts"
 import Game from "./dist/coop-core.mjs"
+import Network from "./dist/coop-network.mjs"
+import { encodeSnapshotValues } from "./snapshot-envelope.mts"
 import Session from "./dist/coop-session.mjs"
 import InputQueue from "./dist/coop-input-queue.mjs"
 import Connection from "./dist/coop-connection.mjs"
@@ -18,8 +20,7 @@ let gate = Connection.fresh({ $: "Host" })
 let lastSnapshot = 0,
   observationSeq = 0,
   lastPhase: number | undefined
-let guestReceipt = Session.receipt_fresh(),
-  guestQueue = InputQueue.fresh(0, 0)
+let guestQueue = InputQueue.fresh(0, 0)
 let currentRound = 0,
   currentPhase = 0,
   currentWorldTick = 0,
@@ -27,7 +28,6 @@ let currentRound = 0,
 let lastInputRejection: { reason: number; seq: number; targetWorldTick: number; worldTick: number } | null = null,
   connectionEpoch = 0
 let runId = ""
-const encoder = new TextEncoder()
 let contactJournal = HitJournal.fresh(0)
 const STEP = 1000 / 60
 function emit(message: WorkerReply, transfer: Transferable[] = []) {
@@ -97,30 +97,21 @@ function publish(remote = true, initial = false) {
     connectionReady: Connection.running(gate)
   })
   if (remote) {
-    const guestPacket = Game.core_observe(core, 1)
-    const guest = display(guestPacket)
-    if (guestPacket.$ !== "CorePacket" || guestPacket.observation.$ !== "ViewObservation")
-      throw Error("Missing remote display observation")
-    guestEligible = guest.predictionAllowed === true
+    const guestPacket = Game.core_network_observe(core, 1)
+    core = guestPacket.state
+    guestEligible = Game.network_prediction_allowed(guestPacket.view)
     if (!guestEligible) guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
     const publication = initial ? handshake({ $: "Prepared", observation }) : null
     if (initial && publication?.$ !== "PublishInitial") return
     const token = Connection.epoch(gate)
-    const bytes = encoder.encode(
-      JSON.stringify({
-        type: "frame",
-        connectionVersion: Connection.protocol_version(),
-        token,
-        initial,
-        frame: guestPacket.observation,
-        runId,
-        admission: session,
-        receipt: guestReceipt,
-        observationSeq: observation,
-        contactJournal,
-        inputTiming: { worldTick: currentWorldTick, lastRejected: lastInputRejection }
-      })
-    )
+    const snapshot = Network.snapshot(token, initial, runId, observation, guestPacket.view, session, contactJournal, {
+      $: "InputTiming",
+      worldTick: currentWorldTick,
+      lastRejected: lastInputRejection
+        ? { $: "Some", value: { $: "RejectedInput", ...lastInputRejection } }
+        : { $: "None" }
+    })
+    const bytes = encodeSnapshotValues(snapshot)
     emit({ type: "remote-frame", bytes, observationSeq: observation, connectionEpoch, token }, [bytes.buffer])
   }
 }
@@ -222,7 +213,6 @@ function schedule() {
     if (frame && "advanced" in frame && frame.advanced) {
       if (pending.state.worldTick !== frame.tick) throw Error("Input clock disagreed with the authoritative game step.")
       guestQueue = pending.state
-      guestReceipt = InputQueue.receipt(frame.tick, pending.tick)
       session = Session.applied(frame.tick, session)
       contactJournal = HitJournal.ingest_capped(
         contactJournal,
@@ -256,7 +246,6 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         accumulator = 0
         observationSeq = 0
         lastPhase = undefined
-        guestReceipt = Session.receipt_fresh()
         currentRound = 0
         currentPhase = 0
         currentWorldTick = 0
@@ -289,7 +278,6 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         accumulator = 0
         session = Session.reconnect(session)
         guestQueue = InputQueue.fresh(currentRound, currentWorldTick)
-        guestReceipt = Session.receipt_fresh()
         lastInputRejection = null
         applyConnection(transition)
         break

@@ -32,13 +32,14 @@ example_emit "$app_dir/coop-session.bend" "$staging_dir/public/dist/coop-session
 example_emit "$app_dir/coop-protocol.bend" "$staging_dir/public/dist/coop-protocol.mjs"
 example_emit "$app_dir/coop-prediction.bend" "$staging_dir/public/dist/coop-prediction.mjs"
 example_emit "$app_dir/coop-input-queue.bend" "$staging_dir/public/dist/coop-input-queue.mjs"
-for module in coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-playback-wire coop-contact-playback coop-client-clock coop-hit-journal coop-local-projectiles; do
+for module in coop-network coop-client-delivery coop-snapshot-receipts coop-snapshot-flow coop-hit-effects coop-playback coop-playback-wire coop-contact-playback coop-client-clock coop-hit-journal coop-local-projectiles; do
   example_emit "$app_dir/$module.bend" "$staging_dir/public/dist/$module.mjs"
 done
 bash "$example_repo/tools/iroh-transport/build.sh" "$staging_dir/public/iroh"
 python3 "$example_repo/scripts/generate-bend-types.py"
 "$NODE" "$example_repo/scripts/generate-bend-codecs.mts"
 "$NODE" "$example_repo/node_modules/typescript/bin/tsc" -p "$app_dir/tsconfig.browser.json" --outDir "$staging_dir/public"
+"$example_repo/node_modules/.bin/esbuild" "$app_dir/cbor.mts" --bundle --format=esm --platform=browser --outfile="$staging_dir/public/cbor.mjs"
 for asset in style.css menu-a.css menu-moon.css coop.css; do
   cp "$app_dir/$asset" "$staging_dir/public/$asset"
 done

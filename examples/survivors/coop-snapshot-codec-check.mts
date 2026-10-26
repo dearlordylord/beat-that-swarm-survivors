@@ -32,7 +32,7 @@ const equalBytes = (actual: unknown, expected: unknown, message: string) => {
 }
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder("utf-8", { fatal: true })
-const MAGIC = Uint8Array.of(0x42, 0x53, 0x5a, 0x31)
+const MAGIC = Uint8Array.of(0x42, 0x43, 0x42, 0x31)
 function concatenate(left: Uint8Array, right: Uint8Array) {
   const output = new Uint8Array(left.byteLength + right.byteLength)
   output.set(left, 0)
@@ -99,7 +99,7 @@ check(
   sceneBytes.byteLength >= 100000 && sceneBytes.byteLength <= MAX_SNAPSHOT_RAW_BYTES,
   "repeated snapshot fixture is a bounded ~100 KB scene"
 )
-equalBytes(sceneEncoded.subarray(0, MAGIC.byteLength), MAGIC, "encoded frames use BSZ1")
+equalBytes(sceneEncoded.subarray(0, MAGIC.byteLength), MAGIC, "encoded frames use BCB1")
 check(sceneEncoded.byteLength < sceneBytes.byteLength / 2, "gzip materially shrinks a repeated scene")
 equalBytes(await decodeSnapshot(sceneEncoded), sceneBytes, "scene bytes round-trip exactly")
 check(
@@ -174,7 +174,7 @@ const wrongMagic = sceneEncoded.slice()
 wrongMagic[0] = defined(wrongMagic[0]) ^ 0x01
 await assert.rejects(decodeSnapshot(wrongMagic), /magic/i)
 checks++
-await assert.rejects(decodeSnapshot(Uint8Array.of(0x42, 0x53, 0x5a)), /truncated/i)
+await assert.rejects(decodeSnapshot(Uint8Array.of(0x42, 0x43, 0x42)), /truncated/i)
 checks++
 await assert.rejects(
   decodeSnapshot(sceneEncoded.subarray(0, sceneEncoded.byteLength - 1)),

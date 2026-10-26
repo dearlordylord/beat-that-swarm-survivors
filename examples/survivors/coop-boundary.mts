@@ -2,19 +2,7 @@ import { object, text, boolean } from "./host-values.mts"
 import type { CoopFrame } from "./frame.mts"
 import type { CoopSetup } from "./coop-ui.mts"
 
-export interface SnapshotEnvelope {
-  type: "frame"
-  connectionVersion: number
-  token: number
-  initial: boolean
-  runId: string
-  frame: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }>
-  admission: BendABI.CoopSession.State
-  receipt: BendABI.CoopSession.Receipt
-  observationSeq: number
-  contactJournal: BendABI.CoopHitJournal.State
-  inputTiming: unknown
-}
+export type SnapshotEnvelope = BendABI.CoopNetwork.Snapshot
 export type WorkerRequest =
   | { type: "init"; setup: CoopSetup; session: number; seed: number; runId: string }
   | { type: "connected"; connectionEpoch: number }

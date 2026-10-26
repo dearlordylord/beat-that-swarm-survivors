@@ -5,7 +5,7 @@ export const MAX_SNAPSHOT_COMPRESSED_BYTES = 1024 * 1024
 export const MAX_SNAPSHOT_DECODE_JOBS = 16
 export const MAX_SNAPSHOT_DECODE_QUEUE_BYTES = 16 * 1024 * 1024
 
-const HEADER = Uint8Array.of(0x42, 0x53, 0x5a, 0x31) // BSZ1
+const HEADER = Uint8Array.of(0x42, 0x43, 0x42, 0x31) // BCB1
 const HEADER_BYTES = HEADER.byteLength
 const GZIP_SIGNATURE = [0x1f, 0x8b]
 const INPUT_CHUNK_BYTES = 1024
@@ -85,7 +85,7 @@ function hasGzipAt(bytes: Uint8Array, offset: number) {
 }
 
 function assertSnapshotHeader(bytes: Uint8Array) {
-  if (!startsWithReservedMagic(bytes)) throw new TypeError("Compressed snapshot has an invalid BSZ1 magic header.")
+  if (!startsWithReservedMagic(bytes)) throw new TypeError("Compressed snapshot has an invalid BCB1 magic header.")
   if (bytes.byteLength < HEADER_BYTES) throw new TypeError("Compressed snapshot header is truncated.")
   if (bytes[3] !== HEADER[3]) throw new TypeError("Compressed snapshot version is unsupported.")
 }

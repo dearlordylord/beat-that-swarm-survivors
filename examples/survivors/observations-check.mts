@@ -2,19 +2,31 @@ import assert from "node:assert/strict"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { bendModule } from "../bend-module.mts"
-import { defined, list, parseJson } from "./host-values.mts"
+import { defined, list, rows } from "./host-values.mts"
 import { gameFrame, coreFrame } from "./observations.mts"
-import { admitSnapshot } from "./snapshot-envelope.mts"
+import { snapshotValues, admitSnapshot, encodeSnapshotValues, decodeSnapshotValues } from "./snapshot-envelope.mts"
 import { encodeSnapshot, decodeSnapshot } from "./coop-snapshot-codec.mts"
 const directory = resolve(defined(process.argv[2]))
 const url = (name: string) => pathToFileURL(resolve(directory, `${name}.mjs`))
 const [{ default: Game }, { default: Core }, { default: Connection }, { default: Session }, { default: Journal }] =
   await Promise.all([
     bendModule<BendABI.Game.API>()(url("game"), ["start_seed", "observe", "observation"]),
-    bendModule<BendABI.CoopCore.API>()(url("coop-core"), ["core_start", "core_observe", "core_clock"]),
-    bendModule<BendABI.CoopConnection.API>()(url("coop-connection"), ["protocol_version"]),
-    bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "receipt_fresh"]),
-    bendModule<BendABI.CoopHitJournal.API>()(url("coop-hit-journal"), ["fresh"])
+    bendModule<BendABI.CoopCore.API>()(url("coop-core"), [
+      "core_start",
+      "core_observe",
+      "core_clock",
+      "core_network_observe",
+      "restore_network"
+    ]),
+    bendModule<BendABI.CoopConnection.API>()(url("coop-connection"), [
+      "protocol_version",
+      "fresh",
+      "reconnect",
+      "step",
+      "running"
+    ]),
+    bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "last_seq"]),
+    bendModule<BendABI.CoopHitJournal.API>()(url("coop-hit-journal"), ["fresh", "attach", "play"])
   ])
 const packet = Game.start_seed(0, 0, 12345)
 if (packet.$ !== "Packet") throw Error(packet.error)
@@ -96,25 +108,177 @@ assert.equal(clock.observation.$, "StepObservation")
 assert.equal(coreFrame({ $: "NoObservation" }), null)
 console.log("PASS current direct observation, all pickups, actors, ordering, lifetimes, packets")
 
-const initial = {
-  type: "frame",
+const network = Core.core_network_observe(view.state, 0)
+const initial: BendABI.CoopNetwork.Snapshot = {
+  $: "Snapshot",
   connectionVersion: Connection.protocol_version(),
   token: 7,
   initial: true,
-  frame: view.observation,
+  view: network.view,
   runId: "protocol-regression",
-  admission: Session.fresh(1),
-  receipt: Session.receipt_fresh(),
+  commandAck: Session.last_seq(Session.fresh(1).guest),
   observationSeq: 1,
   contactJournal: Journal.fresh(7),
-  inputTiming: { worldTick: 0, lastRejected: null }
+  inputTiming: { $: "InputTiming", worldTick: 0, lastRejected: { $: "None" } }
 }
-const textEncoder = new TextEncoder(),
-  textDecoder = new TextDecoder("utf-8", { fatal: true })
-const compressed = await encodeSnapshot(textEncoder.encode(JSON.stringify(initial)))
-const admitted = admitSnapshot(parseJson(textDecoder.decode(await decodeSnapshot(compressed))))
+const roundtrip = async (snapshot: BendABI.CoopNetwork.Snapshot) =>
+  decodeSnapshotValues(await decodeSnapshot(await encodeSnapshot(encodeSnapshotValues(snapshot))))
+const admitted = await roundtrip(initial)
 assert.equal(admitted.connectionVersion, 1)
-assert.deepEqual(admitted.frame, view.observation)
+assert.deepEqual(Core.restore_network(admitted.view), view.observation)
 for (const connectionVersion of [0, 2, 3, 4, 5, 0xffffffff])
-  assert.throws(() => admitSnapshot({ ...initial, connectionVersion }), TypeError)
-console.log("PASS actual Bend protocol version + initial raw observation + snapshot byte codec + strict ingress")
+  assert.throws(() => admitSnapshot(snapshotValues({ ...initial, connectionVersion })), TypeError)
+const players = rows(network.view.players)
+const own = defined(players[0])
+for (const phase of [0, 1, 2, 3, 4]) {
+  const state = { ...network.state, snapshots: list(snapshots), shared: { ...network.view.shared, phase, tick: 20 } }
+  const expected = Core.core_observe(state, 0)
+  if (expected.$ !== "CorePacket") throw Error(expected.message)
+  const compact = Core.core_network_observe(expected.state, 0)
+  const received = await roundtrip({ ...initial, view: compact.view, commandAck: 91 })
+  const restored = Core.restore_network(received.view)
+  assert.deepEqual(restored, expected.observation)
+  assert.equal(received.commandAck, 91)
+  assert.deepEqual(coreFrame(restored), coreFrame(expected.observation))
+}
+const deadPlayers = list([
+  { ...own, player: { ...own.player, hp: 0, px: 1, py: 2 } },
+  { ...own, id: 1, player: { ...own.player, hp: 30, px: 300, py: 400 } }
+])
+const spectator = { ...initial, view: { ...initial.view, players: deadPlayers } }
+const spectatorView = Core.restore_network((await roundtrip(spectator)).view)
+if (spectatorView.$ !== "ViewObservation") throw Error("spectator")
+assert.equal(spectatorView.game.run.player.px, 300)
+assert.equal(rows(spectatorView.forecast.players)[0]?.run.player.px, 1)
+const poisoned = structuredClone(spectator)
+if (poisoned.view.players.$ !== "Con") throw Error("player")
+poisoned.view.players.head.player.hp = 123
+assert.notDeepEqual(Core.restore_network((await roundtrip(poisoned)).view), spectatorView)
+for (const changed of [
+  snapshots.map((s) =>
+    s.$ === "EnemySnapshot" ? { ...s, enemy: { ...s.enemy, vitals: { ...s.enemy.vitals, health: 19 } } } : s
+  ),
+  snapshots.map((s) =>
+    s.$ === "EnemySnapshot" ? { ...s, enemy: { ...s.enemy, spatial: { ...s.enemy.spatial, x: 101 } } } : s
+  ),
+  snapshots.map((s) =>
+    s.$ === "ProjectileSnapshot"
+      ? {
+          ...s,
+          projectile: {
+            ...s.projectile,
+            trajectory: { ...s.projectile.trajectory, sourcePlayer: { $: "Some", value: 0 } }
+          }
+        }
+      : s
+  ),
+  snapshots.map((s) =>
+    s.$ === "PickupSnapshot" ? { ...s, pickup: { ...s.pickup, payload: { ...s.pickup.payload, generation: 99 } } } : s
+  ),
+  [...snapshots].reverse()
+] satisfies BendABI.Game.Snapshot[][]) {
+  const original = { ...initial, view: { ...initial.view, snapshots: list(snapshots) } }
+  const mutated = { ...original, view: { ...original.view, snapshots: list(changed) } }
+  assert.notDeepEqual(Core.restore_network((await roundtrip(mutated)).view), Core.restore_network(original.view))
+}
+console.log(
+  "PASS compact CBOR/gzip boundary, phases, exact actors, ownership, status, visits, order, pickups and spectator"
+)
+
+const hit: BendABI.CoopHitJournal.HitEvent = {
+  $: "HitEvent",
+  id: "confirmed:7:20:31:21",
+  tick: 20,
+  kind: 0,
+  shotId: "1:17:0:3",
+  shotSeed: 31,
+  targetSeed: 21,
+  targetGeneration: 17,
+  fraction: 0.125,
+  impactX: 100.1,
+  impactY: -200.2,
+  targetAtImpactX: 100,
+  targetAtImpactY: 200,
+  radius: 8,
+  outcome: 0
+}
+const withContact = {
+  ...initial,
+  contactJournal: { ...initial.contactJournal, now: 20, events: list([hit]) },
+  inputTiming: {
+    $: "InputTiming",
+    worldTick: 20,
+    lastRejected: { $: "Some", value: { $: "RejectedInput", reason: 3, seq: 90, targetWorldTick: 19, worldTick: 20 } }
+  }
+} satisfies BendABI.CoopNetwork.Snapshot
+const confirmed = await roundtrip(withContact)
+assert.deepEqual(confirmed.contactJournal, withContact.contactJournal)
+assert.deepEqual(confirmed.inputTiming, withContact.inputTiming)
+const playback = Journal.attach(Journal.fresh(7))
+const played = Journal.play(playback, confirmed.contactJournal, 20)
+assert.deepEqual(rows(played.events), [hit])
+assert.deepEqual(Journal.play(played.state, confirmed.contactJournal, 20).events, list([]))
+for (const changed of [
+  { ...hit, id: "changed" },
+  { ...hit, targetGeneration: 18 },
+  { ...hit, shotId: "1:18:0:3" }
+]) {
+  const incoming = await roundtrip({
+    ...withContact,
+    contactJournal: { ...withContact.contactJournal, events: list([changed]) }
+  })
+  assert.notDeepEqual(Journal.play(playback, incoming.contactJournal, 20), played)
+}
+for (const epoch of [7, 8]) {
+  const received = await roundtrip({ ...withContact, token: epoch, observationSeq: epoch, initial: true })
+  let host = Connection.reconnect(Connection.fresh({ $: "Host" }), epoch).state
+  let guest = Connection.reconnect(Connection.fresh({ $: "Guest" }), epoch).state
+  const stepHost = (signal: BendABI.CoopConnection.Signal) => {
+    const out = Connection.step(host, epoch, signal)
+    host = out.state
+    return out.action
+  }
+  const stepGuest = (signal: BendABI.CoopConnection.Signal) => {
+    const out = Connection.step(guest, epoch, signal)
+    guest = out.state
+    return out.action
+  }
+  assert.equal(stepGuest({ $: "Hello", version: 1, token: epoch }).$, "HelloAckAndSetup")
+  stepHost({ $: "HelloAck", version: 1, token: epoch })
+  assert.equal(stepHost({ $: "Setup" }).$, "PrepareWorld")
+  assert.equal(stepHost({ $: "Prepared", observation: received.observationSeq }).$, "PublishInitial")
+  assert.equal(Connection.running(host), false)
+  assert.equal(
+    stepGuest({
+      $: "Frame",
+      version: received.connectionVersion,
+      token: received.token,
+      observation: received.observationSeq
+    }).$,
+    "PresentSnapshot"
+  )
+  assert.equal(Connection.running(host), false)
+  assert.deepEqual(coreFrame(Core.restore_network(received.view)), coreFrame(view.observation))
+  assert.equal(
+    stepGuest({ $: "SnapshotSeen", token: received.token, observation: received.observationSeq }).$,
+    "SendReadyAck"
+  )
+  assert.equal(stepHost({ $: "ReadyAck", token: epoch - 1, observation: received.observationSeq }).$, "Nothing")
+  assert.equal(Connection.running(host), false)
+  assert.equal(
+    stepHost({ $: "ReadyAck", token: received.token, observation: received.observationSeq }).$,
+    "StartAndConfirm"
+  )
+  assert.equal(stepGuest({ $: "Started", token: epoch }).$, "GuestReady")
+  assert.equal(Connection.running(host), true)
+  assert.equal(Connection.running(guest), true)
+  const stale = await roundtrip({ ...withContact, token: epoch - 1, observationSeq: 999 })
+  assert.equal(
+    Connection.step(guest, epoch - 1, { $: "Frame", version: 1, token: stale.token, observation: stale.observationSeq })
+      .action.$,
+    "Nothing"
+  )
+}
+console.log(
+  "PASS confirmed contacts, contact negative controls, diagnostic timing, initial handshake, reconnect and stale connection fencing"
+)

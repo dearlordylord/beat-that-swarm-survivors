@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { admitSnapshot } from "./snapshot-envelope.mts"
+import { array } from "./host-values.mts"
+import { admitSnapshot, snapshotValues, encodeSnapshotValues, decodeSnapshotValues } from "./snapshot-envelope.mts"
 
 const scene: BendABI.CoopCombatPrediction.Scene = {
   $: "Scene",
@@ -13,7 +14,6 @@ const scene: BendABI.CoopCombatPrediction.Scene = {
   tick: 1,
   diagnostics: false
 }
-const lane = { $: "Lane", lastSeq: 0, inputSeq: 0, appliedSeq: 0, appliedTick: 0, receivedAt: 0, x: 1, y: 1 }
 const journal: BendABI.CoopHitJournal.State = {
   $: "State",
   epoch: 0,
@@ -88,29 +88,92 @@ const raw: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }> = {
   players: nil,
   forecast: scene
 }
-const envelope = {
-  type: "frame",
+const envelope: BendABI.CoopNetwork.Snapshot = {
+  $: "Snapshot",
   connectionVersion: 1,
   token: 2,
   initial: true,
   runId: "fixture",
-  frame: raw,
-  admission: { $: "State", session: 1, clock: 1, host: lane, guest: lane, guestConnected: true, ended: false },
-  receipt: { $: "Receipt", seq: 0, worldTick: 1, x: 1, y: 1, applied: false },
+  view: {
+    $: "NetworkView",
+    shared: raw.game.run.session,
+    players: { $: "Con", head: { $: "PlayerRecord", id: 0, player: raw.game.run.player, connected: true }, tail: nil },
+    snapshots: nil,
+    own: 0,
+    round: 0,
+    required: nil,
+    offers: nil
+  },
+  commandAck: 0,
   observationSeq: 1,
   contactJournal: journal,
-  inputTiming: { worldTick: 1, lastRejected: null }
+  inputTiming: { $: "InputTiming", worldTick: 1, lastRejected: { $: "None" } }
 }
-await test("admits only the complete current raw Data graph at version one", () => {
-  assert.equal(admitSnapshot(envelope), envelope)
-  for (const version of [0, 2, 3]) assert.throws(() => admitSnapshot({ ...envelope, connectionVersion: version }))
-  for (const invalid of [
-    { ...raw, extra: true },
-    { ...raw, $: "NoObservation" },
-    { ...raw, game: { ...raw.game, run: { ...raw.game.run, session: { ...raw.game.run.session, tick: -1 } } } },
-    { ...raw, game: { ...raw.game, presentation: { ...raw.game.presentation, worldSize: Infinity } } },
-    { ...raw, game: { ...raw.game, pickups: { $: "Con", head: { $: "Body" }, tail: nil } } },
-    { ...raw, forecast: { ...scene, directions: { ...scene.directions, x0: "0" } } }
+await test("admits only the current compact Bend contract with exact numeric values", () => {
+  assert.deepEqual(decodeSnapshotValues(encodeSnapshotValues(envelope)), envelope)
+  assert.deepEqual(admitSnapshot(snapshotValues(envelope)), envelope)
+  for (const connectionVersion of [0, 2, 3])
+    assert.throws(() => admitSnapshot(snapshotValues({ ...envelope, connectionVersion })))
+  for (const invalid of [-1, 2 ** 32, 1.5, NaN, Infinity])
+    assert.throws(() => snapshotValues({ ...envelope, commandAck: invalid }))
+  for (const value of [0, -0, 0.1, -0.2, Number.MIN_VALUE, 1.0000000000000002, Math.fround(3.4e38)]) {
+    const snapshot = structuredClone(envelope)
+    if (snapshot.view.players.$ !== "Con") throw Error("player")
+    snapshot.view.players.head.player.px = value
+    const decoded = decodeSnapshotValues(encodeSnapshotValues(snapshot))
+    if (decoded.view.players.$ !== "Con") throw Error("player")
+    assert.equal(decoded.view.players.head.player.px, value === 0 ? 0 : value)
+  }
+  const values = array(snapshotValues(envelope), (value) => value)
+  if (!Array.isArray(values)) throw Error("root")
+  assert.throws(() => admitSnapshot([...values, 0]))
+  assert.throws(() => admitSnapshot(values.slice(1)))
+  assert.throws(() => admitSnapshot({ ...envelope, frame: raw }))
+})
+
+await test("CBOR ingress rejects malformed values before building unbounded structures", async () => {
+  const { encodeCbor, decodeCbor, MAX_CBOR_CONTAINER_LENGTH, MAX_CBOR_DEPTH, MAX_CBOR_TOKENS } =
+    await import("./cbor.mts")
+  for (const bytes of [
+    Uint8Array.of(0x9f, 0xff),
+    Uint8Array.of(0xc0, 0x80),
+    Uint8Array.of(0xf7),
+    Uint8Array.of(0xa2, 0x61, 0x61, 0x00, 0x61, 0x61, 0x01),
+    Uint8Array.of(0x61, 0xff),
+    Uint8Array.of(0x80, 0x00),
+    Uint8Array.of(0x9a, 0xff, 0xff, 0xff, 0xff),
+    Uint8Array.of(0x1a, 0x00),
+    encodeCbor(Infinity),
+    encodeCbor(-Infinity),
+    encodeCbor(NaN),
+    encodeCbor(2n ** 63n),
+    encodeCbor(new Uint8Array([1])),
+    encodeCbor("x".repeat(4097))
   ])
-    assert.throws(() => admitSnapshot({ ...envelope, frame: invalid }), TypeError)
+    assert.throws(() => decodeCbor(bytes))
+  let nested: unknown = 0
+  for (let depth = 0; depth <= MAX_CBOR_DEPTH; depth++) nested = [nested]
+  assert.throws(() => decodeCbor(encodeCbor(nested)), /depth/)
+  assert.throws(
+    () => decodeCbor(encodeCbor(Array.from({ length: MAX_CBOR_CONTAINER_LENGTH + 1 }, () => 0))),
+    /container/
+  )
+  const rows = Math.ceil(MAX_CBOR_TOKENS / MAX_CBOR_CONTAINER_LENGTH)
+  assert.throws(
+    () =>
+      decodeCbor(
+        encodeCbor(Array.from({ length: rows }, () => Array.from({ length: MAX_CBOR_CONTAINER_LENGTH }, () => 0)))
+      ),
+    /token/
+  )
+  const bytes = encodeSnapshotValues(envelope)
+  for (let length = 0; length < bytes.byteLength; length++)
+    assert.throws(() => decodeSnapshotValues(bytes.subarray(0, length)))
+  const valid = array(snapshotValues(envelope), (value) => value)
+  if (!Array.isArray(valid)) throw Error("root")
+  for (const invalid of [-1, 2 ** 32, 0.5]) {
+    const wrong = [...valid]
+    wrong[7] = invalid
+    assert.throws(() => admitSnapshot(wrong))
+  }
 })

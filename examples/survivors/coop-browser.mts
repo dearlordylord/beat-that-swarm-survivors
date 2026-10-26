@@ -1,9 +1,10 @@
 import { projectileFrame, coreFrame } from "./observations.mts"
 import { decodeControlFrame } from "./coop-control-frame.mts"
-import { admitSnapshot } from "./snapshot-envelope.mts"
-import { displayText, defined, list as nativeList, errorMessage, at, parseJson, object } from "./host-values.mts"
+import { decodeSnapshotValues } from "./snapshot-envelope.mts"
+import { displayText, defined, list as nativeList, errorMessage, at } from "./host-values.mts"
 import type { Frame, Enemy, DrawActorRef, CoopFrame } from "./frame.mts"
 import type { CoopSetup } from "./coop-ui.mts"
+import Game from "./dist/coop-core.mjs"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
 import SnapshotFlow from "./dist/coop-snapshot-flow.mjs"
@@ -165,7 +166,7 @@ function advancePrediction(now = performance.now()) {
   }
 }
 function observeInputAcknowledgement(envelope: SnapshotEnvelope, now: number) {
-  const acknowledged = envelope.admission?.guest?.lastSeq
+  const acknowledged = envelope.commandAck
   if (!Number.isInteger(acknowledged)) return
   const sentAt = sentCommandTimes.get(acknowledged)
   if (sentAt !== undefined) inputAckDelayMs = Math.max(0, now - sentAt)
@@ -173,13 +174,12 @@ function observeInputAcknowledgement(envelope: SnapshotEnvelope, now: number) {
   for (const seq of sentCommandTimes.keys()) if (seq <= acknowledged) sentCommandTimes.delete(seq)
 }
 function snapshotFrame(envelope: SnapshotEnvelope): CoopFrame {
-  const frame = coreFrame(envelope.frame)
+  const frame = coreFrame(Game.restore_network(envelope.view))
   if (!frame || !("combatForecast" in frame)) throw Error("Missing authoritative view observation")
   return { ...frame, runId: envelope.runId }
 }
-function reconcilePrediction(envelope: SnapshotEnvelope) {
-  const frame = snapshotFrame(envelope),
-    now = performance.now()
+function reconcilePrediction(envelope: SnapshotEnvelope, frame: CoopFrame) {
+  const now = performance.now()
   if (prediction && !Prediction.observation_newer(prediction, envelope.observationSeq)) return false
   observeInputAcknowledgement(envelope, now)
   const newRun = !prediction || predictionRun !== frame.runId || predictionStage !== frame.stage
@@ -235,7 +235,19 @@ function reconcilePrediction(envelope: SnapshotEnvelope) {
   else if (reset) lastPredictionResync = null
   if (prediction.observation !== envelope.observationSeq) return false
   authorityFrame = frame
-  authorityInputTiming = envelope.inputTiming
+  const rejected = envelope.inputTiming.lastRejected
+  authorityInputTiming = {
+    worldTick: envelope.inputTiming.worldTick,
+    lastRejected:
+      rejected.$ === "Some"
+        ? {
+            reason: rejected.value.reason,
+            seq: rejected.value.seq,
+            targetWorldTick: rejected.value.targetWorldTick,
+            worldTick: rejected.value.worldTick
+          }
+        : null
+  }
   const ownRun = PlaybackWire.own_run(frame.combatForecast)
   localRun = ownRun.$ === "Some" ? ownRun.value : null
   pendingJournal = envelope.contactJournal
@@ -480,10 +492,10 @@ function connectionAction(action: BendABI.CoopConnection.Action, envelope?: Snap
     }
     case "PresentSnapshot": {
       try {
-        if (!envelope?.frame || !envelope.receipt) throw Error("Invalid authoritative snapshot")
-        if (!reconcilePrediction(envelope)) return
-        lastFrameAt = performance.now()
+        if (!envelope) throw Error("Invalid authoritative snapshot")
         const frame = snapshotFrame(envelope)
+        if (!reconcilePrediction(envelope, frame)) return
+        lastFrameAt = performance.now()
         tick = frame.tick
         if (stalled && Connection.running(connectionState)) ui.status("")
         stalled = false
@@ -732,8 +744,8 @@ async function connect(
           }
           const bytes = kind === "guest" ? await messageDecoder.decode(event.bytes) : event.bytes
           if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return
-          const text = decoder.decode(bytes)
           if (kind === "host") {
+            const text = decoder.decode(bytes)
             const decoded = ClientDelivery.decode(text)
             if (decoded.$ !== "Some") {
               signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
@@ -753,9 +765,7 @@ async function connect(
               signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
             }
           } else {
-            const incoming = object(parseJson(text))
-            if (incoming.type !== "frame") return
-            const envelope = admitSnapshot(incoming)
+            const envelope = decodeSnapshotValues(bytes)
             const number = (value: unknown) =>
               typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0
             signalConnection(

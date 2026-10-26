@@ -7,7 +7,7 @@
   },
   "scripts": {
     "typecheck": "npm run generate:types && tsc --noEmit && tsc -p examples/survivors/tsconfig.browser.json --noEmit && tsc -p tools/survivors-bot/tsconfig.journal.json --noEmit && tsc -p tsconfig.bend-abi.json",
-    "build:browser": "npm run generate:types && tsc -p examples/survivors/tsconfig.browser.json",
+    "build:browser": "npm run generate:types && tsc -p examples/survivors/tsconfig.browser.json && esbuild examples/survivors/cbor.mts --bundle --format=esm --platform=browser --outfile=examples/survivors/dist/typescript-browser/cbor.mjs",
     "lint": "oxlint --deny-warnings",
     "format": "dprint fmt",
     "check:format": "dprint check",
@@ -22,10 +22,14 @@
   "devDependencies": {
     "@types/node": "25.2.0",
     "dprint": "0.55.2",
+    "esbuild": "0.25.12",
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
     "playwright": "1.63.0",
     "typescript": "7.0.2",
     "typescript-compiler-api": "npm:typescript@6.0.2"
+  },
+  "dependencies": {
+    "cborg": "6.1.5"
   }
 }
