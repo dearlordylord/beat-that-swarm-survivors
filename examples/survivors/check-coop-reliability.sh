@@ -7,16 +7,16 @@ app="$example_repo/examples/survivors"
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/bendvy-coop-reliability.XXXXXX")"
 trap 'rm -rf "$scratch"; example_cleanup_lock' EXIT
 source_fingerprint() {
-  local source_list="$scratch/source-list"
+  local source_list="$scratch/source-list" status
   {
     find "$app" \( -path "$app/dist" -o -path "$app/web/node_modules" \) -prune -o \
-      -type f \( -name '*.bend' -o -name '*.mjs' -o -name '*.mts' -o -name '*.ts' -o -name '*.sh' -o -name '*.json' -o -name '*.py' \) -print
-    find "$example_repo/vendor/bendlib/packages" -type f -name '*.bend'
+      -type f \( -name '*.bend' -o -name '*.mjs' -o -name '*.mts' -o -name '*.ts' -o -name '*.sh' -o -name '*.json' -o -name '*.py' \) -print || { status=$?; printf 'Source fingerprint find failed: %s (exit %s)\n' "$app" "$status" >&2; return "$status"; }
+    find "$example_repo/vendor/bendlib/packages" -type f -name '*.bend' || { status=$?; printf 'Source fingerprint find failed: %s (exit %s)\n' "$example_repo/vendor/bendlib/packages" "$status" >&2; return "$status"; }
     printf '%s\n' "$example_repo/examples/common.sh"
-  } | LC_ALL=C sort > "$source_list"
+  } | LC_ALL=C sort > "$source_list" || { status=$?; printf 'Source fingerprint file listing failed (exit %s)\n' "$status" >&2; return "$status"; }
   while IFS= read -r source; do
-    shasum -a 256 "$source"
-  done < "$source_list" | shasum -a 256 | awk '{print $1}'
+    shasum -a 256 "$source" || { status=$?; printf 'Source fingerprint shasum failed: %s (exit %s)\n' "$source" "$status" >&2; return "$status"; }
+  done < "$source_list" | shasum -a 256 | awk '{print $1}' || { status=$?; printf 'Source fingerprint digest pipeline failed (exit %s)\n' "$status" >&2; return "$status"; }
 }
 python3 "$example_repo/scripts/generate-observation-schema.py"
 source_fingerprint_before="$(source_fingerprint)"

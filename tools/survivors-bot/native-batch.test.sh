@@ -60,12 +60,15 @@ for invalid in '--count 0' '--count -1' '--seed 4294967296' '--seed 01' '--ticks
 done
 if FAIL_BUILD=1 bash "$runner" --count 1 > "$fixture/failed" 2>/dev/null; then exit 1; fi
 [[ ! -s "$fixture/failed" ]]
-if FAIL_WORKER=1 bash "$runner" --no-build --count 2 --workers 2 --output-dir "$fixture/failed-worker" > "$fixture/partial" 2>/dev/null; then exit 1; fi
+if FAIL_WORKER=1 bash "$runner" --no-build --count 2 --workers 2 --output-dir "$fixture/failed-worker" > "$fixture/partial" 2>"$fixture/worker-failure.stderr"; then exit 1; fi
 [[ -s "$fixture/failed-worker/worker-0.jsonl" && -s "$fixture/failed-worker/worker-1.jsonl" ]]
 [[ $(cat "$fixture/failed-worker/worker-0.stderr") == 'injected native worker failure' ]]
 [[ $(cat "$fixture/failed-worker/exit-status") == 1 ]]
+grep -q 'Native batch worker 0 .*exit=23; stdout=.*worker-0.jsonl stderr=.*worker-0.stderr' "$fixture/worker-failure.stderr"
+grep -q 'injected native worker failure' "$fixture/failed-worker/worker-0.stderr"
 [[ $(cat "$fixture/failed-worker/completion.json") == '{"exitStatus":1,"requestedCount":2,"summaryLines":2}' ]]
-if EMPTY_WORKER=1 bash "$runner" --no-build --count 1 --output-dir "$fixture/empty-worker" > /dev/null 2>/dev/null; then exit 1; fi
+if EMPTY_WORKER=1 bash "$runner" --no-build --count 1 --output-dir "$fixture/empty-worker" > /dev/null 2>"$fixture/empty-failure.stderr"; then exit 1; fi
+grep -q 'Native batch summary count mismatch: expected=1 actual=0' "$fixture/empty-failure.stderr"
 [[ $(cat "$fixture/empty-worker/completion.json") == '{"exitStatus":1,"requestedCount":1,"summaryLines":0}' ]]
 signal_status=0
 SIGNAL_WRAPPER=1 bash "$runner" --no-build --count 1 --output-dir "$fixture/interrupted" > /dev/null 2>/dev/null || signal_status=$?

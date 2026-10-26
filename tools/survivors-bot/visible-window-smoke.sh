@@ -13,7 +13,9 @@ binary=${NIGHTFALL_BOT_BINARY:-$repo/examples/survivors/dist/nightfall-bot}
 sysroot=${NIGHTFALL_X11_SYSROOT:-/}
 xvfb=${XVFB:-$sysroot/usr/bin/Xvfb}
 xdotool=${XDOTOOL:-$sysroot/usr/bin/xdotool}
-[[ -x "$binary" && -x "$xvfb" && -x "$xdotool" ]]
+for executable in "$binary" "$xvfb" "$xdotool"; do
+  [[ -x "$executable" ]] || { echo "Window smoke requires executable: $executable" >&2; exit 1; }
+done
 export LD_LIBRARY_PATH="$sysroot/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 receipt=$(mktemp -d "${TMPDIR:-/tmp}/nightfall-visible-window-XXXXXX")
 echo "Visible bot window diagnostic receipt: $receipt"
@@ -43,7 +45,7 @@ for ((attempt=0;attempt<100;attempt++)); do
   kill -0 "$x_pid"
   sleep 0.05
 done
-[[ -s "$receipt/display" ]]
+[[ -s "$receipt/display" ]] || { echo "Xvfb did not publish a display; inspect $receipt/xvfb.log" >&2; exit 1; }
 export DISPLAY=":$(cat "$receipt/display")"
 "${NODE:-node}" tools/survivors-bot/visible.mts --mode heuristic --seconds 20 --binary "$binary" --receipts-dir "$receipt/runs" >"$receipt/controller.log" 2>&1 &
 game_pid=$!
@@ -54,10 +56,10 @@ for ((attempt=0;attempt<120;attempt++)); do
   kill -0 "$game_pid"
   sleep 0.05
 done
-[[ -n "$window" ]]
+[[ -n "$window" ]] || { echo "Expected native window was not found; inspect receipt: $receipt" >&2; exit 1; }
 "$xdotool" getwindowgeometry --shell "$window" >"$receipt/geometry.txt"
-[[ $(sed -n 's/^WIDTH=//p' "$receipt/geometry.txt") == 1024 ]]
-[[ $(sed -n 's/^HEIGHT=//p' "$receipt/geometry.txt") == 768 ]]
+[[ $(sed -n 's/^WIDTH=//p' "$receipt/geometry.txt") == 1024 ]] || { echo "Expected native window width 1024; inspect $receipt/geometry.txt" >&2; exit 1; }
+[[ $(sed -n 's/^HEIGHT=//p' "$receipt/geometry.txt") == 768 ]] || { echo "Expected native window height 768; inspect $receipt/geometry.txt" >&2; exit 1; }
 capture() {
   python3 - "$window" "$receipt/$1.ppm" <<'PY'
 import ctypes as C, ctypes.util, sys

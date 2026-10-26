@@ -69,8 +69,8 @@ const include = (name: string) =>
 async function git(repo: string, args: string[]) {
   try {
     return (await exec("git", ["-C", repo, ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout
-  } catch {
-    throw new Error(`Git operation failed: ${args[0]}. Check repository access and origin/master.`)
+  } catch (error) {
+    throw executionFailure("git", ["-C", repo, ...args], repo, error)
   }
 }
 async function repositoryState(repo: string, fetch = true) {
@@ -215,19 +215,41 @@ async function withLock<T>(site: string, action: () => Promise<T>): Promise<T> {
     await rm(directory, { recursive: true, force: true })
   }
 }
+function captured(error: unknown, key: "stdout" | "stderr" | "code" | "signal") {
+  if (typeof error !== "object" || error === null || !(key in error)) return "unavailable"
+  const value = object(error)[key]
+  return typeof value === "string" || typeof value === "number" || value === null ? String(value) : "unavailable"
+}
+function executionFailure(program: string, args: string[], cwd: string, cause: unknown) {
+  return new Error(
+    `Publication command failed: command=${JSON.stringify([program, ...args])} cwd=${JSON.stringify(cwd)} exit=${captured(cause, "code")} signal=${captured(cause, "signal")} timeout=false; the previous Site files were preserved.\n${cause instanceof Error ? cause.message : ""}\nstdout:\n${captured(cause, "stdout")}\nstderr:\n${captured(cause, "stderr")}`,
+    { cause }
+  )
+}
 async function command(program: string, args: string[], cwd: string, quiet: boolean) {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(program, args, { cwd, env: process.env, stdio: quiet ? "pipe" : "inherit" })
+    let stdout = "",
+      stderr = ""
     if (quiet) {
-      child.stdout?.resume()
-      child.stderr?.resume()
+      child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
+        stdout += chunk
+      })
+      child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
+        stderr += chunk
+      })
     }
-    child.once("error", reject)
+    child.once("error", (error) => reject(executionFailure(program, args, cwd, error)))
     child.once("close", (code, signal) =>
       code === 0
         ? resolve()
         : reject(
-            new Error(`${path.basename(program)} failed (${signal || code}); the previous Site files were preserved.`)
+            executionFailure(program, args, cwd, {
+              code,
+              signal,
+              stdout: quiet ? stdout : "inherited",
+              stderr: quiet ? stderr : "inherited"
+            })
           )
     )
   })

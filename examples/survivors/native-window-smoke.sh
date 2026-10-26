@@ -11,7 +11,9 @@ binary=${NIGHTFALL_BINARY:-$script_dir/dist/nightfall}
 sysroot=${NIGHTFALL_X11_SYSROOT:-/}
 xvfb=${XVFB:-$sysroot/usr/bin/Xvfb}
 xdotool=${XDOTOOL:-$sysroot/usr/bin/xdotool}
-[[ -x "$binary" && -x "$xvfb" && -x "$xdotool" ]]
+for executable in "$binary" "$xvfb" "$xdotool"; do
+  [[ -x "$executable" ]] || { echo "Window smoke requires executable: $executable" >&2; exit 1; }
+done
 export LD_LIBRARY_PATH="$sysroot/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 receipt=$(mktemp -d "${TMPDIR:-/tmp}/nightfall-window-XXXXXX")
 echo "Native window diagnostic receipt: $receipt"
@@ -44,7 +46,7 @@ for ((attempt=0;attempt<100;attempt++)); do
   kill -0 "$x_pid"
   sleep 0.05
 done
-[[ -s "$receipt/display" ]]
+[[ -s "$receipt/display" ]] || { echo "Xvfb did not publish a display; inspect $receipt/xvfb.log" >&2; exit 1; }
 export DISPLAY=":$(cat "$receipt/display")"
 (cd "$receipt"; exec "$binary") >"$receipt/game.log" 2>&1 &
 game_pid=$!
@@ -55,10 +57,10 @@ for ((attempt=0;attempt<120;attempt++)); do
   kill -0 "$game_pid"
   sleep 0.05
 done
-[[ -n "$window" ]]
+[[ -n "$window" ]] || { echo "Expected native window was not found; inspect receipt: $receipt" >&2; exit 1; }
 "$xdotool" getwindowgeometry --shell "$window" >"$receipt/geometry.txt"
-[[ $(sed -n 's/^WIDTH=//p' "$receipt/geometry.txt") == 1024 ]]
-[[ $(sed -n 's/^HEIGHT=//p' "$receipt/geometry.txt") == 768 ]]
+[[ $(sed -n 's/^WIDTH=//p' "$receipt/geometry.txt") == 1024 ]] || { echo "Expected native window width 1024; inspect $receipt/geometry.txt" >&2; exit 1; }
+[[ $(sed -n 's/^HEIGHT=//p' "$receipt/geometry.txt") == 768 ]] || { echo "Expected native window height 768; inspect $receipt/geometry.txt" >&2; exit 1; }
 sleep 0.3
 capture() {
   python3 - "$window" "$receipt/$1.ppm" <<'PY'
@@ -106,7 +108,7 @@ def title(path):
 assert title(sys.argv[1])==title(sys.argv[2]), 'Q did not restore the camp menu title.'
 PYTEST
 kill -0 "$game_pid"
-[[ -s "$receipt/nightfall-profile.txt" ]]
+[[ -s "$receipt/nightfall-profile.txt" ]] || { echo "Native game did not save its profile; inspect $receipt/game.log" >&2; exit 1; }
 cmp -s "$receipt/menu.ppm" "$receipt/gameplay.ppm" && { echo 'Start input did not change window pixels.' >&2; exit 1; }
 cmp -s "$receipt/gameplay.ppm" "$receipt/paused.ppm" && { echo 'Pause input did not change window pixels.' >&2; exit 1; }
 # Send the same WM_DELETE_WINDOW ClientMessage as a real window-manager close.

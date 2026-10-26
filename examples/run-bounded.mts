@@ -19,6 +19,8 @@ function errorMessage(error: unknown): string {
 const [seconds, command, ...args] = process.argv.slice(2)
 if (!command || !Number.isFinite(Number(seconds)) || !(Number(seconds) > 0))
   throw Error("Usage: run-bounded.mts SECONDS COMMAND [ARGS...]")
+const invocation = JSON.stringify([command, ...args])
+const context = `command=${invocation} cwd=${JSON.stringify(process.cwd())}`
 const child = spawn(command, args, { stdio: "inherit", detached: process.platform !== "win32" })
 let timedOut = false,
   requestedSignal: NodeJS.Signals = "SIGTERM",
@@ -28,7 +30,10 @@ const owned = new Map<number, ProcessRow>()
 const stopped = new Set<number>()
 function processes() {
   const result = spawnSync("ps", ["-axo", "pid=,ppid=,lstart="], { encoding: "utf8", timeout: 1000 })
-  if (result.error || result.status !== 0) throw Error("Cannot inspect owned process descendants for cleanup")
+  if (result.error || result.status !== 0)
+    throw Error(
+      `Process inspection failed: command=["ps","-axo","pid=,ppid=,lstart="] exit=${result.status} signal=${result.signal} error=${result.error ? errorMessage(result.error) : "none"}\nstdout:\n${result.stdout ?? ""}\nstderr:\n${result.stderr ?? ""}`
+    )
   return new Map<number, ProcessRow>(
     result.stdout
       .trim()
@@ -123,7 +128,10 @@ function cancel(signal: NodeJS.Signals, timeout = false) {
   cleaning = true
   timedOut = timeout
   clearTimeout(timer)
-  if (!timeout) requestedSignal = signal
+  if (!timeout) {
+    requestedSignal = signal
+    console.error(`Check canceled: ${context} signal=${signal} timeout=false`)
+  }
   try {
     if (process.platform === "win32") {
       fallback(timeout ? "SIGKILL" : signal)
@@ -141,19 +149,23 @@ function cancel(signal: NodeJS.Signals, timeout = false) {
 }
 const timer = setTimeout(
   () => {
-    console.error(`Check exceeded ${seconds} seconds: ${command}`)
+    console.error(`Check exceeded ${seconds} seconds: ${context} timeout=true wallLimitSeconds=${seconds}`)
     cancel("SIGSTOP", true)
   },
   Number(seconds) * 1000
 )
 child.once("error", (error) => {
   clearTimeout(timer)
-  console.error(errorMessage(error))
+  console.error(`Check could not start: ${context} timeout=false error=${errorMessage(error)}`)
   process.exitCode = 1
 })
 child.once("exit", (code, signal) => {
   clearTimeout(timer)
-  if (!cleaning) process.exitCode = code ?? (signal ? 128 + (constants.signals[signal] ?? 0) : 1)
+  if (!cleaning) {
+    process.exitCode = code ?? (signal ? 128 + (constants.signals[signal] ?? 0) : 1)
+    if (process.exitCode !== 0)
+      console.error(`Check failed: ${context} exit=${code} signal=${signal ?? "none"} timeout=false`)
+  }
 })
 const cancellationSignals: NodeJS.Signals[] = ["SIGINT", "SIGTERM"]
 for (const signal of cancellationSignals) process.once(signal, () => cancel(signal))
