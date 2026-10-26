@@ -101,8 +101,7 @@ bash examples/survivors/check.sh
 bash examples/survivors/check-coop-reliability.sh
 ```
 
-The routine suite includes kernel proofs and the fresh-model runner. Semantic
-mutants are a separate manual check (`npm run check:mutants:manual`). Their scopes differ: see the
+The routine suite includes kernel proofs and the fresh-model runner. Their scopes differ: see the
 [local projectile proof boundary](../../research/coop-local-projectiles-proof-boundary.md)
 and [reliability plan](../../research/coop-reliability-plan.md).
 The [results report](../../research/coop-reliability-results.md) records the

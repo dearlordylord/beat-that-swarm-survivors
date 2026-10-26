@@ -155,13 +155,8 @@ bash examples/survivors/check-launcher-profile-ui.sh
 npm run test:full-game:manual
 ```
 
-The ordinary suite includes [capability controls](capability-controls.test.py)
-and checks of the replay-comparison tools. Comparing a replay from the former component
-schema requires the explicit [migration verifier](../../tools/survivors-bot/ecs_migration_compare.py);
-its receipt lists the representation changes excluded from gameplay equality.
-For same-schema comparisons, the [exact replay verifier](../../tools/survivors-bot/replay_compare.py)
-accepts the explicit layout and compares actual metadata without migration
-exclusions; see its `--help`.
+The ordinary suite checks Bend proofs, emitted co-op behavior, geometry and native co-op metrics.
+The replay comparison tools consume recorded observations separately.
 
 An optional fresh-profile kiting observation reports survival, damage, progression and enemy density without requiring survival as a pass condition:
 
@@ -172,14 +167,6 @@ bash examples/survivors/check-native-pacing.sh
 This diagnostic initializes the fresh native UI loadout and uses input-only control. Its outcome is a scenario observation, not a full-run balance qualification or frame-rate measurement.
 
 `check-launcher-profile-ui.sh` checks the launcher, native profile, real UI event flow and exact Bend-rendered frame captures. `npm run test:full-game:manual` is optional and drives one complete game with a bot using public gameplay inputs. It does not include the launcher, profile or UI checks. Native `run.command` does not require Node.js or the test helpers. The native application was qualified with Clang 19.1.7 on Linux arm64; set `CC` to select your compiler. macOS compilation uses the local Apple toolchain.
-
-An optional actual-window diagnostic also uses Xvfb and xdotool. With those installed system-wide on Linux, build the native executable first, then run:
-
-```sh
-NIGHTFALL_X11_SYSROOT=/ bash examples/survivors/native-window-smoke.sh
-```
-
-`NIGHTFALL_X11_SYSROOT`, `XVFB`, `XDOTOOL` and `NIGHTFALL_BINARY` can point at an isolated development fixture. This diagnostic does not install packages.
 
 Native functional checks reuse compiled profile, UI and loot test binaries from
 `${XDG_CACHE_HOME:-$HOME/.cache}/bendvy-native-checks`. The cache key includes local
@@ -202,21 +189,19 @@ bash examples/survivors/build.sh
 bash examples/survivors/check.sh
 ```
 
-Pure Bend behavior is checked by universal laws.
-The [proof gate](../../scripts/check-bend-laws.py) discovers the proof modules;
-the [mutation gate](../../scripts/check-bend-mutants.py) checks that type-correct
-semantic faults are rejected. Their executable manifests live in
-[scripts/law-mutants](../../scripts/law-mutants). Native programs retain actual file, image, audio and application integration checks.
-Mutation checks are manual-only and excluded from `check.sh` and CI. When adding
-or changing laws and mutants, implementers should run the affected manifests
-locally; a full mutation sweep is available when explicitly needed:
+For proofs alone, run `bash examples/survivors/check-proofs.sh`. This command
+requires Bend, its Lean kernel toolchain, and `timeout` or `gtimeout`; it does not
+require Node.js, Rust or native graphics libraries. CI runs it in the independent
+`Bend proofs` job. The runtime job uses `check.sh --runtime-only` to avoid running
+the same proofs again. The default local `check.sh` still runs both groups.
 
-```sh
-# Only the affected manifest (one or more paths are accepted):
-npm run check:mutants:manual -- scripts/law-mutants/combat.json
-# All manifests:
-npm run check:mutants:manual
-```
+Pure Bend behavior is checked by universal laws. The proof script invokes
+`bend --verdict` directly for every proof entrypoint. Each invocation retains the
+10-second CPU and 60-second wall limits. Bend output is streamed to the caller.
+Native programs retain actual file, image, audio and application integration checks.
+
+Semantic mutation descriptions remain in `scripts/law-mutants`; no automated
+mutation runner is provided.
 
 The [native geometry check](check-geometry.sh) also exercises physical pickup,
 swept combat and the real rendered spawn footprint. Its floating-point

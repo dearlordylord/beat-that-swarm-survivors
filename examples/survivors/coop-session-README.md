@@ -99,9 +99,8 @@ or of browser/Iroh lifecycle behavior.
 
 The [session laws](coop-session-LAWS.bend), [reward laws](coop-reward-policy-LAWS.bend),
 [protocol laws](coop-protocol-LAWS.bend), prediction laws and [pickup laws](pickup-selection-LAWS.bend)
-state their precise guarantees. The shared [proof gate](../../scripts/check-bend-laws.py)
-checks them with BendTT; the [mutation gate](../../scripts/check-bend-mutants.py)
-requires type-correct semantic faults to be rejected. From the repository root,
+state their precise guarantees. The ordinary `check.sh` runs the proof entrypoints
+directly with `bend --verdict`. From the repository root,
 `bash examples/survivors/check-coop-reliability.sh` freshly emits its Bend modules
 and runs deterministic flow, prediction, playback, journal, prepared-resolver
 and presentation-projection adapter checks. It fingerprints the relevant Bend

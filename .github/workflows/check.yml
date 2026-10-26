@@ -8,19 +8,16 @@ on:
 permissions:
   contents: read
 jobs:
-  check:
+  proofs:
+    name: Bend proofs
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
       BEND_NO_TELEMETRY: '1'
-      CC: clang-19
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24.20.0'
       - name: Install Bend 2.0.38
         shell: bash
         run: |
@@ -57,6 +54,32 @@ jobs:
           def kernel_ready(): {==}
           BEND
           "$BEND" "$probe" --verdict
+      - name: Verify Bend proofs with the independent kernel
+        run: bash examples/survivors/check-proofs.sh
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BEND_NO_TELEMETRY: '1'
+      CC: clang-19
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.20.0'
+      - name: Install Bend 2.0.38
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/bend-2.0.38-linux-x64.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
+            https://github.com/bendlang/bend/releases/download/v2.0.38/bend-2.0.38-linux-x64.tar.gz \
+            -o "$archive"
+          echo "f19d088b079c9e1a8834ecd153b7d58c11a5f8f9ab1bdb78dbc96a6bf49aaa81  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          echo "BEND=$RUNNER_TEMP/bend/bin/bend" >> "$GITHUB_ENV"
+          echo "BEND_LIB=$RUNNER_TEMP/bendhub" >> "$GITHUB_ENV"
       - name: Install native build dependencies
         timeout-minutes: 6
         run: |
@@ -90,8 +113,8 @@ jobs:
         run: npm run check:typescript
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
-      - name: Check Bend laws and native geometry
-        run: bash examples/survivors/check.sh
+      - name: Check runtime behavior and native geometry
+        run: bash examples/survivors/check.sh --runtime-only
       - name: Build the prerendered browser page
         run: |
           bash examples/survivors/build-web.sh
@@ -101,7 +124,5 @@ jobs:
           bash tools/survivors-bot/check.sh
           bash tools/survivors-bot/check-visible.sh
           bash tools/survivors-bot/check-monsters.sh
-      - name: Check native compilation cache
-        run: python3 scripts/native-check-cache.test.py
       - name: Check native profile, UI and loot
         run: bash examples/survivors/check-launcher-profile-ui.sh

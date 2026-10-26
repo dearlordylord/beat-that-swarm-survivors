@@ -9,12 +9,12 @@ converts values and persists them through localStorage.
 [The native adapter](../native-profile.bend) maps game observations and performs
 file IO through the [profile codec](../native-profile-codec.bend).
 
-Run the complete [proof gate](../../../scripts/check-bend-laws.py) and
-[semantic mutation gate](../../../scripts/check-bend-mutants.py) from the repository root:
+Run the proofs directly from the repository root:
 
 ```sh
-python3 scripts/check-bend-laws.py
-python3 scripts/check-bend-mutants.py
+bend examples/survivors/menu-progression/PROOF.bend --verdict
+bend examples/survivors/native-economy/PROOF.bend --verdict
+bend examples/survivors/native-record/PROOF.bend --verdict
 ```
 
 The [browser laws](LAWS.bend) and [native economy laws](../native-economy/LAWS.bend)

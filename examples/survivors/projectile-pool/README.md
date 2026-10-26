@@ -9,5 +9,5 @@ have separate meanings; callers must provide availability from the same frame.
 allocator contract. They do not prove that a caller supplied genuinely free
 identities, whole-game equivalence or correctness of the Patricia index.
 
-Run the repository [Bend law gate](../../../scripts/check-bend-laws.py) and
-[semantic mutation gate](../../../scripts/check-bend-mutants.py) for validation.
+Run `bend examples/survivors/projectile-pool/PROOF.bend --verdict` from the
+repository root. The ordinary `check.sh` also checks this proof.
