@@ -6,10 +6,25 @@ fixture=$(mktemp -d "${TMPDIR:-/tmp}/nightfall-native-batch-test-XXXXXX")
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/repo/tools/survivors-bot" "$fixture/repo/examples/survivors"
 cp "$repo/tools/survivors-bot/native-batch.sh" "$fixture/repo/tools/survivors-bot/"
+mkdir -p "$fixture/repo/toolchains" "$fixture/repo/scripts"
+cp "$repo/tools/clang" "$fixture/repo/tools/clang"
+cp "$repo/toolchains/clang.env" "$fixture/repo/toolchains/clang.env"
+cp "$repo/scripts/native-toolchain.sh" "$fixture/repo/scripts/native-toolchain.sh"
+cp "$repo/examples/common.sh" "$fixture/repo/examples/common.sh"
+# Browser helpers must load without resolving a native compiler.
+BENDVY_CLANG=/nonexistent/clang BENDVY_EXAMPLE_LOCK_HELD=1 bash -c 'source "$1"' _ "$fixture/repo/examples/common.sh"
+cat > "$fixture/fake-clang" <<'CLANG'
+#!/bin/sh
+[ "$1" = --version ] || exit 1
+printf '%s\n' 'clang version 19.1.7'
+CLANG
+chmod +x "$fixture/fake-clang"
+export BENDVY_CLANG="$fixture/fake-clang"
 touch "$fixture/repo/examples/survivors/offline-batch.bend" "$fixture/repo/examples/survivors/offline-parallel.bend"
 cat > "$fixture/compiler" <<'COMPILER'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ $CC == "$FIXTURE/repo/tools/clang" ]]
 [[ $1 == "$FIXTURE/repo/examples/survivors/${EXPECT_ENTRY:-offline-batch.bend}" && $2 == -o ]]
 [[ ${FAIL_BUILD:-0} == 0 ]] || exit 42
 echo build >> "$FIXTURE/builds"
@@ -52,7 +67,7 @@ cat > "$fixture/expected" <<'EXPECTED'
 EXPECTED
 diff -u "$fixture/expected" "$fixture/actual"
 [[ $(wc -l < "$fixture/builds") == 1 ]]
-bash "$runner" --no-build --count 1 --ticks 1 --seed 0 --profile advanced > "$fixture/reuse"
+BENDVY_CLANG=/nonexistent/clang bash "$runner" --no-build --count 1 --ticks 1 --seed 0 --profile advanced > "$fixture/reuse"
 [[ $(cat "$fixture/reuse") == '0 0 advanced 1' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
 for invalid in '--count 0' '--count -1' '--seed 4294967296' '--seed 01' '--ticks 0' '--workers 257' '--threads 0' '--threads 129' '--profile invalid' '--execution invalid' '--execution bend --workers 2' '--execution bend --count 1 --workers 2' '--bogus'; do

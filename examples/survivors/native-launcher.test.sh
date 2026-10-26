@@ -6,10 +6,23 @@ fixture="$(mktemp -d "${TMPDIR:-/tmp}/nightfall-launcher-XXXXXX")"
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/repo/examples/survivors" "$fixture/data with spaces"
 cp "$source_dir/run.command" "$fixture/repo/examples/survivors/run.command"
+repo="$(cd "$source_dir/../.." && pwd)"
+mkdir -p "$fixture/repo/tools" "$fixture/repo/toolchains" "$fixture/repo/scripts"
+cp "$repo/tools/clang" "$fixture/repo/tools/clang"
+cp "$repo/toolchains/clang.env" "$fixture/repo/toolchains/clang.env"
+cp "$repo/scripts/native-toolchain.sh" "$fixture/repo/scripts/native-toolchain.sh"
+cat > "$fixture/fake-clang" <<'CLANG'
+#!/bin/sh
+[ "$1" = --version ] || exit 1
+printf '%s\n' 'clang version 19.1.7'
+CLANG
+chmod +x "$fixture/fake-clang"
+export BENDVY_CLANG="$fixture/fake-clang"
 touch "$fixture/repo/examples/survivors/native.bend"
 cat > "$fixture/fake-bend" <<'COMPILER'
 #!/bin/bash
 set -euo pipefail
+[ "$CC" = "$FIXTURE/repo/tools/clang" ]
 [ "$PWD" = "$FIXTURE/repo" ]
 [ "$1" = "$FIXTURE/repo/examples/survivors/native.bend" ]
 [ "$2" = '-o' ]

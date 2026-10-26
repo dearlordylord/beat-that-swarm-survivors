@@ -21,6 +21,8 @@ if [ "$(uname -s)" = Darwin ] && ! xcrun --find clang >/dev/null 2>&1; then
   echo 'Apple Command Line Tools are required. Install with: xcode-select --install' >&2
   exit 1
 fi
+source "$app_dir/../../scripts/native-toolchain.sh"
+native_toolchain_require
 mkdir -p dist
 staging_dir="$(mktemp -d "$app_dir/dist/.native-XXXXXX")"
 trap 'rm -rf "$staging_dir"' EXIT

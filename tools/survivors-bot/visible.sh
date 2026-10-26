@@ -9,5 +9,6 @@ source examples/common.sh
 python3 scripts/generate-bend-types.py
 "$NODE" scripts/generate-bend-codecs.mts
 mkdir -p examples/survivors/dist
+native_toolchain_require
 example_timeout 300 "${example_cpu[@]}" "$BEND" examples/survivors/native-bot.bend -o examples/survivors/dist/nightfall-bot
 example_timeout 920 "$NODE" tools/survivors-bot/visible.mts "$@"

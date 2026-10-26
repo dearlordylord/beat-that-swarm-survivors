@@ -58,7 +58,7 @@ and limits.
 
 ## Native launch
 
-Bend handles simulation, drawing, input, menus, audio and profile storage. Native play requires no Node.js or browser. On macOS, install Bend and Apple's Command Line Tools (`xcode-select --install`), then run from the repository root:
+Bend handles simulation, drawing, input, menus, audio and profile storage. Native play requires no Node.js or browser. On macOS, install Bend, Apple's Command Line Tools (`xcode-select --install`) and the [pinned LLVM Clang toolchain](../../toolchains/README.md) (`brew install llvm@19`), then run from the repository root:
 
 ```sh
 ./examples/survivors/run.command

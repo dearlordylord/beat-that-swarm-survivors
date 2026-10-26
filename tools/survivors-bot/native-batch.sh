@@ -5,6 +5,7 @@ set -euo pipefail
 unset BENDRTS
 cd "$(dirname -- "$0")/../.."
 export PATH="$HOME/.bend/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+source "$PWD/scripts/native-toolchain.sh"
 count=${NIGHTFALL_BATCH_COUNT:-100}
 ticks=${NIGHTFALL_BATCH_TICKS:-1800}
 seed=${NIGHTFALL_BATCH_SEED:-12345}
@@ -78,6 +79,7 @@ if [[ ${BENDVY_EXAMPLE_LOCK_HELD:-0} != 1 ]]; then
   fi
 fi
 if ((build)); then
+  native_toolchain_require
   echo 'Compiling native Bend batch runner…' >&2
   "${BEND:-bend}" "$app_dir/$entry" -o "$staging/$binary_name" >&2
   chmod +x "$staging/$binary_name"

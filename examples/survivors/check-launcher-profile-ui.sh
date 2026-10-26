@@ -19,6 +19,7 @@ for source in "${sources[@]}"; do
   fi
   example_timeout 30 "${example_cpu[@]}" "$BEND" "$app_dir/$source.bend" --check-only
 done
+native_toolchain_require
 cache_key="$(python3 -B scripts/native-check-cache-key.py "$example_repo" "$BEND" "$CLANG")"
 cache_dir="${NIGHTFALL_NATIVE_CHECK_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/bendvy-native-checks}/$cache_key"
 mkdir -p "$cache_dir"
