@@ -6,13 +6,14 @@ export PATH="$HOME/.bend/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$
 profile=${NIGHTFALL_BOT_PROFILE:-fresh}
 seed=${NIGHTFALL_BOT_SEED:-12345}
 count=${NIGHTFALL_BOT_COUNT:-1}
+threads=${NIGHTFALL_BOT_THREADS:-auto}
 ticks=${NIGHTFALL_BOT_TICKS:-0}
 seconds=${NIGHTFALL_BOT_SECONDS:-0}
 pacing=${NIGHTFALL_BOT_PACING:-realtime}
 build=1
 build_only=0
 force_build=0
-usage() { echo 'visible.sh [--profile fresh|advanced] [--seed U32] [--count U32] [--ticks U32] [--seconds N] [--unlimited] [--no-build|--build-only|--rebuild]'; }
+usage() { echo 'visible.sh [--profile fresh|advanced] [--seed U32] [--count U32] [--threads auto|U32] [--ticks U32] [--seconds N] [--unlimited] [--no-build|--build-only|--rebuild]'; }
 while (($#)); do
   case "$1" in
     --help) usage; exit 0 ;;
@@ -20,7 +21,7 @@ while (($#)); do
     --build-only) build_only=1; shift ;;
     --rebuild) force_build=1; shift ;;
     --unlimited) pacing=unlimited; shift ;;
-    --profile|--seed|--count|--ticks|--seconds)
+    --profile|--seed|--count|--threads|--ticks|--seconds)
       [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       key=${1#--}; printf -v "$key" '%s' "$2"; shift 2 ;;
     *) usage >&2; exit 2 ;;
@@ -30,6 +31,7 @@ unsigned() { [[ $1 =~ ^(0|[1-9][0-9]{0,9})$ ]] && ((10#$1 <= 4294967295)); }
 for key in seed count ticks seconds; do
   unsigned "${!key}" || { echo "Invalid $key (expected U32)" >&2; exit 2; }
 done
+[[ $threads == auto ]] || { unsigned "$threads" && ((10#$threads > 0)); } || { echo 'Threads must be auto or a positive U32.' >&2; exit 2; }
 ((count >= 1 && count <= 64)) || { echo 'Count must be between 1 and 64.' >&2; exit 2; }
 [[ $profile == fresh || $profile == advanced ]] || { echo 'Invalid profile' >&2; exit 2; }
 [[ $pacing == realtime || $pacing == unlimited ]] || { echo 'Invalid pacing' >&2; exit 2; }
@@ -109,4 +111,6 @@ if ((build_only)); then
   exit 0
 fi
 export NIGHTFALL_BOT_PROFILE=$profile NIGHTFALL_BOT_SEED=$seed NIGHTFALL_BOT_COUNT=$count NIGHTFALL_BOT_TICKS=$ticks NIGHTFALL_BOT_SECONDS=$seconds NIGHTFALL_BOT_PACING=$pacing
-exec "$binary"
+runtime_args=()
+if [[ $threads != auto ]]; then runtime_args=(+RTS --threads "$threads" -RTS); fi
+exec "$binary" "${runtime_args[@]}"

@@ -21,6 +21,7 @@ cat > "$3" <<'BINARY'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${BENDRTS+x} != x ]]
+printf '%s\n' "$@" > "$FIXTURE/runtime-args"
 printf '%s %s %s %s %s %s\n' "$NIGHTFALL_BOT_PROFILE" "$NIGHTFALL_BOT_SEED" "$NIGHTFALL_BOT_TICKS" "$NIGHTFALL_BOT_SECONDS" "$NIGHTFALL_BOT_PACING" "$NIGHTFALL_BOT_COUNT"
 exit "${NATIVE_EXIT:-0}"
 BINARY
@@ -42,6 +43,7 @@ export BENDRTS='--gpu on --threads 99'
 runner="$fixture/repo/tools/survivors-bot/visible.sh"
 bash "$runner" --profile advanced --seed 4294967295 --ticks 1800 --seconds 45 > "$fixture/actual"
 [[ $(cat "$fixture/actual") == 'advanced 4294967295 1800 45 realtime 1' ]]
+[[ -z $(cat "$fixture/runtime-args") ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
 bash "$runner" --seed 12 --unlimited --count 10 > "$fixture/automatic-reuse"
 [[ $(cat "$fixture/automatic-reuse") == 'fresh 12 0 0 unlimited 10' ]]
@@ -65,7 +67,13 @@ fi
 bash "$runner" --build-only > "$fixture/build-only"
 [[ $(cat "$fixture/build-only") == "Ready: $fixture/repo/examples/survivors/dist/nightfall-bot" ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
-for invalid in '--count 0' '--count 65' '--count 1.5' '--seed 01' '--seed -1' '--seed 4294967296' '--ticks 1.5' '--seconds 4294968' '--profile both' '--no-build --build-only' '--no-build --rebuild' '--mode heuristic' '--bogus'; do
+bash "$runner" --no-build --count 10 --threads 4 >/dev/null
+[[ $(tr '\n' ' ' < "$fixture/runtime-args") == '+RTS --threads 4 -RTS ' ]]
+NIGHTFALL_BOT_THREADS=2 bash "$runner" --no-build >/dev/null
+[[ $(tr '\n' ' ' < "$fixture/runtime-args") == '+RTS --threads 2 -RTS ' ]]
+bash "$runner" --threads auto --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == 1 ]]
+for invalid in '--threads 0' '--threads -1' '--threads 1.5' '--threads 4294967296' '--count 0' '--count 65' '--count 1.5' '--seed 01' '--seed -1' '--seed 4294967296' '--ticks 1.5' '--seconds 4294968' '--profile both' '--no-build --build-only' '--no-build --rebuild' '--mode heuristic' '--bogus'; do
   if bash "$runner" $invalid >/dev/null 2>&1; then echo "Accepted invalid: $invalid" >&2; exit 1; fi
 done
 status=0

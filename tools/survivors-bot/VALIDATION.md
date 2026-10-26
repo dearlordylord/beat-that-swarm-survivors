@@ -74,3 +74,34 @@ Six pacing laws pass the kernel through `bot-pacing-PROOF.bend`. Six
 type-correct mutations in `scripts/law-mutants/bot-pacing.json` are rejected at
 their corresponding laws. They cover unrestricted simulation readiness, default
 realtime deadlines, initial presentation and subsequent presentation deadlines.
+
+## Parallel native grid
+
+The grid owns worlds in a balanced affine tree. `parallel/affine.bend` uses
+explicit CPU fork/join calls for pure world steps. Rendering forks independent
+tiles. The window and ordered error/completion reports stay on the IO loop.
+
+Run the scheduler proof and native comparison probe from the repository root:
+
+```sh
+timeout 60 sh -c 'ulimit -t 10; exec bend examples/survivors/parallel/affine-PROOF.bend --verdict'
+CC="$PWD/tools/clang" bend examples/survivors/bot-grid-parallel-probe.bend -o /tmp/nightfall-grid-probe
+GRID_PROBE_SERIAL=1 /tmp/nightfall-grid-probe +RTS --threads 1 -RTS > /tmp/grid-serial.jsonl
+/tmp/nightfall-grid-probe +RTS --threads 1 -RTS > /tmp/grid-parallel-one.jsonl
+/tmp/nightfall-grid-probe +RTS --threads 4 -RTS > /tmp/grid-parallel-four.jsonl
+cmp /tmp/grid-serial.jsonl /tmp/grid-parallel-one.jsonl
+cmp /tmp/grid-serial.jsonl /tmp/grid-parallel-four.jsonl
+```
+
+The probe runs ten advanced worlds for 300 ticks each. It compares complete
+Run values, offers, snapshots, pending values, policy memory and choice counts,
+including exact F32 bits. It does not capture hidden ECS storage. The generic
+scheduler law proves equality of serial and parallel maps for arbitrary Data
+inputs and functions. It does not prove whole-game equivalence for affine worlds.
+The branch-reversal mutant is recorded in `scripts/law-mutants/affine-tree.json`.
+
+`bot-grid-probe.bend` checks mixed completion bounds. The first world stops at
+tick one while nine other worlds reach tick two. The finished world stays in
+its cell. Actual window checks also cover ten independent views and explicit
+runtime thread counts. These checks establish parallel execution and the tested
+results, not a universal speedup or the separate 100× headless target.

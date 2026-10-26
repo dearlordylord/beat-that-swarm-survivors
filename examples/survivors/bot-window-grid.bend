@@ -1,4 +1,5 @@
 import Base
+import parallel/affine.bend as A
 import game.bend as G
 import bot-driver.bend as Driver
 import offline-policy.bend as Policy
@@ -11,14 +12,20 @@ import bot-window-single.bend as Single
 import bot-grid-layout.bend as Layout
 
 type Cell is Type: Cell{id: U32,seed: U32,bot: Single.Bot,metrics: Metrics.State,done: Bool}
-type Grid is Type: Grid{cells: List<Cell>,count: U32,pacing: Pacing.Mode}
+type Grid is Type: Grid{cells: A.Tree<&1,Cell>,count: U32,pacing: Pacing.Mode}
 
-def initialize(fuel: Nat,+id: U32,+base: U32,+profile: String,+now: Nat,+ticks: U32,+seconds: U32,+pacing: Pacing.Mode) -> List<Cell>:
-  match fuel:
-    case 0n: []
-    case 1n+rest:
+def initialize(fuel: Nat,+count: U32,+id: U32,+base: U32,+profile: String,+now: Nat,+ticks: U32,+seconds: U32,+pacing: Pacing.Mode) -> A.Tree<&1,Cell>:
+  match fuel count:
+    case _ 0: A.Empty{}
+    case 0n _:
       +seed = Layout.seed(base,id)
-      Cell{id,seed,Single.Bot{Driver.Progress{Policy.initial(),Single.initial_game(profile,seed),0},now,now,ticks,seconds,pacing},Metrics.initial(),False{}} <> initialize(rest,(id + 1 : U32),base,profile,now,ticks,seconds,pacing)
+      A.Leaf{Cell{id,seed,Single.Bot{Driver.Progress{Policy.initial(),Single.initial_game(profile,seed),0},now,now,ticks,seconds,pacing},Metrics.initial(),False{}}}
+    case _ 1:
+      +seed = Layout.seed(base,id)
+      A.Leaf{Cell{id,seed,Single.Bot{Driver.Progress{Policy.initial(),Single.initial_game(profile,seed),0},now,now,ticks,seconds,pacing},Metrics.initial(),False{}}}
+    case 1n+ +rest _:
+      +half = (count / 2 : U32)
+      A.Branch{initialize(rest,half,id,base,profile,now,ticks,seconds,pacing),initialize(rest,(count - half : U32),(id + half : U32),base,profile,now,ticks,seconds,pacing)}
 
 def progressed(done: Bool,+ready: Bool,progress: Driver.Progress,last: Nat,started: Nat,ticks: U32,seconds: U32,pacing: Pacing.Mode,now: Nat) -> Single.Bot:
   match done:
@@ -50,25 +57,37 @@ def reported(was_done: Bool,cell: Cell) -> IO(Cell):
   match was_done cell:
     case False{} Cell{id,seed,bot,metrics,True{}}: completed(id,seed,metrics,Single.bot_tick(bot))
     case _ cell: IO.pure(Cell,cell)
-def advance_checked(+now: Nat,cell: Cell) -> IO(Cell):
+def advance_marked(now: Nat,cell: Cell) -> Bool & Cell:
   match cell:
-    case Cell{id,seed,bot,metrics,+done}:
-      do IO<Cell>:
-        next : Cell <- checked(advance_cell(now,Cell{id,seed,bot,metrics,done}))
-        reported(done,next)
-def collected(rest: List<Cell> & Bool,cell: Cell) -> List<Cell> & Bool:
-  (tail,all_done) = rest
+    case Cell{id,seed,bot,metrics,+done}: (done,advance_cell(now,Cell{id,seed,bot,metrics,done}))
+def advance_pure(now: Nat,cells: A.Tree<&1,Cell>) -> A.Tree<&1,Bool & Cell>:
+  A.map_context(~Nat,~&1,~&1,~Cell,~(Bool & Cell),~advance_marked,now,cells)
+def report_marked(marked: Bool & Cell) -> IO(Cell):
+  (was_done,cell) = marked
+  do IO<Cell>:
+    next : Cell <- checked(cell)
+    reported(was_done,next)
+def joined(left: A.Tree<&1,Cell> & Bool,right: A.Tree<&1,Cell> & Bool) -> A.Tree<&1,Cell> & Bool:
+  (l,ld) = left
+  (r,rd) = right
+  (A.Branch{l,r},Bool.and(ld,rd))
+def leaf_done(cell: Cell) -> A.Tree<&1,Cell> & Bool:
   match cell:
-    case Cell{id,seed,bot,metrics,+done}: (Cell{id,seed,bot,metrics,done} <> tail,Bool.and(done,all_done))
-def advance_cells(cells: List<Cell>,+now: Nat) -> IO(List<Cell> & Bool):
+    case Cell{id,seed,bot,metrics,+done}: (A.Leaf{Cell{id,seed,bot,metrics,done}},done)
+def report_cells(cells: A.Tree<&1,Bool & Cell>) -> IO(A.Tree<&1,Cell> & Bool):
   match cells:
-    case []: IO.pure(List<Cell> & Bool,([],True{}))
-    case cell <> rest:
-      do IO<List<Cell> & Bool>:
-        next : Cell <- advance_checked(now,cell)
-        tail : List<Cell> & Bool <- advance_cells(rest,now)
-        return collected(tail,next)
-def continued(count: U32,pacing: Pacing.Mode,result: List<Cell> & Bool) -> Maybe<Grid>:
+    case A.Empty{}: IO.pure(A.Tree<&1,Cell> & Bool,(A.Empty{},True{}))
+    case A.Leaf{marked}:
+      do IO<A.Tree<&1,Cell> & Bool>:
+        next : Cell <- report_marked(marked)
+        return leaf_done(next)
+    case A.Branch{left,right}:
+      do IO<A.Tree<&1,Cell> & Bool>:
+        l : A.Tree<&1,Cell> & Bool <- report_cells(left)
+        r : A.Tree<&1,Cell> & Bool <- report_cells(right)
+        return joined(l,r)
+def advance_cells(cells: A.Tree<&1,Cell>,now: Nat) -> IO(A.Tree<&1,Cell> & Bool): report_cells(advance_pure(now,cells))
+def continued(count: U32,pacing: Pacing.Mode,result: A.Tree<&1,Cell> & Bool) -> Maybe<Grid>:
   (cells,done) = result
   match done:
     case True{}: None{}
@@ -78,7 +97,7 @@ def advance(state: Grid) -> IO(Maybe<Grid>):
     case Grid{cells,count,pacing}:
       do IO<Maybe<Grid>>:
         now : Nat <- IO.now()
-        next : List<Cell> & Bool <- advance_cells(cells,now)
+        next : A.Tree<&1,Cell> & Bool <- advance_cells(cells,now)
         return continued(count,pacing,next)
 
 def decorated(text: String,native: N.Native) -> N.Native & Image:
@@ -98,15 +117,21 @@ def cell_view(cell: Cell) -> Cell & Image:
     case Cell{+id,+seed,Single.Bot{Driver.Progress{memory,game,choices},last,started,ticks,seconds,pacing},+metrics,+done}:
       text = "BOT " ++ U32.show((id + 1 : U32)) ++ " SEED " ++ U32.show(seed) ++ done_label(done) ++ "  " ++ Metrics.label(metrics)
       cell_drawn(id,seed,metrics,done,Single.image(memory,choices,last,started,ticks,seconds,pacing,decorated(text,Single.rendering_native(game))))
-def views_join(head: Cell & Image,tail: List<Cell> & List<&2,Image>) -> List<Cell> & List<&2,Image>:
-  (cell,picture) = head
-  (cells,pictures) = tail
-  (cell <> cells,picture <> pictures)
-def views(cells: List<Cell>) -> List<Cell> & List<&2,Image>:
+def views_join(left: A.Tree<&1,Cell> & List<&2,Image>,right: A.Tree<&1,Cell> & List<&2,Image>) -> A.Tree<&1,Cell> & List<&2,Image>:
+  (l,lp) = left
+  (r,rp) = right
+  (A.Branch{l,r},List.append(&2,Image,lp,rp))
+def viewed(result: Cell & Image) -> A.Tree<&1,Cell> & List<&2,Image>:
+  (cell,picture) = result
+  (A.Leaf{cell},[picture])
+def views(cells: A.Tree<&1,Cell>) -> A.Tree<&1,Cell> & List<&2,Image>:
   match cells:
-    case []: ([],[])
-    case cell <> rest: views_join(cell_view(cell),views(rest))
-def drawn(+count: U32,pacing: Pacing.Mode,result: List<Cell> & List<&2,Image>) -> Grid & Image:
+    case A.Empty{}: (A.Empty{},[])
+    case A.Leaf{cell}: viewed(cell_view(cell))
+    case A.Branch{left,right}:
+      l r = views(left) views(right)
+      views_join(l,r)
+def drawn(+count: U32,pacing: Pacing.Mode,result: A.Tree<&1,Cell> & List<&2,Image>) -> Grid & Image:
   (cells,pictures) = result
   (Grid{cells,count,pacing},Layout.image(count,pictures))
 def view(state: Grid) -> Grid & Image:
@@ -119,10 +144,11 @@ def measured(id: U32,seed: U32,metrics: Metrics.State,done: Bool,now: Nat,result
 def sample_cell(now: Nat,cell: Cell) -> Cell:
   match cell:
     case Cell{id,seed,bot,metrics,done}: measured(id,seed,metrics,done,now,Single.bot_tick(bot))
-def samples(cells: List<Cell>,+now: Nat) -> List<Cell>:
+def samples(cells: A.Tree<&1,Cell>,+now: Nat) -> A.Tree<&1,Cell>:
   match cells:
-    case []: []
-    case cell <> rest: sample_cell(now,cell) <> samples(rest,now)
+    case A.Empty{}: A.Empty{}
+    case A.Leaf{cell}: A.Leaf{sample_cell(now,cell)}
+    case A.Branch{left,right}: A.Branch{samples(left,now),samples(right,now)}
 def presented_closed(closed: Bool,state: Grid) -> IO(Maybe<Grid>):
   match closed state:
     case True{} _: IO.pure(Maybe<Grid>,None{})
@@ -151,8 +177,10 @@ def configured(+count: U32) -> IO(Unit):
     seconds : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_SECONDS")
     pacing : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_PACING")
     +mode : Pacing.Mode = Pacing.parse(Single.environment(pacing))
+    threads : U32 <- IO.thread_count()
+    IO.print("Native Bend bot grid: " ++ U32.show(count) ++ " worlds, " ++ U32.show(threads) ++ " runtime threads")
     now : Nat <- IO.now()
-    run(mode,count,Grid{initialize(U32.to_nat(count),0,Single.number(Single.environment(seed),12345),Single.environment(profile),now,Single.number(Single.environment(ticks),0),Single.number(Single.environment(seconds),0),mode),count,mode})
+    run(mode,count,Grid{initialize(7n,count,0,Single.number(Single.environment(seed),12345),Single.environment(profile),now,Single.number(Single.environment(ticks),0),Single.number(Single.environment(seconds),0),mode),count,mode})
 def bounded_count(valid: Bool,count: U32) -> IO(Unit):
   match valid:
     case True{}: configured(count)

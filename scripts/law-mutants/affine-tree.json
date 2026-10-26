@@ -1,0 +1,12 @@
+[
+  {
+    "label": "reverse-world-branches",
+    "source": "examples/survivors/parallel/affine.bend",
+    "old": "Branch{l,r}",
+    "new": "Branch{r,l}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/parallel/affine.bend",
+    "proof": "examples/survivors/parallel/affine-PROOF.bend",
+    "law": "parallel_matches_serial"
+  }
+]

@@ -12,7 +12,7 @@ Run these commands from the repository root. Native builds require Bend and the
 
 ```sh
 bash tools/survivors-bot/visible.sh --profile fresh --seed 12345
-bash tools/survivors-bot/visible.sh --count 10 --profile fresh --seed 12345
+bash tools/survivors-bot/visible.sh --count 10 --threads 8 --profile fresh --seed 12345
 bash tools/survivors-bot/visible.sh --profile advanced --seed 12345 --ticks 1800
 bash tools/survivors-bot/visible.sh --unlimited --profile advanced --ticks 1800
 ```
@@ -20,7 +20,12 @@ bash tools/survivors-bot/visible.sh --unlimited --profile advanced --ticks 1800
 `--count N` displays 1 to 64 independent games in one native process and one
 window. The default is 1. `NIGHTFALL_BOT_COUNT` sets the same option through the
 environment. Games use consecutive U32 seeds starting at `--seed`, wrapping after
-4294967295. A single process does not imply parallel execution. Each cell shows its bot ID,
+4294967295. Bend executes independent world steps and tile rendering through a balanced
+fork/join tree on the CPU pool. `--threads N` sets its size. The default
+`--threads auto` lets Bend choose from the available CPUs.
+`NIGHTFALL_BOT_THREADS` sets the same option through the environment. The launcher
+prints the actual runtime thread count when starting a grid.
+Each cell shows its bot ID,
 seed and metrics. Finished games remain visible while other games continue.
 The window closes when every game has finished.
 
@@ -28,7 +33,7 @@ The launcher reuses the native binary when its build inputs are unchanged.
 It checks content hashes of Bend sources, compiler tools, Bend runtime and package
 cache, dependency pins and SDK identity files. Changed inputs or a changed binary
 trigger a rebuild. The first launch after this update rebuilds once to save the
-build receipt. Profile, seed, count, pacing and run limits do not require
+build receipt. Profile, seed, count, threads, pacing and run limits do not require
 recompilation.
 Close the window or press Escape to stop. `--ticks` bounds game time; `--seconds`
 bounds wall time. Zero means no bound. `--build-only` compiles without opening a

@@ -1,0 +1,143 @@
+{
+  "recordedAt": "2026-10-26T17:53:05.356Z",
+  "scope": "Ten advanced single-player worlds, 300 ticks each, one native window. New fork/join implementation at one versus four CPU runtime threads. Not an old-serial-versus-new comparison or headless100x.",
+  "environment": {
+    "os": "Linux aarch64",
+    "bend": "2.0.39",
+    "clang": "19.1.7",
+    "cpuAffinity": "0-3 for both",
+    "display": "isolated Xvfb :97, 1280x1024",
+    "flags": "-std=c11 -O3 -lpthread -lm -lX11 -ldl"
+  },
+  "workload": {
+    "count": 10,
+    "seed": 12345,
+    "profile": "advanced",
+    "ticks": 300,
+    "pacing": "unlimited",
+    "seconds": 0
+  },
+  "measurement": "Bash TIMEFORMAT %R %U %S; timeout 60 taskset -c 0-3 binary +RTS --threads N -RTS. Includes startup, simulation, rendering and presentation. Excludes build. Five alternating 1/4 pairs; all succeeded, none dropped.",
+  "samples": [
+    {
+      "repetition": 1,
+      "threads": 1,
+      "wallSeconds": 19.884,
+      "userSeconds": 19.629,
+      "systemSeconds": 0.087,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 1,
+      "threads": 4,
+      "wallSeconds": 8.817,
+      "userSeconds": 25.493,
+      "systemSeconds": 0.164,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 2,
+      "threads": 1,
+      "wallSeconds": 25.257,
+      "userSeconds": 24.954,
+      "systemSeconds": 0.115,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 2,
+      "threads": 4,
+      "wallSeconds": 12.583,
+      "userSeconds": 34.678,
+      "systemSeconds": 0.334,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 3,
+      "threads": 1,
+      "wallSeconds": 21.24,
+      "userSeconds": 20.952,
+      "systemSeconds": 0.087,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 3,
+      "threads": 4,
+      "wallSeconds": 8.486,
+      "userSeconds": 24.844,
+      "systemSeconds": 0.174,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 4,
+      "threads": 1,
+      "wallSeconds": 21.101,
+      "userSeconds": 20.809,
+      "systemSeconds": 0.103,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 4,
+      "threads": 4,
+      "wallSeconds": 8.849,
+      "userSeconds": 25.924,
+      "systemSeconds": 0.16,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 5,
+      "threads": 1,
+      "wallSeconds": 20.978,
+      "userSeconds": 20.787,
+      "systemSeconds": 0.071,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    },
+    {
+      "repetition": 5,
+      "threads": 4,
+      "wallSeconds": 8.49,
+      "userSeconds": 25.246,
+      "systemSeconds": 0.159,
+      "completedWorlds": 10,
+      "completedTicksPerWorld": 300
+    }
+  ],
+  "one": {
+    "medianWallSeconds": 21.101,
+    "minWallSeconds": 19.884,
+    "maxWallSeconds": 25.257
+  },
+  "four": {
+    "medianWallSeconds": 8.817,
+    "minWallSeconds": 8.486,
+    "maxWallSeconds": 12.583
+  },
+  "ratioOfMedianWallTimes": 2.393217647725984,
+  "binarySha256": "b1e615ffca544e595b9c87c39a536ad4e32123d50273515a533e76c48e4f947d",
+  "generatedCSha256": "016527c4ce10fc4f6540cc7e7ad0cd6c614e01605b46b3c5a970f259d5be9321",
+  "detailedProbe": {
+    "worlds": 10,
+    "ticksPerWorld": 300,
+    "bytes": 1152221,
+    "sha256": "bc9781610bb3b0db523cdef36807ed21428e872641b2603c4d32592c4d41e319",
+    "variants": [
+      "serial map, 1 thread",
+      "parallel map, 1 thread",
+      "parallel map, 4 threads"
+    ],
+    "scope": "Exact Run/offers/snapshots/pending, policy memory, choices, F32 bits. Hidden ECS storage is not captured."
+  },
+  "limitations": [
+    "Single Linux host and early-game fixture, not macOS or late-game scaling.",
+    "Rendering follows wall time; frame counts can differ.",
+    "Remaining scheduler, RC and display overhead was not profiled; no linear-scaling claim."
+  ]
+}
