@@ -275,15 +275,3 @@ export function parseFrame(value: unknown) {
       : { remotePresentation: parseRemotePresentation(row.remotePresentation) })
   }
 }
-export function parseCoopFrame(value: unknown): CoopFrame {
-  const parsed = parseFrame(value)
-  const { combatForecast, stepDistance, predictionAllowed, ownPlayerId } = parsed
-  if (
-    combatForecast === undefined ||
-    stepDistance === undefined ||
-    predictionAllowed === undefined ||
-    ownPlayerId === undefined
-  )
-    throw new TypeError("Missing co-op frame contract")
-  return { ...parsed, combatForecast, stepDistance, predictionAllowed, ownPlayerId }
-}

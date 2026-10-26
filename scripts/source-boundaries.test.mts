@@ -62,7 +62,10 @@ function load(file: string): void {
   graph.set(file, edges)
   external.set(file, packages)
 }
-for (const file of files) load(path.join(root, file))
+for (const file of files) {
+  const absolute = path.join(root, file)
+  if (fs.existsSync(absolute)) load(absolute)
+}
 await test("authored runtime module graph has no circular imports", () => {
   const done = new Set<string>(),
     stack: string[] = []

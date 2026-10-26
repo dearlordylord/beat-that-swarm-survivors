@@ -107,31 +107,8 @@ and [reliability plan](../../research/coop-reliability-plan.md).
 The [results report](../../research/coop-reliability-results.md) records the
 qualified scenarios and remaining limits.
 
-The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI. UI-only changes use the reward-touch regression, not the network matrix. Network delivery, protocol or timing changes may warrant an explicitly requested network run. After a failure, inspect the saved evidence before rerunning; repeat only the failing case with a concrete hypothesis, rather than retrying the full matrix until it passes.
-
-The optional [actual-Iroh browser harness](../../tools/survivors-bot/coop-reliability-browser-check.mts)
-requires an existing Playwright installation with Chromium and its platform
-libraries. It installs nothing. Serve a frozen prepared artifact containing
-`version.json`; point both the URL and local artifact path at that same build:
-
-```sh
-PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
-COOP_URL=http://127.0.0.1:8713/coop.html \
-COOP_SOURCE_ARTIFACT_DIR=/absolute/path/to/prepared/dist \
-npm run check:iroh:manual
-```
-
-The default runs one network case with no added outbound delay and seed 1729.
-`COOP_SEND_COMPLETION_MS=200` runs only the 200 ms case. Set
-`COOP_SEND_COMPLETION_MS=0,200,600` to request the complete network matrix.
-`COOP_RECOVERY_ONLY=1` runs recovery and touch checks without network cases.
-Set `COOP_TEST_SEED` explicitly to reproduce another recorded world. These checks
-use real Iroh transport and browser scheduling, so a fixed seed alone does not
-make timing deterministic.
-
-It checks source hashes, actual input application, remote motion, authority lag,
-slow delivery and guest reload. A two-browser automated run does not qualify all
-physical devices or networks.
+Real Iroh delivery, timing and reconnection require manual browser verification.
+The repository does not currently provide an automated two-browser network harness.
 
 The repository-only [netcode skill](../../skills/realtime-netcode/SKILL.md) records
 review rules and pitfalls. It is not installed globally. Primary-source reading

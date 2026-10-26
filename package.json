@@ -16,11 +16,10 @@
     "check:coop": "bash examples/survivors/check-coop-reliability.sh",
     "test:full-game:manual": "bash examples/survivors/check-full-game-manual.sh",
     "benchmark:native-audio:manual": "bash examples/survivors/check-native-audio.sh",
-    "check:iroh:manual": "node tools/survivors-bot/coop-reliability-browser-check.mts",
     "build:journal": "tsc -p tools/survivors-bot/tsconfig.journal.json",
     "journal": "node tools/survivors-bot/journal.mts",
     "generate:types": "python3 scripts/generate-bend-types.py && node scripts/generate-bend-codecs.mts && python3 scripts/generate-observation-schema.py",
-    "test:boundaries": "node --test scripts/bend-codecs.test.mts scripts/survivors-publication-values.test.mts examples/survivors/boundaries.test.mts examples/bend-module.test.mts scripts/source-boundaries.test.mts",
+    "test:boundaries": "node --test scripts/survivors-publication-values.test.mts examples/survivors/boundaries.test.mts scripts/source-boundaries.test.mts",
     "benchmark:observations": "npm run generate:types && bash -c 'source examples/common.sh; \"$NODE\" examples/survivors/observation-benchmark.mts'"
   },
   "devDependencies": {

@@ -1,46 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { parseCoopFrame, parseFrame } from "./frame.mts"
-import type { Frame } from "./frame.mts"
 import { admitSnapshot } from "./snapshot-envelope.mts"
 
-const frame: Frame = {
-  worldSize: 100,
-  worldMargin: 5,
-  relicCollected: 0,
-  relicX: 10,
-  relicY: 20,
-  runLength: 600,
-  enemiesKilled: [],
-  mode: 0,
-  rerolls: 0,
-  banishes: 0,
-  skips: 0,
-  stage: 0,
-  arcana: 0,
-  revivalsUsed: 0,
-  bossesKilled: 0,
-  phase: 0,
-  tick: 1,
-  px: 20,
-  py: 30,
-  hp: 70,
-  maxHp: 70,
-  xp: 0,
-  xpNeed: 20,
-  level: 1,
-  kills: 0,
-  gold: 0,
-  character: 0,
-  weapons: [0],
-  passives: [],
-  offers: [{ kind: 0, id: 0, level: 1 }],
-  enemies: [],
-  projectiles: [],
-  pickups: [],
-  actorOrder: [],
-  players: []
-}
 const scene: BendABI.CoopCombatPrediction.Scene = {
   $: "Scene",
   own: 1,
@@ -52,7 +13,6 @@ const scene: BendABI.CoopCombatPrediction.Scene = {
   tick: 1,
   diagnostics: false
 }
-const coop = { ...frame, combatForecast: scene, stepDistance: 2, predictionAllowed: true, ownPlayerId: 1 }
 const lane = { $: "Lane", lastSeq: 0, inputSeq: 0, appliedSeq: 0, appliedTick: 0, receivedAt: 0, x: 1, y: 1 }
 const journal: BendABI.CoopHitJournal.State = {
   $: "State",
@@ -62,28 +22,6 @@ const journal: BendABI.CoopHitJournal.State = {
   overflow: 0,
   expired: 0
 }
-await test("round-trips complete observations and leaves game eligibility in Bend", () => {
-  assert.deepEqual(parseFrame(frame), frame)
-  assert.deepEqual(parseCoopFrame(coop), coop)
-  assert.equal(parseFrame({ ...frame, hp: 90 }).hp, 90, "shape parser must not implement game HP policy")
-  assert.throws(() => parseCoopFrame(frame), TypeError)
-})
-await test("rejects malformed nested numeric, tuple, ADT and session fields before consuming a snapshot", () => {
-  for (const invalid of [
-    null,
-    [],
-    "frame",
-    { ...frame, hp: "70" },
-    { ...frame, tick: Infinity },
-    { ...frame, enemies: [{ identity: 1 }] },
-    { ...frame, offers: [{ kind: 0, id: "0", level: 1 }] }
-  ])
-    assert.throws(() => parseFrame(invalid), TypeError)
-})
-await test("rejects obsolete presentation snapshots and invalid connection versions", () => {
-  for (const connectionVersion of [0, 1, 2, 3])
-    assert.throws(() => admitSnapshot({ type: "frame", connectionVersion, frame: coop }), TypeError)
-})
 const nil = { $: "Nil" } satisfies BendList<never>
 const raw: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }> = {
   $: "ViewObservation",

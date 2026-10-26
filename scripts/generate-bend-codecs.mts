@@ -7,22 +7,7 @@ const root = path.resolve(import.meta.dirname, "..")
 const sourcePath = path.join(root, ".typescript/bend.d.ts")
 const outputPath = path.join(root, "examples/survivors/bend-codecs.generated.mts")
 const source = ts.createSourceFile(sourcePath, fs.readFileSync(sourcePath, "utf8"), ts.ScriptTarget.Latest, true)
-const roots = [
-  "Game.Observation",
-  "CoopCore.Observation",
-  "CoopCombatPrediction.Scene",
-  "CoopHitJournal.State",
-  "CoopHitJournal.HitEvent",
-  "CoopSession.State",
-  "CoopSession.Receipt",
-  "CoopConnection.State",
-  "CoopConnection.Action",
-  "CoopLocalProjectiles.RenderShot",
-  "CoopLocalProjectiles.ContactFx",
-  "CoopLocalProjectiles.TargetFade",
-  "CoopContactPlayback.Fx",
-  "CoopConnection.Signal"
-]
+const roots = ["CoopCombatPrediction.Scene", "CoopHitJournal.State", "CoopContactPlayback.Fx"]
 const aliases = new Map<string, ts.TypeAliasDeclaration>()
 function collect(node: ts.Node, prefix: string): void {
   if (ts.isModuleDeclaration(node)) {
