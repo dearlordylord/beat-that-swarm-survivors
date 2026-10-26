@@ -15,7 +15,7 @@ const RELAY_URL: &str = "https://quint-graph.fly.dev";
 
 struct Inner {
     endpoint: Endpoint,
-    callback: Function,
+    callback: Option<Function>,
     connection: Option<Connection>,
     generation: u32,
     pending: bool,
@@ -38,6 +38,18 @@ fn emit(
 ) {
     // Never invoke JavaScript while holding a RefCell borrow: callbacks may close us.
     let callback = shared.borrow().callback.clone();
+    if let Some(callback) = callback {
+        emit_callback(&callback, kind, peer, message, bytes);
+    }
+}
+
+fn emit_callback(
+    callback: &Function,
+    kind: &str,
+    peer: Option<&str>,
+    message: Option<&str>,
+    bytes: Option<&[u8]>,
+) {
     let event = Object::new();
     Reflect::set(&event, &"type".into(), &kind.into()).ok();
     Reflect::set(&event, &"path".into(), &"relay".into()).ok();
@@ -137,7 +149,7 @@ impl Transport {
         }
         let inner = Rc::new(RefCell::new(Inner {
             endpoint: endpoint.clone(),
-            callback,
+            callback: Some(callback),
             connection: None,
             generation: 0,
             pending: false,
@@ -304,21 +316,26 @@ impl Transport {
     }
 
     pub fn close(&self) {
-        let (endpoint, connection, already_closed) = {
+        let (endpoint, connection, callback) = {
             let mut inner = self.inner.borrow_mut();
-            let previous = inner.closed;
+            if inner.closed {
+                return;
+            }
             inner.closed = true;
             inner.pending = false;
             inner.generation = inner.generation.wrapping_add(1);
-            (inner.endpoint.clone(), inner.connection.take(), previous)
+            (
+                inner.endpoint.clone(),
+                inner.connection.take(),
+                inner.callback.take(),
+            )
         };
-        if already_closed {
-            return;
-        }
         if let Some(connection) = connection {
             connection.close(0u32.into(), b"User disconnected");
         }
-        emit(&self.inner, "closed", None, None, None);
+        if let Some(callback) = callback {
+            emit_callback(&callback, "closed", None, None, None);
+        }
         spawn_local(async move {
             endpoint.close().await;
         });
