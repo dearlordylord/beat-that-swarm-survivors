@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import tempfile
 import time
@@ -91,6 +92,52 @@ class ProcessDiagnosticsTests(unittest.TestCase):
             self.assertFalse(marker.exists(), 'descendant must not continue after the parent timeout')
             self.assertLess(result.elapsed_wall_seconds, 2)
             self.assertIn('wall timeout: true', format_failure(result, 'wall limit'))
+
+    def test_keyboard_interrupt_stops_owned_group_and_preserves_cancellation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ready = Path(directory) / 'ready.json'
+            marker = Path(directory) / 'descendant-finished'
+            descendant = 'import pathlib,time;time.sleep(.5);pathlib.Path(' + repr(str(marker)) + ').touch();time.sleep(5)'
+            child = ('import json,os,pathlib,subprocess,sys,time;'
+                     f'process=subprocess.Popen([sys.executable,"-c",{descendant!r}]);'
+                     f'pathlib.Path({str(ready)!r}).write_text(json.dumps([os.getpid(),process.pid]));'
+                     'time.sleep(5)')
+            wrapper = ('import sys;from pathlib import Path;'
+                       f'sys.path.insert(0,{str(SCRIPTS)!r});'
+                       'from process_diagnostics import run_process\n'
+                       'try:\n'
+                       f' run_process([sys.executable,"-c",{child!r}],cwd=Path({str(SCRIPTS)!r}),wall_timeout_seconds=60,cpu_limit_seconds=10)\n'
+                       'except KeyboardInterrupt:\n'
+                       ' print("original cancellation preserved",flush=True);sys.exit(77)\n'
+                       'raise RuntimeError("cancellation became a result")\n')
+            process = subprocess.Popen([sys.executable, '-c', wrapper], stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, text=True, start_new_session=True)
+            pids = []
+            try:
+                deadline = time.monotonic() + 5
+                while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+                    time.sleep(.01)
+                self.assertTrue(ready.exists(), 'actual child must start before cancellation')
+                pids = json.loads(ready.read_text())
+                process.send_signal(signal.SIGINT)
+                stdout, stderr = process.communicate(timeout=2)
+                self.assertEqual(process.returncode, 77, stderr)
+                self.assertIn('original cancellation preserved', stdout)
+                for pid in pids:
+                    stat = Path(f'/proc/{pid}/stat')
+                    self.assertTrue(not stat.exists() or stat.read_text().split(') ')[1].startswith('Z '),
+                                    f'owned process {pid} survived cancellation')
+                time.sleep(.6)
+                self.assertFalse(marker.exists(), 'descendant must not continue after cancellation')
+            finally:
+                if pids:
+                    try:
+                        os.killpg(pids[0], signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                if process.poll() is None:
+                    process.kill()
+                process.communicate()
 
 
 def load_wrapper(name):

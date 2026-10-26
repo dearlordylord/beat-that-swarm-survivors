@@ -69,22 +69,34 @@ def run_process(command: Sequence[str | Path], *, cwd: Path | None = None,
                                  text=True, encoding='utf-8', errors='replace',
                                  start_new_session=True,
                                  preexec_fn=bounded if cpu_limit_seconds is not None else None)
-        timed_out = False
+    except (OSError, subprocess.SubprocessError) as failure:
+        return RunResult(argv, location, wall_timeout_seconds, cpu_limit_seconds,
+                         time.monotonic() - started, None, False,
+                         f'{type(failure).__name__}: {failure}', '', '')
+
+    def stop_owned_group():
+        # This session belongs to this invocation, including its compiler/kernel children.
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        return child.communicate()
+
+    timed_out = False
+    try:
         try:
             stdout, stderr = child.communicate(timeout=wall_timeout_seconds)
         except subprocess.TimeoutExpired:
             timed_out = True
-            # This session belongs to this invocation, including its compiler/kernel children.
-            try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            stdout, stderr = child.communicate()
-        returncode, error = child.returncode, None
-    except (OSError, subprocess.SubprocessError) as failure:
-        returncode, timed_out, error, stdout, stderr = None, False, f'{type(failure).__name__}: {failure}', '', ''
+            stdout, stderr = stop_owned_group()
+    except BaseException as cancellation:
+        try:
+            stop_owned_group()
+        except BaseException as cleanup_error:
+            cancellation.add_note(f'Owned process cleanup failed: {cleanup_error}')
+        raise
     return RunResult(argv, location, wall_timeout_seconds, cpu_limit_seconds,
-                     time.monotonic() - started, returncode, timed_out, error, stdout, stderr)
+                     time.monotonic() - started, child.returncode, timed_out, None, stdout, stderr)
 
 
 def format_failure(result: RunResult, reason: str):
