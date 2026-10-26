@@ -47,7 +47,6 @@ const scopes = [
   "scripts/generate-observation-schema.py",
   "scripts/generate-native-survivor-art.mts",
   "scripts/native-check-cache-key.py",
-  "scripts/native-check-cache.test.py",
   "scripts/write-survivors-version.mts",
   "tools/iroh-transport",
   "examples/survivors",

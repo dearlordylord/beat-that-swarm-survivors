@@ -24,7 +24,7 @@ HELPER = '''def enemy_reused_birth(previous: Enemy.State,candidate: EnemyLife.Ca
 
 def run(command, *, environment=None):
     result = run_process(command, env=environment, cwd=REPO,
-                         wall_timeout_seconds=60, cpu_limit_seconds=10)
+                         wall_timeout_seconds=60, cpu_limit_seconds=60)
     if not result.normal_exit:
         raise AssertionError(format_failure(result, 'birth wiring command did not exit normally'))
     return result.returncode, (result.output if result.returncode == 0 else

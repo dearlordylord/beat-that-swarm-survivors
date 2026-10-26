@@ -116,26 +116,10 @@ Compilation and runtime are separate costs. Backend speed and native scaling
 need actual measurements; merely compiling to C does not establish a speedup.
 Use a bounded external supervisor for automated campaigns.
 
-For a bounded Linux comparison of already-built binaries (Python is only the measurement supervisor):
-
-```sh
-flock /tmp/bendvy-parity-heavy.lock python3 -B tools/survivors-bot/compare-native-parallel.py \
-  --serial-binary examples/survivors/dist/nightfall-batch \
-  --parallel-binary examples/survivors/dist/nightfall-parallel-batch \
-  --output-dir /tmp/nightfall-parallel-comparison
-```
-
-[compare-native-parallel.py](compare-native-parallel.py) defines the frozen
-workload, paired process/thread comparison, semantic rejection rules and time
-budgets. It requires Linux affinity support; the game launcher itself supports
-macOS. Use a fresh output directory and budgets supported by the host. Short
-runs do not establish late-game scaling.
-
 Development checks for the new path:
 
 ```sh
 bash tools/survivors-bot/native-batch.test.sh
-python3 -B tools/survivors-bot/compare-native-parallel_test.py
 bend examples/survivors/parallel/PROOF.bend --verdict
 ```
 
@@ -184,8 +168,6 @@ reaction delay; classification cannot bypass engine validation.
 
 ```sh
 bash tools/survivors-bot/check-visible.sh
-# Linux diagnostic only, after building the bot binary and providing Xvfb/xdotool:
-NIGHTFALL_X11_SYSROOT=/path/to/sysroot bash tools/survivors-bot/visible-window-smoke.sh
 ```
 
 The next mechanics step is to select one evidenced issue from a run, state a measurable hypothesis, and compare one change. See [the observation loop](../../research/mechanics-improvement-loop.md).
@@ -204,26 +186,6 @@ Correctness-run budgets belong to the check runners, and current pool values
 belong to [pools.bend](../../examples/survivors/pools.bend). Neither supplies a
 performance qualification.
 
-## Experimental Metal batches on macOS
-
-Use native CPU batches for practical runs. Metal is retained only to reproduce
-the research results. The initial full-game Metal build timed out after 1200
-seconds on M2 Max. Small controls can be reproduced with
-`bash tools/survivors-bot/metal-diagnose.sh`; see the
-[diagnostic instructions](../../research/metal-diagnostics.md). Those controls
-pass on M2 Max. The full-game command below tests a
-[smaller GPU presentation closure](../../research/metal-game-boundary.md).
-Current stage budgets and execution gates belong to
-[metal-diagnose.py](metal-diagnose.py) and [metal-experiment.py](metal-experiment.py).
-
-From the repository root on an Apple Silicon Mac:
-
-```sh
-bash tools/survivors-bot/metal-experiment.sh --metal-noinline-spins --metal-segment-functions --metal-stage-trace --smoke-ticks 1 --count 2 --ticks 5
-```
-
-This rebuilds a GPU entry and compares the same native binary on CPU and forced Metal. This command reproduces the successful short test: two one-tick smoke jobs, then two five-tick worlds in three paired repetitions. The unchanged default horizons are larger and remain unqualified. It prints parity, dispatch, timing and the persistent report path. Send that final block for analysis; if it fails, include the error and `Report:` path. Python 3 supervises the experiment; the bots execute Bend/C. See [requirements, limits and validation status](../../research/metal-bots.md). On M2 Max this command passed summary parity and required-GPU dispatch, but GPU was approximately 561 times slower than CPU. Complete game runs and GPU full-state equivalence remain unqualified.
-
 ## Balance comparisons and retrospective evidence
 
 `balance-report.py` is an optional stdlib-Python analysis tool for native co-op
@@ -233,41 +195,8 @@ pairs, matched-tick population/HP/XP/level observations, outcome counts and a
 small retrospective identifying observed failures and missing decision evidence.
 The Markdown companion is a readable index into that evidence.
 
-The native co-op launcher runs two controllers in one real `CoopCore` world;
-Python supervises processes and receipts, while gameplay runs in the compiled
-Bend/C binary. Use one frozen source checkout for both arms. A technical pilot
-can be launched as follows (choose unused output directories):
-
-```sh
-bash tools/survivors-bot/native-coop-batch.sh \
-  --source-root /absolute/path/to/frozen-checkout \
-  --seed 100 --count 1 --ticks 120 --profile fresh --extra-percent 100 \
-  --criteria research/coop-population-v1-contract.json \
-  --output-dir /tmp/current-population
-bash tools/survivors-bot/native-coop-batch.sh \
-  --source-root /absolute/path/to/frozen-checkout \
-  --seed 100 --count 1 --ticks 120 --profile fresh --extra-percent 25 \
-  --criteria research/coop-population-v1-contract.json \
-  --output-dir /tmp/candidate-population
-```
-
-The 120-tick pilot checks the integration and its cost; it is not a balance
-qualification. Use the contract's explicit `--seeds` list, horizon and profile
-for a real cohort, and choose wall/build limits from actual measurements.
-`--extra-percent 25` means a 25% additional population budget for the second
-living player. It is a spawn limit, not an assertion about the measured living
-population. The wrapper retains source, binary, compiler, dependency and setup
-identities. Alternate coefficients change the declared default constant in a
-frozen source copy; they exercise the configurable policy, not a false claim
-that default-25 proof statements hold for an altered default.
-
-Freeze the experiment criteria **before running either campaign** and give the
-native co-op launcher the same `--criteria` file. Both campaign manifests must
-record the exact criteria SHA-256. The root experiment contract defines the
-actual criteria; the minimal schema is `schemaVersion: 1`, `axis: "game"` or
-`"bot"`, and `milestoneTicks` within the requested horizon. Criteria are retained
-in the report; this tool reports observations rather than applying a hidden
-survival or enjoyment score.
+Supply previously recorded campaign directories and their frozen criteria to
+the analyzer. It does not launch a campaign.
 
 ```sh
 python3 -B tools/survivors-bot/balance-report.py compare \
@@ -278,7 +207,6 @@ python3 -B tools/survivors-bot/balance-report.py compare \
   --ledger /absolute/path/to/balance-exposure-ledger.json \
   --cohort development --purpose tune
 
-python3 -B tools/survivors-bot/balance_report_test.py
 ```
 
 Each campaign directory supplies `manifest.json`, explicit `seeds`, and its

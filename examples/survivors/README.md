@@ -109,7 +109,7 @@ bash examples/survivors/build-web.sh
 python3 -m http.server 8713 --directory examples/survivors/dist/web
 ```
 
-The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI.
+The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI. UI-only changes do not require it. See [co-op verification](COOP.md#run-and-check) for scenario selection and failure handling.
 
 For the optional actual-Iroh browser check, keep the server running and use a
 second terminal with Playwright and Chromium already available:
@@ -185,77 +185,5 @@ bash examples/survivors/check-launcher-profile-ui.sh
 npm run test:full-game:manual
 ```
 
-The ordinary suite includes [capability controls](capability-controls.test.py)
-and checks of the [exact replay verifier](../../tools/survivors-bot/replay_compare.py).
-It accepts only the current schema: nine actor columns, the three prepared
-rosters, actual player authority and typed phase snapshots. Every component
-stamp, allocator identity, world clock and snapshot order is compared exactly;
-only named outer timing fields are excluded. There is no historical-format
-detection or migration projection in ordinary checks. See its `--help`.
-
-An optional fresh-profile kiting observation reports survival, damage, progression and enemy density without requiring survival as a pass condition:
-
-```sh
-bash examples/survivors/check-native-pacing.sh
-```
-
-This diagnostic initializes the fresh native UI loadout and uses input-only control. Its outcome is a scenario observation, not a full-run balance qualification or frame-rate measurement.
-
-`check-launcher-profile-ui.sh` checks the launcher, native profile, real UI event flow and exact Bend-rendered frame captures. `npm run test:full-game:manual` is optional and drives one complete game with a bot using public gameplay inputs. It does not include the launcher, profile or UI checks. Native `run.command` does not require Node.js or the test helpers. The native application was qualified with Clang 19.1.7 on Linux arm64; set `CC` to select your compiler. macOS compilation uses the local Apple toolchain.
-
-An optional actual-window diagnostic also uses Xvfb and xdotool. With those installed system-wide on Linux, build the native executable first, then run:
-
-```sh
-NIGHTFALL_X11_SYSROOT=/ bash examples/survivors/native-window-smoke.sh
-```
-
-`NIGHTFALL_X11_SYSROOT`, `XVFB`, `XDOTOOL` and `NIGHTFALL_BINARY` can point at an isolated development fixture. This diagnostic does not install packages.
-
-Native functional checks reuse compiled profile, UI and loot test binaries from
-`${XDG_CACHE_HOME:-$HOME/.cache}/bendvy-native-checks`. The cache key includes local
-Bend sources, installed Bend runtime/package contents, compiler binaries and
-platform settings. Tests still execute in fresh temporary data directories on
-every run. Set `NIGHTFALL_NATIVE_CHECK_CACHE` to use another cache location;
-delete that directory to force rebuilding.
-
-Audio benchmarking and the standalone native game build are separate manual steps:
-
-```sh
-npm run benchmark:native-audio:manual
-bash examples/survivors/run.command --build-only
-```
-
-The proof and host checks:
-
-```sh
-bash examples/survivors/build.sh
-bash examples/survivors/check.sh
-```
-
-Pure Bend behavior is checked by universal laws.
-The [proof gate](../../scripts/check-bend-laws.py) discovers the proof modules;
-the [mutation gate](../../scripts/check-bend-mutants.py) checks that type-correct
-semantic faults are rejected. Their executable manifests live in
-[scripts/law-mutants](../../scripts/law-mutants). Native programs retain actual file, image, audio and application integration checks.
-Mutation checks are manual-only and excluded from `check.sh` and CI. When adding
-or changing laws and mutants, implementers should run the affected manifests
-locally; a full mutation sweep is available when explicitly needed:
-
-```sh
-# Only the affected manifest (one or more paths are accepted):
-npm run check:mutants:manual -- scripts/law-mutants/combat.json
-# All manifests:
-npm run check:mutants:manual
-```
-
-The geometry laws cover encoded loot bounds, spawn admission and prediction
-padding, and contact selection policies. They do not prove universal
-floating-point collision arithmetic, physical pickup reachability through the
-full game, or the rendered spawn footprint.
-
-The [full-run controller](native-full-run.bend) drives public inputs for a native
-functional observation. A scenario observation does not prove balance or every
-build. Historical validation is recorded in [VALIDATION.md](VALIDATION.md) and
-the [legacy cleanup receipt](../../research/ecs-legacy-cleanup-results.json).
-
-Generated ESM stays in ignored `dist/`.
+The ordinary suite checks Bend proofs, emitted co-op behavior and native co-op metrics.
+The replay comparison tools consume recorded observations separately.
