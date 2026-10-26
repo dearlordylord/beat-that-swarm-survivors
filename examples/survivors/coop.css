@@ -34,6 +34,14 @@ html[data-entry=guest] [data-host-ui],html[data-entry=host] [data-guest-ui]{disp
 .coop-room-member{display:flex;align-items:center;gap:13px;padding:17px 0;border-top:1px solid #574353}
 .coop-room-member strong{display:block;font:17px Georgia,serif;color:#e4d6c0}
 .coop-room-member small{display:block;font:11px/1.5 system-ui,sans-serif;color:#b1a2b8;margin-top:5px}
+.coop-party-heading{font:11px/1.5 system-ui,sans-serif;color:#d6c397;margin-top:18px}
+#coop-party-roster{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+#coop-party-roster[hidden]{display:none}
+#coop-party-roster .coop-room-member{gap:9px;padding:12px 0;min-width:0}
+#coop-party-roster .coop-room-member strong{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+#coop-party-roster .coop-member-mark{width:28px;height:36px;font-size:20px}
+#coop-party-roster [data-ready=true] small{color:#b5cba4}
+#coop-start:disabled{opacity:.45;cursor:default}
 .coop-member-mark{display:grid;place-items:center;width:42px;height:53px;color:#e1cda3;font:29px Georgia,serif;background:#382837;border:1px solid #877050;flex-shrink:0}
 .coop-member-mark.empty{background:transparent;border-style:dashed;color:#a28caa}
 .coop-text-button{display:block;margin:14px auto 0;padding:5px;font:11px system-ui,sans-serif;background:none;border:0;box-shadow:none;color:#baa5bc;text-decoration:underline;text-underline-offset:4px}

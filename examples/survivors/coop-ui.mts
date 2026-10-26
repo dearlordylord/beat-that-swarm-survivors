@@ -21,8 +21,14 @@ export interface CoopSetup extends Setup {
   meta: number
   allowedWeapons: number
 }
+export interface CoopLobby {
+  players: { player: number; character: number; ready: boolean; connected: boolean }[]
+  started: boolean
+  canStart: boolean
+}
 export interface CoopCallbacks {
   onHost?: (setup: CoopSetup) => unknown
+  onStart?: () => unknown
   onJoin?: (ticket: string, setup: CoopSetup, invitation: { session: string | null }) => unknown
   onLeave?: () => unknown
   onInput?: (input: { x: number; y: number }) => void
@@ -201,6 +207,7 @@ export class CoopUI {
     }
     on(this.$("#coop-setup-preview"), "click", (event) => this.selectSetup(event))
     on(this.$("#coop-host"), "click", () => this.invoke(() => this.callbacks.onHost?.(this.setup())))
+    on(this.$("#coop-start"), "click", () => this.invoke(() => this.callbacks.onStart?.()))
     on(this.$("#coop-invite-again"), "click", () => this.openInvitation())
     on(this.$("#coop-invite-close"), "click", () => this.closeInvitation())
     on(this.$("#coop-invitation"), "click", (event) => {
@@ -229,7 +236,7 @@ export class CoopUI {
             text: "Choose your survivor and join my party.",
             url
           })
-          this.$("#coop-share-status").textContent = "Invitation shared. Waiting for your friend to join."
+          this.$("#coop-share-status").textContent = "Invitation shared. Start when your party is ready."
         } catch (error) {
           if ((error instanceof Error ? error.name : "") !== "AbortError") await this.copyInvitation()
         }
@@ -527,9 +534,39 @@ export class CoopUI {
     this.$("#coop-host-actions").hidden = true
     this.$("#coop-room-ready").hidden = false
     this.$("#coop-room-title").textContent = "Your party"
-    this.$("#coop-host-help").textContent = "The run starts when your friend joins."
+    this.$("#coop-host-help").textContent = "Invite up to three friends. You decide when to start."
     this.openInvitation()
-    this.status("Room open. Invite your friend to begin.")
+    this.status("Room open. Invite friends, then start with two to four players.")
+  }
+  lobby(lobby: CoopLobby) {
+    const roster = this.$("#coop-party-roster")
+    roster.hidden = false
+    roster.innerHTML = Array.from({ length: 4 }, (_, player) => {
+      const member = lobby.players.find((row) => row.player === player)
+      const survivor = member ? CHARACTERS.find((character) => character.id === member.character) : undefined
+      const label = member
+        ? `${player === 0 ? "Host" : `Player ${player + 1}`} · ${survivor?.name ?? "Survivor"}`
+        : "Open seat"
+      const status = !member
+        ? "Invite a friend"
+        : !member.connected
+          ? "Disconnected"
+          : member.ready
+            ? "Ready"
+            : "Connecting…"
+      return `<div class="coop-room-member" data-player="${player}" data-ready="${member?.ready ?? false}"><span class="coop-member-mark${member ? "" : " empty"}" aria-hidden="true">${member ? player + 1 : "+"}</span><div><strong>${esc(label)}</strong><small>${esc(status)}</small></div></div>`
+    }).join("")
+    this.$("#coop-party-count").textContent = `${lobby.players.length} / 4 players`
+    this.$("#coop-start").disabled = !lobby.canStart || lobby.started
+    if (!lobby.started)
+      this.status(lobby.canStart ? "Party ready. The host can start the run." : "Waiting for the party to be ready.")
+    if (this.entryRole === "guest") {
+      this.$("#coop-join").hidden = true
+      this.$("#coop-join-title").textContent = "You’re in the party"
+      this.$("#coop-join-detail").textContent = lobby.started
+        ? "The run is starting."
+        : "Waiting for the host to start."
+    }
   }
   role(role: "host" | "guest") {
     this.entryRole = role
@@ -564,7 +601,7 @@ export class CoopUI {
     if (previous && previous.runId === frame.runId && [3, 4].includes(previous.phase) && frame.phase === 5) return
     this.frame = frame
     this.audio.observe(frame)
-    if (frame.ownPlayerId === 1) this.$("#coop-join-title").textContent = "Your place is ready!"
+    if ((frame.ownPlayerId ?? 0) > 0) this.$("#coop-join-title").textContent = "Your place is ready!"
     this.presentation.push(frame, this.window.performance.now())
     const saved = this.progress.observe(frame)
     this.closeInvitation()
@@ -664,11 +701,17 @@ export class CoopUI {
     this.$("#menu").hidden = false
     this.$("#coop-host-actions").hidden = false
     this.$("#coop-room-ready").hidden = true
+    this.$("#coop-party-roster").hidden = true
+    this.$("#coop-party-roster").innerHTML = ""
+    this.$("#coop-party-count").textContent = ""
+    this.$("#coop-start").disabled = true
+    this.$("#coop-join").hidden = false
     this.$("#coop-invite-link").value = ""
     this.$("#coop-room-title").textContent = "Host a run"
-    this.$("#coop-host-help").textContent = "You choose the stage. Your friend chooses their survivor."
+    this.$("#coop-host-help").textContent = "You choose the stage. Each friend chooses their survivor."
     this.$("#coop-copy").textContent = "Copy invitation link"
-    this.$("#coop-share-status").textContent = "The run starts when your friend joins. Keep this page open."
+    this.$("#coop-share-status").textContent =
+      "Invite up to three friends, then start when everyone is ready. Keep this page open."
     this.$("#coop-setup-fields").disabled = false
     this.openPanel = null
     this.pendingUnlock = null
