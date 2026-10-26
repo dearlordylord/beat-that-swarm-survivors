@@ -135,7 +135,11 @@ const players = rows(network.view.players)
 const own = defined(players[0])
 const downed = Core.scheduled_record(own, { ...own.player, hp: 0 }, 10)
 assert.equal(downed.reviveTick, 310)
-assert.equal(coreFrame(Core.restore_network({ ...network.view, players: list([downed]) }))?.players[0]?.reviveTick, 310)
+const downedObservation = Core.restore_network({ ...network.view, players: list([downed]) })
+if (downedObservation.$ !== "ViewObservation") throw Error("downed player observation")
+const downedFrame = coreFrame(downedObservation)
+if (!downedFrame || !("players" in downedFrame)) throw Error("downed player frame")
+assert.equal(downedFrame.players[0]?.reviveTick, 310)
 assert.equal(Core.scheduled_record(downed, downed.player, 11).reviveTick, 310)
 const teammate = { ...own, id: 1 }
 assert.deepEqual(rows(Core.resolve_revives(list([downed, teammate]), 309))[0], downed)
@@ -146,7 +150,11 @@ assert.equal(restored.reviveTick, 0)
 assert.deepEqual(rows(Core.resolve_revives(list([downed, { ...teammate, player: downed.player }]), 310))[0], downed)
 assert.deepEqual(rows(Core.resolve_revives(list([downed, { ...teammate, connected: false }]), 310))[0], downed)
 assert.equal(Core.scheduled_record(restored, { ...restored.player, hp: 0 }, 320).reviveTick, 620)
-assert.equal(defined(rows(Core.resolve_revives(list([{ ...downed, player: { ...downed.player, maxHp: 2 } }, teammate]), 310))[0]).player.hp, 1)
+assert.equal(
+  defined(rows(Core.resolve_revives(list([{ ...downed, player: { ...downed.player, maxHp: 2 } }, teammate]), 310))[0])
+    .player.hp,
+  1
+)
 for (const phase of [0, 1, 2, 3, 4]) {
   const state = { ...network.state, snapshots: list(snapshots), shared: { ...network.view.shared, phase, tick: 20 } }
   const expected = Core.core_observe(state, 0)

@@ -97,7 +97,11 @@ const envelope: BendABI.CoopNetwork.Snapshot = {
   view: {
     $: "NetworkView",
     shared: raw.game.run.session,
-    players: { $: "Con", head: { $: "PlayerRecord", id: 0, player: raw.game.run.player, connected: true, reviveTick: 0 }, tail: nil },
+    players: {
+      $: "Con",
+      head: { $: "PlayerRecord", id: 0, player: raw.game.run.player, connected: true, reviveTick: 0 },
+      tail: nil
+    },
     snapshots: nil,
     own: 0,
     round: 0,
