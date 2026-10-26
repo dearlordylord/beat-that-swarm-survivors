@@ -21,7 +21,7 @@ cat > "$3" <<'BINARY'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${BENDRTS+x} != x ]]
-printf '%s %s %s %s %s\n' "$NIGHTFALL_BOT_PROFILE" "$NIGHTFALL_BOT_SEED" "$NIGHTFALL_BOT_TICKS" "$NIGHTFALL_BOT_SECONDS" "$NIGHTFALL_BOT_PACING"
+printf '%s %s %s %s %s %s\n' "$NIGHTFALL_BOT_PROFILE" "$NIGHTFALL_BOT_SEED" "$NIGHTFALL_BOT_TICKS" "$NIGHTFALL_BOT_SECONDS" "$NIGHTFALL_BOT_PACING" "$NIGHTFALL_BOT_COUNT"
 exit "${NATIVE_EXIT:-0}"
 BINARY
 COMPILER
@@ -41,25 +41,31 @@ export FIXTURE="$fixture" BEND="$fixture/bend/bin/bend" BEND_LIB="$fixture/libra
 export BENDRTS='--gpu on --threads 99'
 runner="$fixture/repo/tools/survivors-bot/visible.sh"
 bash "$runner" --profile advanced --seed 4294967295 --ticks 1800 --seconds 45 > "$fixture/actual"
-[[ $(cat "$fixture/actual") == 'advanced 4294967295 1800 45 realtime' ]]
+[[ $(cat "$fixture/actual") == 'advanced 4294967295 1800 45 realtime 1' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
-bash "$runner" --seed 12 --unlimited > "$fixture/automatic-reuse"
-[[ $(cat "$fixture/automatic-reuse") == 'fresh 12 0 0 unlimited' ]]
+bash "$runner" --seed 12 --unlimited --count 10 > "$fixture/automatic-reuse"
+[[ $(cat "$fixture/automatic-reuse") == 'fresh 12 0 0 unlimited 10' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
-BENDVY_CLANG=/nonexistent/clang bash "$runner" --no-build --seed 0 > "$fixture/reuse"
-[[ $(cat "$fixture/reuse") == 'fresh 0 0 0 realtime' ]]
+bash "$runner" --seed 12 --unlimited --count 11 > "$fixture/count-reuse"
+[[ $(cat "$fixture/count-reuse") == 'fresh 12 0 0 unlimited 11' ]]
+[[ $(wc -l < "$fixture/builds") == 1 ]]
+BENDVY_CLANG=/nonexistent/clang bash "$runner" --no-build --seed 0 --count 64 > "$fixture/reuse"
+[[ $(cat "$fixture/reuse") == 'fresh 0 0 0 realtime 64' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
 bash "$runner" --no-build --unlimited --ticks 120 > "$fixture/unlimited"
-[[ $(cat "$fixture/unlimited") == 'fresh 12345 120 0 unlimited' ]]
-NIGHTFALL_BOT_PACING=unlimited bash "$runner" --no-build > "$fixture/environment"
-[[ $(cat "$fixture/environment") == 'fresh 12345 0 0 unlimited' ]]
+[[ $(cat "$fixture/unlimited") == 'fresh 12345 120 0 unlimited 1' ]]
+NIGHTFALL_BOT_COUNT=3 NIGHTFALL_BOT_PACING=unlimited bash "$runner" --no-build > "$fixture/environment"
+[[ $(cat "$fixture/environment") == 'fresh 12345 0 0 unlimited 3' ]]
+if NIGHTFALL_BOT_COUNT=0 bash "$runner" --no-build >/dev/null 2>&1; then
+  echo 'Accepted invalid environment count' >&2; exit 1
+fi
 if NIGHTFALL_BOT_PACING=invalid bash "$runner" --no-build >/dev/null 2>&1; then
   echo 'Accepted invalid pacing' >&2; exit 1
 fi
 bash "$runner" --build-only > "$fixture/build-only"
 [[ $(cat "$fixture/build-only") == "Ready: $fixture/repo/examples/survivors/dist/nightfall-bot" ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
-for invalid in '--seed 01' '--seed -1' '--seed 4294967296' '--ticks 1.5' '--seconds 4294968' '--profile both' '--no-build --build-only' '--no-build --rebuild' '--mode heuristic' '--bogus'; do
+for invalid in '--count 0' '--count 65' '--count 1.5' '--seed 01' '--seed -1' '--seed 4294967296' '--ticks 1.5' '--seconds 4294968' '--profile both' '--no-build --build-only' '--no-build --rebuild' '--mode heuristic' '--bogus'; do
   if bash "$runner" $invalid >/dev/null 2>&1; then echo "Accepted invalid: $invalid" >&2; exit 1; fi
 done
 status=0

@@ -1,0 +1,32 @@
+[
+  {
+    "label": "swap-quadrants",
+    "source": "examples/survivors/bot-grid-layout.bend",
+    "old": "Qua{tl,tr,bl,br}",
+    "new": "Qua{tl,bl,tr,br}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-grid-layout.bend",
+    "proof": "examples/survivors/bot-grid-layout-PROOF.bend",
+    "law": "four_row_major"
+  },
+  {
+    "label": "column-major",
+    "source": "examples/survivors/bot-grid-layout.bend",
+    "old": "(row * stride + column : U32)",
+    "new": "(column * stride + row : U32)",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-grid-layout.bend",
+    "proof": "examples/survivors/bot-grid-layout-PROOF.bend",
+    "law": "four_row_major"
+  },
+  {
+    "label": "missing-last-row",
+    "source": "examples/survivors/bot-grid-layout.bend",
+    "old": "((count + columns(count) - 1) / columns(count) : U32)",
+    "new": "(count / columns(count) : U32)",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-grid-layout.bend",
+    "proof": "examples/survivors/bot-grid-layout-PROOF.bend",
+    "law": "ten_rows"
+  }
+]
