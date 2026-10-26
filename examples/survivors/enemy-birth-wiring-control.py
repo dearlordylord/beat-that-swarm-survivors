@@ -5,13 +5,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import resource
 import shutil
-import subprocess
+import sys
 import tempfile
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
+sys.path.insert(0, str(HERE.parent.parent / 'scripts'))
+from process_diagnostics import format_failure, run_process
 FAILURE = 'enemy birth must clear previous status/contact/killer'
 CALL = 'case True{}: Enemy.Resolved{Enemy.Born{EnemyLife.birth(candidate)}}'
 MUTANT = 'case True{}: Enemy.Resolved{Enemy.Born{enemy_reused_birth(previous,candidate)}}'
@@ -21,14 +22,13 @@ HELPER = '''def enemy_reused_birth(previous: Enemy.State,candidate: EnemyLife.Ca
 '''
 
 
-def bounded():
-    resource.setrlimit(resource.RLIMIT_CPU, (10, 10))
-
-
 def run(command, *, environment=None):
-    result = subprocess.run(command, env=environment, capture_output=True, text=True,
-                            timeout=60, preexec_fn=bounded)
-    return result.returncode, result.stdout + result.stderr
+    result = run_process(command, env=environment, cwd=REPO,
+                         wall_timeout_seconds=60, cpu_limit_seconds=10)
+    if not result.normal_exit:
+        raise AssertionError(format_failure(result, 'birth wiring command did not exit normally'))
+    return result.returncode, (result.output if result.returncode == 0 else
+                               format_failure(result, 'birth wiring command returned nonzero'))
 
 
 def main():

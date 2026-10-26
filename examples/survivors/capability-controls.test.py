@@ -5,14 +5,15 @@ import json
 import os
 from pathlib import Path
 import re
-import resource
 import shutil
-import subprocess
+import sys
 import tempfile
 import time
 
 HERE = Path(__file__).resolve().parent
 GAME = HERE / 'game.bend'
+sys.path.insert(0, str(HERE.parent.parent / 'scripts'))
+from process_diagnostics import format_failure, run_process
 SOURCE = GAME.read_text()
 BEND = os.environ.get('BEND', 'bend')
 
@@ -22,10 +23,6 @@ def imported(alias):
     if not match:
         raise AssertionError(f'game must import its published {alias} dependency')
     return match.group(1)
-
-
-def cpu_bound():
-    resource.setrlimit(resource.RLIMIT_CPU, (10, 10))
 
 
 # Each refusal uses the same actual game accessor as its accepted control.
@@ -99,14 +96,16 @@ def check(directory, name, source):
     path = directory / f'{name}.bend'
     path.write_text(source)
     started = time.monotonic()
-    result = subprocess.run([BEND, str(path), '--check-only'], cwd=HERE,
-                            capture_output=True, text=True, timeout=60,
-                            preexec_fn=cpu_bound)
-    diagnostic = result.stdout + result.stderr
-    (directory / f'{name}.log').write_text(diagnostic)
+    result = run_process([BEND, str(path), '--check-only'], cwd=HERE,
+                         wall_timeout_seconds=60, cpu_limit_seconds=10)
+    diagnostic = result.output
+    context = format_failure(result, 'authority control did not meet its expected outcome')
+    (directory / f'{name}.log').write_text(context if not result.normal_exit else diagnostic)
+    if not result.normal_exit:
+        raise AssertionError(context)
     return {'exitCode': result.returncode, 'elapsedSeconds': time.monotonic() - started,
             'sourceSha256': hashlib.sha256(source.encode()).hexdigest(),
-            'source': str(path), 'log': str(directory / f'{name}.log')}, diagnostic
+            'source': str(path), 'log': str(directory / f'{name}.log')}, diagnostic, result
 
 
 def refuse(diagnostic, case):
@@ -141,11 +140,14 @@ def main():
     try:
         for case in CASES:
             name = case[0]
-            accepted, positive_log = check(directory, name + '-positive', module(directory, case, False))
-            assert accepted['exitCode'] == 0, positive_log
-            rejected, negative_log = check(directory, name + '-negative', module(directory, case, True))
-            assert rejected['exitCode'] == 1, negative_log
-            refuse(negative_log, case)
+            accepted, positive_log, positive_result = check(directory, name + '-positive', module(directory, case, False))
+            assert accepted['exitCode'] == 0, format_failure(positive_result, 'accepted authority grant failed')
+            rejected, negative_log, negative_result = check(directory, name + '-negative', module(directory, case, True))
+            assert rejected['exitCode'] == 1, format_failure(negative_result, 'authority refusal expected exit 1')
+            try:
+                refuse(negative_log, case)
+            except AssertionError as error:
+                raise AssertionError(format_failure(negative_result, 'authority refusal diagnostic did not match')) from error
             receipt['checks'].append({'case': name, 'positive': accepted, 'negative': rejected,
                                       'boundary': case[-1]})
             print(f'PASS {name}: accepted grant use, rejected {case[-1]}', flush=True)

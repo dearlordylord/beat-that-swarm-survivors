@@ -4,7 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import subprocess
+from process_diagnostics import format_failure, run_process
 import tempfile
 import unittest
 
@@ -15,6 +15,13 @@ spec.loader.exec_module(generator)
 
 
 class GeneratorTests(unittest.TestCase):
+    def run_checked(self, command):
+        # These three previously unbounded development checks now have a 60 s wall cap.
+        result = run_process(command, cwd=ROOT, wall_timeout_seconds=60)
+        self.assertTrue(result.normal_exit and result.returncode == 0,
+                        format_failure(result, "ABI verification command failed"))
+        return result
+
     def generate(self, source, extra=None):
         with tempfile.TemporaryDirectory(prefix='bend-abi-') as directory:
             root = Path(directory)
@@ -77,11 +84,11 @@ def pair() -> U32 & Bool: (9,True{})
             fixture = root / 'fixture.bend'
             fixture.write_text(source)
             emitted = root / 'fixture.mjs'
-            subprocess.run([os.environ.get('BEND', 'bend'), str(fixture), '-o', str(emitted)], check=True, capture_output=True, text=True)
-            result = subprocess.run(['node', '--input-type=module', '-e', '''
+            self.run_checked([os.environ.get('BEND', 'bend'), str(fixture), '-o', str(emitted)])
+            result = self.run_checked(['node', '--input-type=module', '-e', '''
 const {default: api} = await import(process.argv[1]);
 console.log(JSON.stringify({keys:Object.keys(api),yes:api.choose(true),no:api.choose(false),pair:api.pair()}));
-''', emitted.as_uri()], check=True, capture_output=True, text=True)
+''', emitted.as_uri()])
             values = json.loads(result.stdout)
             self.assertIn('choose', values['keys'])
             self.assertEqual(values['yes'], {'$': 'Value', 'count': 7, 'enabled': True})
@@ -102,9 +109,9 @@ api.choose(1);
 // @ts-expect-error ADT fields must retain their Bend types
 const invalid: BendABI.Fixture.Choice = { $: "Value", count: "7", enabled: true };
 ''')
-            subprocess.run([str(ROOT / 'node_modules/.bin/tsc'), '--ignoreConfig', '--strict', '--noEmit', '--skipLibCheck', 'false',
+            self.run_checked([str(ROOT / 'node_modules/.bin/tsc'), '--ignoreConfig', '--strict', '--noEmit', '--skipLibCheck', 'false',
                             '--types', 'node', '--typeRoots', str(ROOT / 'node_modules/@types'),
-                            str(declarations), str(consumer)], check=True, capture_output=True, text=True)
+                            str(declarations), str(consumer)])
 
 
 if __name__ == '__main__':

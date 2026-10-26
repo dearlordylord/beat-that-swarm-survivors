@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 import shutil
-import subprocess
+from process_diagnostics import format_failure, run_process
 import tempfile
 import unittest
 
@@ -19,6 +19,7 @@ class NativeCacheTest(unittest.TestCase):
             (root / 'scripts').mkdir()
             shutil.copyfile(original / 'examples/survivors/check-launcher-profile-ui.sh', app / 'check-launcher-profile-ui.sh')
             shutil.copyfile(original / 'scripts/native-check-cache-key.py', root / 'scripts/native-check-cache-key.py')
+            shutil.copyfile(original / 'scripts/process_diagnostics.py', root / 'scripts/process_diagnostics.py')
             (root / 'examples/common.sh').write_text('''example_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BEND="$FAKE_BEND"
 CLANG="$FAKE_BEND"
@@ -68,9 +69,10 @@ chmod +x "$3"
                    'NIGHTFALL_NATIVE_CHECK_CACHE': str(cache)}
 
             def run(code=0):
-                result = subprocess.run(['bash', str(app / 'check-launcher-profile-ui.sh')], env=env,
-                                        capture_output=True, text=True, timeout=30)
-                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+                result = run_process(['bash', str(app / 'check-launcher-profile-ui.sh')], env=env,
+                                     cwd=root, wall_timeout_seconds=30)
+                self.assertTrue(result.normal_exit and result.returncode == code,
+                                format_failure(result, f'native cache fixture expected exit {code}'))
 
             def builds():
                 return len(build_log.read_text().splitlines()) if build_log.exists() else 0

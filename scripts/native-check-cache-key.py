@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
-import subprocess
+from process_diagnostics import format_failure, run_process
 import sys
 
 
@@ -29,7 +29,11 @@ def cache_key(repo, bend, clang, runtime_roots):
         add(role, str(resolved).encode())
         add(resolved, resolved.read_bytes())
         if role != 'bend':
-            add("version", subprocess.check_output([str(resolved), "--version"]))
+            # Compiler identification previously had no wall bound.
+            result = run_process([str(resolved), "--version"], cwd=repo, wall_timeout_seconds=30)
+            if not result.normal_exit or result.returncode != 0:
+                raise RuntimeError(format_failure(result, "native cache compiler version failed"))
+            add("version", result.stdout.encode())
     for name in ("PATH", "SDKROOT", "MACOSX_DEPLOYMENT_TARGET", "CC", "CFLAGS", "LDFLAGS", "CPATH", "LIBRARY_PATH", "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):
         add(name, os.environ.get(name, "").encode())
     for name in sorted(name for name in os.environ if name.startswith('BEND_')):
