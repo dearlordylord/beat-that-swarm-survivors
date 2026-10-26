@@ -56,7 +56,7 @@ function updateSeat(peer: Peer) {
       player: peer.player,
       character: peer.character,
       ready: Connection.running(peer.gate),
-      connected: Connection.reason(peer.gate).$ === "None"
+      connected: peer.gate.$ !== "Suspended" && Connection.reason(peer.gate).$ === "None"
     })
   emitLobby()
 }

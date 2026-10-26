@@ -92,7 +92,7 @@ Each survivor has distinct geometry in [`survivor-shapes.mts`](survivor-shapes.m
 
 ## Browser launch
 
-[Browser demo](https://survivors.dearlordylord.com). [Two-player co-op](COOP.md) uses the same ECS systems with a browser host and Iroh transport. Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
+[Browser demo](https://survivors.dearlordylord.com). [Two-to-four-player co-op](COOP.md) uses the same ECS systems with a browser host and Iroh transport. Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
 
 For browser builds and local play, use the Node.js version supported by [web/package.json](web/package.json). The co-op transport build also needs Rust 1.94+, its `wasm32-unknown-unknown` target, and `wasm-bindgen-cli` 0.2.122 ([setup](../../tools/iroh-transport/README.md#build)). Players on the hosted site install nothing. Install the pinned TypeScript and Astro build dependencies once:
 

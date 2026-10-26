@@ -1,8 +1,10 @@
 # Browser co-op
 
-This two-player mode is part of the Bendvy ECS example. Open `coop.html`, choose
-setup and **Host a run**, then share the invitation. The guest chooses a survivor
-and arcana and joins in the browser. Players install nothing. Keep the host page
+This mode supports two to four players, including the host. Open `coop.html`,
+choose setup and **Create room**, then share the invitation with up to three friends.
+Each guest chooses a survivor and arcana before joining. The lobby shows all four
+seats and their readiness. The host selects **Start run** when at least two players
+are ready. The roster closes when the run starts. Players install nothing. Keep the host page
 open; browser Iroh uses relays. Move with WASD, arrows or the touch pad. Attacks
 are automatic; XP requires physical pickup. Opening the map is local.
 
@@ -14,9 +16,12 @@ and 180 ticks of invulnerability. The timer stops during reward and connection
 pauses. If all players die together, the match ends. The host keeps the shared
 world in memory. A guest reload can rejoin through the same invitation;
 closing or reloading the host loses that run. There is no host migration.
+A departing guest pauses the shared run. Reload the same guest URL to reclaim its
+reserved seat; the URL keeps a seat number after joining. Invitations are bearer
+capabilities, so anyone holding a reserved seat link can reclaim it when free.
 
 Ordinary enemy admission uses the solo stage budget plus 25% per additional
-living player: two living players use 125%, rather than the previous 200%.
+living player: two living players use 125%, three use 150%, and four use 175%.
 The result rounds down and remains capped at 500. One living player keeps the
 solo budget. This changes population admission only; enemy HP, damage, shared
 XP and timed bosses retain their existing rules. It does not instantly remove

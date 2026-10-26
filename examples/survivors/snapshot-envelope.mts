@@ -62,9 +62,9 @@ export function admitSnapshot(value: unknown): BendABI.CoopNetwork.Snapshot {
   const players = rows(snapshot.view.players)
   if (
     players.length < 1 ||
-    players.length > 2 ||
+    players.length > 4 ||
     new Set(players.map((player) => player.id)).size !== players.length ||
-    players.some((player) => player.id > 1) ||
+    players.some((player) => player.id > 3) ||
     !players.some((player) => player.id === snapshot.view.own)
   )
     throw TypeError("Invalid snapshot players.")

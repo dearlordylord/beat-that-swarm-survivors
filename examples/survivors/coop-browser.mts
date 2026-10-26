@@ -7,31 +7,31 @@ import type { CoopSetup } from "./coop-ui.mts"
 import Game from "./dist/coop-core.mjs"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
-import SnapshotFlow from "./dist/coop-snapshot-flow.mjs"
 import Prediction from "./dist/coop-prediction.mjs"
 import PlaybackWire from "./dist/coop-playback-wire.mjs"
 import ClientClock from "./dist/coop-client-clock.mjs"
 import LocalProjectiles from "./dist/coop-local-projectiles.mjs"
 import HitJournal from "./dist/coop-hit-journal.mjs"
+import { CoopHost } from "./coop-host.mts"
+import { decodeLobby, invitationSeats } from "./coop-party-wire.mts"
 import { CoopTransport } from "./coop-transport.mts"
 import type { TransportEvent } from "./coop-transport.mts"
-import { encodeSnapshot, SnapshotDecoder } from "./coop-snapshot-codec.mts"
+import { SnapshotDecoder } from "./coop-snapshot-codec.mts"
 import { CoopUI } from "./coop-ui.mts"
-import type { SnapshotEnvelope, WorkerReply, WorkerRequest } from "./coop-boundary.mts"
+import type { SnapshotEnvelope } from "./coop-boundary.mts"
 import { parseBuildVersion } from "./coop-boundary.mts"
 type Role = "host" | "guest"
 // Browser IO: Iroh, input, worker scheduling and presentation. No simulation here.
 
+let host: CoopHost | null = null
+let ownPlayer = 1,
+  roomStarted = false
 let transport: CoopTransport | null = null,
-  worker: Worker | null = null,
   role: Role | undefined,
   sessionId: number,
   sequence = 0,
   tick = 0,
   epoch = 0
-function postWorker(message: WorkerRequest) {
-  worker?.postMessage(message)
-}
 let activeSnapshotDecoder: SnapshotDecoder | null = null
 let runId = "",
   stalled = false
@@ -39,13 +39,7 @@ let input = { x: 0, y: 0 },
   inputTimer: ReturnType<typeof setInterval> | undefined,
   lastFrameAt = 0,
   connected = false
-let latestSnapshot: Extract<WorkerReply, { type: "remote-frame" }> | null
-let snapshotFlow = SnapshotFlow.fresh(0)
-const pendingCommands = new Set(),
-  MAX_COMMANDS = 64
-const MAX_COMMAND_BYTES = ClientDelivery.max_frame_bytes()
-let deliverySequence = 0,
-  connectionEpoch = 0,
+let connectionEpoch = 0,
   connectDeadline: ReturnType<typeof setTimeout> | undefined
 let connectionState = Connection.fresh({ $: "Guest" }),
   selectedSetup: CoopSetup,
@@ -108,7 +102,7 @@ const micros = (now: number) => {
   return value
 }
 function advanceLocalVisuals(now: number) {
-  if (!localRun || !remoteFrame || !prediction?.enabled || !Connection.running(connectionState)) return
+  if (!roomStarted || !localRun || !remoteFrame || !prediction?.enabled || !Connection.running(connectionState)) return
   const budget = ClientClock.consume(visualClock, micros(now))
   visualClock = budget.state
   const point = Prediction.view(prediction)
@@ -123,7 +117,7 @@ function advanceLocalVisuals(now: number) {
     )
 }
 function advancePrediction(now = performance.now()) {
-  if (role !== "guest" || !prediction || !authorityFrame || !Connection.running(connectionState)) return
+  if (!roomStarted || role !== "guest" || !prediction || !authorityFrame || !Connection.running(connectionState)) return
   advanceLocalVisuals(now)
   const budget = ClientClock.consume(predictionClock, micros(now))
   predictionClock = budget.state
@@ -146,7 +140,7 @@ function advancePrediction(now = performance.now()) {
       localShots = LocalProjectiles.accept_tick(
         localShots,
         true,
-        1,
+        ownPlayer,
         localRun,
         input.x,
         input.y,
@@ -284,7 +278,7 @@ function prepareDisplayFrame(now: number) {
   if (localRun && prediction && Connection.running(connectionState)) {
     const boot = LocalProjectiles.ensure_bootstrap(
       localShots,
-      1,
+      ownPlayer,
       localRun,
       authorityFrame.tick,
       localTargets,
@@ -334,13 +328,13 @@ function displayFrame(frame: Frame | null): Frame | null {
     localShots = LocalProjectiles.play_effects(localShots, confirmed.events, defined(frame.remotePresentation).tick)
   }
   const visual = projectileFrame(
-    LocalProjectiles.render_frame(localShots, 1, defined(frame.remotePresentation).tick, localTargets)
+    LocalProjectiles.render_frame(localShots, ownPlayer, defined(frame.remotePresentation).tick, localTargets)
   )
   const visibility = LocalProjectiles.prepare_visibility(localShots)
   const projectiles = frame.projectiles.filter((projectile) =>
     LocalProjectiles.should_show_prepared(
       visibility,
-      1,
+      ownPlayer,
       projectile.hostile ? 7 : 1,
       projectile.sourcePlayer === null ? 4294967295 : projectile.sourcePlayer,
       projectile.lifetime
@@ -406,14 +400,9 @@ function displayFrame(frame: Frame | null): Frame | null {
       : {})
   }
 }
-function postCommand(text: string, player: number) {
-  if (!worker || pendingCommands.size >= MAX_COMMANDS) return false
-  const deliveryId = ++deliverySequence
-  pendingCommands.add(deliveryId)
-  postWorker({ type: "command", player, text, deliveryId, connectionEpoch })
-  return true
+function postCommand(text: string, _player: number) {
+  return host?.command(text) ?? false
 }
-const decoder = new TextDecoder("utf-8", { fatal: true })
 const random = () => at(crypto.getRandomValues(new Uint32Array(1)), 0)
 function command(action: BendABI.CoopSession.Action) {
   const seq = ++sequence
@@ -428,17 +417,14 @@ function command(action: BendABI.CoopSession.Action) {
   return ClientDelivery.encode_command({
     $: "Command",
     session: sessionId,
-    player: role === "host" ? 0 : 1,
+    player: role === "host" ? 0 : ownPlayer,
     seq,
     intendedTick,
     action
   })
 }
 function signalConnection(signal: BendABI.CoopConnection.Signal, envelope?: SnapshotEnvelope) {
-  if (role === "host" && worker) {
-    postWorker({ type: "handshake", connectionEpoch, signal })
-    return
-  }
+  if (role === "host") return
   const result = Connection.step(connectionState, Connection.epoch(connectionState), signal)
   connectionState = result.state
   connectionAction(result.action, envelope)
@@ -494,7 +480,8 @@ function connectionAction(action: BendABI.CoopConnection.Action, envelope?: Snap
         tick = frame.tick
         if (stalled && Connection.running(connectionState)) ui.status("")
         stalled = false
-        ui.present({ ...frame, observationSeq: envelope.observationSeq, contactJournal: envelope.contactJournal })
+        if (roomStarted)
+          ui.present({ ...frame, observationSeq: envelope.observationSeq, contactJournal: envelope.contactJournal })
         if (!Connection.running(connectionState)) ui.setChoicePending(true)
         signalConnection({ $: "SnapshotSeen", token: action.token, observation: action.observation })
         clientDelivery = ClientDelivery.offer_receipt(clientDelivery, action.token, action.observation)
@@ -571,12 +558,11 @@ function armConnectionDeadline() {
     // The browser owns the IO deadline; it cannot rely on an unresponsive worker.
     const result = Connection.step(connectionState, Connection.epoch(connectionState), { $: "Timeout" })
     connectionState = result.state
-    if (role === "host" && worker) postWorker({ type: "handshake", connectionEpoch, signal: { $: "Timeout" } })
     connectionAction(result.action)
   }, 45000)
 }
 function sendAction(action: BendABI.CoopSession.Action) {
-  if (role === "host" ? !worker : !connected || !Connection.running(connectionState)) {
+  if (role === "host" ? !host : !connected || !Connection.running(connectionState)) {
     if (action.$ === "Choice") ui.setChoicePending(false)
     return false
   }
@@ -594,7 +580,7 @@ function sendAction(action: BendABI.CoopSession.Action) {
     const candidate: BendABI.CoopSession.Command = {
       $: "Command",
       session: sessionId,
-      player: 1,
+      player: ownPlayer,
       seq: sequence + 1,
       intendedTick: prediction && action.$ === "MovementTick" ? Prediction.next_world_tick(prediction) : tick,
       action
@@ -637,35 +623,6 @@ function flushClientDelivery() {
       transportFailure(error)
     })
 }
-function flushSnapshot() {
-  if (!connected || role !== "host") return
-  const prepared = SnapshotFlow.prepare(snapshotFlow)
-  snapshotFlow = prepared.state
-  if (prepared.observation.$ !== "Some") return
-  const message = latestSnapshot
-  latestSnapshot = null
-  if (!message || message.observationSeq !== prepared.observation.value)
-    throw Error("The pending snapshot payload disagrees with its Bend delivery journal.")
-  const generation = epoch,
-    connection = connectionEpoch,
-    channel = transport
-  // Native completion clears only the writer; application receipts clear the
-  // bounded observation window. QUIC delivery is weaker
-  // than successful parsing, admission and presentation by the guest.
-  encodeSnapshot(message.bytes)
-    .then((bytes) => {
-      if (generation !== epoch || connection !== connectionEpoch || !connected) return
-      return defined(channel).send(bytes)
-    })
-    .then(() => {
-      if (generation !== epoch || connection !== connectionEpoch) return
-      snapshotFlow = SnapshotFlow.complete(snapshotFlow, message.token, message.observationSeq)
-      flushSnapshot()
-    })
-    .catch((error) => {
-      if (generation === epoch && connection === connectionEpoch && connected) transportFailure(error)
-    })
-}
 async function connect(
   kind: Role,
   ticket: string | null,
@@ -675,23 +632,64 @@ async function connect(
   cleanup()
   ui.reset()
   const generation = epoch
-  let snapshotDecoder = new SnapshotDecoder()
-  activeSnapshotDecoder = snapshotDecoder
   role = kind
   ui.role(kind)
   sequence = 0
   selectedSetup = setup
-  connectionState = Connection.fresh({ $: kind === "host" ? "Host" : "Guest" })
-  if (kind === "host")
-    runId =
-      crypto.randomUUID?.() ||
-      Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) => n.toString(16).padStart(8, "0")).join("")
   const requestedSession = invitation.session ?? new URL(location.href).searchParams.get("session")
   if (kind === "guest" && requestedSession === null) throw Error("Open the complete invitation link.")
   sessionId = kind === "host" ? random() : Number(requestedSession)
   if (!Number.isInteger(sessionId) || sessionId < 0 || sessionId > 0xffffffff)
     throw Error("Open the complete invitation link.")
   ui.status("Connecting to Iroh…", { busy: true })
+  if (kind === "host") {
+    runId = crypto.randomUUID()
+    const created = await CoopHost.create(setup, sessionId, random(), runId, {
+      frame: (message) => {
+        if (generation !== epoch) return
+        tick = message.frame.tick
+        hostFrame = { ...message.frame, observationSeq: message.observationSeq, contactJournal: message.contactJournal }
+        if (roomStarted) ui.present({ ...hostFrame, runId })
+        ui.setChoicePending(!message.connectionReady)
+      },
+      lobby: (lobby) => {
+        if (generation !== epoch) return
+        roomStarted = lobby.started
+        ui.lobby(lobby)
+        if (roomStarted && hostFrame) ui.present({ ...hostFrame, runId })
+      },
+      invitation: (ticket) => {
+        if (generation !== epoch) return
+        const link = new URL(location.href)
+        link.search = ""
+        link.searchParams.set("session", String(sessionId))
+        link.searchParams.set("join", ticket)
+        ui.invitation(link.href)
+      },
+      status: (message, error = false) => {
+        if (generation === epoch) ui.status(message, { error })
+      },
+      error: (error) => {
+        if (generation === epoch) {
+          reportFailure(error, "host")
+          showError(error)
+        }
+      }
+    })
+    if (generation !== epoch) {
+      created.close()
+      return
+    }
+    host = created
+    inputTimer = setInterval(
+      () => sendAction({ $: "Movement", x: Math.sign(input.x) + 1, y: Math.sign(input.y) + 1 }),
+      50
+    )
+    return
+  }
+  connectionState = Connection.fresh({ $: "Guest" })
+  let snapshotDecoder = new SnapshotDecoder()
+  activeSnapshotDecoder = snapshotDecoder
   armConnectionDeadline()
   try {
     const handleEvent = async (event: TransportEvent) => {
@@ -705,31 +703,24 @@ async function connect(
         connected = true
         lastFrameAt = performance.now()
         clearInterval(inputTimer)
-        latestSnapshot = null
-        snapshotFlow = SnapshotFlow.fresh(connectionEpoch)
         armConnectionDeadline()
-        if (kind === "host") {
-          connectionState = Connection.state(Connection.reconnect(connectionState, connectionEpoch))
-          snapshotFlow = SnapshotFlow.fresh(Connection.epoch(connectionState))
-          postWorker({ type: "connected", connectionEpoch })
-        } else {
-          const result = Connection.reconnect(connectionState, connectionEpoch)
-          connectionState = result.state
-          connectionAction(result.action)
-        }
+        const result = Connection.reconnect(connectionState, connectionEpoch)
+        connectionState = result.state
+        connectionAction(result.action)
         ui.status("Connected. Checking party compatibility…", { busy: true })
         inputTimer = setInterval(() => {
-          if (kind === "guest") {
-            advancePrediction()
-            flushClientDelivery()
-          } else sendAction({ $: "Movement", x: Math.sign(input.x) + 1, y: Math.sign(input.y) + 1 })
+          advancePrediction()
+          flushClientDelivery()
         }, 50)
       } else if (event.type === "message") {
         if (event.connectionEpoch !== connectionEpoch) return
         const messageDecoder = snapshotDecoder
         try {
-          if (kind === "host" && event.bytes.byteLength > MAX_COMMAND_BYTES) {
-            signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
+          const lobby = decodeLobby(event.bytes)
+          if (lobby) {
+            roomStarted = lobby.started
+            ui.lobby(lobby)
+            if (roomStarted && authorityFrame) ui.present(authorityFrame)
             return
           }
           const control = decodeControlFrame(event.bytes, (text) => Connection.decode(text))
@@ -737,45 +728,21 @@ async function connect(
             signalConnection(control.value)
             return
           }
-          const bytes = kind === "guest" ? await messageDecoder.decode(event.bytes) : event.bytes
+          const bytes = await messageDecoder.decode(event.bytes)
           if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return
-          if (kind === "host") {
-            const text = decoder.decode(bytes)
-            const decoded = ClientDelivery.decode(text)
-            if (decoded.$ !== "Some") {
-              signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
-              return
-            }
-            const payload = decoded.value
-            if (payload.receipt.$ === "Some") {
-              snapshotFlow = SnapshotFlow.ack(
-                snapshotFlow,
-                payload.receipt.value.token,
-                payload.receipt.value.observation
-              )
-              flushSnapshot()
-            }
-            if (payload.commands.$ !== "Nil" && !postCommand(text, 1)) {
-              reportFailure(Error("The host command inbox is full."), "worker-inbox")
-              signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
-            }
-          } else {
-            const envelope = decodeSnapshotValues(bytes)
-            const number = (value: unknown) =>
-              typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0
-            signalConnection(
-              {
-                $: "Frame",
-                version: number(envelope.connectionVersion),
-                token: number(envelope.token),
-                observation: number(envelope.observationSeq)
-              },
-              envelope
-            )
-          }
+          const envelope = decodeSnapshotValues(bytes)
+          if (envelope.view.own !== ownPlayer) throw Error("The host sent a different player's observation.")
+          signalConnection(
+            {
+              $: "Frame",
+              version: envelope.connectionVersion,
+              token: envelope.token,
+              observation: envelope.observationSeq
+            },
+            envelope
+          )
         } catch (error) {
           if (generation !== epoch || event.connectionEpoch !== connectionEpoch) return
-          console.error(error)
           reportFailure(error, "incoming-message")
           signalConnection({ $: "Reject", reason: { $: "ProtocolError" } })
         }
@@ -788,12 +755,9 @@ async function connect(
         localShots = LocalProjectiles.empty()
         localRun = null
         clearInterval(inputTimer)
-        latestSnapshot = null
-        snapshotFlow = SnapshotFlow.fresh(connectionEpoch)
         ui.clearInput()
         clearTimeout(connectDeadline)
-        if (kind === "host") postWorker({ type: "disconnect", connectionEpoch })
-        else signalConnection({ $: "Lost" })
+        signalConnection({ $: "Lost" })
       } else if (event.type === "error") transportFailure(Error(event.message))
     }
     const created = await CoopTransport.create((event) => {
@@ -806,67 +770,25 @@ async function connect(
       return
     }
     transport = created
-    if (kind === "host") {
-      worker = new Worker("./coop-worker.mjs", { type: "module" })
-      worker.onmessage = (event: MessageEvent<WorkerReply>) => {
-        if (generation !== epoch) return
-        try {
-          const message = event.data
-          if (message.type === "command-consumed") pendingCommands.delete(message.deliveryId)
-          else if (message.type === "frame") {
-            tick = message.frame.tick
-            hostFrame = {
-              ...message.frame,
-              observationSeq: message.observationSeq,
-              contactJournal: message.contactJournal
-            }
-            if (message.connectionReady || ui.frame) ui.present({ ...defined(hostFrame), runId })
-            if (!message.connectionReady) ui.setChoicePending(true)
-          } else if (message.type === "remote-frame") {
-            if (!connected || message.connectionEpoch !== connectionEpoch) return
-            if (!SnapshotFlow.offer_allowed(snapshotFlow, message.observationSeq)) return
-            latestSnapshot = message
-            snapshotFlow = SnapshotFlow.offer(snapshotFlow, message.observationSeq)
-            flushSnapshot()
-          } else if (message.type === "handshake-action") {
-            if (message.connectionEpoch === connectionEpoch && Connection.reason(connectionState).$ === "None") {
-              connectionState = message.state
-              connectionAction(message.action)
-            }
-          } else if (
-            message.type === "choice-unavailable" &&
-            message.player === 0 &&
-            message.connectionEpoch === connectionEpoch
-          ) {
-            ui.setChoicePending(false)
-            ui.status("Waiting for your teammate to be ready.")
-          } else if (message.type === "ready") {
-            clearTimeout(connectDeadline)
-            const link = new URL(location.href)
-            link.search = ""
-            link.searchParams.set("session", String(sessionId))
-            link.searchParams.set("join", defined(transport).invitation())
-            ui.invitation(link.href)
-            ui.status("Send the invitation. Keep this host tab open.")
-          } else if (message.type === "error" && message.connectionEpoch === connectionEpoch) {
-            console.error(message.message, message.stack)
-            reportFailure(message, "host-worker", message.context)
-          }
-        } catch (error) {
-          reportFailure(error, "worker-message")
-          signalConnection({ $: "Reject", reason: { $: "RuntimeFailed" } })
-        }
+    const seats = invitationSeats(defined(ticket))
+    const savedSeat = new URL(location.href).searchParams.get("seat")
+    const candidates = savedSeat === null ? seats : seats.filter((seat) => seat.player === Number(savedSeat))
+    if (!candidates.length) throw Error("Invalid reserved party seat.")
+    let joined = false
+    for (const seat of candidates) {
+      ownPlayer = seat.player
+      try {
+        await created.join(seat.ticket)
+        joined = true
+        break
+      } catch {
+        /* Try the next available seat. */
       }
-      worker.onerror = (event) => {
-        if (generation !== epoch) return
-        console.error(event.message || "Host worker failed")
-        reportFailure(event.error || Error(event.message || "Host worker failed"), "worker-loader")
-        worker?.terminate()
-        worker = null
-        signalConnection({ $: "Reject", reason: { $: "RuntimeFailed" } })
-      }
-      postWorker({ type: "init", session: sessionId, seed: random(), setup, runId })
-    } else await defined(transport).join(defined(ticket))
+    }
+    if (!joined) throw Error("This party is full or unavailable. Ask the host for a new invitation.")
+    const link = new URL(location.href)
+    link.searchParams.set("seat", String(ownPlayer))
+    history.replaceState(null, "", link)
   } catch (error) {
     if (generation === epoch) transportFailure(error)
   }
@@ -881,9 +803,11 @@ function cleanup() {
   epoch++
   connectionState = Connection.fresh({ $: "Guest" })
   hostFrame = null
+  host?.close()
+  host = null
+  roomStarted = false
   clearTimeout(connectDeadline)
   connectionEpoch = 0
-  pendingCommands.clear()
   sentCommandTimes.clear()
   stalled = false
   predictionLead = 4
@@ -907,12 +831,8 @@ function cleanup() {
   clientDelivery = ClientDelivery.fresh(0)
   connected = false
   clearInterval(inputTimer)
-  latestSnapshot = null
-  snapshotFlow = SnapshotFlow.fresh(connectionEpoch)
   activeSnapshotDecoder?.close()
   activeSnapshotDecoder = null
-  worker?.terminate()
-  worker = null
   transport?.close()
   transport = null
   input = { x: 0, y: 0 }
@@ -920,6 +840,7 @@ function cleanup() {
 const ui = new CoopUI({
   onHost: (setup) => connect("host", null, setup).catch(showError),
   onJoin: (ticket, setup, invitation) => connect("guest", ticket, setup, invitation).catch(showError),
+  onStart: () => host?.start(),
   onInput: (value) => {
     advancePrediction()
     input = value

@@ -5,8 +5,9 @@ Iroh connectivity only starts version negotiation. Setup prepares the world;
 the host stays paused until the guest has applied and acknowledged the exact
 initial observation. The host then confirms the start before guest prediction
 and input advance. Repeated or stale acknowledgements cannot restart a run.
-The worker's step loop reads `Connection.running` directly; there is no separate
-JavaScript `active` or `awaitingSetup` decision.
+The worker keeps one connection state machine and input queue per remote seat.
+The Bend lobby owns room admission and explicit host start. Its `running` decision
+requires the frozen participant roster to be ready before the worker advances time.
 
 The model also owns retry epochs, frame/version admission, failure reasons and
 which deadlines can fail a handshake. Its control codec cannot decode local
@@ -83,13 +84,18 @@ Rejoining returns the existing character, health, equipment and reward state,
 regardless of the setup selected on the reloaded page. The snapshot rebuilds the
 guest's prediction from current authority instead of replaying old local input.
 
-The invitation is a bearer capability for the single guest slot, not a durable
-account identity: whoever holds it may fill that slot once its connection is
-free. A connected guest cannot be replaced concurrently. Closing or reloading
+The room invitation bundles three single-peer Iroh endpoints, one for each guest
+seat. The browser retains the assigned seat in its URL for reload. Each endpoint
+has its own handshake epoch, snapshot receipt window, and bounded writer.
+The invitation is a bearer capability, not a durable account identity. Whoever
+holds a seat link may fill that reserved seat once its connection is free. A connected guest cannot be replaced concurrently. Closing or reloading
 the host destroys the in-memory world and endpoint; an old invitation cannot
 restore that run. An ended admission session cannot be revived by reconnect.
 
-The reconnect laws pin the complete session transition. The generic
+The reconnect laws pin each private command session transition. Authenticated seat
+admission checks the real player identity before mapping it to its private command
+lane. Four-player attachment selects an existing record by player ID and retains
+its state. The generic
 [attachment dispatcher laws](coop-attach-LAWS.bend) prove that a two-player
 attachment sends the original affine state directly to its resume adapter,
 ignoring new setup. Production wires that adapter to `Core.completed`, which returns

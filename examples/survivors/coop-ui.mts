@@ -557,7 +557,7 @@ export class CoopUI {
       return `<div class="coop-room-member" data-player="${player}" data-ready="${member?.ready ?? false}"><span class="coop-member-mark${member ? "" : " empty"}" aria-hidden="true">${member ? player + 1 : "+"}</span><div><strong>${esc(label)}</strong><small>${esc(status)}</small></div></div>`
     }).join("")
     this.$("#coop-party-count").textContent = `${lobby.players.length} / 4 players`
-    this.$("#coop-start").disabled = !lobby.canStart || lobby.started
+    defined(this.document.querySelector<HTMLButtonElement>("#coop-start")).disabled = !lobby.canStart || lobby.started
     if (!lobby.started)
       this.status(lobby.canStart ? "Party ready. The host can start the run." : "Waiting for the party to be ready.")
     if (this.entryRole === "guest") {
@@ -704,7 +704,7 @@ export class CoopUI {
     this.$("#coop-party-roster").hidden = true
     this.$("#coop-party-roster").innerHTML = ""
     this.$("#coop-party-count").textContent = ""
-    this.$("#coop-start").disabled = true
+    defined(this.document.querySelector<HTMLButtonElement>("#coop-start")).disabled = true
     this.$("#coop-join").hidden = false
     this.$("#coop-invite-link").value = ""
     this.$("#coop-room-title").textContent = "Host a run"
