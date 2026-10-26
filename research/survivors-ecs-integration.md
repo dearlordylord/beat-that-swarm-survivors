@@ -228,6 +228,27 @@ confirmed 8.65% terminal increase. The user's direct instruction accepted this
 tradeoff and ended further optimization without a strong short lead. The
 original criterion remains failed; the current approved outcome is accepted.
 
-The completion commit changes only documentation and compact receipts after
-the qualified browser source. It does not change the qualified runtime or UI.
+The evidence commit `5d0ad0f` changed only documentation and compact receipts
+after the qualified browser source. It did not change the qualified runtime or UI.
 Parent issue 1 stays open and unmodified. No release is packaged or deployed.
+
+## Verification diagnostics follow-up
+
+Reviewed diagnostics source `3e3fdcd` preserves command, working directory, exit
+status, signal, configured limits and captured output across verification
+runners. Controlled faults cover timeout, cancellation, spawn failure and
+semantic refusal separately. All six direct diagnostic CI commands, the full
+TypeScript gate, generated declarations and the dependency audit passed locally.
+The initial TypeScript attempt lacked isolated Astro/Effect dependencies; its
+failure and the successful dependency-prepared retry remain in
+`/tmp/survivors-combined-verification-diagnostics-3e3fdcd/receipt.json`.
+
+All 234 Bend files and browser UI/schema/protocol sources remain unchanged.
+The original CI failure's child status and signal were not recorded, so its
+cause is unknown. The unchanged `5d0ad0f` retry passed the entire job in 8m41s.
+A controlled SIGKILL reproduction established the logging defect, not the cause
+of that historical failure. CI for the new diagnostics head remains pending.
+
+Completion evidence was published at `5d0ad0f`, and children 5–10 are closed.
+The original performance criterion and the user's accepted alternative remain
+unchanged. Parent issue 1 remains open and unmodified; no release was made.

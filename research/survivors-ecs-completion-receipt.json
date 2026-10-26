@@ -2,7 +2,7 @@
   "status": "complete-under-direct-user-performance-override",
   "originalCriterionStatus": "The no-slowdown criterion failed.",
   "currentApprovedOutcome": "All functional criteria passed; the user directly accepted the original failed performance criterion.",
-  "publicationStatus": "Ready for the reviewed evidence-only commit and publication.",
+  "publicationStatus": "Completion evidence published at 5d0ad0f; children 5\u201310 closed. Global diagnostics follow-up awaits its own CI and merge.",
   "delivery": [
     "Explicit enemy, projectile and pickup component authority; no universal Body/Motion or permanent old-format adapters.",
     "Queries and access contracts remain beside systems; storage wiring is separate.",
@@ -341,16 +341,8 @@
   "publication": {
     "parentIssue": 1,
     "parentIssueAction": "Leave open and unmodified.",
-    "childIssuesEligibleAfterFinalAudit": [
-      5,
-      6,
-      7,
-      8,
-      9,
-      10
-    ],
     "releasePublication": false,
-    "subsequentCommitRule": "Only documentation and compact receipts change after the qualified verifier source. UI/SUT closure remains exactly 0caf and native/Bend closure remains exactly c9.",
+    "subsequentCommitRule": "Evidence-only completion commit 5d0ad0f was followed by separately reviewed verification-diagnostics tooling changes. Native/Bend and browser UI/schema/protocol closures remain unchanged.",
     "qualifiedCodeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
     "qualifiedBrowserSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
     "qualifiedUiSource": "0caf4861125111d24d5e311f5653737c49ccf978",
@@ -359,7 +351,16 @@
     "receiptPath": "research/survivors-ecs-completion-receipt.json",
     "acceptanceLedgerPath": "research/survivors-ecs-acceptance-ledger.json",
     "qualifiedExecutableAndUiSourcesUnmodified": true,
-    "completionSnapshotNote": "The completion snapshot has staged documentation and receipt changes only. Clean qualified source 15b52cd precedes the final documentation commit; executable and UI sources remain unchanged."
+    "completionSnapshotNote": "Commit 5d0ad0f published documentation and receipts only after qualified source 15b52cd. The later diagnostics follow-up changes verification tools and tests, not the qualified game or UI.",
+    "childIssuesClosed": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "completionEvidenceCommit": "5d0ad0f89658b2c0ffd18a6083a825cf8e3faaf2"
   },
   "limits": [
     "Finite baseline scenarios and one complete manual game do not prove every possible game or balance outcome.",
@@ -467,5 +468,31 @@
       "status": "failed",
       "observations": "A recorded 6 ms observer-wall interval versus 23.9 ms actual sample interval produced a false motion violation. The correction is independently regression-tested. External compiler load was observed but is not established as the cause of other failures."
     }
-  ]
+  ],
+  "verificationDiagnosticsFollowup": {
+    "source": "3e3fdcd5059378c81a1aff0aa02e5fabc69735e8",
+    "scope": "Global verification failure diagnostics; no game logic, law, browser UI, observation schema or protocol change.",
+    "reviews": "Independent Standards and Spec reviews passed.",
+    "checks": {
+      "directDiagnosticCommands": 6,
+      "directDiagnosticCommandsStatus": "PASS",
+      "fullTypeScript": "PASS after dependency preparation; initial missing-dependency failure retained",
+      "generatedTypes": "PASS",
+      "dependencyAudit": "PASS: 228 modules",
+      "diffWhitespace": "PASS"
+    },
+    "receipt": {
+      "path": "/tmp/survivors-combined-verification-diagnostics-3e3fdcd/receipt.json",
+      "sha256": "cb3a036324b776e85694b62afb3a2ccdf9e2aae4dcfc35d0262d3a1613e985ac"
+    },
+    "runtimeBinding": "All 234 Bend files and browser UI/schema/protocol sources remain identical to the previously qualified code sources. Verification runners, failure reporting and maintained fault tests changed.",
+    "priorCi": {
+      "source": "5d0ad0f89658b2c0ffd18a6083a825cf8e3faaf2",
+      "firstAttempt": "55/56 proofs passed; failing child exit code and signal were not recorded, so cause is unknown.",
+      "retry": "Entire unchanged job passed in 8m41s.",
+      "controlledReproduction": "Known SIGKILL child reproduced opaque logging; it does not establish the cause of the historical CI failure."
+    },
+    "newHeadCi": "Pending; local diagnostic and TypeScript checks are not a claim that CI passed.",
+    "report": "research/verification-diagnostics.md"
+  }
 }

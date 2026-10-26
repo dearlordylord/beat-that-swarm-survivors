@@ -526,7 +526,7 @@
           ],
           "missing": null,
           "id": "10.6",
-          "publicationNote": "Evidence drafts exist. Coordinator review and evidence-only publication remain workflow gates; parent issue remains unchanged."
+          "publicationNote": "Completion evidence published at 5d0ad0f and children 5\u201310 closed; parent issue remains open and unmodified."
         },
         {
           "criterion": "Confirm completion of all parent acceptance criteria without modifying or closing the parent issue. Do not package or publish a release.",
@@ -538,14 +538,12 @@
           ],
           "missing": null,
           "id": "10.7",
-          "publicationNote": "Evidence drafts exist. Coordinator review and evidence-only publication remain workflow gates; parent issue remains unchanged."
+          "publicationNote": "Completion evidence published at 5d0ad0f and children 5\u201310 closed; parent issue remains open and unmodified."
         }
       ]
     }
   ],
-  "remainingCommonGates": [
-    "Evidence-only commit, branch publication and child issue updates after independent evidence review."
-  ],
+  "remainingCommonGates": [],
   "parentRule": "Do not modify or close parent issue1 under GH10 acceptance; audit parent criteria only.",
   "originalCriteriaSummary": {
     "passed": 41,
@@ -561,5 +559,11 @@
     "status": "passed",
     "receipt": "/tmp/survivors-current-browser-verification-15b52cd-attempt6-corrected-metric/receipt.json",
     "runtimeBinding": "/tmp/survivors-delivery-master6ce-merge/runtime-binding.json"
+  },
+  "verificationDiagnosticsFollowup": {
+    "source": "3e3fdcd5059378c81a1aff0aa02e5fabc69735e8",
+    "status": "Reviewed local diagnostic checks passed; new-head CI pending.",
+    "receipt": "research/survivors-ecs-completion-receipt.json#verificationDiagnosticsFollowup",
+    "originalCriteriaChanged": false
   }
 }
