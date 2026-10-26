@@ -39,7 +39,6 @@ import bendvy-ecs-core@0.1.0.1/component.bend as C
 import bendvy-ecs-core@0.1.0.1/commands.bend as Cmd
 import bendvy-ecs-core@0.1.0.1/transaction.bend as T
 import bendvy-ecs-core@0.1.0.1/compose.bend as Q
-import bendvy-ecs-core@0.1.0.1/capabilities.bend as Cap
 
 # Frame kinds: enemy0, player shot1, XP2, gold3, heal4, chest5, hostile shot7.
 # Dormant8 never renders. Health and XP payload fields are presentation views;
@@ -332,28 +331,11 @@ type HitPlan is Data: HitPlan{shot: U32,weapon: U32,damage: U32,x: F32,y: F32,ra
 type Args is Data: Args{run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>}
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
 type Error is Data: MissingComponent{}
-type Ops<-H: Type> is Type: Ops{vitals: Cap.Write<H,Components.Vitals,Components.Vitals>,status: Cap.Write<H,Components.Status,Components.Status>,spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,phase: Cap.Write<H,Enemy.Phase,Enemy.Phase>,identity: Cap.Read<H,Components.Identity>}
-def OpsType(H: Type) -> Type: Ops<H>
-def vital_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Vitals,Components.Vitals>:
-  match ops:
-    case Ops{vitals,_,_,_,_}: vitals
-def status_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Components.Status,Components.Status>:
-  match ops:
-    case Ops{_,status,_,_,_}: status
 def pickup_radius(+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> F32:
   (24.0 * (1.0 + U32.to_f32(at(passives,8)) * 0.25 + U32.to_f32(meta_rank(meta,6)) * 0.15 + stat_bonus(arcana,6) + 0.50 * U32.to_f32(Bool.to_u32(U32.is_eq(character,7)))) : F32)
 # Age and item kind never authorize collection: only physical reach does.
 def pickup_admission(x: F32,y: F32,px: F32,py: F32,radius: F32,age: U32,kind: U32) -> Bool:
   PickupPolicy.admission(x,y,px,py,radius,age,kind)
-def enemy_spatial_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
-  match ops:
-    case Ops{_,_,spatial,_,_}: spatial
-def enemy_phase_cap(~H: Type,ops: Ops<H>) -> Cap.Write<H,Enemy.Phase,Enemy.Phase>:
-  match ops:
-    case Ops{_,_,_,phase,_}: phase
-def enemy_identity_cap(~H: Type,ops: Ops<H>) -> Cap.Read<H,Components.Identity>:
-  match ops:
-    case Ops{_,_,_,_,identity}: identity
 # Spawn cadence rejects five of six slots before evaluating wave limits or
 # passive ranks. Variant and curse are only materialized for admitted spawns.
 type EntityRow is Data:
@@ -596,120 +578,28 @@ def selected_enemy(frame: Frame()) -> Frame() & Bool: selected_enemy_admitted(se
 def selected_pool(frame: Frame()) -> Frame() & Bool: selected_role_observed(2,Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family(),frame))
 
 # Projectile updates own geometry and trajectory, with no health/status grant.
-type ProjectileOps<-H: Type> is Type: ProjectileOps{spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,payload: Cap.Write<H,Components.ShotPayload,Components.ShotPayload>,trajectory: Cap.Write<H,Components.Trajectory,Components.Trajectory>,identity: Cap.Read<H,Components.Identity>,role: Cap.Read<H,Role.Role>}
-def ProjectileOpsType(H: Type) -> Type: ProjectileOps<H>
-def projectile_spatial_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
-  match ops:
-    case ProjectileOps{spatial,_,_,_,_}: spatial
-def projectile_payload_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Components.ShotPayload,Components.ShotPayload>:
-  match ops:
-    case ProjectileOps{_,payload,_,_,_}: payload
-def projectile_trajectory_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Write<H,Components.Trajectory,Components.Trajectory>:
-  match ops:
-    case ProjectileOps{_,_,trajectory,_,_}: trajectory
-def projectile_identity_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Read<H,Components.Identity>:
-  match ops:
-    case ProjectileOps{_,_,_,identity,_}: identity
-def projectile_role_cap(~H: Type,ops: ProjectileOps<H>) -> Cap.Read<H,Role.Role>:
-  match ops:
-    case ProjectileOps{_,_,_,_,role}: role
-def projectile_write(~H: Type,~ops: ProjectileOps<H>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
+def projectile_write(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,ctx: H,row: EntityRow) -> H & (T.Outcome<Error> & EntityRow):
   match row:
-    case ProjectileRow{Shot.Outcome{Shot.State{+space,+identity,+side,+payload,+trajectory},+contact}}: (Cap.set(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),Cap.set(~H,~Components.ShotPayload,~Components.ShotPayload,~projectile_payload_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~projectile_spatial_cap(~H,ops),ctx,space),payload),trajectory),(T.Success{},ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,trajectory},contact}}))
+    case ProjectileRow{Shot.Outcome{Shot.State{+space,+identity,+side,+payload,+trajectory},+contact}}: (trajectoryReplace(payloadReplace(spatialReplace(ctx,space),payload),trajectory),(T.Success{},ProjectileRow{Shot.Outcome{Shot.State{space,identity,side,payload,trajectory},contact}}))
     case _: (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def projectile_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,ProjectileOpsType>: Q.Plan{ProjectileOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~Storage.shot_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~Storage.trajectory_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family())},selected_projectile}
 
 # Movement writes only spatial state, including the once-per-step age increment.
 # Enemy kind/variant metadata and slow status are read-only.
-type MoveOps<-H: Type> is Type: MoveOps{spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,phase: Cap.Read<H,Enemy.Phase>,status: Cap.Read<H,Components.Status>}
-def MoveOpsType(H: Type) -> Type: MoveOps<H>
-def move_spatial_cap(~H: Type,ops: MoveOps<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
-  match ops:
-    case MoveOps{spatial,_,_}: spatial
-def move_phase_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Enemy.Phase>:
-  match ops:
-    case MoveOps{_,phase,_}: phase
-def move_status_cap(~H: Type,ops: MoveOps<H>) -> Cap.Read<H,Components.Status>:
-  match ops:
-    case MoveOps{_,_,status}: status
-def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MoveOpsType>: Q.Plan{MoveOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family())},selected_enemy}
 
 def movement_roster_read_fields(store: Storage.StoreFields) -> Storage.Store & Storage.MovementRoster:
   match store:
     case Storage.StoreFields{vitals,motions,statuses,pickups,roles,+movement,candidates,players,spaces,enemyPhases,identities,shots}: (Storage.Owned{Storage.StoreFields{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}},movement)
 def movement_roster_read(store: Storage.Store) -> Storage.Store & Storage.MovementRoster: movement_roster_read_fields(Storage.unseal(store))
 type PickupCall is Data: PickupCall{team: Team,advance: Bool,relic: Bool} XpPoolCall{team: Team}
-type PickupOps<-H: Type> is Type: PickupOps{spatial: Cap.Read<H,Space.Spatial>,pickup: Cap.Read<H,Pickup.Payload>,identity: Cap.Read<H,Components.Identity>}
-def PickupOpsType(H: Type) -> Type: PickupOps<H>
-def pickup_spatial_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Space.Spatial>:
-  match ops:
-    case PickupOps{spatial,_,_}: spatial
-def pickup_payload_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Pickup.Payload>:
-  match ops:
-    case PickupOps{_,pickup,_}: pickup
-def pickup_identity_cap(~H: Type,ops: PickupOps<H>) -> Cap.Read<H,Components.Identity>:
-  match ops:
-    case PickupOps{_,_,identity}: identity
-type PoolOps<-H: Type> is Type: PoolOps{role: Cap.Read<H,Role.Role>,enemy: Ops<H>,pickup: PickupOps<H>}
-def PoolOpsType(H: Type) -> Type: PoolOps<H>
-def pool_role_cap(~H: Type,ops: PoolOps<H>) -> Cap.Read<H,Role.Role>:
-  match ops:
-    case PoolOps{role,_,_}: role
-def pool_enemy_caps(~H: Type,ops: PoolOps<H>) -> Ops<H>:
-  match ops:
-    case PoolOps{_,enemy,_}: enemy
-def pool_pickup_caps(~H: Type,ops: PoolOps<H>) -> PickupOps<H>:
-  match ops:
-    case PoolOps{_,_,pickup}: pickup
-def plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,PoolOpsType>: Q.Plan{PoolOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),Ops{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~Storage.vital_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())},PickupOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())}},selected_pool}
 # Lifecycle dispatch keeps enemy geometry and XP payload grants separate while
 # executing both callbacks in the original enclosing transaction and row order.
-type LifecycleOps<-H: Type> is Type: LifecycleOps{phase: Cap.Write<H,Enemy.Phase,Enemy.Phase>,spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,pickup: Cap.Write<H,Pickup.Payload,Pickup.Payload>,handle: Cap.ValueRead<H,W.Handle<Storage.Schema>>,identity: Cap.Read<H,Components.Identity>}
-def LifecycleOpsType(H: Type) -> Type: LifecycleOps<H>
-def loot_phase_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.Write<H,Enemy.Phase,Enemy.Phase>:
-  match ops:
-    case LifecycleOps{phase,_,_,_,_}: phase
-def loot_spatial_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
-  match ops:
-    case LifecycleOps{_,spatial,_,_,_}: spatial
-def loot_payload_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.Write<H,Pickup.Payload,Pickup.Payload>:
-  match ops:
-    case LifecycleOps{_,_,pickup,_,_}: pickup
-def loot_handle_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.ValueRead<H,W.Handle<Storage.Schema>>:
-  match ops:
-    case LifecycleOps{_,_,_,handle,_}: handle
-def loot_identity_cap(~H: Type,ops: LifecycleOps<H>) -> Cap.Read<H,Components.Identity>:
-  match ops:
-    case LifecycleOps{_,_,_,_,identity}: identity
-type PickupLifecycleOps<-H: Type> is Type: PickupLifecycleOps{spatial: Cap.Write<H,Space.Spatial,Space.Spatial>,pickup: Cap.Write<H,Pickup.Payload,Pickup.Payload>,identity: Cap.Read<H,Components.Identity>}
-def PickupLifecycleOpsType(H: Type) -> Type: PickupLifecycleOps<H>
-def pickup_lifecycle_spatial_cap(~H: Type,ops: PickupLifecycleOps<H>) -> Cap.Write<H,Space.Spatial,Space.Spatial>:
-  match ops:
-    case PickupLifecycleOps{spatial,_,_}: spatial
-def pickup_lifecycle_payload_cap(~H: Type,ops: PickupLifecycleOps<H>) -> Cap.Write<H,Pickup.Payload,Pickup.Payload>:
-  match ops:
-    case PickupLifecycleOps{_,pickup,_}: pickup
-def pickup_lifecycle_identity_cap(~H: Type,ops: PickupLifecycleOps<H>) -> Cap.Read<H,Components.Identity>:
-  match ops:
-    case PickupLifecycleOps{_,_,identity}: identity
-type LootOps<-H: Type> is Type: LootOps{role: Cap.Read<H,Role.Role>,enemy: LifecycleOps<H>,pickup: PickupLifecycleOps<H>}
-def LootOpsType(H: Type) -> Type: LootOps<H>
-def loot_role_cap(~H: Type,ops: LootOps<H>) -> Cap.Read<H,Role.Role>:
-  match ops:
-    case LootOps{role,_,_}: role
-def loot_enemy_caps(~H: Type,ops: LootOps<H>) -> LifecycleOps<H>:
-  match ops:
-    case LootOps{_,enemy,_}: enemy
-def loot_pickup_caps(~H: Type,ops: LootOps<H>) -> PickupLifecycleOps<H>:
-  match ops:
-    case LootOps{_,_,pickup}: pickup
 def loot_active_handle(~H: Type,result: H & W.Handle<Storage.Schema>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
     case (ctx,handle): (ctx,(T.Success{},Some{handle}))
-def loot_written(~H: Type,~ops: LifecycleOps<H>,active: Bool,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+def loot_written(~H: Type,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~handleRead: H -> H & W.Handle<Storage.Schema>,~identityRead: H -> H & C.Access<Components.Identity>,active: Bool,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match active:
     case False{}: (ctx,(T.Success{},None{}))
-    case True{}: loot_active_handle(~H,Cap.value_read(~H,~W.Handle<Storage.Schema>,~loot_handle_cap(~H,ops),ctx))
+    case True{}: loot_active_handle(~H,handleRead(ctx))
 def loot_occupancy(active: Bool,archetype: U32) -> Enemy.Phase:
   match active:
     case True{}: Enemy.OccupiedByLoot{archetype}
@@ -717,39 +607,42 @@ def loot_occupancy(active: Bool,archetype: U32) -> Enemy.Phase:
 def pickup_payload_active(payload: Pickup.Payload) -> Bool:
   match payload:
     case Pickup.Payload{_,_,active}: active
-def enemy_lifecycle_planned(~H: Type,~ops: LifecycleOps<H>,phase: Enemy.Phase,planned: Maybe<&2,Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+def enemy_lifecycle_planned(~H: Type,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~handleRead: H -> H & W.Handle<Storage.Schema>,~identityRead: H -> H & C.Access<Components.Identity>,phase: Enemy.Phase,planned: Maybe<&2,Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match planned:
-    case None{}: loot_written(~H,~ops,Enemy.active(phase),ctx)
-    case Some{Pickup.State{spatial,+payload,_}}: (Cap.set(~H,~Enemy.Phase,~Enemy.Phase,~loot_phase_cap(~H,ops),Cap.set(~H,~Pickup.Payload,~Pickup.Payload,~loot_payload_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~loot_spatial_cap(~H,ops),ctx,spatial),payload),loot_occupancy(pickup_payload_active(payload),Enemy.archetype(phase))),(T.Success{},None{}))
-def enemy_lifecycle_phase(~H: Type,~ops: LifecycleOps<H>,planned: Maybe<&2,Pickup.State>,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+    case None{}: loot_written(~H,~phaseRead,~phaseReplace,~spatialRead,~spatialReplace,~pickupRead,~pickupReplace,~handleRead,~identityRead,Enemy.active(phase),ctx)
+    case Some{Pickup.State{spatial,+payload,_}}: (phaseReplace(pickupReplace(spatialReplace(ctx,spatial),payload),loot_occupancy(pickup_payload_active(payload),Enemy.archetype(phase))),(T.Success{},None{}))
+def enemy_lifecycle_phase(~H: Type,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~handleRead: H -> H & W.Handle<Storage.Schema>,~identityRead: H -> H & C.Access<Components.Identity>,planned: Maybe<&2,Pickup.State>,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
-    case (ctx,C.Found{phase}): enemy_lifecycle_planned(~H,~ops,phase,planned,ctx)
+    case (ctx,C.Found{phase}): enemy_lifecycle_planned(~H,~phaseRead,~phaseReplace,~spatialRead,~spatialReplace,~pickupRead,~pickupReplace,~handleRead,~identityRead,phase,planned,ctx)
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
-def enemy_lifecycle_identified(~H: Type,~ops: LifecycleOps<H>,index: BI.Index<Pickup.State>,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+def enemy_lifecycle_identified(~H: Type,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~handleRead: H -> H & W.Handle<Storage.Schema>,~identityRead: H -> H & C.Access<Components.Identity>,index: BI.Index<Pickup.State>,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
-    case (ctx,C.Found{Components.Identity{identity}}): enemy_lifecycle_phase(~H,~ops,BI.find(~Pickup.State,index,identity),Cap.get(~H,~Enemy.Phase,~Enemy.Phase,~loot_phase_cap(~H,ops),ctx))
+    case (ctx,C.Found{Components.Identity{identity}}): enemy_lifecycle_phase(~H,~phaseRead,~phaseReplace,~spatialRead,~spatialReplace,~pickupRead,~pickupReplace,~handleRead,~identityRead,BI.find(~Pickup.State,index,identity),phaseRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
-def enemy_lifecycle(~H: Type,~ops: LifecycleOps<H>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): enemy_lifecycle_identified(~H,~ops,index,Cap.read(~H,~Components.Identity,~loot_identity_cap(~H,ops),ctx))
-def pickup_lifecycle_write(~H: Type,~ops: PickupLifecycleOps<H>,planned: Maybe<&2,Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+def enemy_lifecycle(~H: Type,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~handleRead: H -> H & W.Handle<Storage.Schema>,~identityRead: H -> H & C.Access<Components.Identity>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): enemy_lifecycle_identified(~H,~phaseRead,~phaseReplace,~spatialRead,~spatialReplace,~pickupRead,~pickupReplace,~handleRead,~identityRead,index,identityRead(ctx))
+def pickup_lifecycle_write(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~identityRead: H -> H & C.Access<Components.Identity>,planned: Maybe<&2,Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match planned:
     case None{}: (ctx,(T.Success{},None{}))
-    case Some{Pickup.State{space,payload,_}}: (Cap.set(~H,~Pickup.Payload,~Pickup.Payload,~pickup_lifecycle_payload_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~pickup_lifecycle_spatial_cap(~H,ops),ctx,space),payload),(T.Success{},None{}))
-def pickup_lifecycle_identified(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Pickup.State>,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+    case Some{Pickup.State{space,payload,_}}: (pickupReplace(spatialReplace(ctx,space),payload),(T.Success{},None{}))
+def pickup_lifecycle_identified(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~identityRead: H -> H & C.Access<Components.Identity>,index: BI.Index<Pickup.State>,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
-    case (ctx,C.Found{Components.Identity{identity}}): pickup_lifecycle_write(~H,~ops,BI.find(~Pickup.State,index,identity),ctx)
+    case (ctx,C.Found{Components.Identity{identity}}): pickup_lifecycle_write(~H,~spatialRead,~spatialReplace,~pickupRead,~pickupReplace,~identityRead,BI.find(~Pickup.State,index,identity),ctx)
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
-def pickup_lifecycle(~H: Type,~ops: PickupLifecycleOps<H>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): pickup_lifecycle_identified(~H,~ops,index,Cap.read(~H,~Components.Identity,~pickup_lifecycle_identity_cap(~H,ops),ctx))
-def loot_dispatch(~H: Type,~ops: LootOps<H>,role: Role.Role,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+def pickup_lifecycle(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~pickupRead: H -> H & C.Access<Pickup.Payload>,~pickupReplace: H -> Pickup.Payload -> H,~identityRead: H -> H & C.Access<Components.Identity>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): pickup_lifecycle_identified(~H,~spatialRead,~spatialReplace,~pickupRead,~pickupReplace,~identityRead,index,identityRead(ctx))
+def loot_dispatch(~H: Type,~roleRead: H -> H & C.Access<Role.Role>,~enemyPhaseRead: H -> H & C.Access<Enemy.Phase>,~enemyPhaseReplace: H -> Enemy.Phase -> H,~enemySpatialRead: H -> H & C.Access<Space.Spatial>,~enemySpatialReplace: H -> Space.Spatial -> H,~enemyPickupRead: H -> H & C.Access<Pickup.Payload>,~enemyPickupReplace: H -> Pickup.Payload -> H,~enemyHandleRead: H -> H & W.Handle<Storage.Schema>,~enemyIdentityRead: H -> H & C.Access<Components.Identity>,~pickupSpatialRead: H -> H & C.Access<Space.Spatial>,~pickupSpatialReplace: H -> Space.Spatial -> H,~pickupPickupRead: H -> H & C.Access<Pickup.Payload>,~pickupPickupReplace: H -> Pickup.Payload -> H,~pickupIdentityRead: H -> H & C.Access<Components.Identity>,role: Role.Role,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match role:
-    case Role.XpSlot{}: Cap.invoke(~PickupLifecycleOpsType,~BI.Index<Pickup.State>,~(T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>),~pickup_lifecycle,~H,~loot_pickup_caps(~H,ops),index,ctx)
-    case _: Cap.invoke(~LifecycleOpsType,~BI.Index<Pickup.State>,~(T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>),~enemy_lifecycle,~H,~loot_enemy_caps(~H,ops),index,ctx)
-def loot_role_observed(~H: Type,~ops: LootOps<H>,index: BI.Index<Pickup.State>,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
+    case Role.XpSlot{}: pickup_lifecycle(~H,~pickupSpatialRead,~pickupSpatialReplace,~pickupPickupRead,~pickupPickupReplace,~pickupIdentityRead,index,ctx)
+    case _: enemy_lifecycle(~H,~enemyPhaseRead,~enemyPhaseReplace,~enemySpatialRead,~enemySpatialReplace,~enemyPickupRead,~enemyPickupReplace,~enemyHandleRead,~enemyIdentityRead,index,ctx)
+def loot_role_observed(~H: Type,~roleRead: H -> H & C.Access<Role.Role>,~enemyPhaseRead: H -> H & C.Access<Enemy.Phase>,~enemyPhaseReplace: H -> Enemy.Phase -> H,~enemySpatialRead: H -> H & C.Access<Space.Spatial>,~enemySpatialReplace: H -> Space.Spatial -> H,~enemyPickupRead: H -> H & C.Access<Pickup.Payload>,~enemyPickupReplace: H -> Pickup.Payload -> H,~enemyHandleRead: H -> H & W.Handle<Storage.Schema>,~enemyIdentityRead: H -> H & C.Access<Components.Identity>,~pickupSpatialRead: H -> H & C.Access<Space.Spatial>,~pickupSpatialReplace: H -> Space.Spatial -> H,~pickupPickupRead: H -> H & C.Access<Pickup.Payload>,~pickupPickupReplace: H -> Pickup.Payload -> H,~pickupIdentityRead: H -> H & C.Access<Components.Identity>,index: BI.Index<Pickup.State>,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>):
   match result:
-    case (ctx,C.Found{role}): loot_dispatch(~H,~ops,role,index,ctx)
+    case (ctx,C.Found{role}): loot_dispatch(~H,~roleRead,~enemyPhaseRead,~enemyPhaseReplace,~enemySpatialRead,~enemySpatialReplace,~enemyPickupRead,~enemyPickupReplace,~enemyHandleRead,~enemyIdentityRead,~pickupSpatialRead,~pickupSpatialReplace,~pickupPickupRead,~pickupPickupReplace,~pickupIdentityRead,role,index,ctx)
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},None{}))
-def loot_system(~H: Type,~ops: LootOps<H>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): loot_role_observed(~H,~ops,index,Cap.read(~H,~Role.Role,~loot_role_cap(~H,ops),ctx))
-def loot_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,LootOpsType>: Q.Plan{LootOps{Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),LifecycleOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),Q.handle_read(~Storage.Schema,~Storage.Store,~Unit,~Unit),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())},PickupLifecycleOps{Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),Q.write_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),Q.read_family(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())}},selected_pool}
+def loot_system(~H: Type,~roleRead: H -> H & C.Access<Role.Role>,~enemyPhaseRead: H -> H & C.Access<Enemy.Phase>,~enemyPhaseReplace: H -> Enemy.Phase -> H,~enemySpatialRead: H -> H & C.Access<Space.Spatial>,~enemySpatialReplace: H -> Space.Spatial -> H,~enemyPickupRead: H -> H & C.Access<Pickup.Payload>,~enemyPickupReplace: H -> Pickup.Payload -> H,~enemyHandleRead: H -> H & W.Handle<Storage.Schema>,~enemyIdentityRead: H -> H & C.Access<Components.Identity>,~pickupSpatialRead: H -> H & C.Access<Space.Spatial>,~pickupSpatialReplace: H -> Space.Spatial -> H,~pickupPickupRead: H -> H & C.Access<Pickup.Payload>,~pickupPickupReplace: H -> Pickup.Payload -> H,~pickupIdentityRead: H -> H & C.Access<Components.Identity>,index: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): loot_role_observed(~H,~roleRead,~enemyPhaseRead,~enemyPhaseReplace,~enemySpatialRead,~enemySpatialReplace,~enemyPickupRead,~enemyPickupReplace,~enemyHandleRead,~enemyIdentityRead,~pickupSpatialRead,~pickupSpatialReplace,~pickupPickupRead,~pickupPickupReplace,~pickupIdentityRead,index,roleRead(ctx))
 
+def LootProgramOps(H: Type) -> Type: BI.Index<Pickup.State> -> H -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>)
+def loot_program_dispatch(~H: Type,~run: LootProgramOps(H),args: BI.Index<Pickup.State>,ctx: H) -> H & (T.Outcome<Error> & Maybe<&2,W.Handle<Storage.Schema>>): run(args,ctx)
+def loot_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,LootProgramOps>:
+  Q.Plan{loot_system(~Frame(),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),~Q.handle_get(~Storage.Schema,~Storage.Store,~Unit,~Unit),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())),selected_pool}
 def movement_roster_outputs(rows: List<&2,Maybe<&2,W.Handle<Storage.Schema>>>) -> List<&2,W.Handle<Storage.Schema>>:
   MM.outputs(~W.Handle<Storage.Schema>,rows)
 # Publish membership only after the typed spatial transaction succeeds. Failed traversal
@@ -834,7 +727,7 @@ def pickup_index(rows: List<&2,EntityRow>,index: BI.Index<Pickup.State>) -> BI.I
     case PickupRow{Pickup.Outcome{+state,_}} <> rest: pickup_index(rest,BI.insert(~Pickup.State,index,Pickup.slot(state),state))
     case _ <> rest: pickup_index(rest,index)
 def xp_lifecycle(+projectiles: List<&2,EntityRow>,+rows: List<&2,EntityRow>,world: Storage.World()) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
-  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),candidate_query(~LootOpsType,~BI.Index<Pickup.State>,~Maybe<&2,W.Handle<Storage.Schema>>,~loot_plan(),~loot_system,False{},pickup_index(rows,BI.Empty{}),world))
+  lifecycle_done(List.append(&2,EntityRow,projectiles,rows),candidate_query(~LootProgramOps,~BI.Index<Pickup.State>,~Maybe<&2,W.Handle<Storage.Schema>>,~loot_plan(),~loot_program_dispatch,False{},pickup_index(rows,BI.Empty{}),world))
 def owned(rows: List<&2,U32>) -> U32:
   match rows:
     case []: 0
@@ -1338,46 +1231,54 @@ def team_projectile_role(role: Role.Role,+team: Team,+projectile: Shot.State) ->
     case Role.PlayerProjectileSlot{} projectile: team_shot(team,projectile)
     case Role.HostileProjectileSlot{} Shot.State{Space.Spatial{+x,+y,+age,+radius},+identity,+side,+payload,+trajectory}: hostile_step(Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,trajectory},team_args(team,team_nearest(team,x,y)))
     case _ _: missing_row()
-def team_projectile_trajectory(~H: Type,~ops: ProjectileOps<H>,+role: Role.Role,team: Team,identity: U32,space: Space.Spatial,payload: Components.ShotPayload,result: H & C.Access<Components.Trajectory>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_trajectory(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,+role: Role.Role,team: Team,identity: U32,space: Space.Spatial,payload: Components.ShotPayload,result: H & C.Access<Components.Trajectory>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{trajectory}): projectile_write(~H,~ops,ctx,team_projectile_role(role,team,Shot.State{space,identity,projectile_side(role),payload,trajectory}))
+    case (ctx,C.Found{trajectory}): projectile_write(~H,~spatialRead,~spatialReplace,~payloadRead,~payloadReplace,~trajectoryRead,~trajectoryReplace,~identityRead,~roleRead,ctx,team_projectile_role(role,team,Shot.State{space,identity,projectile_side(role),payload,trajectory}))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_projectile_payload(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,identity: U32,space: Space.Spatial,result: H & C.Access<Components.ShotPayload>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_payload(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,role: Role.Role,team: Team,identity: U32,space: Space.Spatial,result: H & C.Access<Components.ShotPayload>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{payload}): team_projectile_trajectory(~H,~ops,role,team,identity,space,payload,Cap.get(~H,~Components.Trajectory,~Components.Trajectory,~projectile_trajectory_cap(~H,ops),ctx))
+    case (ctx,C.Found{payload}): team_projectile_trajectory(~H,~spatialRead,~spatialReplace,~payloadRead,~payloadReplace,~trajectoryRead,~trajectoryReplace,~identityRead,~roleRead,role,team,identity,space,payload,trajectoryRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_projectile_spatial(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_spatial(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,role: Role.Role,team: Team,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{space}): team_projectile_payload(~H,~ops,role,team,identity,space,Cap.get(~H,~Components.ShotPayload,~Components.ShotPayload,~projectile_payload_cap(~H,ops),ctx))
+    case (ctx,C.Found{space}): team_projectile_payload(~H,~spatialRead,~spatialReplace,~payloadRead,~payloadReplace,~trajectoryRead,~trajectoryReplace,~identityRead,~roleRead,role,team,identity,space,payloadRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_projectile_identity(~H: Type,~ops: ProjectileOps<H>,role: Role.Role,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_identity(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,role: Role.Role,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{Components.Identity{identity}}): team_projectile_spatial(~H,~ops,role,team,identity,Cap.get(~H,~Space.Spatial,~Space.Spatial,~projectile_spatial_cap(~H,ops),ctx))
+    case (ctx,C.Found{Components.Identity{identity}}): team_projectile_spatial(~H,~spatialRead,~spatialReplace,~payloadRead,~payloadReplace,~trajectoryRead,~trajectoryReplace,~identityRead,~roleRead,role,team,identity,spatialRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_projectile_observed(~H: Type,~ops: ProjectileOps<H>,team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
+def team_projectile_observed(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{role}): team_projectile_identity(~H,~ops,role,team,Cap.read(~H,~Components.Identity,~projectile_identity_cap(~H,ops),ctx))
+    case (ctx,C.Found{role}): team_projectile_identity(~H,~spatialRead,~spatialReplace,~payloadRead,~payloadReplace,~trajectoryRead,~trajectoryReplace,~identityRead,~roleRead,role,team,identityRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_projectile_system(~H: Type,~ops: ProjectileOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_projectile_observed(~H,~ops,team,Cap.read(~H,~Role.Role,~projectile_role_cap(~H,ops),ctx))
+def team_projectile_system(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~payloadRead: H -> H & C.Access<Components.ShotPayload>,~payloadReplace: H -> Components.ShotPayload -> H,~trajectoryRead: H -> H & C.Access<Components.Trajectory>,~trajectoryReplace: H -> Components.Trajectory -> H,~identityRead: H -> H & C.Access<Components.Identity>,~roleRead: H -> H & C.Access<Role.Role>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_projectile_observed(~H,~spatialRead,~spatialReplace,~payloadRead,~payloadReplace,~trajectoryRead,~trajectoryReplace,~identityRead,~roleRead,team,roleRead(ctx))
+def EntityProgramOps(H: Type) -> Type: Team -> H -> H & (T.Outcome<Error> & EntityRow)
+def entity_program_dispatch(~H: Type,~run: EntityProgramOps(H),args: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): run(args,ctx)
+def projectile_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,EntityProgramOps>:
+  Q.Plan{team_projectile_system(~Frame(),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~Storage.shot_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.ShotRest,~Components.ShotPayload,~Components.ShotPayload,~Storage.ShotToken,~Storage.take_shot,~Storage.put_shot,~Storage.project_shot,~Storage.shot_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~Storage.trajectory_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.TrajectoryRest,~Components.Trajectory,~Components.Trajectory,~Storage.TrajectoryToken,~Storage.take_trajectory,~Storage.put_trajectory,~Storage.project_trajectory,~Storage.trajectory_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family())),selected_projectile}
 def move_space_toward(space: Space.Spatial,variant: U32,slow: Effect.Slow,+run: Run) -> Space.Spatial:
   Space.step(space,variant,slow,run_tick(run),run_px(run),run_py(run))
 def team_move_space(team: Team,+space: Space.Spatial,variant: U32,slow: Effect.Slow) -> Space.Spatial:
   match space:
     case Space.Spatial{x,y,_,_}: move_space_toward(space,variant,slow,view_run(team_nearest(team,x,y)))
-def team_move_status(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,variant: U32,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & Unit):
+def team_move_status(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~statusRead: H -> H & C.Access<Components.Status>,team: Team,space: Space.Spatial,variant: U32,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{Components.Status{slow,_}}): (Cap.set(~H,~Space.Spatial,~Space.Spatial,~move_spatial_cap(~H,ops),ctx,team_move_space(team,space,variant,slow)),(T.Success{},Unit{}))
+    case (ctx,C.Found{Components.Status{slow,_}}): (spatialReplace(ctx,team_move_space(team,space,variant,slow)),(T.Success{},Unit{}))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},Unit{}))
-def team_move_metadata(~H: Type,~ops: MoveOps<H>,team: Team,space: Space.Spatial,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Unit):
+def team_move_metadata(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~statusRead: H -> H & C.Access<Components.Status>,team: Team,space: Space.Spatial,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{Enemy.ActiveEnemy{archetype}}): team_move_status(~H,~ops,team,space,archetype,Cap.read(~H,~Components.Status,~move_status_cap(~H,ops),ctx))
+    case (ctx,C.Found{Enemy.ActiveEnemy{archetype}}): team_move_status(~H,~spatialRead,~spatialReplace,~phaseRead,~statusRead,team,space,archetype,statusRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},Unit{}))
-def team_move_spatial(~H: Type,~ops: MoveOps<H>,team: Team,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & Unit):
+def team_move_spatial(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~statusRead: H -> H & C.Access<Components.Status>,team: Team,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & Unit):
   match result:
-    case (ctx,C.Found{space}): team_move_metadata(~H,~ops,team,space,Cap.read(~H,~Enemy.Phase,~move_phase_cap(~H,ops),ctx))
+    case (ctx,C.Found{space}): team_move_metadata(~H,~spatialRead,~spatialReplace,~phaseRead,~statusRead,team,space,phaseRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},Unit{}))
-def team_move_system(~H: Type,~ops: MoveOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & Unit): team_move_spatial(~H,~ops,team,Cap.get(~H,~Space.Spatial,~Space.Spatial,~move_spatial_cap(~H,ops),ctx))
+def team_move_system(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~statusRead: H -> H & C.Access<Components.Status>,team: Team,ctx: H) -> H & (T.Outcome<Error> & Unit): team_move_spatial(~H,~spatialRead,~spatialReplace,~phaseRead,~statusRead,team,spatialRead(ctx))
 
+def MovementProgramOps(H: Type) -> Type: Team -> H -> H & (T.Outcome<Error> & Unit)
+def movement_program_dispatch(~H: Type,~run: MovementProgramOps(H),args: Team,ctx: H) -> H & (T.Outcome<Error> & Unit): run(args,ctx)
+def move_plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,MovementProgramOps>:
+  Q.Plan{team_move_system(~Frame(),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family())),selected_enemy}
 def team_spawn_view(+team: Team,+id: U32) -> PlayerView:
   +candidate = team_for_id(team,id)
   Bool.pick(PlayerView,view_alive(candidate),candidate,team_nearest(team,run_px(view_run(candidate)),run_py(view_run(candidate))))
@@ -1525,45 +1426,45 @@ def enemy_outcome_space(outcome: Enemy.Outcome) -> Space.Spatial:
     case Enemy.Killed{_,Enemy.DeathReward{Enemy.XpDrop{},_,x,y,_,_,_}}: Space.Spatial{x,y,0,0.0}
     case Enemy.Killed{_,Enemy.DeathReward{_,_,x,y,_,_,_}}: Space.Spatial{x,y,0,6.0}
     case outcome: Enemy.spatial(Enemy.state(outcome))
-def write_enemy_values(~H: Type,~ops: Ops<H>,ctx: H,phase: Enemy.Phase,space: Space.Spatial,vitals: Components.Vitals,status: Components.Status) -> H:
-  Cap.set(~H,~Enemy.Phase,~Enemy.Phase,~enemy_phase_cap(~H,ops),Cap.set(~H,~Space.Spatial,~Space.Spatial,~enemy_spatial_cap(~H,ops),Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),Cap.set(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx,vitals),status),space),phase)
-def write_enemy_state(~H: Type,~ops: Ops<H>,ctx: H,+outcome: Enemy.Outcome,state: Enemy.State) -> H & (T.Outcome<Error> & EnemyQueryResult):
+def write_enemy_values(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,ctx: H,phase: Enemy.Phase,space: Space.Spatial,vitals: Components.Vitals,status: Components.Status) -> H:
+  phaseReplace(spatialReplace(statusReplace(vitalsReplace(ctx,vitals),status),space),phase)
+def write_enemy_state(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,ctx: H,+outcome: Enemy.Outcome,state: Enemy.State) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match state:
-    case Enemy.State{_,_,_,vitals,status}: (write_enemy_values(~H,~ops,ctx,enemy_outcome_phase(outcome),enemy_outcome_space(outcome),vitals,status),(T.Success{},EnemyReady{enemy_row(outcome)}))
-def write_enemy_outcome(~H: Type,~ops: Ops<H>,ctx: H,+outcome: Enemy.Outcome) -> H & (T.Outcome<Error> & EnemyQueryResult):
-  write_enemy_state(~H,~ops,ctx,outcome,Enemy.state(outcome))
-def enemy_loot_requested(~H: Type,~ops: Ops<H>,reset: Bool,advance: Bool,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
+    case Enemy.State{_,_,_,vitals,status}: (write_enemy_values(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,ctx,enemy_outcome_phase(outcome),enemy_outcome_space(outcome),vitals,status),(T.Success{},EnemyReady{enemy_row(outcome)}))
+def write_enemy_outcome(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,ctx: H,+outcome: Enemy.Outcome) -> H & (T.Outcome<Error> & EnemyQueryResult):
+  write_enemy_state(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,ctx,outcome,Enemy.state(outcome))
+def enemy_loot_requested(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,reset: Bool,advance: Bool,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match reset:
     case False{}: (ctx,(T.Success{},LootRequest{advance}))
-    case True{}: (Cap.set(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx,Components.Status{Effect.empty_slow(),Effect.empty_burn()}),(T.Success{},LootRequest{advance}))
-def write_enemy_decision(~H: Type,~ops: Ops<H>,ctx: H,decision: Enemy.Decision) -> H & (T.Outcome<Error> & EnemyQueryResult):
+    case True{}: (statusReplace(ctx,Components.Status{Effect.empty_slow(),Effect.empty_burn()}),(T.Success{},LootRequest{advance}))
+def write_enemy_decision(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,ctx: H,decision: Enemy.Decision) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match decision:
-    case Enemy.Resolved{outcome}: write_enemy_outcome(~H,~ops,ctx,outcome)
-    case Enemy.LootTurn{advance,reset}: enemy_loot_requested(~H,~ops,reset,advance,ctx)
-def team_enemy_status(~H: Type,~ops: Ops<H>,+team: Team,+phase: Enemy.Phase,+space: Space.Spatial,+identity: U32,vitals: Components.Vitals,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+    case Enemy.Resolved{outcome}: write_enemy_outcome(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,ctx,outcome)
+    case Enemy.LootTurn{advance,reset}: enemy_loot_requested(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,reset,advance,ctx)
+def team_enemy_status(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,+team: Team,+phase: Enemy.Phase,+space: Space.Spatial,+identity: U32,vitals: Components.Vitals,result: H & C.Access<Components.Status>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{status}): write_enemy_decision(~H,~ops,ctx,team_enemy_updated(team,phase,Enemy.State{space,Enemy.archetype(phase),identity,vitals,status},EnemySpawn.propose(identity,Enemy.dormant(phase),enemy_spawn_context(team,view_run(team_enemy_view(phase,team,space,identity))))))
+    case (ctx,C.Found{status}): write_enemy_decision(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,ctx,team_enemy_updated(team,phase,Enemy.State{space,Enemy.archetype(phase),identity,vitals,status},EnemySpawn.propose(identity,Enemy.dormant(phase),enemy_spawn_context(team,view_run(team_enemy_view(phase,team,space,identity))))))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
-def team_enemy_vitals(~H: Type,~ops: Ops<H>,team: Team,phase: Enemy.Phase,space: Space.Spatial,identity: U32,result: H & C.Access<Components.Vitals>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+def team_enemy_vitals(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,team: Team,phase: Enemy.Phase,space: Space.Spatial,identity: U32,result: H & C.Access<Components.Vitals>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{vitals}): team_enemy_status(~H,~ops,team,phase,space,identity,vitals,Cap.get(~H,~Components.Status,~Components.Status,~status_cap(~H,ops),ctx))
+    case (ctx,C.Found{vitals}): team_enemy_status(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,team,phase,space,identity,vitals,statusRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
-def team_enemy_spatial(~H: Type,~ops: Ops<H>,team: Team,phase: Enemy.Phase,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+def team_enemy_spatial(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,team: Team,phase: Enemy.Phase,identity: U32,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{space}): team_enemy_vitals(~H,~ops,team,phase,space,identity,Cap.get(~H,~Components.Vitals,~Components.Vitals,~vital_cap(~H,ops),ctx))
+    case (ctx,C.Found{space}): team_enemy_vitals(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,team,phase,space,identity,vitalsRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
-def team_enemy_phase(~H: Type,~ops: Ops<H>,team: Team,identity: U32,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+def team_enemy_phase(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,team: Team,identity: U32,result: H & C.Access<Enemy.Phase>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{phase}): team_enemy_spatial(~H,~ops,team,phase,identity,Cap.get(~H,~Space.Spatial,~Space.Spatial,~enemy_spatial_cap(~H,ops),ctx))
+    case (ctx,C.Found{phase}): team_enemy_spatial(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,team,phase,identity,spatialRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
-def team_enemy_identity(~H: Type,~ops: Ops<H>,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EnemyQueryResult):
+def team_enemy_identity(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,team: Team,result: H & C.Access<Components.Identity>) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match result:
-    case (ctx,C.Found{Components.Identity{identity}}): team_enemy_phase(~H,~ops,team,identity,Cap.get(~H,~Enemy.Phase,~Enemy.Phase,~enemy_phase_cap(~H,ops),ctx))
+    case (ctx,C.Found{Components.Identity{identity}}): team_enemy_phase(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,team,identity,phaseRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},EnemyReady{missing_row()}))
 type TeamEnemy is Data: TeamEnemy{role: Role.Role,team: Team}
-def team_enemy_system(~H: Type,~ops: Ops<H>,call: TeamEnemy,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
+def team_enemy_system(~H: Type,~vitalsRead: H -> H & C.Access<Components.Vitals>,~vitalsReplace: H -> Components.Vitals -> H,~statusRead: H -> H & C.Access<Components.Status>,~statusReplace: H -> Components.Status -> H,~spatialRead: H -> H & C.Access<Space.Spatial>,~spatialReplace: H -> Space.Spatial -> H,~phaseRead: H -> H & C.Access<Enemy.Phase>,~phaseReplace: H -> Enemy.Phase -> H,~identityRead: H -> H & C.Access<Components.Identity>,call: TeamEnemy,ctx: H) -> H & (T.Outcome<Error> & EnemyQueryResult):
   match call:
-    case TeamEnemy{_,team}: team_enemy_identity(~H,~ops,team,Cap.read(~H,~Components.Identity,~enemy_identity_cap(~H,ops),ctx))
+    case TeamEnemy{_,team}: team_enemy_identity(~H,~vitalsRead,~vitalsReplace,~statusRead,~statusReplace,~spatialRead,~spatialReplace,~phaseRead,~phaseReplace,~identityRead,team,identityRead(ctx))
 def pickup_collector_state(+team: Team,+state: Pickup.State) -> Pickup.Outcome:
   match state:
     case Pickup.State{Space.Spatial{x,y,_,_},_,_}: Pickup.step(pickup_eligible(x,y,collector(team,x,y)),state)
@@ -1595,38 +1496,40 @@ def team_pickup_identified(~H: Type,call: PickupCall,spatial: Space.Spatial,payl
   match result:
     case (ctx,C.Found{Components.Identity{identity}}): (ctx,(T.Success{},PickupRow{pickup_turn(call,Pickup.State{spatial,payload,identity})}))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_pickup_payload(~H: Type,~ops: PickupOps<H>,call: PickupCall,spatial: Space.Spatial,result: H & C.Access<Pickup.Payload>) -> H & (T.Outcome<Error> & EntityRow):
+def team_pickup_payload(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~pickupRead: H -> H & C.Access<Pickup.Payload>,~identityRead: H -> H & C.Access<Components.Identity>,call: PickupCall,spatial: Space.Spatial,result: H & C.Access<Pickup.Payload>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{payload}): team_pickup_identified(~H,call,spatial,payload,Cap.read(~H,~Components.Identity,~pickup_identity_cap(~H,ops),ctx))
+    case (ctx,C.Found{payload}): team_pickup_identified(~H,call,spatial,payload,identityRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_pickup_spatial(~H: Type,~ops: PickupOps<H>,call: PickupCall,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
+def team_pickup_spatial(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~pickupRead: H -> H & C.Access<Pickup.Payload>,~identityRead: H -> H & C.Access<Components.Identity>,call: PickupCall,result: H & C.Access<Space.Spatial>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{spatial}): team_pickup_payload(~H,~ops,call,spatial,Cap.read(~H,~Pickup.Payload,~pickup_payload_cap(~H,ops),ctx))
+    case (ctx,C.Found{spatial}): team_pickup_payload(~H,~spatialRead,~pickupRead,~identityRead,call,spatial,pickupRead(ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_pickup_system(~H: Type,~ops: PickupOps<H>,call: PickupCall,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pickup_spatial(~H,~ops,call,Cap.read(~H,~Space.Spatial,~pickup_spatial_cap(~H,ops),ctx))
-def pool_enemy_done(~H: Type,~ops: PoolOps<H>,team: Team,result: H & (T.Outcome<Error> & EnemyQueryResult)) -> H & (T.Outcome<Error> & EntityRow):
+def team_pickup_system(~H: Type,~spatialRead: H -> H & C.Access<Space.Spatial>,~pickupRead: H -> H & C.Access<Pickup.Payload>,~identityRead: H -> H & C.Access<Components.Identity>,call: PickupCall,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pickup_spatial(~H,~spatialRead,~pickupRead,~identityRead,call,spatialRead(ctx))
+def pool_enemy_done(~H: Type,~roleRead: H -> H & C.Access<Role.Role>,~enemyVitalsRead: H -> H & C.Access<Components.Vitals>,~enemyVitalsReplace: H -> Components.Vitals -> H,~enemyStatusRead: H -> H & C.Access<Components.Status>,~enemyStatusReplace: H -> Components.Status -> H,~enemySpatialRead: H -> H & C.Access<Space.Spatial>,~enemySpatialReplace: H -> Space.Spatial -> H,~enemyPhaseRead: H -> H & C.Access<Enemy.Phase>,~enemyPhaseReplace: H -> Enemy.Phase -> H,~enemyIdentityRead: H -> H & C.Access<Components.Identity>,~pickupSpatialRead: H -> H & C.Access<Space.Spatial>,~pickupPickupRead: H -> H & C.Access<Pickup.Payload>,~pickupIdentityRead: H -> H & C.Access<Components.Identity>,team: Team,result: H & (T.Outcome<Error> & EnemyQueryResult)) -> H & (T.Outcome<Error> & EntityRow):
   match result:
     case (ctx,(T.Success{},EnemyReady{row})): (ctx,(T.Success{},row))
-    case (ctx,(T.Success{},LootRequest{advance})): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),PickupCall{team,advance,False{}},ctx)
+    case (ctx,(T.Success{},LootRequest{advance})): team_pickup_system(~H,~pickupSpatialRead,~pickupPickupRead,~pickupIdentityRead,PickupCall{team,advance,False{}},ctx)
     case (ctx,(T.Failure{error},_)): (ctx,(T.Failure{error},missing_row()))
-def team_pool_role(~H: Type,~ops: PoolOps<H>,+team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
+def team_pool_role(~H: Type,~roleRead: H -> H & C.Access<Role.Role>,~enemyVitalsRead: H -> H & C.Access<Components.Vitals>,~enemyVitalsReplace: H -> Components.Vitals -> H,~enemyStatusRead: H -> H & C.Access<Components.Status>,~enemyStatusReplace: H -> Components.Status -> H,~enemySpatialRead: H -> H & C.Access<Space.Spatial>,~enemySpatialReplace: H -> Space.Spatial -> H,~enemyPhaseRead: H -> H & C.Access<Enemy.Phase>,~enemyPhaseReplace: H -> Enemy.Phase -> H,~enemyIdentityRead: H -> H & C.Access<Components.Identity>,~pickupSpatialRead: H -> H & C.Access<Space.Spatial>,~pickupPickupRead: H -> H & C.Access<Pickup.Payload>,~pickupIdentityRead: H -> H & C.Access<Components.Identity>,+team: Team,result: H & C.Access<Role.Role>) -> H & (T.Outcome<Error> & EntityRow):
   match result:
-    case (ctx,C.Found{Role.XpSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),XpPoolCall{team},ctx)
-    case (ctx,C.Found{Role.RelicSlot{}}): Cap.invoke(~PickupOpsType,~PickupCall,~(T.Outcome<Error> & EntityRow),~team_pickup_system,~H,~pool_pickup_caps(~H,ops),PickupCall{team,True{},True{}},ctx)
-    case (ctx,C.Found{role}): pool_enemy_done(~H,~ops,team,Cap.invoke(~OpsType,~TeamEnemy,~(T.Outcome<Error> & EnemyQueryResult),~team_enemy_system,~H,~pool_enemy_caps(~H,ops),TeamEnemy{role,team},ctx))
+    case (ctx,C.Found{Role.XpSlot{}}): team_pickup_system(~H,~pickupSpatialRead,~pickupPickupRead,~pickupIdentityRead,XpPoolCall{team},ctx)
+    case (ctx,C.Found{Role.RelicSlot{}}): team_pickup_system(~H,~pickupSpatialRead,~pickupPickupRead,~pickupIdentityRead,PickupCall{team,True{},True{}},ctx)
+    case (ctx,C.Found{role}): pool_enemy_done(~H,~roleRead,~enemyVitalsRead,~enemyVitalsReplace,~enemyStatusRead,~enemyStatusReplace,~enemySpatialRead,~enemySpatialReplace,~enemyPhaseRead,~enemyPhaseReplace,~enemyIdentityRead,~pickupSpatialRead,~pickupPickupRead,~pickupIdentityRead,team,team_enemy_system(~H,~enemyVitalsRead,~enemyVitalsReplace,~enemyStatusRead,~enemyStatusReplace,~enemySpatialRead,~enemySpatialReplace,~enemyPhaseRead,~enemyPhaseReplace,~enemyIdentityRead,TeamEnemy{role,team},ctx))
     case (ctx,_): (ctx,(T.Failure{MissingComponent{}},missing_row()))
-def team_pool_system(~H: Type,~ops: PoolOps<H>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pool_role(~H,~ops,team,Cap.read(~H,~Role.Role,~pool_role_cap(~H,ops),ctx))
+def team_pool_system(~H: Type,~roleRead: H -> H & C.Access<Role.Role>,~enemyVitalsRead: H -> H & C.Access<Components.Vitals>,~enemyVitalsReplace: H -> Components.Vitals -> H,~enemyStatusRead: H -> H & C.Access<Components.Status>,~enemyStatusReplace: H -> Components.Status -> H,~enemySpatialRead: H -> H & C.Access<Space.Spatial>,~enemySpatialReplace: H -> Space.Spatial -> H,~enemyPhaseRead: H -> H & C.Access<Enemy.Phase>,~enemyPhaseReplace: H -> Enemy.Phase -> H,~enemyIdentityRead: H -> H & C.Access<Components.Identity>,~pickupSpatialRead: H -> H & C.Access<Space.Spatial>,~pickupPickupRead: H -> H & C.Access<Pickup.Payload>,~pickupIdentityRead: H -> H & C.Access<Components.Identity>,team: Team,ctx: H) -> H & (T.Outcome<Error> & EntityRow): team_pool_role(~H,~roleRead,~enemyVitalsRead,~enemyVitalsReplace,~enemyStatusRead,~enemyStatusReplace,~enemySpatialRead,~enemySpatialReplace,~enemyPhaseRead,~enemyPhaseReplace,~enemyIdentityRead,~pickupSpatialRead,~pickupPickupRead,~pickupIdentityRead,team,roleRead(ctx))
+def plan() -> Q.Plan<Storage.Schema,Storage.Store,Unit,Unit,EntityProgramOps>:
+  Q.Plan{team_pool_system(~Frame(),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.RoleRest,~Role.Role,~Role.Role,~Storage.RoleToken,~Storage.take_role,~Storage.put_role,~Storage.project_role,~Storage.role_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~Storage.vital_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.VitalRest,~Components.Vitals,~Components.Vitals,~Storage.VitalToken,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~Storage.vital_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.StatusRest,~Components.Status,~Components.Status,~Storage.StatusToken,~Storage.take_status,~Storage.put_status,~Storage.project_status,~Storage.status_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),~Q.set(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.EnemyPhaseRest,~Enemy.Phase,~Enemy.Phase,~Storage.EnemyPhaseToken,~Storage.take_phase,~Storage.put_phase,~Storage.project_phase,~Storage.phase_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.SpatialRest,~Space.Spatial,~Space.Spatial,~Storage.SpatialToken,~Storage.take_spatial,~Storage.put_spatial,~Storage.project_spatial,~Storage.spatial_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.PickupRest,~Pickup.Payload,~Pickup.Payload,~Storage.PickupToken,~Storage.take_pickup,~Storage.put_pickup,~Storage.project_pickup,~Storage.pickup_family()),~Q.get(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.IdentityRest,~Components.Identity,~Components.Identity,~Storage.IdentityToken,~Storage.take_identity,~Storage.put_identity,~Storage.project_identity,~Storage.identity_family())),selected_pool}
 def team_combat_done(+team: Team,projectiles: List<&2,EntityRow>,result: Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
   match result:
     case Q.Executed{world,T.Success{},rows}: xp_lifecycle(projectiles,xp_route_args(rows,team_base(team)),world)
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def team_moved(+team: Team,projectiles: List<&2,EntityRow>,result: Q.Executed<Storage.World(),Q.Error<Error>,Unit>) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
   match result:
-    case Q.Executed{world,T.Success{},_}: team_combat_done(team,projectiles,candidate_query(~PoolOpsType,~Team,~EntityRow,~plan(),~team_pool_system,False{},team,world))
+    case Q.Executed{world,T.Success{},_}: team_combat_done(team,projectiles,candidate_query(~EntityProgramOps,~Team,~EntityRow,~plan(),~entity_program_dispatch,False{},team,world))
     case Q.Executed{world,T.Failure{error},_}: Q.Executed{world,T.Failure{error},[]}
 def team_movement_scoped(+team: Team,world: Storage.World(),roster: Storage.MovementRoster) -> Q.Executed<Storage.World(),Q.Error<Error>,Unit>:
   match roster:
-    case Storage.MovementPrepared{handles}: Q.reserved(~Storage.Schema,~Storage.Store,~Unit,~Unit,~MoveOpsType,~Team,~Error,~Unit,~move_plan(),~team_move_system,team,None{},(world,handles))
+    case Storage.MovementPrepared{handles}: Q.reserved(~Storage.Schema,~Storage.Store,~Unit,~Unit,~MovementProgramOps,~Team,~Error,~Unit,~move_plan(),~movement_program_dispatch,team,None{},(world,handles))
 def team_movement_opened(team: Team,result: Storage.World() & Storage.MovementRoster) -> Q.Executed<Storage.World(),Q.Error<Error>,Unit>:
   match result:
     case (world,roster): team_movement_scoped(team,world,roster)
@@ -1674,7 +1577,7 @@ def contact_team(+team: Team) -> Team:
     case Team{+players,Args{+run,+targets,+dx,+dy,+snapshots,_},+plan,+origins}:
       contact_team_ready(Team{players,Args{run,targets,dx,dy,snapshots,[]},plan,origins},contact_plans(snapshots,Team{players,Args{run,targets,dx,dy,snapshots,[]},plan,origins},contact_targets(snapshots,Team{players,Args{run,targets,dx,dy,snapshots,[]},plan,origins})))
 def team_execute_contacts(world: Storage.World(),+team: Team) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
-  team_projectiles_done(team,candidate_query(~ProjectileOpsType,~Team,~EntityRow,~projectile_plan(),~team_projectile_system,True{},team,world))
+  team_projectiles_done(team,candidate_query(~EntityProgramOps,~Team,~EntityRow,~projectile_plan(),~entity_program_dispatch,True{},team,world))
 def team_execute(world: Storage.World(),team: Team) -> Q.Executed<Storage.World(),Q.Error<Error>,EntityRow>:
   team_execute_contacts(world,contact_team(team))
 
