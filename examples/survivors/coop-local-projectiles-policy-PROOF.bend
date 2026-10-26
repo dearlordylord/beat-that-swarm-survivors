@@ -41,16 +41,3 @@ def L.nonplayer_kind_is_always_shown(player,owner,id,now,shots,events): {==}
 def L.nonowner_projectile_is_always_shown(player,id,now,shots,events): {==}
 def L.local_projectile_suppression_checks_preview_or_terminal(player,id,now,shots,events): {==}
 def L.prepared_visibility_wires_kind_and_owner(now,shots,events,player,kind,owner,id): {==}
-def L.render_frame_encodes_each_collection(shots,contacts,corpses): {==}
-def L.native_render_shot_encodes_all_fields(id,player,kind,weapon,seed,age,x,y,radius,life,fade,opacity): {==}
-def L.native_contact_encodes_all_fields(id,tick,kind,seed,generation,x,y,radius,age,opacity): {==}
-def L.native_corpse_encodes_all_fields(id,seed,generation,x,y,radius,lastSeen): {==}
-def L.native_shots_empty_exact(): {==}
-def L.native_shots_cons_exact(head,tailHead,tail): {==}
-def L.native_shots_singleton_exact(head): {==}
-def L.native_contacts_empty_exact(): {==}
-def L.native_contacts_cons_exact(head,tailHead,tail): {==}
-def L.native_contacts_singleton_exact(head): {==}
-def L.native_corpses_empty_exact(): {==}
-def L.native_corpses_cons_exact(head,tailHead,tail): {==}
-def L.native_corpses_singleton_exact(head): {==}

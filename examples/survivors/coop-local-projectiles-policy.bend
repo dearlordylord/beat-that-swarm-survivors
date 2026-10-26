@@ -1,17 +1,13 @@
 import Base
 
 # Shared, Game-free policy at the local projectile runtime boundary. The caller
-# adapts ECS rows into these DTOs; geometry, visibility, row encoding and
+# adapts ECS rows into these DTOs; geometry, visibility and
 # eviction accounting below are the same functions used by the runtime.
 type Point is Data: Point{x:F32,y:F32}
 type Target is Data: Target{seed:U32,generation:U32,x:F32,y:F32,radius:F32,alive:Bool}
 type Hit is Data: Hit{shotId:String,tick:U32,kind:U32,targetSeed:U32,targetGeneration:U32,impactX:F32,impactY:F32,targetAtImpactX:F32,targetAtImpactY:F32,radius:F32,outcome:U32}
 type VisibleShot is Data: VisibleShot{id:String,player:U32,life:U32,pending:Bool,confirmed:Bool,late:Bool,fade:U32}
 type Visibility is Data: Visibility{now:U32,shots:List<&2,VisibleShot>,events:List<&2,Hit>}
-type RenderShot is Data: RenderShot{id:String,player:U32,kind:U32,weapon:U32,seed:U32,age:U32,x:F32,y:F32,radius:F32,life:U32,fade:U32,opacity:F32}
-type ContactFx is Data: ContactFx{id:String,tick:U32,kind:U32,targetSeed:U32,targetGeneration:U32,x:F32,y:F32,radius:F32,age:U32,opacity:F32}
-type TargetFade is Data: TargetFade{id:String,seed:U32,generation:U32,x:F32,y:F32,radius:F32,lastSeen:U32}
-type RenderFrame is Data: RenderFrame{shots:List<&2,RenderShot>,contacts:List<&2,ContactFx>,corpses:List<&2,TargetFade>}
 
 def history_window() -> U32: 64
 def fade_ticks() -> U32: 4
@@ -117,30 +113,3 @@ def should_show_authoritative(+player:U32,+kind:U32,+owner:U32,+shotId:String,+n
 
 def fade_opacity(+fade:U32) -> F32:
   Bool.pick(F32,U32.is_gt(fade,0),(U32.to_f32(U32.min(fade,fade_ticks())) / U32.to_f32(fade_ticks()) : F32),1.0)
-def native_render_shot(value:RenderShot) -> String:
-  match value:
-    case RenderShot{id,player,kind,weapon,seed,age,x,y,radius,life,fade,opacity}: "{\"id\":\"" ++ id ++ "\",\"player\":" ++ U32.show(player) ++ ",\"kind\":" ++ U32.show(kind) ++ ",\"weapon\":" ++ U32.show(weapon) ++ ",\"seed\":" ++ U32.show(seed) ++ ",\"age\":" ++ U32.show(age) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"life\":" ++ U32.show(life) ++ ",\"fade\":" ++ U32.show(fade) ++ ",\"opacity\":" ++ F32.show(opacity) ++ "}"
-def native_shots(rows:List<&2,RenderShot>) -> String:
-  match rows:
-    case []: ""
-    case head <> []: native_render_shot(head)
-    case head <> tail: native_render_shot(head) ++ "," ++ native_shots(tail)
-def native_contact(value:ContactFx) -> String:
-  match value:
-    case ContactFx{id,tick,kind,seed,generation,x,y,radius,age,opacity}: "{\"id\":\"" ++ id ++ "\",\"tick\":" ++ U32.show(tick) ++ ",\"kind\":" ++ U32.show(kind) ++ ",\"targetSeed\":" ++ U32.show(seed) ++ ",\"targetGeneration\":" ++ U32.show(generation) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"age\":" ++ U32.show(age) ++ ",\"opacity\":" ++ F32.show(opacity) ++ "}"
-def native_contacts(rows:List<&2,ContactFx>) -> String:
-  match rows:
-    case []: ""
-    case head <> []: native_contact(head)
-    case head <> tail: native_contact(head) ++ "," ++ native_contacts(tail)
-def native_corpse(value:TargetFade) -> String:
-  match value:
-    case TargetFade{id,seed,generation,x,y,radius,lastSeen}: "{\"id\":\"" ++ id ++ "\",\"seed\":" ++ U32.show(seed) ++ ",\"generation\":" ++ U32.show(generation) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"radius\":" ++ F32.show(radius) ++ ",\"lastSeen\":" ++ U32.show(lastSeen) ++ "}"
-def native_corpses(rows:List<&2,TargetFade>) -> String:
-  match rows:
-    case []: ""
-    case head <> []: native_corpse(head)
-    case head <> tail: native_corpse(head) ++ "," ++ native_corpses(tail)
-def native_render_frame(value:RenderFrame) -> String:
-  match value:
-    case RenderFrame{shots,contacts,corpses}: "{\"shots\":[" ++ native_shots(shots) ++ "],\"contacts\":[" ++ native_contacts(contacts) ++ "],\"corpses\":[" ++ native_corpses(corpses) ++ "]}"

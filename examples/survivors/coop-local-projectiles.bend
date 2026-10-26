@@ -1047,48 +1047,6 @@ def render_frame(+state:State,+player:U32,+presentationTick:U32,+targets:List<&2
   +knownTargets = targets_with_tombstones(state,targets)
   +policyKnownTargets = policy_targets(knownTargets)
   RenderFrame{render_shots_prepared(shots(state),player,presentationTick,policyKnownTargets),render_contacts_prepared(active_effects(effects(state),presentationTick),presentationTick,policyKnownTargets),corpse_rows(tombstones(state),presentationTick,targets,events(state))}
-def policy_render_shot(value:RenderShot) -> Policy.RenderShot:
-  match value:
-    case RenderShot{id,player,kind,weapon,seed,age,x,y,radius,life,fade,opacity}:
-      Policy.RenderShot{id,player,kind,weapon,seed,age,x,y,radius,life,fade,opacity}
-def policy_render_shots(rows:List<&2,RenderShot>) -> List<&2,Policy.RenderShot>:
-  match rows:
-    case []: []
-    case +head <> tail: policy_render_shot(head) <> policy_render_shots(tail)
-def policy_contact_fx(value:ContactFx) -> Policy.ContactFx:
-  match value:
-    case ContactFx{id,tick,kind,seed,generation,x,y,radius,age,opacity}:
-      Policy.ContactFx{id,tick,kind,seed,generation,x,y,radius,age,opacity}
-def policy_contact_fxs(rows:List<&2,ContactFx>) -> List<&2,Policy.ContactFx>:
-  match rows:
-    case []: []
-    case +head <> tail: policy_contact_fx(head) <> policy_contact_fxs(tail)
-def policy_target_fade(value:TargetFade) -> Policy.TargetFade:
-  match value:
-    case TargetFade{id,seed,generation,x,y,radius,lastSeen}: Policy.TargetFade{id,seed,generation,x,y,radius,lastSeen}
-def policy_target_fades(rows:List<&2,TargetFade>) -> List<&2,Policy.TargetFade>:
-  match rows:
-    case []: []
-    case +head <> tail: policy_target_fade(head) <> policy_target_fades(tail)
-def policy_render_frame(value:RenderFrame) -> Policy.RenderFrame:
-  match value:
-    case RenderFrame{shots,contacts,corpses}: Policy.RenderFrame{policy_render_shots(shots),policy_contact_fxs(contacts),policy_target_fades(corpses)}
-def native_render_shot(value:RenderShot) -> String:
-  Policy.native_render_shot(policy_render_shot(value))
-def native_shots(rows:List<&2,RenderShot>) -> String:
-  Policy.native_shots(policy_render_shots(rows))
-def native_contact_fx(value:ContactFx) -> String:
-  Policy.native_contact(policy_contact_fx(value))
-def native_contacts(rows:List<&2,ContactFx>) -> String:
-  Policy.native_contacts(policy_contact_fxs(rows))
-def native_target_fade(value:TargetFade) -> String:
-  Policy.native_corpse(policy_target_fade(value))
-def native_corpses(rows:List<&2,TargetFade>) -> String:
-  Policy.native_corpses(policy_target_fades(rows))
-def native_render_frame(value:RenderFrame) -> String:
-  Policy.native_render_frame(policy_render_frame(value))
-def render(+state:State,+player:U32,+presentationTick:U32,+targets:List<&2,Target>) -> String:
-  native_render_frame(render_frame(state,player,presentationTick,targets))
 def visible_id(rows:List<&2,Visual>,+player:U32,+id:String) -> Bool:
   Policy.visible_id(policy_visuals(rows),player,id)
 def terminal_receipt_matches(+now:U32,+shotId:String,+event:Journal.HitEvent) -> Bool:

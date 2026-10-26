@@ -33,13 +33,13 @@ once and personal PlayerState only in the player column.
 Simulation returns typed results: solo `Packet` owns only its state; co-op
 `CorePacket` carries state and an immutable typed observation (a view, a step
 receipt, or no observation for commands). Native consumers use those values
-without generating JSON. Browser and bot adapters project trusted local Bend
+without generating JSON. Browser adapters project trusted local Bend
 observations directly into named actor records. Network ingress validates the
 current raw Data graph before projection. Generated ABI and observation schemas
-derive from the Bend declarations. Explicit text consumers use the separate Bend
-encoders in `game-encoder.bend`, `coop-encoder.bend` and
-`coop-combat-encoder.bend`. Simulation does not import these encoders. There are
-no serialized or quiet variants of the simulation API.
+derive from the Bend declarations. Browser networking serializes the typed
+observation at its TypeScript transport boundary. Replay diagnostics retain
+their separate text encoders. There are no serialized or quiet variants of the
+simulation API.
 
 The authoritative pool layout and admission limits are in [`pools.bend`](pools.bend).
 Party-size difficulty belongs to [`party-difficulty.bend`](party-difficulty.bend):
@@ -160,19 +160,16 @@ audio; the game's sound setting, volume and the iPhone silent switch still apply
 [Browser co-op](COOP.md) uses the shared Bend world and Iroh transport. Its
 [command boundary](coop-session-README.md) documents admission, application and
 proof scope. Historical design research is linked from the
-[multiplayer work map](../../research/survivors-multiplayer-plan.md). Run
-[`check-coop-reliability.sh`](check-coop-reliability.sh) from the repository
-root for fresh-emission co-op runtime checks. These checks do not qualify a
-hosted browser session or end-to-end Iroh behavior.
+[multiplayer work map](../../research/survivors-multiplayer-plan.md).
 
 ## Checks
 
 Checks require Node.js, Bend, a C compiler and platform audio/window development libraries. Linux uses flock when available; other hosts use a temporary lock directory. Remove stale locks only after confirming no checks are running:
 
 ```sh
-bash examples/survivors/check-launcher-profile-ui.sh
 npm run test:full-game:manual
+bash examples/survivors/check-proofs.sh
 ```
 
-The ordinary suite checks Bend proofs, emitted co-op behavior and native co-op metrics.
+These commands check native profile/UI behavior, a complete game run and Bend proofs separately.
 The replay comparison tools consume recorded observations separately.

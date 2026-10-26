@@ -3,7 +3,6 @@
 example_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 BEND=${BEND:-bend}
 NODE=${NODE:-node}
-CLANG=${CLANG:-clang}
 example_cpu=()
 if [[ -n ${BENDVY_EXAMPLE_CPU:-} ]]; then
   command -v taskset >/dev/null || { echo 'CPU affinity requires taskset.' >&2; exit 1; }
@@ -28,7 +27,4 @@ example_timeout() {
 }
 example_emit() {
   example_timeout 30 "${example_cpu[@]}" "$BEND" "$1" -o "$2"
-}
-example_node() {
-  example_timeout 30 "${example_cpu[@]}" "$NODE" "$@"
 }

@@ -36,15 +36,6 @@
     "law": "terminal_classification_exact"
   },
   {
-    "label": "empty native renderer drops all three collections",
-    "source": "examples/survivors/coop-local-projectiles-policy.bend",
-    "old": "case RenderFrame{shots,contacts,corpses}: \"{\\\"shots\\\":[\" ++ native_shots(shots) ++ \"],\\\"contacts\\\":[\" ++ native_contacts(contacts) ++ \"],\\\"corpses\\\":[\" ++ native_corpses(corpses) ++ \"]}\"",
-    "new": "case RenderFrame{shots,contacts,corpses}: \"{}\"",
-    "compile_target": "examples/survivors/coop-local-projectiles.bend",
-    "proof": "examples/survivors/coop-local-projectiles-policy-PROOF.bend",
-    "law": "render_frame_encodes_each_collection"
-  },
-  {
     "label": "same-ID visual from another player suppresses the canonical shot",
     "source": "examples/survivors/coop-local-projectiles-policy.bend",
     "old": "Bool.and(U32.is_eq(storedPlayer,player),Bool.and(draw_fields(life,pending,confirmed,late,fade),String.eq(storedId,id)))",

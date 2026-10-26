@@ -101,13 +101,7 @@ The [session laws](coop-session-LAWS.bend), [reward laws](coop-reward-policy-LAW
 [protocol laws](coop-protocol-LAWS.bend), prediction laws and [pickup laws](pickup-selection-LAWS.bend)
 state their precise guarantees. The ordinary `check.sh` runs the proof entrypoints
 directly with `bend --verdict`. From the repository root,
-`bash examples/survivors/check-coop-reliability.sh` freshly emits its Bend modules
-and runs deterministic flow, prediction, playback, journal, prepared-resolver
-and presentation-projection adapter checks. It fingerprints the relevant Bend
-and JavaScript sources during the run and fails if they change concurrently.
-
-These laws prove pure Bend behavior, and the command checks its generated
-modules and selected prepared-resolver behavior. Neither is an end-to-end
+These laws prove pure Bend behavior. They do not establish end-to-end
 browser/Iroh qualification. Universal wire encode/decode roundtrip across every
 transport path and cross-platform floating-point determinism remain outside the
 current proofs.

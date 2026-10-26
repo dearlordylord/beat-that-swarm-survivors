@@ -1,90 +1,10 @@
-# Optional Survivors classifier bot
+# Native Survivors bot tools
 
-A deterministic controller with spatial memory and bounded route planning for the real Bend simulation. An optional advisory layer can ask the TypeSafe `jev-latest` classifier to select an offered upgrade or a movement goal. Bend still owns combat, movement, rewards and legal state transitions. The headless entry is described below; the optional visible native entry is described at the end. The ordinary native game remains Node-free and uses the same BendHub dependency.
-
-## Run
-
-From the repository root, install the optional tool's pinned dependencies with a Node.js version supported by [package.json](package.json):
-
-```sh
-npm ci
-npm ci --prefix tools/survivors-bot --ignore-scripts
-./tools/survivors-bot/run.sh --mode heuristic --profile fresh --decisions both --ticks 1800
-```
-
-Heuristic mode is the default and makes no HTTP requests. For live classification, set and export `TYPESAFE_API_KEY` locally, then run:
-
-```sh
-./tools/survivors-bot/run.sh --mode jev --profile fresh --decisions both --ticks 1800
-```
-
-Live mode sends the decision context and candidates to the provider. Keep credentials in your local environment. Neither commands nor receipts need the credential value.
-
-Inspect the engine's actual offers, complete goal catalog and mechanical values after one initialization tick, without inference:
-
-```sh
-./tools/survivors-bot/run.sh --inspect-actions
-```
-
-| Option | Meaning |
-| --- | --- |
-| `--profile fresh` | Fresh native-profile initialization, including its actual unlocked starting loadout |
-| `--profile advanced` | Fully purchased Agatha/Living Tree preset; not a fresh player |
-| `--decisions both` | Classify upgrades and movement goals |
-| `--decisions upgrades` | Classify upgrades only; movement uses the heuristic controller |
-| `--max-upgrade-requests N` | Upgrade request ceiling |
-| `--max-goal-requests N` | Movement-goal request ceiling |
-| `--timeout-ms N` | Per-request timeout |
-| `--ticks N` | Simulation horizon |
-| `--seed N` | Explicit U32 simulation seed; headless, visible and batch entry points |
-
-CLI defaults, validation and request handling belong to [run.mts](run.mts),
-[runner.mts](runner.mts) and [provider.mts](provider.mts). Bounds in
-[run.sh](run.sh) apply to the whole invocation, so a requested simulation horizon
-is not a completion guarantee. Simulation waits during classification; provider
-latency is not simulated danger.
-
-## Context and actions
-
-[bot-actions.bend](../../examples/survivors/bot-actions.bend) supplies actual legal
-alternatives and immediate engine previews. [context.mts](context.mts) packages
-them for the provider. Previews do not predict future combat or survival.
-
-[planner.mts](planner.mts) owns the deterministic spatial planner, its observation
-model, resource retention, routing and steering. The classifier advises that
-planner through prepared legal alternatives. It cannot invent engine actions.
-The planner uses omniscient engine observations; it is not a model of human
-visibility, and bounded route estimates are not safety guarantees.
-
-Receipts retain decision context, sanitized responses, outcomes and selected
-source/artifact hashes. Classifier replies are external inputs; equal game seeds
-do not make those replies deterministic. The provider alias is mutable and does
-not identify immutable model weights or measured monetary cost.
-
-## Offline batches
-
-Run from the repository root with Bend and a Node.js version supported by [package.json](package.json). The batch entry never imports the classifier provider, accepts no classifier mode and sends no classifier requests:
-
-```sh
-./tools/survivors-bot/batch.sh --count 1000 --ticks 1800 --workers 1 --seed 12345 --profile fresh --wall-seconds 300
-# Small smoke run:
-./tools/survivors-bot/batch.sh --count 2 --ticks 60 --workers 1 --wall-seconds 60
-```
-
-[batch.mts](batch.mts) and [batch-worker.mts](batch-worker.mts) define batch
-configuration, seed assignment, workload limits and completion status.
-[batch.sh](batch.sh) owns compilation. A requested workload is not a throughput
-guarantee; choose it from measurements on the host.
-
-Each batch freezes its compiled module and records options, selected source
-hashes, artifact identity and per-run outcomes. Completed, failed, timed-out,
-interrupted and unstarted work remain distinguishable. See the runner sources
-for receipt schema and output locations. Ordinary user batches can contend with
-other processes; comparative evidence runners serialize their workloads.
+The supported batch launcher runs the Bend game as native code without Node.js. The ordinary game launcher remains `examples/survivors/run.command`.
 
 ## Native offline batches
 
-The free headless controller also has a Bend-to-C entry. From the repository root:
+The free headless controller runs through a Bend-to-C entry. From the repository root:
 
 ```sh
 bash tools/survivors-bot/native-batch.sh --count 100 --ticks 1800 --workers 2 --seed 100 --profile both
@@ -119,54 +39,29 @@ Use a bounded external supervisor for automated campaigns.
 Development checks for the new path:
 
 ```sh
-bash tools/survivors-bot/native-batch.test.sh
 bend examples/survivors/parallel/PROOF.bend --verdict
 ```
 
-The failure/fuel fixture `offline-parallel-test.bend` is included in `examples/survivors/check-launcher-profile-ui.sh`.
-
 ## Checks and evidence
 
-```sh
-bash tools/survivors-bot/check.sh
-```
+The root `npm run check:typescript` gate covers types, lint and JSON boundaries. It makes no live classifier requests. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
 
-The check builds the Bend action facade and validates real fresh/advanced goal catalogs and mechanics, including rejection of malformed nested fields. The root `npm run check:typescript` gate covers types, lint, JSON boundaries and ABI contracts. These checks make no live classifier requests. [VALIDATION.md](VALIDATION.md) separately records the two successful live classifications and a matched heuristic observation. That short advanced-profile comparison does not demonstrate better decisions or better play.
+## Context and actions
 
-## Visible native run and decision journal
+[bot-actions.bend](../../examples/survivors/bot-actions.bend) supplies actual legal
+alternatives and immediate engine previews. [context.mts](context.mts) packages
+them for the provider. Previews do not predict future combat or survival.
 
-The optional window bot renders the **same native-owned world** it controls. Install the optional dependencies above, then run from the repository root:
+[planner.mts](planner.mts) owns the deterministic spatial planner, its observation
+model, resource retention, routing and steering. The classifier advises that
+planner through prepared legal alternatives. It cannot invent engine actions.
+The planner uses omniscient engine observations; it is not a model of human
+visibility, and bounded route estimates are not safety guarantees.
 
-```sh
-./tools/survivors-bot/visible.sh --mode heuristic --profile fresh --seconds 120
-# With TYPESAFE_API_KEY exported locally:
-./tools/survivors-bot/visible.sh --mode jev --profile fresh --seconds 120 --max-upgrade-requests 6 --max-goal-requests 2
-```
-
-[visible.sh](visible.sh) owns the build and session bounds. This optional entry
-uses Node for its controller and the same published ECS dependency as the game.
-Its wall-time horizon does not guarantee a simulation horizon. The ordinary
-native game still launches without Node.
-
-The journal client is compiled from [journal-client.mts](journal-client.mts) at startup. Install the root TypeScript toolchain with `npm ci` first. In a second terminal, open the journal:
-
-```sh
-node tools/survivors-bot/journal.mts --host 0.0.0.0 --port 8714
-```
-
-Visit `http://localhost:8714/` on that machine, or its host address on port 8714. The viewer reads the newest run by default; use the printed `--receipt` command to fix a particular run. The read-only viewer exposes the selected journal to hosts that can reach its listening address; use default `127.0.0.1` for local-only access.
-
-[journal.mts](journal.mts) and [journal.html](journal.html) present actual
-telemetry and classifier decisions. Outcome intervals are observations, not
-causal credit; the journal does not invent model reasoning.
-
-[native-bot.bend](../../examples/survivors/native-bot.bend) and
-[visible-controller.mts](visible-controller.mts) own the lockstep protocol,
-observation batches and command validation. The experiment uses an isolated bot
-profile and excludes native audio. Short observation batches still leave a
-reaction delay; classification cannot bypass engine validation.
-
-The next mechanics step is to select one evidenced issue from a run, state a measurable hypothesis, and compare one change. See [the observation loop](../../research/mechanics-improvement-loop.md).
+Receipts retain decision context, sanitized responses, outcomes and selected
+source/artifact hashes. Classifier replies are external inputs; equal game seeds
+do not make those replies deterministic. The provider alias is mutable and does
+not identify immutable model weights or measured monetary cost.
 
 ## Persistent XP verification
 

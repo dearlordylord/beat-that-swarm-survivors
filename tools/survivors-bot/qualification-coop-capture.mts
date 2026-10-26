@@ -1,27 +1,22 @@
+import { coreFrame } from "../../examples/survivors/observations.mts"
 import assert from "node:assert/strict"
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { bendModule } from "../../examples/bend-module.mts"
-import { at, list, rows as array, some } from "../../examples/survivors/host-values.mts"
+import { at, list, rows as array } from "../../examples/survivors/host-values.mts"
 
-const [corePath, output, encoderPath] = process.argv.slice(2)
-assert.ok(corePath && output, "usage: qualification-coop-capture.mts CORE.mjs OUTPUT.json [ENCODER.mjs]")
+const [corePath, output] = process.argv.slice(2)
+assert.ok(corePath && output, "usage: qualification-coop-capture.mts CORE.mjs OUTPUT.json")
 const coreUrl = pathToFileURL(resolve(corePath))
-const [{ default: Core }, { default: Encoder }] = await Promise.all([
-  bendModule<BendABI.CoopCore.API>()(coreUrl, [
-    "load_players",
-    "core_observe",
-    "core_start",
-    "core_join",
-    "core_choose",
-    "core_step",
-    "core_disconnect"
-  ]),
-  bendModule<BendABI.CoopEncoder.API>()(
-    encoderPath ? pathToFileURL(resolve(encoderPath)) : new URL("coop-encoder.mjs", coreUrl),
-    ["encode"]
-  )
+const { default: Core } = await bendModule<BendABI.CoopCore.API>()(coreUrl, [
+  "load_players",
+  "core_observe",
+  "core_start",
+  "core_join",
+  "core_choose",
+  "core_step",
+  "core_disconnect"
 ])
 interface Checkpoint {
   label: string
@@ -46,7 +41,7 @@ function capture(label: string, current: BendABI.CoopCore.CoreState) {
   const observed = Core.core_observe(current, 0)
   current = state(observed)
   assert.ok(observed.$ === "CorePacket" && observed.observation.$ === "ViewObservation")
-  const frame: unknown = JSON.parse(some(Encoder.encode(observed.observation)))
+  const frame: unknown = coreFrame(observed.observation)
   // Keep the complete physical player column, allocator, clocks and stamps.
   checkpoints.push(
     structuredClone({

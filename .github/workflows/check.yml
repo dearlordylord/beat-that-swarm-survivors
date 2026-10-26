@@ -111,5 +111,7 @@ jobs:
         run: npm run check:typescript
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
-      - name: Check runtime integration behavior
-        run: bash examples/survivors/check.sh --runtime-only
+      - name: Check survivor art and menus
+        run: |
+          node examples/run-bounded.mts 30 node --test examples/survivors/survivor-art.test.mts examples/survivors/expedition-menu.test.mts
+          node examples/run-bounded.mts 30 node scripts/generate-native-survivor-art.mts --check

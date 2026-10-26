@@ -7,8 +7,13 @@ import game-components.bend as Components
 import game.bend as G
 import enemy-combat.bend as Enemy
 import enemy-presentation.bend as EnemyView
-import game-encoder.bend as Encoder
 import offline-policy.bend as Policy
+
+def report_numbers(rows: List<&2,U32>) -> String:
+  match rows:
+    case []: ""
+    case n <> []: U32.show(n)
+    case n <> rest: U32.show(n) ++ "," ++ report_numbers(rest)
 
 type Stats is Data: Stats{boss: Bool,chest: Bool,level: Bool,decisions: U32}
 type Controlled is Type: Controlled{memory: Policy.Memory,packet: G.Packet}
@@ -159,7 +164,7 @@ def evolved(weapons: List<&2,U32>) -> Bool:
     case level <> rest: Bool.or(U32.is_le(9,level),evolved(rest))
 def build_observation(+run: G.Run,stats: Stats) -> String:
   match stats:
-    case Stats{boss,chest,seenLevel,decisions}: " boss=" ++ U32.show(Bool.to_u32(boss)) ++ " chest=" ++ U32.show(Bool.to_u32(chest)) ++ " seenLevel=" ++ U32.show(Bool.to_u32(seenLevel)) ++ " evolved=" ++ U32.show(Bool.to_u32(evolved(weapons(run)))) ++ " weapons=[" ++ Encoder.nums_json(weapons(run)) ++ "] passives=[" ++ Encoder.nums_json(passives(run)) ++ "]"
+    case Stats{boss,chest,seenLevel,decisions}: " boss=" ++ U32.show(Bool.to_u32(boss)) ++ " chest=" ++ U32.show(Bool.to_u32(chest)) ++ " seenLevel=" ++ U32.show(Bool.to_u32(seenLevel)) ++ " evolved=" ++ U32.show(Bool.to_u32(evolved(weapons(run)))) ++ " weapons=[" ++ report_numbers(weapons(run)) ++ "] passives=[" ++ report_numbers(passives(run)) ++ "]"
 def finish(ok: Bool,message: String) -> IO(Unit):
   match ok:
     case True{}: IO.print("PASS native full run " ++ message)

@@ -8,14 +8,10 @@ import type { Renderer as Graphics } from "./renderer.mts"
 import type { Frame } from "./frame.mts"
 import { bendModule } from "../bend-module.mts"
 import { gameFrame } from "./observations.mts"
-import { parseFrame } from "./frame.mts"
-import { defined, list, object, parseJson } from "./host-values.mts"
+import { defined, list, object } from "./host-values.mts"
 const directory = resolve(defined(process.argv[2]))
 const url = (name: string) => pathToFileURL(join(directory, name + ".mjs")).href
-const [{ default: Game }, { default: Encoder }] = await Promise.all([
-  bendModule<BendABI.Game.API>()(url("game"), ["start_seed", "observe", "observation"]),
-  bendModule<BendABI.GameEncoder.API>()(url("game-encoder"), ["encode"])
-])
+const { default: Game } = await bendModule<BendABI.Game.API>()(url("game"), ["start_seed", "observe", "observation"])
 const packet = Game.start_seed(0, 0, 12345)
 if (packet.$ !== "Packet") throw Error(packet.error)
 const observed = Game.observe(packet.state)
@@ -66,9 +62,7 @@ const frame = (tick: number, age: number, health = 10): Frame => {
     list(snapshots)
   )
   const direct = gameFrame(observation)
-  const encoded = parseFrame(parseJson(Encoder.encode(observation)))
-  assert.deepEqual(encoded, direct)
-  return encoded
+  return direct
 }
 const scratch = await mkdtemp(join(tmpdir(), "survivors-presentation-"))
 try {

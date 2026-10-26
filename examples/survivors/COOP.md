@@ -96,12 +96,10 @@ builds current source; publication uses the separate
 [fresh-build procedure](README.md#publication).
 
 ```sh
-bash examples/survivors/check.sh
-# Fresh emitted-model diagnostics without the complete suite:
-bash examples/survivors/check-coop-reliability.sh
+bash examples/survivors/check-proofs.sh
 ```
 
-The routine suite includes kernel proofs and the fresh-model runner. Their scopes differ: see the
+For the scope of the kernel proofs, see the
 [local projectile proof boundary](../../research/coop-local-projectiles-proof-boundary.md)
 and [reliability plan](../../research/coop-reliability-plan.md).
 The [results report](../../research/coop-reliability-results.md) records the

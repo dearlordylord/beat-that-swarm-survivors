@@ -4,26 +4,18 @@ import { pathToFileURL } from "node:url"
 import { bendModule } from "../bend-module.mts"
 import { defined, list, parseJson } from "./host-values.mts"
 import { gameFrame, coreFrame } from "./observations.mts"
-import { parseFrame } from "./frame.mts"
 import { admitSnapshot } from "./snapshot-envelope.mts"
 import { encodeSnapshot, decodeSnapshot } from "./coop-snapshot-codec.mts"
 const directory = resolve(defined(process.argv[2]))
 const url = (name: string) => pathToFileURL(resolve(directory, `${name}.mjs`))
-const [
-  { default: Game },
-  { default: Encoder },
-  { default: Core },
-  { default: Connection },
-  { default: Session },
-  { default: Journal }
-] = await Promise.all([
-  bendModule<BendABI.Game.API>()(url("game"), ["start_seed", "observe", "observation"]),
-  bendModule<BendABI.GameEncoder.API>()(url("game-encoder"), ["encode"]),
-  bendModule<BendABI.CoopCore.API>()(url("coop-core"), ["core_start", "core_observe", "core_clock"]),
-  bendModule<BendABI.CoopConnection.API>()(url("coop-connection"), ["protocol_version"]),
-  bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "receipt_fresh"]),
-  bendModule<BendABI.CoopHitJournal.API>()(url("coop-hit-journal"), ["fresh"])
-])
+const [{ default: Game }, { default: Core }, { default: Connection }, { default: Session }, { default: Journal }] =
+  await Promise.all([
+    bendModule<BendABI.Game.API>()(url("game"), ["start_seed", "observe", "observation"]),
+    bendModule<BendABI.CoopCore.API>()(url("coop-core"), ["core_start", "core_observe", "core_clock"]),
+    bendModule<BendABI.CoopConnection.API>()(url("coop-connection"), ["protocol_version"]),
+    bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "receipt_fresh"]),
+    bendModule<BendABI.CoopHitJournal.API>()(url("coop-hit-journal"), ["fresh"])
+  ])
 const packet = Game.start_seed(0, 0, 12345)
 if (packet.$ !== "Packet") throw Error(packet.error)
 const observed = Game.observe(packet.state)
@@ -86,8 +78,6 @@ const observation = Game.observation(
   list(snapshots)
 )
 const direct = gameFrame(observation)
-const encoded = parseFrame(parseJson(Encoder.encode(observation)))
-assert.deepEqual(encoded, direct)
 assert.deepEqual(
   direct.pickups.map((p) => p.item.kind),
   ["xp", "gold", "healing", "chest", "relic"]
@@ -104,7 +94,7 @@ const clock = Core.core_clock(view.state)
 if (clock.$ !== "CorePacket") throw Error(clock.message)
 assert.equal(clock.observation.$, "StepObservation")
 assert.equal(coreFrame({ $: "NoObservation" }), null)
-console.log("PASS current raw observation parity: actual encoder, all pickups, actors, ordering, lifetimes, packets")
+console.log("PASS current direct observation, all pickups, actors, ordering, lifetimes, packets")
 
 const initial = {
   type: "frame",

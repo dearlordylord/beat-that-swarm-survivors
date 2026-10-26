@@ -1,12 +1,13 @@
+import { coreFrame } from "./observations.mts"
 import { bendModule } from "../bend-module.mts"
-import { at, list, rows as array, some, object } from "./host-values.mts"
+import { at, list, rows as array, object } from "./host-values.mts"
 // Real solo/co-op transitions plus a focused personal-outcome boundary check.
 import assert from "node:assert/strict"
 import { resolve, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 const directory = resolve(at(process.argv, 2))
-const [{ default: Game }, { default: Core }, { default: Encoder }] = await Promise.all([
+const [{ default: Game }, { default: Core }] = await Promise.all([
   bendModule<BendABI.Game.API>()(pathToFileURL(join(directory, "game.mjs")), [
     "start_seed",
     "advance",
@@ -23,8 +24,7 @@ const [{ default: Game }, { default: Core }, { default: Encoder }] = await Promi
     "core_step",
     "core_choose",
     "player_views"
-  ]),
-  bendModule<BendABI.CoopEncoder.API>()(pathToFileURL(join(directory, "coop-encoder.mjs")), ["encode"])
+  ])
 ])
 const view = (state: BendABI.CoopCore.CoreState, id = 0) => {
   const packet = Core.core_observe(state, id)
@@ -190,7 +190,8 @@ assert.equal(outcome.revivals, 2)
 assert.equal(Object.hasOwn(outcome, "xp"), false)
 assert.equal(Object.hasOwn(outcome, "gold"), false)
 
-const frame = object(JSON.parse(some(Encoder.encode(view(state, 0)))))
+const frame = coreFrame(view(state, 0))
+assert.ok(frame && "ownPlayerId" in frame)
 assert.equal(frame.ownPlayerId, 0)
 assert.equal(object(frame.combatForecast).$, "Scene")
 assert.equal(Core.core_observe(state, 99).$, "CoreRejected")
