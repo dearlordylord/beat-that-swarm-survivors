@@ -4,6 +4,7 @@ import argparse, hashlib, json, os, pathlib, resource, signal, statistics, subpr
 from dataclasses import asdict
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
 from process_diagnostics import RunResult, format_failure
+TASKSET = "/usr/bin/taskset"
 P = pathlib.Path
 FIELDS = set('type backend policy index seed profile status tick requestedTicks outcome phase hp level xp xpNeed kills gold choices xpPiles uncollectedBaseXp wallMs'.split())
 
@@ -49,6 +50,7 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
     files = []
     logs = []
     timed_out_ids = set()
+    spawn_error = None
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
     started = time.monotonic()
     receipt = {'status': 'INCOMPLETE', 'mode': mode, 'budget': budget, 'cpus': cpus}
@@ -63,7 +65,7 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
             files += [a, b]
             logs.append(stdout)
             env.pop('BENDRTS', None)
-            command = ['/usr/bin/taskset', '-c', ','.join(map(str, cpus)), str(binary), '+RTS', '--threads', str(1 if mode == 'serial' else budget), '-RTS']
+            command = [TASKSET, '-c', ','.join(map(str, cpus)), str(binary), '+RTS', '--threads', str(1 if mode == 'serial' else budget), '-RTS']
             receipt['launchCommand'] = command
             children.append(subprocess.Popen(command, env=env, stdout=a, stderr=b, stdin=subprocess.DEVNULL, start_new_session=True))
         end = min(deadline, started + 360)
@@ -84,6 +86,8 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
         return (semantic, receipt)
     except BaseException as error:
         receipt['error'] = repr(error)
+        if isinstance(error, OSError) and len(children) < len(logs):
+            spawn_error = f'{type(error).__name__}: {error}'
         raise
     finally:
         handlers = {sig: signal.signal(sig, signal.SIG_IGN) for sig in [signal.SIGTERM, signal.SIGINT]}
@@ -96,14 +100,17 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
             for f in files:
                 f.close()
             receipt['children'] = []
-            for index, child in enumerate(children if receipt['status'] != 'PASS' else []):
+            for index in range(len(logs) if receipt['status'] != 'PASS' else 0):
+                child = children[index] if index < len(children) else None
                 stdout_path = out / f'worker-{index}.jsonl'
                 stderr_path = out / f'worker-{index}.stderr'
-                result = RunResult(command=tuple(child.args), cwd=os.getcwd(), returncode=child.returncode,
+                result = RunResult(command=tuple(child.args if child else receipt['launchCommand']), cwd=os.getcwd(),
+                                   returncode=child.returncode if child else None,
                                    elapsed_wall_seconds=time.monotonic() - started,
                                    stdout=stdout_path.read_text(errors='replace'), stderr=stderr_path.read_text(errors='replace'),
                                    wall_timeout_seconds=max(0, min(deadline, started + 360) - started),
-                                   cpu_limit_seconds=None, wall_timed_out=child.pid in timed_out_ids, spawn_error=None)
+                                   cpu_limit_seconds=None, wall_timed_out=child is not None and child.pid in timed_out_ids,
+                                   spawn_error=spawn_error if child is None else None)
                 receipt['children'].append({**asdict(result), 'classification': result.classification,
                                             'signal': result.signal_name, 'stdoutPath': str(stdout_path), 'stderrPath': str(stderr_path)})
                 if receipt['status'] != 'PASS' and (not result.normal_exit or result.returncode != 0):

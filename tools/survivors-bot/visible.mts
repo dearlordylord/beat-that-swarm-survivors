@@ -121,6 +121,7 @@ try {
   exited = new Promise<void>((resolveExit) => {
     launched.on("error", (e) => {
       failure = e
+      reason = "spawn-failure"
       done = true
       resolveExit()
     })
@@ -182,7 +183,7 @@ try {
     nativeExit
   }
   console.error("Visible session failed", diagnostic)
-  if (reason !== "native-error") reason = "controller-error"
+  if (reason !== "native-error" && reason !== "spawn-failure") reason = "controller-error"
   emit({ type: "error", reason: "Visible session failed; inspect native diagnostics.", diagnostic })
   process.exitCode = 1
 } finally {

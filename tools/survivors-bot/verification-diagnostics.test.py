@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -44,6 +45,23 @@ class Diagnostics(unittest.TestCase):
         self.assertIn('PARALLEL_SENTINEL', result['stderr'])
         self.assertEqual(result['stderrPath'], str(out / 'worker-0.stderr'))
         self.assertIn('native child failed', receipt['error'])
+
+    def test_parallel_launch_failure_retains_attempt(self):
+        module = load('compare-native-parallel')
+        missing = str(self.root / 'MISSING_TASKSET_SENTINEL')
+        child = self.child('sys.exit(0)')
+        out = self.root / 'cell'
+        with patch.object(module, 'TASKSET', missing):
+            with self.assertRaises(FileNotFoundError):
+                module.cell(child, 'serial', 1, sorted(os.sched_getaffinity(0))[:1], 1, 1, out, time.monotonic() + 2)
+        receipt = json.loads((out / 'receipt.json').read_text())
+        result = receipt['children'][0]
+        self.assertEqual(result['classification'], 'spawn-failure')
+        self.assertIsNone(result['returncode'])
+        self.assertEqual(result['command'][0], missing)
+        self.assertEqual(result['cwd'], os.getcwd())
+        self.assertIn('MISSING_TASKSET_SENTINEL', result['spawn_error'])
+        self.assertIn('FileNotFoundError', result['spawn_error'])
 
     def test_measure_retains_exact_failure_and_signal(self):
         module = load('measure-native-step')
@@ -109,5 +127,7 @@ class Diagnostics(unittest.TestCase):
         self.assertEqual(error['diagnostic']['code'], 'EACCES')
         self.assertEqual(error['diagnostic']['path'], str(child))
         self.assertIn('spawn', error['diagnostic']['syscall'])
+        summary = next(row for row in map(json.loads, receipt.read_text().splitlines()) if row['type'] == 'summary')
+        self.assertEqual(summary['outcome'], 'spawn-failure')
 
 if __name__ == '__main__':unittest.main()
