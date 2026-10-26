@@ -113,12 +113,21 @@ async function localSourceHashes() {
  for(const[file,dependencies]of Object.entries(imports))for(const dependency of dependencies)
   if(!Object.hasOwn(hashes,dependency))throw Error('Unhashed local import '+file+' -> '+dependency);
  process.stdout.write(JSON.stringify({hashes,imports}));`
-  const result = spawnSync(
-    process.execPath,
-    ["--experimental-vm-modules", "-e", collector, artifactDirectory, JSON.stringify(seedFiles)],
-    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 60000 }
+  const args = ["--experimental-vm-modules", "-e", collector, artifactDirectory, JSON.stringify(seedFiles)]
+  const result = spawnSync(process.execPath, args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 60000 })
+  assert.equal(
+    result.status,
+    0,
+    `artifact import closure failed: ${JSON.stringify({
+      command: [process.execPath, ...args],
+      cwd: process.cwd(),
+      status: result.status,
+      signal: result.signal,
+      error: result.error ? errorMessage(result.error) : null,
+      stdout: result.stdout,
+      stderr: result.stderr
+    })}`
   )
-  assert.equal(result.status, 0, `artifact import closure failed: ${result.error || result.stderr}`)
   const value = object(JSON.parse(result.stdout))
   const closure = {
     hashes: Object.fromEntries(Object.entries(object(value.hashes)).map(([key, value]) => [key, text(value)])),
