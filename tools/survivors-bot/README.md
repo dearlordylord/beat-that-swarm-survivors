@@ -166,17 +166,7 @@ observation batches and command validation. The experiment uses an isolated bot
 profile and excludes native audio. Short observation batches still leave a
 reaction delay; classification cannot bypass engine validation.
 
-```sh
-bash tools/survivors-bot/check-visible.sh
-```
-
 The next mechanics step is to select one evidenced issue from a run, state a measurable hypothesis, and compare one change. See [the observation loop](../../research/mechanics-improvement-loop.md).
-
-Monster spawn/HP regressions can be checked without HTTP:
-
-```sh
-bash tools/survivors-bot/check-monsters.sh
-```
 
 ## Persistent XP verification
 

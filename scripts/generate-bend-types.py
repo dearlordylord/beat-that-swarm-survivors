@@ -90,8 +90,6 @@ def generate(source_dir):
             target = imports[owner].get(alias)
             if alias not in imports[owner]: raise ValueError(f'{owner}: unknown import alias {alias!r}')
             if not target: return opaque(source, 'external package storage/resource')
-            if (owner, source) in {('native-pacing-run', 'F.Direction')}:
-                return opaque(source, 'legacy diagnostic references missing native-full-run.Direction')
             if member not in type_names[target]: raise ValueError(f'{owner}: unknown imported type {source!r}')
             base = namespace(Path(target)) + '.' + member
         elif base not in type_names[owner]:
