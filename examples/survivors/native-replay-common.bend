@@ -1,7 +1,7 @@
 import run-state.bend as RS
 import Base
 import game.bend as G
-import bot-actions.bend as B
+import bot-profile.bend as B
 import native-replay-format.bend as F
 
 # Shared plumbing is outside benchmark clock boundaries. No Policy import.

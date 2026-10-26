@@ -3,6 +3,7 @@
 example_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 BEND=${BEND:-bend}
 NODE=${NODE:-node}
+source "$example_repo/scripts/native-toolchain.sh"
 example_cpu=()
 if [[ -n ${BENDVY_EXAMPLE_CPU:-} ]]; then
   command -v taskset >/dev/null || { echo 'CPU affinity requires taskset.' >&2; exit 1; }

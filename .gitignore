@@ -1,6 +1,7 @@
 # Local compiler packages and generated artifacts
 .bend/
 .bendhub/
+.toolchains/
 node_modules/
 **/dist/
 *.o
