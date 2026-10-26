@@ -19,9 +19,9 @@ interface ElementsBySelector {
   "#coop-invite-close": HTMLButtonElement
   "#coop-invite-link": HTMLInputElement
   "#coop-invite-title": HTMLElement
-  "#coop-join": HTMLButtonElement
+  "#coop-retry": HTMLButtonElement
   "#coop-join-detail": HTMLElement
-  "#coop-join-form": HTMLFormElement
+  "#coop-join-panel": HTMLElement
   "#coop-join-title": HTMLElement
   "#coop-leave": HTMLButtonElement
   "#coop-level": HTMLElement
@@ -48,7 +48,6 @@ interface ElementsBySelector {
   "#coop-share-status": HTMLElement
   "#coop-stage": HTMLSelectElement
   "#coop-status": HTMLElement
-  "#coop-ticket": HTMLInputElement
   "#coop-touch": HTMLElement
   "#coop-wallet": HTMLElement
   "#coop-xp": HTMLElement

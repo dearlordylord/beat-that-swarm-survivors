@@ -2,7 +2,7 @@
 
 This mode supports two to four players, including the host. Open `coop.html`,
 choose setup and **Create room**, then share the invitation with up to three friends.
-Each guest chooses a survivor and arcana before joining. The lobby shows all four
+Opening an invitation joins automatically. Guests can change their survivor and arcana in the lobby until the host starts. The lobby shows all four
 seats and their readiness. The host selects **Start run** when at least two players
 are ready. The roster closes when the run starts. Players install nothing. Keep the host page
 open; browser Iroh uses relays. Move with WASD, arrows or the touch pad. Attacks

@@ -17,3 +17,9 @@ law invalid_seat_never_admitted:
   for started:Bool
   for seats:List<&2,L.Seat>
   {L.admit(L.State{started,seats,0},4) == False{} : Bool}
+
+law started_setup_is_locked:
+  for seats:List<&2,L.Seat>
+  for epoch:U32
+  for player:U32
+  {L.can_configure(L.State{True{},seats,epoch},player) == False{} : Bool}

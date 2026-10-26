@@ -1,6 +1,13 @@
 import { chromium, type Page } from "playwright"
 import { defined } from "./host-values.mts"
 import assert from "node:assert/strict"
+import type { WorkerReply } from "./coop-boundary.mts"
+import type { Profile } from "./profile.mts"
+declare global {
+  interface Window {
+    coopCheckFrame?: { tick: number; players: { id: number; character: number }[] }
+  }
+}
 const browser = await chromium.launch({
   headless: true,
   args: [
@@ -11,8 +18,28 @@ const browser = await chromium.launch({
   ]
 })
 const pages: Page[] = []
-async function page(url: string) {
+async function page(url: string, profile?: Profile) {
   const context = await browser.newContext()
+  if (profile)
+    await context.addInitScript(
+      (value) => localStorage.setItem("nightfall-survivors-v1", JSON.stringify(value)),
+      profile
+    )
+  await context.addInitScript(() => {
+    const NativeWorker = window.Worker
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options)
+        this.addEventListener("message", (event: MessageEvent<WorkerReply>) => {
+          if (event.data.type !== "frame") return
+          window.coopCheckFrame = {
+            tick: event.data.frame.tick,
+            players: event.data.frame.players.map(({ id, character }) => ({ id, character }))
+          }
+        })
+      }
+    }
+  })
   const page = await context.newPage()
   pages.push(page)
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message))
@@ -31,10 +58,14 @@ try {
   const invite = await host.locator("#coop-invite-link").inputValue()
   console.log("room ready")
   await host.locator("#coop-invite-close").click()
+  const guestProfile = await host.evaluate(async () => {
+    const { loadProfile } = await import("./progression.mjs")
+    return { ...loadProfile(), characters: [0, 1] }
+  })
   const guests: Page[] = []
   for (let i = 0; i < 3; i++) {
-    const guest = await page(invite)
-    await guest.locator("#coop-join").click()
+    const guest = await page(invite, i === 0 ? guestProfile : undefined)
+    assert.equal(await guest.locator("#coop-join").count(), 0)
     guests.push(guest)
     await host.waitForFunction(
       (n) => document.querySelectorAll('#coop-party-roster [data-ready="true"]').length >= n,
@@ -43,11 +74,19 @@ try {
     )
     console.log("joined", i + 1, await status(guest))
   }
+  await defined(guests[0]).locator('[data-menu-panel="character"]').click()
+  await defined(guests[0]).locator('[data-character="1"]').click()
+  await host.waitForFunction(() =>
+    window.coopCheckFrame?.players.some((player) => player.id === 1 && player.character === 1)
+  )
+  assert.match(await host.locator('#coop-party-roster [data-player="1"]').innerText(), /Corvin/)
+  console.log("guest survivor update reached roster and authoritative lobby world")
+  assert.equal(await defined(guests[0]).locator("#coop-setup-fields").isEnabled(), true)
   await new Promise((r) => setTimeout(r, 2000))
   assert.equal(await host.locator("#coop-play").isVisible(), false)
   assert.equal(await host.locator("#coop-start").isEnabled(), true)
   const fifth = await page(invite)
-  await fifth.locator("#coop-join").click()
+  assert.equal(await fifth.locator("#coop-join").count(), 0)
   await fifth.waitForFunction(
     () =>
       document.querySelector("#coop-status")?.textContent.includes("full") ||
@@ -61,6 +100,9 @@ try {
     await p.locator("#coop-play").waitFor({ state: "visible", timeout: 30000 })
     await p.waitForFunction(() => document.querySelectorAll("#coop-players .player-status").length === 4)
   }
+  await host.waitForFunction(() =>
+    window.coopCheckFrame?.players.some((player) => player.id === 1 && player.character === 1)
+  )
   await defined(guests[0]).keyboard.down("ArrowRight")
   await defined(guests[1]).keyboard.down("ArrowDown")
   await defined(guests[2]).keyboard.down("ArrowLeft")
@@ -86,7 +128,7 @@ try {
   assert.equal(await host.locator("#coop-clock").innerText(), stopped)
   console.log("shared paused", stopped)
   const returned = await page(rejoin)
-  await returned.locator("#coop-join").click()
+  assert.equal(await returned.locator("#coop-join").count(), 0)
   await returned.locator("#coop-play").waitFor({ state: "visible", timeout: 45000 })
   await host.waitForFunction(() => !document.querySelector("#coop-play-status")?.textContent.includes("paused"), null, {
     timeout: 30000

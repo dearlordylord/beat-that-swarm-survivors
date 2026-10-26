@@ -47,6 +47,7 @@ let connectionState = Connection.fresh({ $: "Guest" }),
   selectedSetup: CoopSetup,
   hostFrame: Frame | null
 let clientDelivery = ClientDelivery.fresh(0)
+let pendingSetup: CoopSetup | null = null
 let failureDiagnostic: Record<string, unknown> | null
 const buildVersion = fetch("./version.json")
   .then(async (response) => {
@@ -505,6 +506,7 @@ function connectionAction(action: BendABI.CoopConnection.Action, envelope?: Snap
       predictionClock = ClientClock.fresh(micros(performance.now()))
       ui.setChoicePending(false)
       ui.status("")
+      flushSetup()
       break
     case "Suspend":
       ui.setChoicePending(true)
@@ -601,6 +603,22 @@ function sendAction(action: BendABI.CoopSession.Action) {
     return true
   }
 }
+function flushSetup() {
+  const setup = pendingSetup
+  if (!setup || role !== "guest" || roomStarted) return
+  if (
+    sendAction({
+      $: "Setup",
+      character: setup.character,
+      arcana: setup.arcana,
+      meta: setup.meta,
+      allowedWeapons: setup.allowedWeapons
+    })
+  ) {
+    pendingSetup = null
+    flushClientDelivery()
+  }
+}
 function flushClientDelivery() {
   if (role !== "guest" || !connected) return
   const prepared = ClientDelivery.prepare(clientDelivery)
@@ -634,6 +652,7 @@ async function connect(
   ui.role(kind)
   sequence = 0
   selectedSetup = setup
+  pendingSetup = null
   const requestedSession = invitation.session ?? new URL(location.href).searchParams.get("session")
   if (kind === "guest" && requestedSession === null) throw Error("Open the complete invitation link.")
   sessionId = kind === "host" ? random() : Number(requestedSession)
@@ -710,6 +729,7 @@ async function connect(
         ui.status("Connected. Checking party compatibility…", { busy: true })
         inputTimer = setInterval(() => {
           advancePrediction()
+          flushSetup()
           flushClientDelivery()
         }, 50)
       } else if (event.type === "message") {
@@ -817,6 +837,7 @@ function cleanup() {
   host?.close()
   host = null
   roomStarted = false
+  pendingSetup = null
   roomRunning = false
   inputEpoch = 0
   clearTimeout(connectDeadline)
@@ -852,7 +873,13 @@ function cleanup() {
 }
 const ui = new CoopUI({
   onHost: (setup) => connect("host", null, setup).catch(showError),
-  onJoin: (ticket, setup, invitation) => connect("guest", ticket, setup, invitation).catch(showError),
+  onRetry: () => joinInvitation(),
+  onSetupChange: (setup) => {
+    if (role !== "guest" || roomStarted) return
+    selectedSetup = setup
+    pendingSetup = setup
+    flushSetup()
+  },
   onStart: () => host?.start(),
   onInput: (value) => {
     advancePrediction()
@@ -867,6 +894,13 @@ const ui = new CoopUI({
     ui.reset()
   }
 })
+function joinInvitation() {
+  const url = new URL(location.href)
+  const ticket = url.searchParams.get("join") ?? new URLSearchParams(url.hash.slice(1)).get("join")
+  if (ticket === null) return
+  return connect("guest", ticket, ui.setup(), { session: url.searchParams.get("session") }).catch(showError)
+}
+void joinInvitation()
 // A browser may suspend the host. Surface it; do not claim workers prevent it.
 setInterval(() => {
   if (

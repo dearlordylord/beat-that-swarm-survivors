@@ -1,4 +1,4 @@
-import { escapeHtml as esc, displayText, defined, errorMessage } from "./host-values.mts"
+import { escapeHtml as esc, defined, errorMessage } from "./host-values.mts"
 import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { Setup, SetupKind, Profile } from "./profile.mts"
 import { reviveSeconds, type Offer, type Frame, type Player } from "./frame.mts"
@@ -29,7 +29,8 @@ export interface CoopLobby {
 export interface CoopCallbacks {
   onHost?: (setup: CoopSetup) => unknown
   onStart?: () => unknown
-  onJoin?: (ticket: string, setup: CoopSetup, invitation: { session: string | null }) => unknown
+  onRetry?: () => unknown
+  onSetupChange?: (setup: CoopSetup) => void
   onLeave?: () => unknown
   onInput?: (input: { x: number; y: number }) => void
   onChoice?: (choice: { round: number; index: number }) => unknown
@@ -61,17 +62,6 @@ function touchDirection(x: number, y: number, radius: number) {
     x: Math.abs(x) > Math.abs(y) * diagonalThreshold ? Math.sign(x) : 0,
     y: Math.abs(y) > Math.abs(x) * diagonalThreshold ? Math.sign(y) : 0
   }
-}
-function invitationTicket(value: unknown, base = globalThis.location?.href) {
-  const text = displayText(value || "").trim()
-  try {
-    const url = new URL(text, base)
-    const ticket = url.searchParams.get("join") ?? new URLSearchParams(url.hash.slice(1)).get("join")
-    if (ticket !== null) return ticket
-  } catch {
-    /* A raw transport ticket is also accepted by the connection adapter. */
-  }
-  return text
 }
 function offerPresentation(offer: Offer) {
   const item =
@@ -198,12 +188,14 @@ export class CoopUI {
         )
         .join("")
       select.value = String(initial[kind])
-      on(select, "change", () => this.updateSetup())
+      on(select, "change", () => {
+        this.updateSetup()
+        this.callbacks.onSetupChange?.(this.setup())
+      })
     }
     this.updateSetup()
     if (join) {
-      this.$("#coop-ticket").value = window.location.href
-      this.status("Invitation ready. Choose your survivor, then join.")
+      this.status("Joining the party automatically…", { busy: true })
     }
     on(this.$("#coop-setup-preview"), "click", (event) => this.selectSetup(event))
     on(this.$("#coop-host"), "click", () => this.invoke(() => this.callbacks.onHost?.(this.setup())))
@@ -214,17 +206,9 @@ export class CoopUI {
       if (event.target === this.$("#coop-invitation")) this.closeInvitation()
     })
     on(this.$("#coop-close-room"), "click", () => this.invoke(() => this.callbacks.onLeave?.()))
-    on(this.$("#coop-join-form"), "submit", (event) => {
-      event.preventDefault()
-      const source = this.$("#coop-ticket").value
-      let session = new URL(window.location.href).searchParams.get("session")
-      try {
-        session = new URL(source).searchParams.get("session") ?? session
-      } catch {}
-      void this.invoke(() =>
-        this.callbacks.onJoin?.(invitationTicket(source, window.location.href), this.setup(), { session })
-      )
-    })
+    on(this.$("#coop-retry"), "click", () => this.invoke(() => this.callbacks.onRetry?.()))
+    on(document, "pointerdown", () => this.audio.unlock(), { once: true })
+    on(document, "keydown", () => this.audio.unlock(), { once: true })
     on(this.$("#coop-copy"), "click", () => this.copyInvitation())
     on(this.$("#coop-share"), "click", async () => {
       const url = this.$("#coop-invite-link").value
@@ -373,6 +357,7 @@ export class CoopUI {
   selectSetup(event: MouseEvent) {
     const button = event.target instanceof Element ? event.target.closest("button") : null
     if (!button || button.disabled || this.$("#coop-setup-fields").disabled) return
+    const before = this.setup()
     if (button.dataset.menuPanel) {
       this.openPanel = this.openPanel === button.dataset.menuPanel ? null : button.dataset.menuPanel
       this.pendingUnlock = null
@@ -407,6 +392,14 @@ export class CoopUI {
         break
       }
     this.updateSetup()
+    const after = this.setup()
+    if (
+      before.character !== after.character ||
+      before.arcana !== after.arcana ||
+      before.meta !== after.meta ||
+      before.allowedWeapons !== after.allowedWeapons
+    )
+      this.callbacks.onSetupChange?.(after)
     this.$("#coop-setup-preview").querySelector<HTMLElement>("[data-unlock-details]")?.focus({ preventScroll: true })
   }
   openInvitation() {
@@ -477,12 +470,13 @@ export class CoopUI {
   status(text: string, { busy = false, error = false } = {}) {
     this.$("#coop-status").textContent = text
     if (this.entryRole === "guest" && !this.frame) {
-      this.$("#coop-join-title").textContent = error ? "Could not connect" : "Your place is ready?"
+      this.$("#coop-join-title").textContent = error ? "Could not connect" : busy ? "Joining the party" : "Your party"
       this.$("#coop-join-detail").textContent = text || "Waiting for the host to confirm your place."
     }
     this.$("#coop-status").dataset.error = String(error)
     this.$("#coop-play-status").textContent = text
-    for (const selector of ["#coop-host", "#coop-join"])
+    this.$("#coop-retry").hidden = !error
+    for (const selector of ["#coop-host", "#coop-retry"])
       defined(this.document.querySelector<HTMLButtonElement>(selector)).disabled = busy
     this.$("#coop-lobby").setAttribute("aria-busy", String(busy))
     if (error && !this.frame && !this.$("#coop-invite-link").value) {
@@ -561,7 +555,8 @@ export class CoopUI {
     if (!lobby.started)
       this.status(lobby.canStart ? "Party ready. The host can start the run." : "Waiting for the party to be ready.")
     if (this.entryRole === "guest") {
-      this.$("#coop-join").hidden = true
+      this.$("#coop-retry").hidden = true
+      this.$("#coop-setup-fields").disabled = lobby.started
       this.$("#coop-join-title").textContent = "You’re in the party"
       this.$("#coop-join-detail").textContent = lobby.started
         ? "The run is starting."
@@ -705,7 +700,7 @@ export class CoopUI {
     this.$("#coop-party-roster").innerHTML = ""
     this.$("#coop-party-count").textContent = ""
     defined(this.document.querySelector<HTMLButtonElement>("#coop-start")).disabled = true
-    this.$("#coop-join").hidden = false
+    this.$("#coop-retry").hidden = true
     this.$("#coop-invite-link").value = ""
     this.$("#coop-room-title").textContent = "Host a run"
     this.$("#coop-host-help").textContent = "You choose the stage. Each friend chooses their survivor."
@@ -717,7 +712,9 @@ export class CoopUI {
     this.pendingUnlock = null
     this.updateSetup()
     this.status(
-      this.entryRole === "guest" ? "Choose your survivor, then join your friend." : "Choose your survivor to begin."
+      this.entryRole === "guest"
+        ? "Opening an invitation joins the party automatically."
+        : "Choose your survivor to begin."
     )
   }
   dispose() {

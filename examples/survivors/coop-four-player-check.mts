@@ -22,7 +22,8 @@ const [{ default: Core }, { default: Lobby }, { default: Session }, { default: Q
     "seats",
     "leave",
     "pause",
-    "input_epoch"
+    "input_epoch",
+    "can_configure"
   ]),
   bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "receive_peer"]),
   bendModule<BendABI.CoopInputQueue.API>()(url("coop-input-queue"), ["fresh", "push_active"])
@@ -81,11 +82,15 @@ for (const id of [0, 1, 2, 3]) {
   }
 }
 let lobby = Lobby.fresh(0)
+assert.equal(Lobby.can_configure(lobby, 1), true)
+assert.equal(Lobby.can_configure(lobby, 0), false)
+assert.equal(Lobby.can_configure(lobby, 4), false)
 assert.equal(Lobby.can_start(lobby), false)
 for (const player of [1, 2, 3])
   lobby = Lobby.update(lobby, { $: "Seat", player, character: player, ready: true, connected: true })
 assert.equal(Lobby.can_start(lobby), true)
 lobby = Lobby.start(lobby)
+assert.equal(Lobby.can_configure(lobby, 1), false)
 assert.equal(Lobby.running(lobby), true)
 assert.equal(Lobby.admit(lobby, 4), false)
 lobby = Lobby.update(lobby, { $: "Seat", player: 2, character: 2, ready: false, connected: false })

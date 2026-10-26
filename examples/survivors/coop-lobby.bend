@@ -16,6 +16,8 @@ def contains(rows: List<&2,Seat>,+player: U32) -> Bool:
 def admit(+state: State,+player: U32) -> Bool:
   match state:
     case State{started,+rows,_}: Bool.and(Bool.and(U32.is_gt(player,0),U32.is_lt(player,4)),Bool.or(Bool.not(started),contains(rows,player)))
+def can_configure(+state: State,+player: U32) -> Bool:
+  Bool.and(Bool.not(started(state)),admit(state,player))
 def put(rows: List<&2,Seat>,+seat: Seat) -> List<&2,Seat>:
   match rows seat:
     case [] seat: [seat]

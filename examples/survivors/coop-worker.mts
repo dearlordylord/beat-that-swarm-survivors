@@ -192,6 +192,19 @@ function prepareWorld(peer: Peer, action: Extract<BendABI.CoopSession.Action, { 
     reject(peer, "SetupFailed", error)
   }
 }
+function rebuildLobbyWorld() {
+  const s = initial.setup
+  packet(Game.core_start(s.character, s.meta, initial.seed))
+  packet(Game.core_configure(core, s.stage, s.mode, s.arcana))
+  packet(Game.core_configure_unlocks(core, 0, s.allowedWeapons))
+  for (const member of peers.values()) {
+    const setup = member.setup
+    if (member.attached && setup)
+      packet(
+        Game.core_attach_player(core, member.player, setup.character, setup.meta, setup.arcana, setup.allowedWeapons)
+      )
+  }
+}
 function acceptCommand(command: BendABI.CoopSession.Command, player: number) {
   const peer = peers.get(player)
   const action = command.action
@@ -234,8 +247,16 @@ function acceptCommand(command: BendABI.CoopSession.Command, player: number) {
   } else if (action.$ === "Choice") {
     packet(Game.core_choose(core, player, action.round, action.index))
     publish()
-  } else if (action.$ === "Setup" && peer && handshake(peer, { $: "Setup" }).$ === "PrepareWorld")
-    prepareWorld(peer, action)
+  } else if (action.$ === "Setup" && peer) {
+    if (Connection.running(peer.gate)) {
+      if (!Lobby.can_configure(lobby, peer.player)) return
+      peer.setup = action
+      peer.character = action.character
+      rebuildLobbyWorld()
+      updateSeat(peer)
+      publish()
+    } else if (handshake(peer, { $: "Setup" }).$ === "PrepareWorld") prepareWorld(peer, action)
+  }
 }
 function accept(text: string, player: number) {
   const decoded = ClientDelivery.decode(text)
@@ -390,24 +411,7 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
           lobby = Lobby.leave(lobby, peer.player)
           peer.attached = false
           peer.setup = null
-          const s = initial.setup
-          packet(Game.core_start(s.character, s.meta, initial.seed))
-          packet(Game.core_configure(core, s.stage, s.mode, s.arcana))
-          packet(Game.core_configure_unlocks(core, 0, s.allowedWeapons))
-          for (const member of peers.values()) {
-            const setup = member.setup
-            if (member.attached && setup)
-              packet(
-                Game.core_attach_player(
-                  core,
-                  member.player,
-                  setup.character,
-                  setup.meta,
-                  setup.arcana,
-                  setup.allowedWeapons
-                )
-              )
-          }
+          rebuildLobbyWorld()
           emitLobby()
         }
         publish()
