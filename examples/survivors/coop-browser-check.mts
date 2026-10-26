@@ -144,7 +144,10 @@ try {
   )
   assert.equal(await host.evaluate(() => window.coopCheckFrame?.stage), 1)
   assert.equal(await host.evaluate(() => window.coopCheckFrame?.mode), 1)
-  assert.equal(await host.locator("#coop-setup-fields").isDisabled(), true)
+  assert.equal(
+    await host.locator("#coop-setup-fields").evaluate((fields: HTMLFieldSetElement) => fields.disabled),
+    true
+  )
   await defined(guests[0]).keyboard.down("ArrowRight")
   await defined(guests[1]).keyboard.down("ArrowDown")
   await defined(guests[2]).keyboard.down("ArrowLeft")
