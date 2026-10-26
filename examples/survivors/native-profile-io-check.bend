@@ -25,10 +25,15 @@ def raw_profile(text: String) -> IO(Unit):
   do IO<Unit>:
     opened : Result<&1,&1,U32 & String,File> <- File.open("nightfall-profile.txt","w")
     raw_opened(opened,text)
+def saved(result: Storage.SaveResult) -> IO(Unit):
+  match result:
+    case Storage.Saved{}: IO.print("PASS native profile save completed")
+    case Storage.SaveFailed{error}: IO.die(Unit,1,error)
 def main() -> IO(Unit):
   +profile = P.stamp(P.put(P.fresh(),0,2500),500)
   do IO<Unit>:
-    Storage.save(profile)
+    result: Storage.SaveResult <- Storage.save(profile)
+    saved(result)
     +loaded : P.Profile <- Storage.load()
     expect(String.eq(Codec.encode(loaded),Codec.encode(profile)),"native file persistence")
     expect(Bool.and(P.settled(loaded),U32.is_eq(P.last_seed(loaded),P.last_seed(profile))),"terminal receipt survives file persistence")

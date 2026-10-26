@@ -32,36 +32,61 @@ def load() -> IO(E.Profile):
   do IO<E.Profile>:
     opened : Result<&1,&1,U32 & String,File> <- File.open("nightfall-profile.txt","r")
     loaded(opened)
-def moved(result: Result<&1,&1,U32 & String,U32 & (String & String)>) -> IO(Unit):
+type SaveResult is Data:
+  Saved{}
+  SaveFailed{error: String}
+def save_failed(stage: String,code: U32,error: String) -> SaveResult:
+  SaveFailed{"Could not save native profile: " ++ stage ++ " failed (" ++ U32.show(code) ++ "): " ++ error}
+def verified_matches(matches: Bool) -> SaveResult:
+  match matches:
+    case True{}: Saved{}
+    case False{}: SaveFailed{"Could not save native profile: saved file contents differ."}
+def verified_text(result: Result<&1,&1,U32 & String,String>,expected: String) -> SaveResult:
   match result:
-    case Fail{_}: IO.print_err("Could not save native profile: replacing file failed.")
-    case Done{(status,(_,error))}:
-      IO.print_err(error ++ U32.show(status))
-def moved_status(result: Result<&1,&1,U32 & String,U32 & (String & String)>) -> IO(Unit):
+    case Fail{(code,error)}: save_failed("reading saved file",code,error)
+    case Done{text}: verified_matches(String.eq(text,expected))
+def verified_read(read: File & Result<&1,&1,U32 & String,String>,expected: String) -> IO(SaveResult):
+  match read:
+    case (file,result):
+      do IO<SaveResult>:
+        File.close(file)
+        return verified_text(result,expected)
+def verified(opened: Result<&1,&1,U32 & String,File>,expected: String) -> IO(SaveResult):
+  match opened:
+    case Fail{(code,error)}: IO.pure(SaveResult,save_failed("opening saved file",code,error))
+    case Done{file}:
+      do IO<SaveResult>:
+        read : File & Result<&1,&1,U32 & String,String> <- File.read(file,8192)
+        verified_read(read,expected)
+def moved_status(result: Result<&1,&1,U32 & String,U32 & (String & String)>,expected: String) -> IO(SaveResult):
   match result:
-    case Done{(0,_)}: IO.pure(Unit,Unit{})
-    case result: moved(result)
-def saved_result(result: Result<&1,&1,U32 & String,Unit>) -> IO(Unit):
+    case Fail{(code,error)}: IO.pure(SaveResult,save_failed("replacing file",code,error))
+    case Done{(0,_)}:
+      do IO<SaveResult>:
+        opened : Result<&1,&1,U32 & String,File> <- File.open("nightfall-profile.txt","r")
+        verified(opened,expected)
+    case Done{(status,(_,error))}: IO.pure(SaveResult,save_failed("replacing file",status,error))
+def saved_result(result: Result<&1,&1,U32 & String,Unit>,expected: String) -> IO(SaveResult):
   match result:
-    case Fail{_}: IO.print_err("Could not save native profile: writing file failed.")
+    case Fail{(code,error)}: IO.pure(SaveResult,save_failed("writing file",code,error))
     case Done{_}:
-      do IO<Unit>:
+      do IO<SaveResult>:
         result : Result<&1,&1,U32 & String,U32 & (String & String)> <- Process.run("/bin/mv",["-f","nightfall-profile.tmp","nightfall-profile.txt"],"",4096,2000)
-        moved_status(result)
-def saved_write(written: File & Result<&1,&1,U32 & String,Unit>) -> IO(Unit):
+        moved_status(result,expected)
+def saved_write(written: File & Result<&1,&1,U32 & String,Unit>,expected: String) -> IO(SaveResult):
   match written:
     case (file,result):
-      do IO<Unit>:
+      do IO<SaveResult>:
         File.close(file)
-        saved_result(result)
-def saved(opened: Result<&1,&1,U32 & String,File>,profile: E.Profile) -> IO(Unit):
+        saved_result(result,expected)
+def saved(opened: Result<&1,&1,U32 & String,File>,+text: String) -> IO(SaveResult):
   match opened:
-    case Fail{_}: IO.print_err("Could not save native profile: opening file failed.")
+    case Fail{(code,error)}: IO.pure(SaveResult,save_failed("opening file",code,error))
     case Done{file}:
-      do IO<Unit>:
-        written : File & Result<&1,&1,U32 & String,Unit> <- File.write(file,Codec.encode(profile))
-        saved_write(written)
-def save(profile: E.Profile) -> IO(Unit):
-  do IO<Unit>:
+      do IO<SaveResult>:
+        written : File & Result<&1,&1,U32 & String,Unit> <- File.write(file,text)
+        saved_write(written,text)
+def save(profile: E.Profile) -> IO(SaveResult):
+  do IO<SaveResult>:
     opened : Result<&1,&1,U32 & String,File> <- File.open("nightfall-profile.tmp","w")
-    saved(opened,profile)
+    saved(opened,Codec.encode(profile))

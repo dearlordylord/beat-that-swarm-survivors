@@ -18,7 +18,12 @@ import native-economy.bend as P
 import native-profile.bend as ProfileIO
 import viewport.bend as V
 
-type Ui is Data: Ui{screen: U32,tab: U32,page: U32,selected: U32,character: U32,stage: U32,arcana: U32,mode: U32,paused: U32,keys: U32,quit: U32,dirty: U32,recorded: U32,frames: U32,clock: Nat,lag: U32}
+type SaveState is Data:
+  Clean{}
+  Pending{}
+  Failed{}
+
+type Ui is Data: Ui{screen: U32,tab: U32,page: U32,selected: U32,character: U32,stage: U32,arcana: U32,mode: U32,paused: U32,keys: U32,quit: U32,dirty: SaveState,recorded: U32,frames: U32,clock: Nat,lag: U32}
 type Native is Type: Native{game: G.Packet,ui: Ui,profile: P.Profile}
 def ui_screen(ui: Ui) -> U32:
   match ui:
@@ -53,7 +58,7 @@ def ui_keys(ui: Ui) -> U32:
 def ui_quit(ui: Ui) -> U32:
   match ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: quit
-def ui_dirty(ui: Ui) -> U32:
+def ui_dirty(ui: Ui) -> SaveState:
   match ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: dirty
 def ui_recorded(ui: Ui) -> U32:
@@ -95,7 +100,7 @@ def set_keys(ui: Ui,value: U32) -> Ui:
 def set_quit(ui: Ui,value: U32) -> Ui:
   match ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,value,dirty,recorded,frames,clock,lag}
-def set_dirty(ui: Ui,value: U32) -> Ui:
+def set_dirty(ui: Ui,value: SaveState) -> Ui:
   match ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,value,recorded,frames,clock,lag}
 def set_recorded(ui: Ui,value: U32) -> Ui:
@@ -172,7 +177,7 @@ def set_lag(ui: Ui,value: U32) -> Ui:
   match ui:
     case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,value}
 
-def initial_ui() -> Ui: Ui{0,2,0,0,0,0,0,0,0,0,0,0,0,0,0n,0}
+def initial_ui() -> Ui: Ui{0,2,0,0,0,0,0,0,0,0,0,Clean{},0,0,0n,0}
 def initial_game(profile: P.Profile) -> G.Packet: G.start(0,P.meta(profile))
 def select_color(selected: Bool,yes: U32,no: U32) -> U32:
   match selected:
@@ -522,7 +527,7 @@ def configured(packet: G.Packet,+ui: Ui,+profile: P.Profile) -> G.Packet:
 def begin(state: Native) -> Native:
   match state:
     case Native{game,+ui,+profile}:
-      Native{configured(G.start(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),1),0),0),P.begin(profile)}
+      Native{configured(G.start(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),Pending{}),0),0),P.begin(profile)}
 
 def active_category(screen: U32,tab: U32,+direction: U32) -> U32:
   match screen:
@@ -557,7 +562,7 @@ def buy_or_equip(state: Native) -> Native:
   match state:
     case Native{game,+ui,+profile}:
       +bought = P.purchase(profile,ui_tab(ui),ui_selected(ui))
-      Native{game,set_dirty(equip(P.allowed(bought,ui_tab(ui),ui_selected(ui)),ui_tab(ui),ui_selected(ui),ui),1),bought}
+      Native{game,set_dirty(equip(P.allowed(bought,ui_tab(ui),ui_selected(ui)),ui_tab(ui),ui_selected(ui),ui),Pending{}),bought}
 
 def menu_key(code: U32,state: Native) -> Native:
   match code state:
@@ -660,7 +665,7 @@ def abandon(paused: U32,state: Native) -> Native:
   match paused state:
     case 1 Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},ui,profile}:
       +terminal = abandoned_run(run)
-      Native{G.Packet{G.State{world,terminal,offers,snapshots,pending}},set_dirty(set_recorded(set_keys(set_paused(set_screen(set_tab(set_selected(set_page(ui,0),0),2),0),0),0),1),1),ProfileIO.record(profile,terminal)}
+      Native{G.Packet{G.State{world,terminal,offers,snapshots,pending}},set_dirty(set_recorded(set_keys(set_paused(set_screen(set_tab(set_selected(set_page(ui,0),0),2),0),0),0),1),Pending{}),ProfileIO.record(profile,terminal)}
     case p state: state
 
 def command_play(code: U32,+ui: Ui,run: G.Run,state: Native) -> Native:
@@ -733,7 +738,7 @@ def frame(state: Native) -> Native:
 def settled(terminal: Bool,state: Native) -> Native:
   match terminal state:
     case False{} state: state
-    case True{} Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},ui,profile}: Native{G.Packet{G.State{world,run,offers,snapshots,pending}},set_dirty(set_recorded(ui,1),1),ProfileIO.record(profile,run)}
+    case True{} Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},ui,profile}: Native{G.Packet{G.State{world,run,offers,snapshots,pending}},set_dirty(set_recorded(ui,1),Pending{}),ProfileIO.record(profile,run)}
     case True{} state: state
 
 def settle(state: Native) -> Native:
@@ -741,16 +746,31 @@ def settle(state: Native) -> Native:
     case Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},+ui,profile}: settled(Bool.and(U32.is_eq(ui_recorded(ui),0),U32.is_le(3,run_phase(run))),Native{G.Packet{G.State{world,run,offers,snapshots,pending}},ui,profile})
     case state: state
 
-def save_dirty(dirty: U32,state: Native) -> IO(Native):
-  match dirty state:
-    case 0 state: IO.pure(Native,state)
-    case d Native{game,ui,+profile}:
+def saved_profile(result: ProfileIO.SaveResult,state: Native) -> IO(Native):
+  match result state:
+    case ProfileIO.Saved{} Native{game,ui,profile}: IO.pure(Native,Native{game,set_dirty(ui,Clean{}),profile})
+    case ProfileIO.SaveFailed{error} Native{game,ui,profile}:
       do IO<Native>:
-        Unit <- ProfileIO.save(profile)
-        IO.pure(Native,Native{game,set_dirty(ui,0),profile})
+        IO.print_err(error)
+        return Native{game,set_dirty(ui,Failed{}),profile}
+def save_profile(state: Native) -> IO(Native):
+  match state:
+    case Native{game,ui,+profile}:
+      do IO<Native>:
+        result: ProfileIO.SaveResult <- ProfileIO.save(profile)
+        saved_profile(result,Native{game,ui,profile})
+def save_quitting(quit: U32,state: Native) -> IO(Native):
+  match quit:
+    case 0: IO.pure(Native,state)
+    case _: save_profile(state)
+def save_dirty(dirty: SaveState,quit: U32,state: Native) -> IO(Native):
+  match dirty:
+    case Clean{}: IO.pure(Native,state)
+    case Pending{}: save_profile(state)
+    case Failed{}: save_quitting(quit,state)
 def persist(state: Native) -> IO(Native):
   match state:
-    case Native{game,+ui,profile}: save_dirty(ui_dirty(ui),Native{game,ui,profile})
+    case Native{game,+ui,profile}: save_dirty(ui_dirty(ui),ui_quit(ui),Native{game,ui,profile})
 def finish(quit: U32,state: Native) -> IO(Maybe<Native>):
   match quit:
     case 0: IO.pure(Maybe<Native>,Some{state})
