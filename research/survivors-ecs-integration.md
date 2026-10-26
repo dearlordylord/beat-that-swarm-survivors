@@ -252,3 +252,24 @@ of that historical failure. CI for the new diagnostics head remains pending.
 Completion evidence was published at `5d0ad0f`, and children 5–10 are closed.
 The original performance criterion and the user's accepted alternative remain
 unchanged. Parent issue 1 remains open and unmodified; no release was made.
+
+## Proof cost and finite geometry-check follow-up
+
+Source `9ea5c97` adds observed aggregate child CPU telemetry and factors the
+native receipt proof before substituting payment expressions. Its five laws
+and all runtime functions are unchanged. The bounded proof passed with
+4.084s wall time and 5.924s aggregate reaped-child CPU under CPU10/wall60.
+Six direct diagnostics commands passed; the dependency audit now reaches
+226 modules. The exact proof patch retains its earlier targeted mutant result.
+
+The user-directed removal deletes two finite executable geometry fixtures and
+their shell wrapper. There are now 232 tracked Bend files. Arena and spawn-policy
+changes remove stale comments only. This removal does not establish a universal
+floating-point proof; the README states the remaining proof scope explicitly.
+Native game functions and browser UI/schema/protocol sources are unchanged.
+
+CI on `6ebde30` recorded Bend SIGKILL(-9), no wall timeout, elapsed 6.719s and
+empty streams. Its cause remains unknown. Local process samples identify frontend
+elaboration as the dominant local cost; the small proof factoring is not evidence
+that the historical CI cause is fixed. New-head CI remains pending. Evidence is
+retained in `/tmp/survivors-proof-geometry-followup-9ea5c97/receipt.json`.

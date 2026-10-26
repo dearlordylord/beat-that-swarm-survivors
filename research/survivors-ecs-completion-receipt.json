@@ -2,7 +2,7 @@
   "status": "complete-under-direct-user-performance-override",
   "originalCriterionStatus": "The no-slowdown criterion failed.",
   "currentApprovedOutcome": "All functional criteria passed; the user directly accepted the original failed performance criterion.",
-  "publicationStatus": "Completion evidence published at 5d0ad0f; children 5\u201310 closed. Global diagnostics follow-up awaits its own CI and merge.",
+  "publicationStatus": "Completion evidence published and children 5\u201310 closed. Diagnostics, proof-cost and geometry-check follow-ups await new-head CI and merge.",
   "delivery": [
     "Explicit enemy, projectile and pickup component authority; no universal Body/Motion or permanent old-format adapters.",
     "Queries and access contracts remain beside systems; storage wiring is separate.",
@@ -342,7 +342,7 @@
     "parentIssue": 1,
     "parentIssueAction": "Leave open and unmodified.",
     "releasePublication": false,
-    "subsequentCommitRule": "Evidence-only completion commit 5d0ad0f was followed by separately reviewed verification-diagnostics tooling changes. Native/Bend and browser UI/schema/protocol closures remain unchanged.",
+    "subsequentCommitRule": "After evidence-only commit 5d0ad0f, separately reviewed verification diagnostics, proof-only factoring and finite geometry-check removals followed. Native game functions and browser UI/schema/protocol remain unchanged.",
     "qualifiedCodeSource": "c9c9ae866b161aab3627cf15c048d12813d8ced5",
     "qualifiedBrowserSource": "15b52cd4aa9c29449f93008e1529b756b1dcdd75",
     "qualifiedUiSource": "0caf4861125111d24d5e311f5653737c49ccf978",
@@ -494,5 +494,34 @@
     },
     "newHeadCi": "Pending; local diagnostic and TypeScript checks are not a claim that CI passed.",
     "report": "research/verification-diagnostics.md"
+  },
+  "proofAndGeometryFollowup": {
+    "source": "9ea5c97",
+    "currentTrackedBendFiles": 232,
+    "changes": {
+      "removedFiniteFixtures": [
+        "examples/survivors/geometry-game-check.bend",
+        "examples/survivors/geometry-spawn-check.bend"
+      ],
+      "removedWrapper": "examples/survivors/check-geometry.sh",
+      "proofFactoring": "examples/survivors/native-record/PROOF.bend: same five laws, abstract paid profile before substituting full payment expressions.",
+      "commentOnly": [
+        "examples/survivors/arena.bend",
+        "examples/survivors/spawn-policy.bend"
+      ]
+    },
+    "runtimeBinding": "Native game functions, browser UI, schemas and protocol remain unchanged. File-count reduction reflects deleted finite executable checks, not a new universal floating-point proof.",
+    "checks": {
+      "sixDirectDiagnosticCommands": "PASS",
+      "dependencyAudit": "PASS: 226 modules",
+      "focusedNativeRecordProof": "PASS under unchanged CPU10/wall60; wall4.084s, aggregate reaped-child CPU5.924s (user5.656s, system0.268s)",
+      "targetedSemanticMutant": "Prior1/1PASS rebound to byte-identical proof patch.",
+      "receipt": "/tmp/survivors-proof-geometry-followup-9ea5c97/receipt.json",
+      "receiptSha256": "437ffce25359ca6a9c02afbb5f894b81f7927ad4044f7eaf44ad522a94aeaa62"
+    },
+    "costInterpretation": "Local sampled evidence places most cost in Bend frontend elaboration. Factoring modestly reduced local cost; it does not establish the cause or resolution of the CI termination.",
+    "ci6ebde30": "Recorded Bend child SIGKILL(-9), wall timeout false, elapsed6.719s, empty stdout/stderr. Signal cause remains unknown.",
+    "telemetry": "Existing process helper now reports observed aggregate reaped-child user/system CPU and successful proof wall/CPU timing; aggregate CPU is not a per-process limit or cause verdict.",
+    "newHeadCi": "Pending"
   }
 }
