@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Compare frozen native balance receipts; no game execution or policy mutation.
+"""Candidate for deletion: optional research tooling, not required to build or run the game.
+
+Compare frozen native balance receipts; no game execution or policy mutation.
 
 Reports observations, not causation or an automatic judgement of enjoyment.
 """

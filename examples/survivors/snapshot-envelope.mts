@@ -2,7 +2,7 @@ import type { Spec, Fields } from "./observation-schema.mts"
 import type { SnapshotEnvelope } from "./coop-boundary.mts"
 import { defined, object } from "./host-values.mts"
 // The one untrusted snapshot boundary. Local Bend results never call this parser.
-import { roots, schema } from "./observation-schema.generated.mts"
+import { roots, schema } from "./snapshot-schema.mts"
 
 const MAX_ROWS = 16384
 function record(fields: Fields, value: unknown, state: { nodes: number }, depth: number) {

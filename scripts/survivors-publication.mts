@@ -44,7 +44,6 @@ const scopes = [
   "types",
   "scripts/generate-bend-types.py",
   "scripts/generate-bend-codecs.mts",
-  "scripts/generate-observation-schema.py",
   "scripts/generate-native-survivor-art.mts",
   "scripts/native-check-cache-key.py",
   "scripts/write-survivors-version.mts",

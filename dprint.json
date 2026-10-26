@@ -18,8 +18,7 @@
     "**/dist",
     "vendor",
     "examples/survivors/content.mts",
-    "examples/survivors/bend-codecs.generated.mts",
-    "examples/survivors/observation-schema.generated.mts"
+    "examples/survivors/bend-codecs.generated.mts"
   ],
   "plugins": [
     "https://plugins.dprint.dev/oxc-0.32.0.wasm"

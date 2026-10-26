@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate host declarations from the local Bend ABI's algebraic type signatures.
+"""Temporary host declarations from local Bend ABI signatures.
+
+Remove this generator after extending and adopting bend-emit:
+https://github.com/dearlordylord/bendvy-ecs-examples/issues/14
 
 Bend remains the contract owner. Compiler-only types and external ECS storage are
 opaque to the host. This is not a Bend parser: unsupported ABI declarations fail

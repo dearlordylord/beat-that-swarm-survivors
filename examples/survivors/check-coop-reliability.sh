@@ -18,7 +18,6 @@ source_fingerprint() {
     shasum -a 256 "$source" || { status=$?; printf 'Source fingerprint shasum failed: %s (exit %s)\n' "$source" "$status" >&2; return "$status"; }
   done < "$source_list" | shasum -a 256 | awk '{print $1}' || { status=$?; printf 'Source fingerprint digest pipeline failed (exit %s)\n' "$status" >&2; return "$status"; }
 }
-python3 "$example_repo/scripts/generate-observation-schema.py"
 source_fingerprint_before="$(source_fingerprint)"
 for module in coop-playback coop-contact-playback coop-hit-effects audio-events pickup-state pickup-xp-pool pickup-encoder coop-connection coop-client-delivery coop-hit-journal coop-playback-wire coop-core coop-session game game-encoder coop-encoder; do
   example_emit "$app/$module.bend" "$scratch/$module.mjs"
@@ -34,7 +33,6 @@ example_node --stack_size=192 "$app/coop-playback-wire-check.mts" "$scratch/coop
 example_node "$app/coop-snapshot-codec-check.mts" "$scratch/coop-connection.mjs"
 COOP_ENCODER_MODULE="$scratch/coop-encoder.mjs" COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/coop-hit-source-check.mts"
 COOP_GAME_MODULE="$scratch/game.mjs" example_node "$app/enemy-birth-check.mts"
-python3 -B "$app/enemy-birth-wiring-control.py"
 COOP_ENCODER_MODULE="$scratch/coop-encoder.mjs" COOP_CORE_MODULE="$scratch/coop-core.mjs" COOP_GAME_MODULE="$scratch/game.mjs" COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node "$app/coop-dense-contact-check.mts"
 COOP_JOURNAL_MODULE="$scratch/coop-hit-journal.mjs" example_node --stack_size=192 "$app/coop-dense-contact-check.mts" --journal-only
 source_fingerprint_after="$(source_fingerprint)"

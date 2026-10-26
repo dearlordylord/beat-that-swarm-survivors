@@ -22,5 +22,3 @@ __pycache__/
 
 # Runtime boundary codecs derived from the checked Bend ABI
 examples/survivors/bend-codecs.generated.mts
-
-examples/survivors/observation-schema.generated.mts

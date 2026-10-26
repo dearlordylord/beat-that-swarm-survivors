@@ -19,7 +19,6 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 mkdir -p "$staging_dir/public/dist"
-python3 "$example_repo/scripts/generate-observation-schema.py"
 example_emit "$app_dir/menu-catalog.bend" "$app_dir/dist/menu-catalog.mjs"
 example_emit "$app_dir/menu-progression.bend" "$app_dir/dist/menu-progression.mjs"
 "$NODE" "$app_dir/generate-menu-content.mts"

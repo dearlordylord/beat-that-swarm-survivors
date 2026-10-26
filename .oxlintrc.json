@@ -13,7 +13,7 @@
     ".typescript/**",
     "examples/survivors/content.mts",
     "examples/survivors/bend-codecs.generated.mts",
-    "examples/survivors/observation-schema.generated.mts"
+    "**/.astro/**"
   ],
   "rules": {
     "typescript/no-explicit-any": "error",
@@ -47,6 +47,22 @@
       "rules": {
         "no-var": "off"
       }
+    },
+    {
+      "files": [
+        "examples/**/*.{js,mjs,cjs,jsx}",
+        "tools/**/*.{js,mjs,cjs,jsx}",
+        "scripts/**/*.{js,mjs,cjs,jsx}"
+      ],
+      "rules": {
+        "source-policy/no-authored-javascript": "error"
+      }
+    }
+  ],
+  "jsPlugins": [
+    {
+      "name": "source-policy",
+      "specifier": "./scripts/source-policy.mts"
     }
   ]
 }
