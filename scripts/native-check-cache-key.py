@@ -29,8 +29,7 @@ def cache_key(repo, bend, clang, runtime_roots):
         add(role, str(resolved).encode())
         add(resolved, resolved.read_bytes())
         if role != 'bend':
-            # Compiler identification previously had no wall bound.
-            result = run_process([str(resolved), "--version"], cwd=repo, wall_timeout_seconds=30)
+            result = run_process([str(resolved), "--version"], cwd=repo)
             if not result.normal_exit or result.returncode != 0:
                 raise RuntimeError(format_failure(result, "native cache compiler version failed"))
             add("version", result.stdout.encode())

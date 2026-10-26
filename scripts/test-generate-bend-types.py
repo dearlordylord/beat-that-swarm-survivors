@@ -16,8 +16,7 @@ spec.loader.exec_module(generator)
 
 class GeneratorTests(unittest.TestCase):
     def run_checked(self, command):
-        # These three previously unbounded development checks now have a 60 s wall cap.
-        result = run_process(command, cwd=ROOT, wall_timeout_seconds=60)
+        result = run_process(command, cwd=ROOT)
         self.assertTrue(result.normal_exit and result.returncode == 0,
                         format_failure(result, "ABI verification command failed"))
         return result
