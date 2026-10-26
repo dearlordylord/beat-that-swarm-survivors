@@ -6,6 +6,10 @@
     "bendvy-ecs-core@0.1.0.1": {
       "contentHash": "0xf435da9e535b3846d643dad16580e35f",
       "manifestSha256": "f435da9e535b3846d643dad16580e35fb9ae485317226d9d0325ad1dcaa1fdb0"
+    },
+    "bendvy-ecs-core@0.1.0.2": {
+      "contentHash": "0xb2b0f04555daca474f0f77d0966945c9",
+      "manifestSha256": "b2b0f04555daca474f0f77d0966945c972904472ad9ebb634d169584f07f1b3a"
     }
   }
 }
