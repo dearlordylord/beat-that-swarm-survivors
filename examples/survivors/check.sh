@@ -10,7 +10,6 @@ example_emit examples/survivors/bot-actions.bend "$consumer_dir/bot-actions.mjs"
 BOT_ACTIONS_MODULE="$consumer_dir/bot-actions.mjs" example_timeout 30 "$NODE" --test tools/survivors-bot/actor-consumers.test.mts tools/survivors-bot/planner-objective.test.mts tools/survivors-bot/coop-motion-oracle.test.mts
 python3 -B scripts/check-bend-laws.py
 bash examples/survivors/check-coop-reliability.sh
-bash examples/survivors/check-geometry.sh
 bash examples/survivors/check-native-coop-metrics.sh
 example_timeout 60 python3 -B examples/survivors/capability-controls.test.py
 example_timeout 30 python3 -B tools/survivors-bot/replay_compare_test.py

@@ -98,7 +98,7 @@ jobs:
           bash tools/survivors-bot/native-batch.test.sh
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
-      - name: Check Bend laws and native geometry
+      - name: Check Bend proofs and integration behavior
         run: bash examples/survivors/check.sh
       - name: Build the prerendered browser page
         run: |

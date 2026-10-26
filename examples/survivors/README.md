@@ -248,10 +248,10 @@ npm run check:mutants:manual -- scripts/law-mutants/combat.json
 npm run check:mutants:manual
 ```
 
-The [native geometry check](check-geometry.sh) also exercises physical pickup,
-swept combat and the real rendered spawn footprint. Its floating-point
-observations supplement the encoded-coordinate and structural laws; they do
-not prove real-number collision arithmetic.
+The geometry laws cover encoded loot bounds, spawn admission and prediction
+padding, and contact selection policies. They do not prove universal
+floating-point collision arithmetic, physical pickup reachability through the
+full game, or the rendered spawn footprint.
 
 The [full-run controller](native-full-run.bend) drives public inputs for a native
 functional observation. A scenario observation does not prove balance or every
