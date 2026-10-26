@@ -19,7 +19,7 @@ cat > "$3" <<'BINARY'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${BENDRTS+x} != x ]]
-printf '%s %s %s %s\n' "$NIGHTFALL_BOT_PROFILE" "$NIGHTFALL_BOT_SEED" "$NIGHTFALL_BOT_TICKS" "$NIGHTFALL_BOT_SECONDS"
+printf '%s %s %s %s %s\n' "$NIGHTFALL_BOT_PROFILE" "$NIGHTFALL_BOT_SEED" "$NIGHTFALL_BOT_TICKS" "$NIGHTFALL_BOT_SECONDS" "$NIGHTFALL_BOT_PACING"
 exit "${NATIVE_EXIT:-0}"
 BINARY
 COMPILER
@@ -33,11 +33,18 @@ export FIXTURE="$fixture" BEND="$fixture/compiler" BENDVY_CLANG="$fixture/clang"
 export BENDRTS='--gpu on --threads 99'
 runner="$fixture/repo/tools/survivors-bot/visible.sh"
 bash "$runner" --profile advanced --seed 4294967295 --ticks 1800 --seconds 45 > "$fixture/actual"
-[[ $(cat "$fixture/actual") == 'advanced 4294967295 1800 45' ]]
+[[ $(cat "$fixture/actual") == 'advanced 4294967295 1800 45 realtime' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
 BENDVY_CLANG=/nonexistent/clang bash "$runner" --no-build --seed 0 > "$fixture/reuse"
-[[ $(cat "$fixture/reuse") == 'fresh 0 0 0' ]]
+[[ $(cat "$fixture/reuse") == 'fresh 0 0 0 realtime' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
+bash "$runner" --no-build --unlimited --ticks 120 > "$fixture/unlimited"
+[[ $(cat "$fixture/unlimited") == 'fresh 12345 120 0 unlimited' ]]
+NIGHTFALL_BOT_PACING=unlimited bash "$runner" --no-build > "$fixture/environment"
+[[ $(cat "$fixture/environment") == 'fresh 12345 0 0 unlimited' ]]
+if NIGHTFALL_BOT_PACING=invalid bash "$runner" --no-build >/dev/null 2>&1; then
+  echo 'Accepted invalid pacing' >&2; exit 1
+fi
 bash "$runner" --build-only > "$fixture/build-only"
 [[ $(cat "$fixture/build-only") == "Built: $fixture/repo/examples/survivors/dist/nightfall-bot" ]]
 [[ $(wc -l < "$fixture/builds") == 2 ]]

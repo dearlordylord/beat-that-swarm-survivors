@@ -50,3 +50,22 @@ mutation cases are in `scripts/law-mutants/bot-turn.json`.
 These checks establish the controller migration. They do not establish a speedup
 or a 100× simulation rate. The archived journal viewer receives no live feed
 from the new native driver.
+
+## Unlimited window pacing
+
+`visible.sh --unlimited` selects `bot-pacing.Unlimited`. It executes the shared
+driver repeatedly between rendered frames, yielding after an eight millisecond
+work slice. One expensive simulation step can exceed that slice.
+
+Native X11 runs with the same advanced profile and seed 12345 reached tick 600
+in both pacing modes. Their completion receipts matched exactly, including one
+upgrade and final position. Unlimited runs also stopped at tick 1 and at a one
+second wall limit. A native diagnostic called the unlimited frame callback four
+times without drawing; it observed ticks 2, 4, 6 and 8. This confirms that the
+callback can advance multiple simulation steps independently of display refresh.
+It does not measure headless throughput or prove full-state equivalence.
+
+Five pacing laws pass the kernel through `bot-pacing-PROOF.bend`. Five
+type-correct mutations in `scripts/law-mutants/bot-pacing.json` are rejected at
+their corresponding laws. The laws cover unrestricted readiness, the default
+sixteen millisecond deadline examples, and the eight millisecond yield examples.

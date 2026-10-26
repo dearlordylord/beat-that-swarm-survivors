@@ -13,12 +13,20 @@ Run these commands from the repository root. Native builds require Bend and the
 ```sh
 bash tools/survivors-bot/visible.sh --profile fresh --seed 12345
 bash tools/survivors-bot/visible.sh --profile advanced --seed 12345 --ticks 1800
+bash tools/survivors-bot/visible.sh --unlimited --profile advanced --ticks 1800
 ```
 
 The launcher rebuilds the current Bend sources before opening the native window.
 Close the window or press Escape to stop. `--ticks` bounds game time; `--seconds`
 bounds wall time. Zero means no bound. `--build-only` compiles without opening a
 window. `--no-build` deliberately reuses the existing binary.
+
+By default, the window runs at realtime pace. `--unlimited` removes the wait
+between simulation steps and can take multiple steps between rendered frames.
+Simulation yields to rendering and input after an eight millisecond work slice,
+or after its current step finishes if that step takes longer. Display refresh
+and rendering still cost time, so this mode is not a headless benchmark.
+`NIGHTFALL_BOT_PACING=unlimited` selects the same mode through the environment.
 
 ## Headless simulations
 

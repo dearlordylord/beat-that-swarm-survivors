@@ -7,14 +7,16 @@ profile=${NIGHTFALL_BOT_PROFILE:-fresh}
 seed=${NIGHTFALL_BOT_SEED:-12345}
 ticks=${NIGHTFALL_BOT_TICKS:-0}
 seconds=${NIGHTFALL_BOT_SECONDS:-0}
+pacing=${NIGHTFALL_BOT_PACING:-realtime}
 build=1
 build_only=0
-usage() { echo 'visible.sh [--profile fresh|advanced] [--seed U32] [--ticks U32] [--seconds N] [--no-build|--build-only]'; }
+usage() { echo 'visible.sh [--profile fresh|advanced] [--seed U32] [--ticks U32] [--seconds N] [--unlimited] [--no-build|--build-only]'; }
 while (($#)); do
   case "$1" in
     --help) usage; exit 0 ;;
     --no-build) build=0; shift ;;
     --build-only) build_only=1; shift ;;
+    --unlimited) pacing=unlimited; shift ;;
     --profile|--seed|--ticks|--seconds)
       [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       key=${1#--}; printf -v "$key" '%s' "$2"; shift 2 ;;
@@ -26,6 +28,7 @@ for key in seed ticks seconds; do
   unsigned "${!key}" || { echo "Invalid $key (expected U32)" >&2; exit 2; }
 done
 [[ $profile == fresh || $profile == advanced ]] || { echo 'Invalid profile' >&2; exit 2; }
+[[ $pacing == realtime || $pacing == unlimited ]] || { echo 'Invalid pacing' >&2; exit 2; }
 ((seconds <= 4294967)) || { echo 'Seconds must be at most 4294967.' >&2; exit 2; }
 ((build || !build_only)) || { echo '--no-build and --build-only cannot be combined.' >&2; exit 2; }
 app_dir="$PWD/examples/survivors"
@@ -49,5 +52,5 @@ if ((build_only)); then
   echo "Built: $binary"
   exit 0
 fi
-export NIGHTFALL_BOT_PROFILE=$profile NIGHTFALL_BOT_SEED=$seed NIGHTFALL_BOT_TICKS=$ticks NIGHTFALL_BOT_SECONDS=$seconds
+export NIGHTFALL_BOT_PROFILE=$profile NIGHTFALL_BOT_SEED=$seed NIGHTFALL_BOT_TICKS=$ticks NIGHTFALL_BOT_SECONDS=$seconds NIGHTFALL_BOT_PACING=$pacing
 exec "$binary"
