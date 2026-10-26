@@ -97,7 +97,7 @@ def generate(source_dir):
             if member not in type_names[target]: raise ValueError(f'{owner}: unknown imported type {source!r}')
             base = namespace(Path(target)) + '.' + member
         elif base not in type_names[owner]:
-            if base in {'Char', 'Cmp', 'Audio', 'Event', 'Image', 'File', 'Array'}:
+            if base in {'Char', 'Cmp', 'Audio', 'Event', 'Image', 'File', 'Array', 'Window', 'App'}:
                 return opaque(source, 'Base compiler-owned resource')
             if base in function_names[owner]: return opaque(source, 'higher-order compiler template reference')
             raise ValueError(f'{owner}: unknown host type {source!r}')
