@@ -63,21 +63,24 @@ def run_process(command: Sequence[str | Path], *, cwd: Path | None = None,
     def bounded():
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit_seconds, cpu_limit_seconds))
 
-    def text(output):
-        if isinstance(output, bytes):
-            return output.decode('utf-8', errors='replace')
-        return output or ''
-
     try:
-        child = subprocess.run(argv, cwd=location, env=env,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               text=True, timeout=wall_timeout_seconds,
-                               preexec_fn=bounded if cpu_limit_seconds is not None else None)
-        returncode, timed_out, error = child.returncode, False, None
-        stdout, stderr = child.stdout, child.stderr
-    except subprocess.TimeoutExpired as failure:
-        returncode, timed_out, error = None, True, None
-        stdout, stderr = text(failure.stdout), text(failure.stderr)
+        child = subprocess.Popen(argv, cwd=location, env=env,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 text=True, encoding='utf-8', errors='replace',
+                                 start_new_session=True,
+                                 preexec_fn=bounded if cpu_limit_seconds is not None else None)
+        timed_out = False
+        try:
+            stdout, stderr = child.communicate(timeout=wall_timeout_seconds)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            # This session belongs to this invocation, including its compiler/kernel children.
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = child.communicate()
+        returncode, error = child.returncode, None
     except (OSError, subprocess.SubprocessError) as failure:
         returncode, timed_out, error, stdout, stderr = None, False, f'{type(failure).__name__}: {failure}', '', ''
     return RunResult(argv, location, wall_timeout_seconds, cpu_limit_seconds,
