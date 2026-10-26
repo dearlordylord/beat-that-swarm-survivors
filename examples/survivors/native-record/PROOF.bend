@@ -5,10 +5,12 @@ import ../proof-facts.bend as F
 import LAWS.bend as Laws
 
 def Laws.receipt_stamp_exact(values,oldSeed,oldSettled,seed): {==}
-def Laws.fresh_terminal_records(profile,receipt,terminal,unseen):
-  %terminal : {P.choose(_,P.choose(P.seen(profile,R.run_seed(receipt)),profile,P.stamp(R.payment(profile,receipt),R.run_seed(receipt))),profile) == P.stamp(R.payment(profile,receipt),R.run_seed(receipt)) : P.Profile}
-  %unseen : {P.choose(_,profile,P.stamp(R.payment(profile,receipt),R.run_seed(receipt))) == P.stamp(R.payment(profile,receipt),R.run_seed(receipt)) : P.Profile}
+def fresh_settle(+profile: P.Profile,+paid: P.Profile,+seed: U32,+active: Bool,+seen: Bool,terminal: {True{} == active : Bool},unseen: {False{} == seen : Bool}) -> {P.choose(active,P.choose(seen,profile,P.stamp(paid,seed)),profile) == P.stamp(paid,seed) : P.Profile}:
+  %terminal : {P.choose(_,P.choose(seen,profile,P.stamp(paid,seed)),profile) == P.stamp(paid,seed) : P.Profile}
+  %unseen : {P.choose(_,profile,P.stamp(paid,seed)) == P.stamp(paid,seed) : P.Profile}
   {==}
+def Laws.fresh_terminal_records(profile,receipt,terminal,unseen):
+  fresh_settle(profile,R.payment(profile,receipt),R.run_seed(receipt),R.terminal(receipt),P.seen(profile,R.run_seed(receipt)),terminal,unseen)
 def stamped_settle(+seed: U32,+paid: P.Profile,+next: P.Profile) -> {P.settle(True{},seed,P.stamp(paid,seed),next) == P.stamp(paid,seed) : P.Profile}:
   match paid:
     case P.Profile{+values,_,_}:
