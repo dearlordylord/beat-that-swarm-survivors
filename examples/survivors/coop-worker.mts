@@ -1,3 +1,4 @@
+import Finish from "./dist/coop-finish.mjs"
 import { coreFrame } from "./observations.mts"
 import type { WorkerRequest, WorkerReply } from "./coop-boundary.mts"
 import { errorMessage } from "./host-values.mts"
@@ -146,7 +147,9 @@ function publishPeer(peer: Peer, observation: number, initial = false) {
     [bytes.buffer]
   )
 }
+let finished = false
 function publish(initialPeer?: Peer) {
+  if (finished) return
   const observation = ++observationSeq
   const local = packet(Game.core_observe(core, 0))
   if (!local || !("combatForecast" in local)) throw Error("Missing display observation")
@@ -169,6 +172,11 @@ function publish(initialPeer?: Peer) {
   for (const peer of peers.values()) {
     if (peer === initialPeer) publishPeer(peer, observation, true)
     else if (Connection.running(peer.gate)) publishPeer(peer, observation)
+  }
+  if (Finish.terminal(currentPhase)) {
+    finished = true
+    clearInterval(timer)
+    emit({ type: "finished", observationSeq: observation })
   }
 }
 function prepareWorld(peer: Peer, action: Extract<BendABI.CoopSession.Action, { $: "Setup" }>) {
@@ -272,13 +280,13 @@ function schedule() {
   const now = performance.now()
   const elapsed = Math.min(4 * STEP, Math.max(0, now - last))
   last = now
-  if (!Lobby.running(lobby)) {
+  if (finished || !Lobby.running(lobby)) {
     accumulator = 0
     return
   }
   accumulator += elapsed
   let steps = 0
-  while (Lobby.running(lobby) && accumulator >= STEP && steps++ < 4) {
+  while (!finished && Lobby.running(lobby) && accumulator >= STEP && steps++ < 4) {
     hostSession = Session.clock(hostSession)
     const move = Session.directions(hostSession)
     const moves: BendABI.CoopCore.Movement[] = [{ $: "Movement", id: 0, x: move.x0, y: move.y0 }]
@@ -321,13 +329,14 @@ function schedule() {
     }
     accumulator -= STEP
   }
-  if (Lobby.running(lobby) && now - lastSnapshot >= 50) {
+  if (!finished && Lobby.running(lobby) && now - lastSnapshot >= 50) {
     lastSnapshot = now
     publish()
   }
 }
 onmessage = (event: MessageEvent<WorkerRequest>) => {
   const message = event.data
+  if (finished && message.type !== "stop") return
   try {
     switch (message.type) {
       case "init": {

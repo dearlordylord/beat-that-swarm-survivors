@@ -22,6 +22,7 @@ export type LobbyUpdate = {
   inputEpoch: number
 }
 export type WorkerReply =
+  | { type: "finished"; observationSeq: number }
   | LobbyUpdate
   | { type: "command-consumed"; deliveryId: number }
   | {

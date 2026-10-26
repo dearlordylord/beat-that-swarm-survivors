@@ -7,6 +7,7 @@ import { encodeInvitation, encodeLobby, type PartyLobby } from "./coop-party-wir
 import { defined, errorMessage } from "./host-values.mts"
 import Connection from "./dist/coop-connection.mjs"
 import ClientDelivery from "./dist/coop-client-delivery.mjs"
+import Finish from "./dist/coop-finish.mjs"
 import SnapshotFlow from "./dist/coop-snapshot-flow.mjs"
 
 interface Seat {
@@ -17,9 +18,11 @@ interface Seat {
   gate: BendABI.CoopConnection.State
   flow: BendABI.CoopSnapshotFlow.State
   latest: Extract<WorkerReply, { type: "remote-frame" }> | null
+  terminal: { token: number; observation: number; applied: boolean } | null
   deadline: ReturnType<typeof setTimeout> | undefined
 }
 interface HostCallbacks {
+  finished: () => void
   frame: (message: Extract<WorkerReply, { type: "frame" }>) => void
   lobby: (lobby: PartyLobby) => void
   invitation: (ticket: string) => void
@@ -30,6 +33,9 @@ export class CoopHost {
   #worker: Worker
   #seats: Seat[] = []
   #closed = false
+  #finish = Finish.fresh()
+  #terminalObservation: number | null = null
+  #finishDeadline: ReturnType<typeof setTimeout> | undefined
   #pending = new Map<number, number>()
   #delivery = 0
   #callbacks: HostCallbacks
@@ -64,6 +70,7 @@ export class CoopHost {
           gate: Connection.fresh({ $: "Host" }),
           flow: SnapshotFlow.fresh(0),
           latest: null,
+          terminal: null,
           deadline: undefined
         }
         host.#seats.push(seat)
@@ -92,7 +99,12 @@ export class CoopHost {
     return this.#command(text, 0, 0)
   }
   #command(text: string, player: number, connectionEpoch: number) {
-    if (this.#closed || [...this.#pending.values()].filter((owner) => owner === player).length >= 64) return false
+    if (
+      this.#closed ||
+      this.#terminalObservation !== null ||
+      [...this.#pending.values()].filter((owner) => owner === player).length >= 64
+    )
+      return false
     const deliveryId = ++this.#delivery
     this.#pending.set(deliveryId, player)
     this.#post({ type: "command", player, text, deliveryId, connectionEpoch })
@@ -113,13 +125,17 @@ export class CoopHost {
     this.#post({ type: "handshake", player: seat.player, connectionEpoch: seat.epoch, signal })
   }
   #fail(seat: Seat, error: unknown) {
-    if (this.#closed) return
+    if (this.#closed || this.#terminalObservation !== null) return
     this.#callbacks.status(`Player ${seat.player + 1}: ${errorMessage(error)}`, true)
     this.#signal(seat, { $: "Reject", reason: { $: "TransportFailed" } })
   }
   async #event(seat: Seat, event: TransportEvent) {
     if (this.#closed) return
     if (event.type === "connected") {
+      if (this.#terminalObservation !== null) {
+        seat.transport?.disconnectPeer()
+        return
+      }
       if (this.#lobby?.started && !this.#lobby.players.some((row) => row.player === seat.player)) {
         seat.transport?.disconnectPeer()
         return
@@ -143,6 +159,7 @@ export class CoopHost {
       }
       const control = decodeControlFrame(event.bytes, (text) => Connection.decode(text))
       if (control.$ === "Some") {
+        if (this.#terminalObservation !== null) return
         this.#signal(seat, control.value)
         return
       }
@@ -154,9 +171,22 @@ export class CoopHost {
       }
       const packet = decoded.value
       if (packet.receipt.$ === "Some") {
+        const receipt = packet.receipt.value
+        if (
+          seat.terminal &&
+          !seat.terminal.applied &&
+          receipt.token === seat.terminal.token &&
+          receipt.observation === seat.terminal.observation &&
+          SnapshotFlow.matches(seat.flow, receipt.token, receipt.observation)
+        ) {
+          seat.terminal.applied = true
+          this.#finish = Finish.applied(this.#finish)
+        }
         seat.flow = SnapshotFlow.ack(seat.flow, packet.receipt.value.token, packet.receipt.value.observation)
         this.#flush(seat)
+        this.#finishIfReady()
       }
+      if (this.#terminalObservation !== null) return
       if (packet.commands.$ !== "Nil" && !this.#command(text, seat.player, seat.epoch))
         this.#signal(seat, { $: "Reject", reason: { $: "ProtocolError" } })
     } else if (event.type === "disconnected") {
@@ -164,6 +194,7 @@ export class CoopHost {
       seat.connected = false
       seat.latest = null
       clearTimeout(seat.deadline)
+      if (this.#terminalObservation !== null) return
       this.#post({ type: "disconnect", player: seat.player, connectionEpoch: seat.epoch })
     } else if (event.type === "error") this.#fail(seat, Error(event.message))
   }
@@ -171,8 +202,23 @@ export class CoopHost {
     if (message.type === "ready") {
       this.#callbacks.invitation(encodeInvitation(this.#seats.map((seat) => defined(seat.transport).invitation())))
     } else if (message.type === "command-consumed") this.#pending.delete(message.deliveryId)
-    else if (message.type === "frame") this.#callbacks.frame(message)
-    else if (message.type === "lobby") {
+    else if (message.type === "frame") {
+      if (Finish.terminal(message.frame.phase)) this.#terminalObservation = message.observationSeq
+      this.#callbacks.frame(message)
+    } else if (message.type === "finished") {
+      this.#worker.terminate()
+      this.#pending.clear()
+      this.#callbacks.finished()
+      this.#finish = Finish.begin(
+        this.#finish,
+        this.#seats.filter((seat) => seat.terminal && !seat.terminal.applied).length
+      )
+      this.#finishDeadline = setTimeout(() => {
+        this.#finish = Finish.expire(this.#finish)
+        this.#finishIfReady()
+      }, Finish.drain_milliseconds())
+      this.#finishIfReady()
+    } else if (message.type === "lobby") {
       this.#lobby = message
       this.#callbacks.lobby(message)
       for (const seat of this.#seats)
@@ -188,6 +234,8 @@ export class CoopHost {
       const seat = this.#seats.find((row) => row.player === message.player)
       if (!seat || !seat.connected || seat.epoch !== message.connectionEpoch) return
       if (!SnapshotFlow.offer_allowed(seat.flow, message.observationSeq)) return
+      if (message.observationSeq === this.#terminalObservation)
+        seat.terminal = { token: message.token, observation: message.observationSeq, applied: false }
       seat.latest = message
       seat.flow = SnapshotFlow.offer(seat.flow, message.observationSeq)
       this.#flush(seat)
@@ -237,7 +285,11 @@ export class CoopHost {
         if (epoch === seat.epoch) this.#fail(seat, error)
       })
   }
+  #finishIfReady() {
+    if (Finish.closed(this.#finish)) this.close()
+  }
   close() {
+    clearTimeout(this.#finishDeadline)
     this.#closed = true
     this.#worker.terminate()
     for (const seat of this.#seats) {

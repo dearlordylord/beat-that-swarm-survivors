@@ -179,3 +179,27 @@ The observation check covers phases, admission, reconnect, actor and contact
 identities, spectator views, ownership, ordering and input diagnostics through
 the production CBOR and gzip boundary. The codec check covers byte and queue
 bounds.
+
+Completed runs release the room automatically. The final defeat or victory
+observation is published to every connected guest before the simulation worker
+stops. The host waits for application receipts bound to each guest's connection
+token and final observation. Native write completion is insufficient. A 20 second
+drain deadline bounds retention when a guest disappears or stops acknowledging.
+All three host endpoints close, including vacant seats. Guests retain their result
+screen and saved progression. The invitation cannot reopen the completed run.
+Active runs retain the existing pause and reserved-seat reconnect behavior.
+
+After a fresh web build, check this lifecycle with:
+
+```sh
+node examples/survivors/coop-finish-check.mts examples/survivors/dist/web/dist
+node examples/survivors/coop-finish-browser-check.mts http://127.0.0.1:8718/
+node examples/survivors/coop-finish-browser-check.mts http://127.0.0.1:8718/ --stalled-receipt
+node examples/survivors/coop-transport-cleanup-check.mts http://127.0.0.1:8718/coop.html
+```
+
+Serve `examples/survivors/dist/web` at the indicated URL. The browser lifecycle
+check injects a terminal Bend session through a test-only worker response route.
+The shipped worker has no test command. The stalled receipt scenario forges a
+future observation to verify receipt rejection and bounded closure. The transport
+check exercises peer reconnect and garbage collection across repeated rooms.

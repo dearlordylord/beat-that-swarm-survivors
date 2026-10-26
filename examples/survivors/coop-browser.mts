@@ -1,3 +1,4 @@
+import Finish from "./dist/coop-finish.mjs"
 import { projectileFrame, coreFrame } from "./observations.mts"
 import { decodeControlFrame } from "./coop-control-frame.mts"
 import { decodeSnapshotValues } from "./snapshot-envelope.mts"
@@ -34,6 +35,8 @@ let transport: CoopTransport | null = null,
   sequence = 0,
   tick = 0,
   epoch = 0
+let runFinished = false
+let finishDeadline: ReturnType<typeof setTimeout> | undefined
 let activeSnapshotDecoder: SnapshotDecoder | null = null
 let runId = "",
   stalled = false
@@ -429,6 +432,10 @@ function signalConnection(signal: BendABI.CoopConnection.Signal, envelope?: Snap
   connectionAction(result.action, envelope)
 }
 function transportFailure(error: unknown) {
+  if (runFinished) {
+    transport?.close()
+    return
+  }
   console.error(error)
   reportFailure(error, "transport")
   signalConnection({ $: "Reject", reason: { $: "TransportFailed" } })
@@ -484,6 +491,16 @@ function connectionAction(action: BendABI.CoopConnection.Action, envelope?: Snap
         if (!Connection.running(connectionState)) ui.setChoicePending(true)
         signalConnection({ $: "SnapshotSeen", token: action.token, observation: action.observation })
         clientDelivery = ClientDelivery.offer_receipt(clientDelivery, action.token, action.observation)
+        if (Finish.terminal(frame.phase)) {
+          runFinished = true
+          clearInterval(inputTimer)
+          clearTimeout(connectDeadline)
+          ui.clearInput()
+          prediction = null
+          flushClientDelivery()
+          clearTimeout(finishDeadline)
+          finishDeadline = setTimeout(() => transport?.close(), Finish.drain_milliseconds() + 5000)
+        }
       } catch (error) {
         console.error(error)
         reportFailure(error, "snapshot")
@@ -562,6 +579,7 @@ function armConnectionDeadline() {
   }, 45000)
 }
 function sendAction(action: BendABI.CoopSession.Action) {
+  if (runFinished) return
   if (role === "host" ? !host : !connected || !Connection.running(connectionState)) {
     if (action.$ === "Choice") ui.setChoicePending(false)
     return false
@@ -630,8 +648,10 @@ function flushClientDelivery() {
   defined(transport)
     .send(ClientDelivery.encode(packet))
     .then(() => {
-      if (generation === epoch && connection === connectionEpoch)
+      if (generation === epoch && connection === connectionEpoch) {
         clientDelivery = ClientDelivery.complete(clientDelivery, packet.epoch, packet.id)
+        if (runFinished) flushClientDelivery()
+      }
     })
     .catch((error) => {
       if (generation !== epoch || connection !== connectionEpoch) return
@@ -662,6 +682,12 @@ async function connect(
   if (kind === "host") {
     runId = crypto.randomUUID()
     const created = await CoopHost.create(setup, sessionId, random(), runId, {
+      finished: () => {
+        if (generation !== epoch) return
+        runFinished = true
+        clearInterval(inputTimer)
+        ui.clearInput()
+      },
       frame: (message) => {
         if (generation !== epoch) return
         tick = message.frame.tick
@@ -714,6 +740,10 @@ async function connect(
     const handleEvent = async (event: TransportEvent) => {
       if (generation !== epoch) return
       if (event.type === "connected") {
+        if (runFinished) {
+          transport?.close()
+          return
+        }
         connectionEpoch = event.connectionEpoch
         snapshotDecoder.close()
         snapshotDecoder = new SnapshotDecoder()
@@ -785,6 +815,11 @@ async function connect(
         clearInterval(inputTimer)
         ui.clearInput()
         clearTimeout(connectDeadline)
+        if (runFinished) {
+          clearTimeout(finishDeadline)
+          transport?.close()
+          return
+        }
         signalConnection({ $: "Lost" })
       } else if (event.type === "error") transportFailure(Error(event.message))
     }
@@ -829,6 +864,8 @@ function showError(error: unknown) {
   console.error(error)
 }
 function cleanup() {
+  runFinished = false
+  clearTimeout(finishDeadline)
   failureDiagnostic = null
   ui.diagnostic(null)
   epoch++
@@ -911,6 +948,7 @@ setInterval(() => {
   if (
     role === "guest" &&
     roomStarted &&
+    !runFinished &&
     connected &&
     Connection.running(connectionState) &&
     !stalled &&
