@@ -88,6 +88,14 @@ jobs:
         run: npm ci --prefix examples/survivors/web --no-audit --no-fund
       - name: Check TypeScript sources, types, lint and formatting
         run: npm run check:typescript
+      - name: Check verification failure diagnostics
+        run: |
+          python3 -B scripts/test-process-diagnostics.py
+          python3 -B scripts/test-python-verification-diagnostics.py
+          python3 -B tools/survivors-bot/verification-diagnostics.test.py
+          python3 -B tools/survivors-bot/replay_measure_test.py
+          node --test scripts/verification-diagnostics.test.mts
+          bash tools/survivors-bot/native-batch.test.sh
       - name: Build using a fresh BendHub cache
         run: bash examples/survivors/build.sh
       - name: Check Bend laws and native geometry
