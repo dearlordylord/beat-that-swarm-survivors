@@ -79,7 +79,7 @@ bash examples/survivors/build-web.sh
 python3 -m http.server 8713 --directory examples/survivors/dist/web
 ```
 
-The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI.
+The Iroh browser matrix is manual-only: run it only when explicitly requested. It is excluded from routine verification and CI. UI-only changes do not require it. See [co-op verification](COOP.md#run-and-check) for scenario selection and failure handling.
 
 For the optional actual-Iroh browser check, keep the server running and use a
 second terminal with Playwright and Chromium already available:

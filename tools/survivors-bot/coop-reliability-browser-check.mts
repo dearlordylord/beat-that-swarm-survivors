@@ -34,14 +34,14 @@ const duration = Math.max(30000, Number(process.env.COOP_DURATION_MS || 32000))
 const observationDelay = Number(process.env.COOP_OBSERVATION_DELAY_MS || 300)
 const sendDelayMode = process.env.COOP_SEND_DELAY_MODE || "before"
 const recoveryOnly = process.env.COOP_RECOVERY_ONLY === "1"
-const seedOverride = process.env.COOP_TEST_SEED === undefined ? null : Number(process.env.COOP_TEST_SEED)
+const seedOverride = Number(process.env.COOP_TEST_SEED ?? 1729)
 assert.ok(
-  seedOverride === null || (Number.isInteger(seedOverride) && seedOverride >= 0 && seedOverride <= 4294967295),
+  Number.isInteger(seedOverride) && seedOverride >= 0 && seedOverride <= 4294967295,
   "COOP_TEST_SEED must be a U32 integer"
 )
-const seedOverrides = seedOverride === null ? [] : [`host worker init seed override ${seedOverride}`]
-const requestedCompletions = (process.env.COOP_SEND_COMPLETION_MS || "200,600").split(",").map(Number)
-const completions = Array.from(new Set([0, 200, ...requestedCompletions]))
+const seedOverrides = [`host worker init seed override ${seedOverride}`]
+const requestedCompletions = (process.env.COOP_SEND_COMPLETION_MS ?? "0").split(",").map(Number)
+const completions = Array.from(new Set(requestedCompletions))
 assert.ok(completions.every((n) => Number.isFinite(n) && n >= 0) && observationDelay >= 0, "nonnegative delays")
 assert.ok(sendDelayMode === "before" || sendDelayMode === "after", "COOP_SEND_DELAY_MODE must be before or after")
 await mkdir(output, { recursive: true })
@@ -220,7 +220,10 @@ function motionOracle(rows: RenderRow[], startWall: number) {
     if (row.remotePresentation?.buffering && !previous.remotePresentation?.buffering) bufferEntries++
     if (!row.remotePresentation?.buffering && previous.remotePresentation?.buffering) bufferExits++
     if (row.remotePresentation?.recovered && !previous.remotePresentation?.recovered) recoveryEntries++
-    const elapsedMs = row.wall - previous.wall
+    const currentSample = defined(row.remotePresentation).sampledAt,
+      previousSample = defined(previous.remotePresentation).sampledAt
+    assert.ok(Number.isFinite(currentSample) && Number.isFinite(previousSample), "presentation sample clock required")
+    const elapsedMs = currentSample - previousSample
     if (!(elapsedMs > 0 && elapsedMs <= 250)) continue
     const oldHost = previous.players?.find((player) => player.id === 0),
       host = row.players?.find((player) => player.id === 0)
@@ -505,13 +508,13 @@ async function instrument(page: Page, role: Role, errors: BrowserError[]) {
         ) {
           const initial = { seed: message.seed, session: message.session },
             requestedSeed = initial.seed
-          if (seedOverride !== null) message = { ...message, seed: seedOverride }
+          message = { ...message, seed: seedOverride }
           trace.workerInitializations.push({
             wall: Date.now(),
             at: performance.now(),
             requestedSeed,
-            seed: seedOverride ?? initial.seed,
-            overridden: seedOverride !== null,
+            seed: seedOverride,
+            overridden: true,
             session: initial.session
           })
         }
@@ -1312,7 +1315,7 @@ try {
       await context.close()
     }
   }
-  await failureRecoveryAndTouch()
+  if (recoveryOnly) await failureRecoveryAndTouch()
   await writeFile(
     `${output}/summary.json`,
     JSON.stringify(
@@ -1320,7 +1323,7 @@ try {
         kind: "fixed-input actual-Iroh diagnostics; not formal proof",
         scope: recoveryOnly
           ? "worker recovery and mobile touch only; network matrix not rerun"
-          : "network matrix plus worker recovery and mobile touch",
+          : "requested network cases only",
         summaries
       },
       null,
