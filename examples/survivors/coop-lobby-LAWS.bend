@@ -3,7 +3,7 @@ import ./coop-lobby.bend as L
 
 law unstarted_party_never_runs:
   for seats:List<&2,L.Seat>
-  {L.running(L.State{False{},seats}) == False{} : Bool}
+  {L.running(L.State{False{},seats,0}) == False{} : Bool}
 
 law rejected_start_preserves_party:
   for state:L.State
@@ -16,4 +16,4 @@ law solo_host_cannot_start:
 law invalid_seat_never_admitted:
   for started:Bool
   for seats:List<&2,L.Seat>
-  {L.admit(L.State{started,seats},4) == False{} : Bool}
+  {L.admit(L.State{started,seats,0},4) == False{} : Bool}

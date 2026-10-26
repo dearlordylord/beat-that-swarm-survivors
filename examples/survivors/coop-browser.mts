@@ -25,7 +25,9 @@ type Role = "host" | "guest"
 
 let host: CoopHost | null = null
 let ownPlayer = 1,
-  roomStarted = false
+  roomStarted = false,
+  roomRunning = false,
+  inputEpoch = 0
 let transport: CoopTransport | null = null,
   role: Role | undefined,
   sessionId: number,
@@ -102,7 +104,7 @@ const micros = (now: number) => {
   return value
 }
 function advanceLocalVisuals(now: number) {
-  if (!roomStarted || !localRun || !remoteFrame || !prediction?.enabled || !Connection.running(connectionState)) return
+  if (!roomRunning || !localRun || !remoteFrame || !prediction?.enabled || !Connection.running(connectionState)) return
   const budget = ClientClock.consume(visualClock, micros(now))
   visualClock = budget.state
   const point = Prediction.view(prediction)
@@ -117,20 +119,13 @@ function advanceLocalVisuals(now: number) {
     )
 }
 function advancePrediction(now = performance.now()) {
-  if (!roomStarted || role !== "guest" || !prediction || !authorityFrame || !Connection.running(connectionState)) return
+  if (!roomRunning || role !== "guest" || !prediction || !authorityFrame || !Connection.running(connectionState)) return
   advanceLocalVisuals(now)
   const budget = ClientClock.consume(predictionClock, micros(now))
   predictionClock = budget.state
   for (let step = 0; step < budget.steps; step++) {
     if (!Prediction.can_tick(prediction) || !connected) break
-    if (
-      !sendAction({
-        $: "MovementTick",
-        round: predictionRound ?? 0,
-        x: Math.sign(input.x) + 1,
-        y: Math.sign(input.y) + 1
-      })
-    ) {
+    if (!sendAction({ $: "MovementTick", round: inputEpoch, x: Math.sign(input.x) + 1, y: Math.sign(input.y) + 1 })) {
       predictionClock = ClientClock.discard(predictionClock)
       break
     }
@@ -166,7 +161,7 @@ function observeInputAcknowledgement(envelope: SnapshotEnvelope, now: number) {
 function snapshotFrame(envelope: SnapshotEnvelope): CoopFrame {
   const frame = coreFrame(Game.restore_network(envelope.view))
   if (!frame || !("combatForecast" in frame)) throw Error("Missing authoritative view observation")
-  return { ...frame, runId: envelope.runId }
+  return { ...frame, predictionAllowed: frame.predictionAllowed && roomRunning, runId: envelope.runId }
 }
 function reconcilePrediction(envelope: SnapshotEnvelope, frame: CoopFrame) {
   const now = performance.now()
@@ -424,7 +419,10 @@ function command(action: BendABI.CoopSession.Action) {
   })
 }
 function signalConnection(signal: BendABI.CoopConnection.Signal, envelope?: SnapshotEnvelope) {
-  if (role === "host") return
+  if (role === "host") {
+    if (signal.$ === "Reject") host?.fail(Connection.reason_text(signal.reason))
+    return
+  }
   const result = Connection.step(connectionState, Connection.epoch(connectionState), signal)
   connectionState = result.state
   connectionAction(result.action, envelope)
@@ -655,7 +653,9 @@ async function connect(
       lobby: (lobby) => {
         if (generation !== epoch) return
         roomStarted = lobby.started
+        roomRunning = lobby.running
         ui.lobby(lobby)
+        if (roomStarted) ui.status(roomRunning ? "" : "Waiting for all teammates to rejoin. The run is paused.")
         if (roomStarted && hostFrame) ui.present({ ...hostFrame, runId })
       },
       invitation: (ticket) => {
@@ -719,7 +719,16 @@ async function connect(
           const lobby = decodeLobby(event.bytes)
           if (lobby) {
             roomStarted = lobby.started
+            roomRunning = lobby.running
+            inputEpoch = lobby.inputEpoch
+            if (!roomRunning) {
+              clientDelivery = ClientDelivery.suspend(clientDelivery)
+              prediction = null
+              localShots = LocalProjectiles.empty()
+              localRun = null
+            }
             ui.lobby(lobby)
+            if (roomStarted) ui.status(roomRunning ? "" : "Waiting for all teammates to rejoin. The run is paused.")
             if (roomStarted && authorityFrame) ui.present(authorityFrame)
             return
           }
@@ -806,6 +815,8 @@ function cleanup() {
   host?.close()
   host = null
   roomStarted = false
+  roomRunning = false
+  inputEpoch = 0
   clearTimeout(connectDeadline)
   connectionEpoch = 0
   sentCommandTimes.clear()
@@ -858,6 +869,7 @@ const ui = new CoopUI({
 setInterval(() => {
   if (
     role === "guest" &&
+    roomStarted &&
     connected &&
     Connection.running(connectionState) &&
     !stalled &&

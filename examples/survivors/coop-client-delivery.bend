@@ -13,6 +13,9 @@ type Prepared is Data: Prepared{state:State,packet:Maybe<&2,Packet>}
 type Payload is Data: Payload{receipt:Maybe<&2,F.Receipt>,commands:List<&2,S.Command>}
 def max_frame_bytes() -> U32: 5190
 def fresh(+epoch:U32) -> State: State{epoch,0,I.fresh(epoch),R.fresh(epoch),None{},False{}}
+def suspend(state:State) -> State:
+  match state:
+    case State{epoch,next,input,receipts,flight,failed}: State{epoch,next,I.suspend(input),receipts,flight,failed}
 def admitted(epoch:U32,next:U32,receipts:R.State,flight:Maybe<&2,Packet>,failed:Bool,result:I.Admission) -> Admission:
   match result:
     case I.Admission{input,accepted}: Admission{State{epoch,next,input,receipts,flight,failed},accepted}

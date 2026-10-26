@@ -18,6 +18,13 @@ def is_input(command:S.Command) -> Bool:
   match command:
     case S.Command{_,_,_,_,S.MovementTick{_,_,_}}: True{}
     case _: False{}
+def controls(rows:List<&2,S.Command>) -> List<&2,S.Command>:
+  match rows:
+    case []: []
+    case +head <> tail: List.filter.put(S.Command,head,controls(tail),Bool.not(is_input(head)))
+def suspend(state:State) -> State:
+  match state:
+    case State{epoch,next,pending,flight,failed}: State{epoch,next,controls(pending),flight,failed}
 def input_count(rows:List<&2,S.Command>) -> Nat:
   match rows:
     case []: 0n

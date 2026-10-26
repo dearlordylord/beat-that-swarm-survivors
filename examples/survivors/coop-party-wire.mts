@@ -4,6 +4,8 @@ export interface PartyLobby {
   players: { player: number; character: number; ready: boolean; connected: boolean }[]
   started: boolean
   canStart: boolean
+  running: boolean
+  inputEpoch: number
 }
 const PREFIX = "BPL1:"
 function integer(value: unknown, min: number, max: number) {
@@ -31,7 +33,13 @@ export function decodeLobby(bytes: Uint8Array): PartyLobby | null {
     }
   })
   if (new Set(players.map((player) => player.player)).size !== players.length) throw Error("Duplicate party seat.")
-  return { players, started: boolean(record.started), canStart: boolean(record.canStart) }
+  return {
+    players,
+    started: boolean(record.started),
+    canStart: boolean(record.canStart),
+    running: boolean(record.running),
+    inputEpoch: integer(record.inputEpoch, 0, 0xffffffff)
+  }
 }
 export function encodeInvitation(tickets: string[]) {
   return "party1:" + JSON.stringify(tickets)

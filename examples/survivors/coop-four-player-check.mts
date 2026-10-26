@@ -5,15 +5,27 @@ import { bendModule } from "../bend-module.mts"
 import { defined, list, rows } from "./host-values.mts"
 const directory = resolve(defined(process.argv[2]))
 const url = (name: string) => pathToFileURL(resolve(directory, `${name}.mjs`))
-const [{ default: Core }, { default: Lobby }, { default: Session }] = await Promise.all([
+const [{ default: Core }, { default: Lobby }, { default: Session }, { default: Queue }] = await Promise.all([
   bendModule<BendABI.CoopCore.API>()(url("coop-core"), [
     "core_start",
     "core_attach_player",
     "core_network_observe",
     "core_step_players"
   ]),
-  bendModule<BendABI.CoopLobby.API>()(url("coop-lobby"), ["fresh", "update", "can_start", "start", "running", "admit"]),
-  bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "receive_peer"])
+  bendModule<BendABI.CoopLobby.API>()(url("coop-lobby"), [
+    "fresh",
+    "update",
+    "can_start",
+    "start",
+    "running",
+    "admit",
+    "seats",
+    "leave",
+    "pause",
+    "input_epoch"
+  ]),
+  bendModule<BendABI.CoopSession.API>()(url("coop-session"), ["fresh", "receive_peer"]),
+  bendModule<BendABI.CoopInputQueue.API>()(url("coop-input-queue"), ["fresh", "push_active"])
 ])
 const first = Core.core_start(0, 0, 12345)
 if (first.$ !== "CorePacket") throw Error(first.message)
@@ -79,6 +91,21 @@ assert.equal(Lobby.admit(lobby, 4), false)
 lobby = Lobby.update(lobby, { $: "Seat", player: 2, character: 2, ready: false, connected: false })
 assert.equal(Lobby.running(lobby), false)
 assert.equal(Lobby.admit(lobby, 2), true)
+const reserved = Lobby.leave(lobby, 2)
+assert.deepEqual(Lobby.seats(reserved), Lobby.seats(lobby))
+const waiting = Lobby.update(
+  Lobby.update(Lobby.fresh(0), { $: "Seat", player: 1, character: 1, ready: true, connected: true }),
+  { $: "Seat", player: 2, character: 2, ready: false, connected: false }
+)
+assert.equal(Lobby.can_start(waiting), false)
+assert.equal(Lobby.can_start(Lobby.leave(waiting, 2)), true)
+const oldEpoch = Lobby.input_epoch(lobby)
+const rewardEpoch = Lobby.pause(lobby)
+const reconnectEpoch = Lobby.pause(rewardEpoch)
+assert.notEqual(Lobby.input_epoch(reconnectEpoch), oldEpoch)
+const pausedQueue = Queue.fresh(Lobby.input_epoch(reconnectEpoch), 20)
+assert.equal(Queue.push_active(pausedQueue, 0, true, oldEpoch, 10, 25, 2, 1).accepted, false)
+assert.equal(Queue.push_active(pausedQueue, 0, true, Lobby.input_epoch(reconnectEpoch), 11, 25, 2, 1).accepted, true)
 const command: BendABI.CoopSession.Command = {
   $: "Command",
   session: 7,

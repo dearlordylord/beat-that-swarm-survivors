@@ -44,9 +44,13 @@ export class CoopHost {
         this.#message(event.data)
       } catch (error) {
         callbacks.error(error)
+        this.fail("The host could not process the game. Create a new room.")
       }
     }
-    this.#worker.onerror = (event) => callbacks.error(event.error || Error(event.message))
+    this.#worker.onerror = (event) => {
+      callbacks.error(event.error || Error(event.message))
+      this.fail("The host simulation failed. Create a new room.")
+    }
   }
   static async create(setup: CoopSetup, session: number, seed: number, runId: string, callbacks: HostCallbacks) {
     const host = new CoopHost(callbacks)
@@ -96,6 +100,11 @@ export class CoopHost {
   }
   start() {
     this.#post({ type: "start" })
+  }
+  fail(message: string) {
+    if (this.#closed) return
+    this.close()
+    this.#callbacks.status(message, true)
   }
   #signal(seat: Seat, signal: BendABI.CoopConnection.Signal) {
     this.#post({ type: "handshake", player: seat.player, connectionEpoch: seat.epoch, signal })

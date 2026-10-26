@@ -16,6 +16,8 @@ export type LobbyUpdate = {
   players: Array<{ player: number; character: number; ready: boolean; connected: boolean }>
   started: boolean
   canStart: boolean
+  running: boolean
+  inputEpoch: number
 }
 export type WorkerReply =
   | LobbyUpdate

@@ -77,10 +77,10 @@ def allowed_run(run:Maybe<&2,G.Run>,x:U32,y:U32) -> Bool:
 def allowed(scene:Scene,x:U32,y:U32) -> Bool:
   match scene:
     case Scene{own,players,_,_,_,_,_,_}: allowed_run(find_run(players,own),x,y)
-def hinted_x(player:U32,directions:Session.Directions) -> F32:
+def hinted_x(+player:U32,directions:Session.Directions) -> F32:
   match directions:
     case Session.Directions{x0,_,x1,_}: Bool.pick(F32,U32.is_eq(player,0),x0,Bool.pick(F32,U32.is_eq(player,1),x1,0.0))
-def hinted_y(player:U32,directions:Session.Directions) -> F32:
+def hinted_y(+player:U32,directions:Session.Directions) -> F32:
   match directions:
     case Session.Directions{_,y0,_,y1}: Bool.pick(F32,U32.is_eq(player,0),y0,Bool.pick(F32,U32.is_eq(player,1),y1,0.0))
 def view(+own:U32,+x:U32,+y:U32,+directions:Session.Directions,tick:U32,player:G.PlayerSnapshot) -> G.PlayerView:

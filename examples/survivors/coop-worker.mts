@@ -23,6 +23,7 @@ type Peer = {
   journal: BendABI.CoopHitJournal.State
   character: number
   attached: boolean
+  setup: Extract<BendABI.CoopSession.Action, { $: "Setup" }> | null
 }
 let core: BendABI.CoopCore.CoreState
 let hostSession: BendABI.CoopSession.State
@@ -39,6 +40,7 @@ let currentRound = 0,
 let lastPhase: number | undefined
 let runId = "",
   sessionId = 0
+let initial: Extract<WorkerRequest, { type: "init" }>
 let contactJournal = HitJournal.fresh(0)
 const STEP = 1000 / 60
 function emit(message: WorkerReply, transfer: Transferable[] = []) {
@@ -47,9 +49,17 @@ function emit(message: WorkerReply, transfer: Transferable[] = []) {
 function emitLobby() {
   const players = []
   for (let rows = Lobby.seats(lobby); rows.$ === "Con"; rows = rows.tail) players.push(rows.head)
-  emit({ type: "lobby", players, started: Lobby.started(lobby), canStart: Lobby.can_start(lobby) })
+  emit({
+    type: "lobby",
+    players,
+    started: Lobby.started(lobby),
+    canStart: Lobby.can_start(lobby),
+    running: Lobby.running(lobby),
+    inputEpoch: Lobby.input_epoch(lobby)
+  })
 }
 function updateSeat(peer: Peer) {
+  const wasRunning = Lobby.running(lobby)
   if (peer.attached)
     lobby = Lobby.update(lobby, {
       $: "Seat",
@@ -58,6 +68,8 @@ function updateSeat(peer: Peer) {
       ready: Connection.running(peer.gate),
       connected: peer.gate.$ !== "Suspended" && Connection.reason(peer.gate).$ === "None"
     })
+  if (wasRunning !== Lobby.running(lobby))
+    for (const member of peers.values()) member.queue = InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick)
   emitLobby()
 }
 function applyConnection(peer: Peer, output: BendABI.CoopConnection.Out) {
@@ -111,7 +123,7 @@ function publishPeer(peer: Peer, observation: number, initial = false) {
   const guestPacket = Game.core_network_observe(core, peer.player)
   core = guestPacket.state
   peer.eligible = Game.network_prediction_allowed(guestPacket.view)
-  if (!peer.eligible) peer.queue = InputQueue.fresh(currentRound, currentWorldTick)
+  if (!peer.eligible) peer.queue = InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick)
   const publication = initial ? handshake(peer, { $: "Prepared", observation }) : null
   if (initial && publication?.$ !== "PublishInitial") return
   const token = Connection.epoch(peer.gate)
@@ -138,9 +150,13 @@ function publish(initialPeer?: Peer) {
   const local = packet(Game.core_observe(core, 0))
   if (!local || !("combatForecast" in local)) throw Error("Missing display observation")
   currentPhase = local.phase
+  if (local.roundId !== currentRound) {
+    lobby = Lobby.pause(lobby)
+    emitLobby()
+  }
   for (const peer of peers.values())
     if (local.roundId !== currentRound || currentPhase !== 0)
-      peer.queue = InputQueue.fresh(local.roundId, currentWorldTick)
+      peer.queue = InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick)
   currentRound = local.roundId
   emit({
     type: "frame",
@@ -169,6 +185,7 @@ function prepareWorld(peer: Peer, action: Extract<BendABI.CoopSession.Action, { 
     if (joined.$ !== "CorePacket") return reject(peer, "SetupFailed")
     if (!peer.attached) peer.character = action.character
     peer.attached = true
+    peer.setup = action
     updateSeat(peer)
     publish(peer)
   } catch (error) {
@@ -192,6 +209,7 @@ function acceptCommand(command: BendABI.CoopSession.Command, player: number) {
   if (!admission.accepted) return
   if (action.$ === "Movement" && peer) return reject(peer, "ProtocolError")
   if (action.$ === "MovementTick" && peer) {
+    if (!Lobby.running(lobby)) return
     const queued = InputQueue.push_active(
       peer.queue,
       currentPhase,
@@ -291,6 +309,7 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
   try {
     switch (message.type) {
       case "init": {
+        initial = message
         clearInterval(timer)
         peers.clear()
         runId = message.runId
@@ -324,13 +343,14 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
             player: message.player,
             gate: Connection.fresh({ $: "Host" }),
             session: Session.fresh(sessionId),
-            queue: InputQueue.fresh(currentRound, currentWorldTick),
+            queue: InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick),
             eligible: false,
             rejection: null,
             epoch: 0,
             journal: HitJournal.fresh(0),
             character: 0,
-            attached: false
+            attached: false,
+            setup: null
           }
           peers.set(message.player, peer)
         }
@@ -339,7 +359,7 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         peer.epoch = message.connectionEpoch
         peer.journal = HitJournal.fresh(peer.epoch)
         peer.session = Session.reconnect(peer.session)
-        peer.queue = InputQueue.fresh(currentRound, currentWorldTick)
+        peer.queue = InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick)
         peer.rejection = null
         accumulator = 0
         applyConnection(peer, transition)
@@ -359,11 +379,37 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         const peer = peers.get(message.player)
         if (!peer) break
         peer.epoch = message.connectionEpoch
+        lobby = Lobby.pause(lobby)
+        for (const member of peers.values()) member.queue = InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick)
         handshake(peer, { $: "Lost" })
-        peer.queue = InputQueue.fresh(currentRound, currentWorldTick)
+        peer.queue = InputQueue.fresh(Lobby.input_epoch(lobby), currentWorldTick)
         peer.eligible = false
         peer.session = Session.disconnect(1, peer.session)
         accumulator = 0
+        if (!Lobby.started(lobby)) {
+          lobby = Lobby.leave(lobby, peer.player)
+          peer.attached = false
+          peer.setup = null
+          const s = initial.setup
+          packet(Game.core_start(s.character, s.meta, initial.seed))
+          packet(Game.core_configure(core, s.stage, s.mode, s.arcana))
+          packet(Game.core_configure_unlocks(core, 0, s.allowedWeapons))
+          for (const member of peers.values()) {
+            const setup = member.setup
+            if (member.attached && setup)
+              packet(
+                Game.core_attach_player(
+                  core,
+                  member.player,
+                  setup.character,
+                  setup.meta,
+                  setup.arcana,
+                  setup.allowedWeapons
+                )
+              )
+          }
+          emitLobby()
+        }
         publish()
         break
       }
