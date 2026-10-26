@@ -20,6 +20,9 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+from dataclasses import asdict
+from process_diagnostics import run_process, format_failure
 APP = ROOT / 'examples/survivors'
 ENTRY = APP / 'offline-coop-batch.bend'
 PARTY = APP / 'party-difficulty.bend'
@@ -238,9 +241,12 @@ def main(argv=None) -> int:
     files = transformed(canonical, args.extra_percent)
     dependency = (ROOT / 'bendhub-dependencies.json').read_bytes()
     bend = os.environ.get('BEND', 'bend')
-    version_result = subprocess.run([bend, 'version'], capture_output=True, text=True, timeout=15)
-    if version_result.returncode:
-        raise ValueError('Cannot read Bend compiler version')
+    version_result = run_process([bend, 'version'], wall_timeout_seconds=15)
+    if (not version_result.normal_exit or version_result.returncode != 0):
+        diagnostic = {**asdict(version_result), 'classification': version_result.classification,
+                      'signal': version_result.signal_name}
+        (output / 'compiler-version.process.json').write_text(json.dumps(diagnostic, indent=2) + '\n')
+        raise ValueError(format_failure(version_result, 'Cannot read Bend compiler version'))
     compiler = version_result.stdout.strip()
     manifest = {'schemaVersion': 1, 'kind': 'native-coop-balance', 'campaignId': tag,
                 'status': 'preparing', 'exitCode': None,

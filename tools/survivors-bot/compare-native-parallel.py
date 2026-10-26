@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Compare already-built native batch processes and runtime-thread parallelism."""
 import argparse, hashlib, json, os, pathlib, resource, signal, statistics, subprocess, sys, time
+from dataclasses import asdict
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+from process_diagnostics import RunResult, format_failure
 P = pathlib.Path
 FIELDS = set('type backend policy index seed profile status tick requestedTicks outcome phase hp level xp xpNeed kills gold choices xpPiles uncollectedBaseXp wallMs'.split())
 
@@ -45,6 +48,7 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
     children = []
     files = []
     logs = []
+    timed_out_ids = set()
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
     started = time.monotonic()
     receipt = {'status': 'INCOMPLETE', 'mode': mode, 'budget': budget, 'cpus': cpus}
@@ -60,10 +64,12 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
             logs.append(stdout)
             env.pop('BENDRTS', None)
             command = ['/usr/bin/taskset', '-c', ','.join(map(str, cpus)), str(binary), '+RTS', '--threads', str(1 if mode == 'serial' else budget), '-RTS']
+            receipt['launchCommand'] = command
             children.append(subprocess.Popen(command, env=env, stdout=a, stderr=b, stdin=subprocess.DEVNULL, start_new_session=True))
         end = min(deadline, started + 360)
         while any((c.poll() is None for c in children)):
             if time.monotonic() >= end:
+                timed_out_ids = {child.pid for child in children if child.poll() is None}
                 raise TimeoutError('cell/whole execution deadline')
             if any((c.returncode not in [None, 0] for c in children)):
                 raise RuntimeError('native child failed')
@@ -76,6 +82,9 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
         semantic = records(logs, count, ticks, mode == 'parallel')
         receipt.update(status='PASS', wallSeconds=elapsed, childUserSeconds=after.ru_utime - before.ru_utime, childSystemSeconds=after.ru_stime - before.ru_stime, childrenCumulativeMaxRssKiB=after.ru_maxrss, exitCodes=[c.returncode for c in children], logSHA256={p.name: sha(p) for p in out.iterdir() if p.is_file()})
         return (semantic, receipt)
+    except BaseException as error:
+        receipt['error'] = repr(error)
+        raise
     finally:
         handlers = {sig: signal.signal(sig, signal.SIG_IGN) for sig in [signal.SIGTERM, signal.SIGINT]}
         try:
@@ -86,6 +95,19 @@ def cell(binary, mode, budget, cpus, count, ticks, out, deadline):
         finally:
             for f in files:
                 f.close()
+            receipt['children'] = []
+            for index, child in enumerate(children if receipt['status'] != 'PASS' else []):
+                stdout_path = out / f'worker-{index}.jsonl'
+                stderr_path = out / f'worker-{index}.stderr'
+                result = RunResult(command=tuple(child.args), cwd=os.getcwd(), returncode=child.returncode,
+                                   elapsed_wall_seconds=time.monotonic() - started,
+                                   stdout=stdout_path.read_text(errors='replace'), stderr=stderr_path.read_text(errors='replace'),
+                                   wall_timeout_seconds=max(0, min(deadline, started + 360) - started),
+                                   cpu_limit_seconds=None, wall_timed_out=child.pid in timed_out_ids, spawn_error=None)
+                receipt['children'].append({**asdict(result), 'classification': result.classification,
+                                            'signal': result.signal_name, 'stdoutPath': str(stdout_path), 'stderrPath': str(stderr_path)})
+                if receipt['status'] != 'PASS' and (not result.normal_exit or result.returncode != 0):
+                    print(format_failure(result, receipt.get('error', 'Native child failed')), file=sys.stderr)
             save(out / 'receipt.json', receipt)
             for sig, handler in handlers.items():
                 signal.signal(sig, handler)

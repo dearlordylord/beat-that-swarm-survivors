@@ -94,9 +94,14 @@ class MeasurementControls(unittest.TestCase):
         self.assertIn(str(layout), error)
 
     def test_nonzero_child_is_incomplete(self):
-        result,out=self.execute(self.binary("reference","sys.exit(7)"),self.output_binary("candidate"))
+        result,out=self.execute(self.binary("reference","print('CHILD_EXIT_SENTINEL',file=sys.stderr);sys.exit(7)"),self.output_binary("candidate"))
         self.assertNotEqual(result.returncode,0)
         self.assertEqual(json.loads((out/"terminal.json").read_text())["status"],"incomplete")
+        child = json.loads((out/"r00-f000-reference.process.json").read_text())
+        self.assertEqual(child["returncode"], 7)
+        self.assertEqual(child["classification"], "nonzero-exit")
+        self.assertIn("CHILD_EXIT_SENTINEL", child["stderr"])
+        self.assertIn("CHILD_EXIT_SENTINEL", result.stderr)
     def test_timeout_reaps_native_child(self):
         pidfile=self.root/"pid"
         ref=self.binary("reference",f"pathlib.Path({str(pidfile)!r}).write_text(str(os.getpid()))\ntime.sleep(30)")

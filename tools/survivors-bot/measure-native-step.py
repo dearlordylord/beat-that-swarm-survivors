@@ -19,6 +19,9 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from dataclasses import asdict
+from process_diagnostics import RunResult, format_failure
 from replay_compare import compare, file_sha  # noqa: E402
 
 
@@ -32,18 +35,39 @@ def run_sample(binary, fixture, output, timeout):
     environment.update(NIGHTFALL_REPLAY_TRACE=str(fixture),
                        NIGHTFALL_REPLAY_CHECKPOINT_EVERY="0")
     started = time.monotonic()
-    with output.open("wb") as stdout, output.with_suffix(".stderr").open("wb") as stderr:
-        # Stay in the caller's bounded process group. The audited replay binary
-        # creates runtime threads, not subprocesses; no child may daemonize.
-        child = subprocess.Popen([str(binary), "+RTS", "--threads", "1", "-RTS"], env=environment,
-                                 stdout=stdout, stderr=stderr)
-        try:
-            status = child.wait(timeout=timeout)
-        except BaseException:
-            child.kill()
-            child.wait()
-            raise
-    wall = time.monotonic() - started
+    command = [str(binary), "+RTS", "--threads", "1", "-RTS"]
+    child = None
+    timed_out = False
+    failure = None
+    try:
+        with output.open("wb") as stdout, output.with_suffix(".stderr").open("wb") as stderr:
+            try:
+                child = subprocess.Popen(command, env=environment, stdout=stdout, stderr=stderr)
+                status = child.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                raise
+            finally:
+                if child is not None and child.poll() is None:
+                    child.kill()
+                    child.wait()
+    except BaseException as error:
+        failure = error
+        raise
+    finally:
+        wall = time.monotonic() - started
+        if failure is not None or child is None or child.returncode != 0:
+            result = RunResult(command=tuple(command), cwd=os.getcwd(), returncode=child.returncode if child else None,
+                               elapsed_wall_seconds=wall,
+                               stdout=output.read_text(errors="replace") if output.exists() else "",
+                               stderr=output.with_suffix(".stderr").read_text(errors="replace") if output.with_suffix(".stderr").exists() else "",
+                               wall_timeout_seconds=timeout, cpu_limit_seconds=None, wall_timed_out=timed_out,
+                               spawn_error=str(failure) if isinstance(failure, OSError) else None)
+            write_json(output.with_suffix(".process.json"), {**asdict(result), "classification": result.classification,
+                       "signal": result.signal_name, "stdoutPath": str(output), "stderrPath": str(output.with_suffix(".stderr")),
+                       "error": repr(failure) if failure else None})
+            if (not result.normal_exit or result.returncode != 0):
+                print(format_failure(result, "Native replay failed"), file=sys.stderr)
     if status:
         raise RuntimeError(f"Replay failed ({status}); see {output}")
     with output.open() as source:
