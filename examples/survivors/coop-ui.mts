@@ -22,6 +22,7 @@ export interface CoopSetup extends Setup {
   allowedWeapons: number
 }
 export interface CoopLobby {
+  room: Pick<Setup, "stage" | "mode">
   players: { player: number; character: number; ready: boolean; connected: boolean }[]
   started: boolean
   canStart: boolean
@@ -142,6 +143,7 @@ export class CoopUI {
   fps!: number
   renderFailed!: boolean
   animation!: number
+  roomSetup: Pick<Setup, "stage" | "mode"> | undefined
   playerSignature!: string
   constructor(callbacks: CoopCallbacks = {}, { document = globalThis.document, window = globalThis.window } = {}) {
     this.document = document
@@ -348,7 +350,8 @@ export class CoopUI {
     for (const kind of kinds) this.select(kind).value = String(setup[kind])
     this.$("#coop-setup-preview").innerHTML = renderCoopSetup(
       { profile: this.profile, ...setup, openPanel: this.openPanel, pendingUnlock: this.pendingUnlock },
-      this.entryRole === "guest"
+      this.entryRole === "guest",
+      this.roomSetup
     )
     this.$("#coop-wallet").textContent = `◈ ${this.profile.gold.toLocaleString("en-US")} · legacy gold`
     this.$("#coop-setup-detail").textContent =
@@ -394,6 +397,8 @@ export class CoopUI {
     this.updateSetup()
     const after = this.setup()
     if (
+      before.stage !== after.stage ||
+      before.mode !== after.mode ||
       before.character !== after.character ||
       before.arcana !== after.arcana ||
       before.meta !== after.meta ||
@@ -533,6 +538,11 @@ export class CoopUI {
     this.status("Room open. Invite friends, then start with two to four players.")
   }
   lobby(lobby: CoopLobby) {
+    if (!this.roomSetup || this.roomSetup.stage !== lobby.room.stage || this.roomSetup.mode !== lobby.room.mode) {
+      this.roomSetup = lobby.room
+      this.updateSetup()
+    }
+    this.$("#coop-setup-fields").disabled = lobby.started
     const roster = this.$("#coop-party-roster")
     roster.hidden = false
     roster.innerHTML = Array.from({ length: 4 }, (_, player) => {
@@ -684,6 +694,7 @@ export class CoopUI {
     this.rewardSignature = ""
     this.choiceBusy = false
     this.playerSignature = ""
+    this.roomSetup = undefined
     this.renderFailed = false
     this.progress.reset()
     this.presentation.reset()

@@ -9,10 +9,12 @@ export type WorkerRequest =
   | { type: "handshake"; player: number; signal: BendABI.CoopConnection.Signal; connectionEpoch: number }
   | { type: "command"; player: number; text: string; deliveryId: number; connectionEpoch: number }
   | { type: "disconnect"; player: number; connectionEpoch: number }
+  | { type: "configure"; setup: CoopSetup }
   | { type: "start" }
   | { type: "stop" }
 export type LobbyUpdate = {
   type: "lobby"
+  room: Pick<CoopSetup, "stage" | "mode">
   players: Array<{ player: number; character: number; ready: boolean; connected: boolean }>
   started: boolean
   canStart: boolean

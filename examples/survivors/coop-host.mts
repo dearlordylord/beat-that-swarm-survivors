@@ -98,6 +98,9 @@ export class CoopHost {
     this.#post({ type: "command", player, text, deliveryId, connectionEpoch })
     return true
   }
+  configure(setup: CoopSetup) {
+    if (!this.#closed) this.#post({ type: "configure", setup })
+  }
   start() {
     this.#post({ type: "start" })
   }

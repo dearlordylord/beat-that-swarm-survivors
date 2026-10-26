@@ -1,6 +1,7 @@
 import { object, text, boolean } from "./host-values.mts"
 
 export interface PartyLobby {
+  room: { stage: number; mode: number }
   players: { player: number; character: number; ready: boolean; connected: boolean }[]
   started: boolean
   canStart: boolean
@@ -33,7 +34,9 @@ export function decodeLobby(bytes: Uint8Array): PartyLobby | null {
     }
   })
   if (new Set(players.map((player) => player.player)).size !== players.length) throw Error("Duplicate party seat.")
+  const room = object(record.room)
   return {
+    room: { stage: integer(room.stage, 0, 4), mode: integer(room.mode, 0, 3) },
     players,
     started: boolean(record.started),
     canStart: boolean(record.canStart),

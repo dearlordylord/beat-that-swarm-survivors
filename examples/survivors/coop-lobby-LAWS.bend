@@ -23,3 +23,14 @@ law started_setup_is_locked:
   for epoch:U32
   for player:U32
   {L.can_configure(L.State{True{},seats,epoch},player) == False{} : Bool}
+
+
+law started_host_setup_is_locked:
+  for seats:List<&2,L.Seat>
+  for epoch:U32
+  for character:U32
+  for stage:U32
+  for mode:U32
+  for arcana:U32
+  for allowed:U32
+  {L.can_configure_host(L.State{True{},seats,epoch},character,stage,mode,arcana,allowed) == False{} : Bool}

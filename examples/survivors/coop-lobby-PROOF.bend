@@ -6,3 +6,5 @@ def L.rejected_start_preserves_party(state): {==}
 def L.solo_host_cannot_start(character): {==}
 def L.invalid_seat_never_admitted(started,seats): {==}
 def L.started_setup_is_locked(seats,epoch,player): {==}
+
+def L.started_host_setup_is_locked(seats,epoch,character,stage,mode,arcana,allowed): {==}

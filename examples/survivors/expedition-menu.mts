@@ -85,8 +85,9 @@ export function renderRunSelectors(state: MenuState, selectedKinds: SetupKind[] 
   )
   return `<div class="selection-rows">${selectedKinds.map((kind) => `<section class="selection-item"><button class="selection-row" data-menu-panel="${kind}" aria-expanded="${state.openPanel === kind}"><span>${labels[kind]}</span><strong class="selected-choice">${icon(kind, defined(selected[kind]))}<span>${esc(defined(selected[kind]).name)}</span></strong><span class="change-label">${state.openPanel === kind ? "Close −" : "Change +"}</span></button>${state.openPanel === kind || staticPickers ? `<div class="inline-picker" ${state.openPanel === kind ? "" : "hidden"}>${picker(state, kind)}</div>` : ""}</section>`).join("")}</div>`
 }
-export function renderCoopSetup(state: MenuState, guest = false) {
-  return `<div class="expedition">${guest ? `<div class="coop-survivor-preview"><div>${portrait(state.character)}</div><div><p class="eyebrow">Your survivor</p><h2>${esc(at(CHARACTERS, state.character).name)}</h2><p>${startingWeapon(at(CHARACTERS, state.character).weapon)}</p></div></div>` : renderRunCard(state)}<div class="a-loadout-heading"><h2>${guest ? "Your loadout" : "Run setup"}</h2><span class="muted">${guest ? "Bring your own survivor" : "Choose your next expedition"}</span></div>${renderRunSelectors(state, guest ? ["character", "arcana"] : kinds)}</div>`
+export function renderCoopSetup(state: MenuState, guest = false, room?: Pick<Setup, "stage" | "mode">) {
+  const preview = guest && room ? { ...state, ...room } : state
+  return `<div class="expedition">${renderRunCard(preview)}${guest ? `<p class="muted coop-room-settings" id="coop-room-settings">${room ? `Host's stage · ${esc(at(STAGES, room.stage).name)} · ${esc(at(RUN_MODES, room.mode).name)}` : "Connecting to the host's room…"}<br />The host chooses the stage and mode.</p>` : ""}<div class="a-loadout-heading"><h2>${guest ? "Your loadout" : "Run setup"}</h2><span class="muted">${guest ? "Bring your own survivor" : "Choose your next expedition"}</span></div>${renderRunSelectors(state, guest ? ["character", "arcana"] : kinds)}</div>`
 }
 
 export function renderExpedition({

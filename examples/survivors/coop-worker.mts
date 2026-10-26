@@ -51,6 +51,7 @@ function emitLobby() {
   for (let rows = Lobby.seats(lobby); rows.$ === "Con"; rows = rows.tail) players.push(rows.head)
   emit({
     type: "lobby",
+    room: { stage: initial.setup.stage, mode: initial.setup.mode },
     players,
     started: Lobby.started(lobby),
     canStart: Lobby.can_start(lobby),
@@ -354,6 +355,19 @@ onmessage = (event: MessageEvent<WorkerRequest>) => {
         }, 4)
         emit({ type: "ready" })
         emitLobby()
+        break
+      }
+      case "configure": {
+        const setup = message.setup
+        if (
+          !Lobby.can_configure_host(lobby, setup.character, setup.stage, setup.mode, setup.arcana, setup.allowedWeapons)
+        )
+          break
+        initial = { ...initial, setup }
+        rebuildLobbyWorld()
+        lobby = Lobby.update(lobby, { $: "Seat", player: 0, character: setup.character, ready: true, connected: true })
+        emitLobby()
+        publish()
         break
       }
       case "connected": {

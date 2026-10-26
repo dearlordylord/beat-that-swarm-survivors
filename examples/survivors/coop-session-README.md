@@ -160,3 +160,9 @@ at most 16,384 entries per container, 32 nested containers, 262,144 tokens and
 maps, indefinite lengths, undefined values, non-finite numbers, invalid UTF-8
 and trailing data are rejected. These IO limits do not establish a
 1 MiB bound on browser-internal decompressor allocation.
+
+The host may update its own survivor, arcana, stage and mode before the explicit
+start. Bend validates the host setup and closes that operation once started. A
+prestart edit rebuilds the untouched world from the same seed and stored player
+setups without replacing connections. Lobby delivery includes the shared stage
+and mode so guests display the host destination independently of local unlocks.

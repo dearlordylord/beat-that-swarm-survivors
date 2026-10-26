@@ -1,4 +1,5 @@
 import Base
+import ./coop-session.bend as S
 
 type Seat is Data: Seat{player: U32,character: U32,ready: Bool,connected: Bool}
 type State is Data: State{started: Bool,seats: List<&2,Seat>,inputEpoch: U32}
@@ -18,6 +19,8 @@ def admit(+state: State,+player: U32) -> Bool:
     case State{started,+rows,_}: Bool.and(Bool.and(U32.is_gt(player,0),U32.is_lt(player,4)),Bool.or(Bool.not(started),contains(rows,player)))
 def can_configure(+state: State,+player: U32) -> Bool:
   Bool.and(Bool.not(started(state)),admit(state,player))
+def can_configure_host(+state: State,+character: U32,+stage: U32,+mode: U32,+arcana: U32,+allowed: U32) -> Bool:
+  Bool.and(Bool.not(started(state)),Bool.and(S.action_allowed(S.Setup{character,arcana,0,allowed}),Bool.and(U32.is_lt(stage,5),U32.is_lt(mode,4))))
 def put(rows: List<&2,Seat>,+seat: Seat) -> List<&2,Seat>:
   match rows seat:
     case [] seat: [seat]

@@ -5,7 +5,7 @@ import type { WorkerReply } from "./coop-boundary.mts"
 import type { Profile } from "./profile.mts"
 declare global {
   interface Window {
-    coopCheckFrame?: { tick: number; players: { id: number; character: number }[] }
+    coopCheckFrame?: { stage: number; mode: number; tick: number; players: { id: number; character: number }[] }
   }
 }
 const browser = await chromium.launch({
@@ -34,6 +34,8 @@ async function page(url: string, profile?: Profile) {
           if (event.data.type !== "frame") return
           window.coopCheckFrame = {
             tick: event.data.frame.tick,
+            stage: event.data.frame.stage,
+            mode: event.data.frame.mode,
             players: event.data.frame.players.map(({ id, character }) => ({ id, character }))
           }
         })
@@ -51,6 +53,15 @@ async function status(p: Page) {
 }
 try {
   const host = await page(new URL("coop.html", process.argv[2] ?? "http://127.0.0.1:8714/").href)
+  await host.evaluate(async () => {
+    const { loadProfile } = await import("./progression.mjs")
+    const profile = loadProfile()
+    localStorage.setItem(
+      "nightfall-survivors-v1",
+      JSON.stringify({ ...profile, characters: [0, 1], stages: [0, 1, 2], stats: { ...profile.stats, levels: 20 } })
+    )
+  })
+  await host.reload()
   await host.locator("#coop-host").click()
   await host.waitForFunction(() => document.querySelector<HTMLInputElement>("#coop-invite-link")?.value, null, {
     timeout: 90000
@@ -58,6 +69,9 @@ try {
   const invite = await host.locator("#coop-invite-link").inputValue()
   console.log("room ready")
   await host.locator("#coop-invite-close").click()
+  await host.locator('[data-menu-panel="stage"]').click()
+  await host.locator('[data-stage="1"]').click()
+  await host.waitForFunction(() => window.coopCheckFrame?.stage === 1)
   const guestProfile = await host.evaluate(async () => {
     const { loadProfile } = await import("./progression.mjs")
     return { ...loadProfile(), characters: [0, 1] }
@@ -73,7 +87,32 @@ try {
       { timeout: 90000 }
     )
     console.log("joined", i + 1, await status(guest))
+    if (i === 0) {
+      await guest.waitForFunction(() => document.querySelector("#coop-setup-preview .stage-art-1"))
+      await host.locator('[data-menu-panel="stage"]').click()
+      await host.locator('[data-stage="2"]').click()
+      await host.waitForFunction(() => window.coopCheckFrame?.stage === 2)
+    }
   }
+  await host.locator('[data-menu-panel="character"]').click()
+  await host.locator('[data-character="1"]').click()
+  await host.locator('[data-menu-panel="stage"]').click()
+  await host.locator('[data-stage="1"]').click()
+  await host.locator('[data-menu-panel="mode"]').click()
+  await host.locator('[data-mode="1"]').click()
+  await host.waitForFunction(
+    () =>
+      window.coopCheckFrame?.stage === 1 &&
+      window.coopCheckFrame?.mode === 1 &&
+      window.coopCheckFrame.players.some((player) => player.id === 0 && player.character === 1)
+  )
+  for (const guest of guests) {
+    await guest.waitForFunction(() => document.querySelector("#coop-room-settings")?.textContent.includes("Inverse"))
+    assert.equal(await guest.locator('[data-menu-panel="stage"]').count(), 0)
+    assert.equal(await guest.locator('[data-menu-panel="mode"]').count(), 0)
+    assert.equal(await guest.locator("#coop-setup-preview .stage-art-1").count(), 1)
+  }
+  console.log("host survivor, stage and mode changed after guests joined; all guests see host settings")
   await defined(guests[0]).locator('[data-menu-panel="character"]').click()
   await defined(guests[0]).locator('[data-character="1"]').click()
   await host.waitForFunction(() =>
@@ -103,6 +142,9 @@ try {
   await host.waitForFunction(() =>
     window.coopCheckFrame?.players.some((player) => player.id === 1 && player.character === 1)
   )
+  assert.equal(await host.evaluate(() => window.coopCheckFrame?.stage), 1)
+  assert.equal(await host.evaluate(() => window.coopCheckFrame?.mode), 1)
+  assert.equal(await host.locator("#coop-setup-fields").isDisabled(), true)
   await defined(guests[0]).keyboard.down("ArrowRight")
   await defined(guests[1]).keyboard.down("ArrowDown")
   await defined(guests[2]).keyboard.down("ArrowLeft")

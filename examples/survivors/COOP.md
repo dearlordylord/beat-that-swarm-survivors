@@ -8,6 +8,11 @@ are ready. The roster closes when the run starts. Players install nothing. Keep 
 open; browser Iroh uses relays. Move with WASD, arrows or the touch pad. Attacks
 are automatic; XP requires physical pickup. Opening the map is local.
 
+Before the host starts, every player can change their survivor and arcana. The
+host can also change the stage and mode after guests join. Guests see those shared
+room settings even when the stage is locked in their own profile; the host controls
+the destination. Starting locks all setup choices for the run.
+
 Shared XP level-ups pause for each living player's choice; chests pause for their
 collector. A fallen connected player stays at zero HP for 300 simulation ticks
 (five seconds at 60 Hz). If another connected player is alive when the timer

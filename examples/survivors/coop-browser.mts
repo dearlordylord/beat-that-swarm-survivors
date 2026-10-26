@@ -875,8 +875,13 @@ const ui = new CoopUI({
   onHost: (setup) => connect("host", null, setup).catch(showError),
   onRetry: () => joinInvitation(),
   onSetupChange: (setup) => {
-    if (role !== "guest" || roomStarted) return
+    if (roomStarted) return
     selectedSetup = setup
+    if (role === "host") {
+      host?.configure(setup)
+      return
+    }
+    if (role !== "guest") return
     pendingSetup = setup
     flushSetup()
   },
