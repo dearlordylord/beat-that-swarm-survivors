@@ -1,5 +1,5 @@
 import { at, defined } from "./host-values.mts"
-import type { Frame, Enemy, Projectile, Pickup, Player } from "./frame.mts"
+import { reviveSeconds, type Frame, type Enemy, type Projectile, type Pickup, type Player } from "./frame.mts"
 import { drawSurvivor } from "./survivor-art.mts"
 import Game from "./dist/game.mjs"
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
@@ -729,9 +729,10 @@ export class Renderer {
     c.font = "bold 10px monospace"
     c.textAlign = "center"
     c.fillStyle = "#10131d"
-    c.fillRect(x - 23, y - 48, 46, 14)
+    const remaining = reviveSeconds(this.frame, player)
+    c.fillRect(x - 49, y - 48, 98, 14)
     c.fillStyle = player.hp === 0 ? "#b5a5af" : color
-    c.fillText(player.hp === 0 ? `P${player.id + 1} fallen` : own ? "YOU" : `P${player.id + 1}`, x, y - 38)
+    c.fillText(remaining === null ? player.hp === 0 ? `P${player.id + 1} fallen` : own ? "YOU" : `P${player.id + 1}` : `Reviving in ${remaining}s`, x, y - 38)
     if (player.maxHp > 0 && player.hp > 0) {
       c.fillStyle = "#11121a"
       c.fillRect(x - 17, y - 32, 34, 4)

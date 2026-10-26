@@ -72,6 +72,11 @@ export interface Player {
   character: number
   alive: boolean
   connected: boolean
+  reviveTick: number
+}
+export function reviveSeconds(frame: Frame, player: Player): number | null {
+  if (player.hp > 0 || !player.connected || player.reviveTick === 0 || frame.phase >= 3) return null
+  return Math.ceil(Math.max(0, player.reviveTick - frame.tick) / 60)
 }
 export interface Frame {
   worldSize: number

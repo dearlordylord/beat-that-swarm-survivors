@@ -33,8 +33,12 @@ Reward rounds have monotonic IDs; stale and duplicate choices cannot apply.
 Chest-before-level ordering remains. Confirmed guest departure removes their
 outstanding choice. Network control continues while gameplay is paused.
 
-Co-op death is final; solo Revival remains. A dead host character continues
-hosting. Host exit ends the session, without migration. Guest departure removes
+Co-op death starts a 300 simulation-tick timer for a connected player. At expiry,
+another connected player must be alive to revive them at 30% maximum HP rounded
+down, with a minimum of one HP and 180 ticks of invulnerability. If every player
+dies in the same tick, the match ends before any revival. Solo Revival remains
+separate. A dead host character continues hosting. Host exit ends the session,
+without migration. Guest departure removes
 the guest; no mid-run rejoin or equipment redistribution in this initial scope.
 The minimap shows teammates and does not pause co-op.
 

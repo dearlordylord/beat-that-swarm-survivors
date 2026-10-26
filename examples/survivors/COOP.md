@@ -7,8 +7,12 @@ open; browser Iroh uses relays. Move with WASD, arrows or the touch pad. Attacks
 are automatic; XP requires physical pickup. Opening the map is local.
 
 Shared XP level-ups pause for each living player's choice; chests pause for their
-collector. A fallen player stays out while the teammate continues. The host keeps
-the shared world in memory. A guest reload can rejoin through the same invitation;
+collector. A fallen connected player stays at zero HP for 300 simulation ticks
+(five seconds at 60 Hz). If another connected player is alive when the timer
+expires, the fallen player revives with 30% maximum HP rounded down (minimum one)
+and 180 ticks of invulnerability. The timer stops during reward and connection
+pauses. If all players die together, the match ends. The host keeps the shared
+world in memory. A guest reload can rejoin through the same invitation;
 closing or reloading the host loses that run. There is no host migration.
 
 Ordinary enemy admission uses the solo stage budget plus 25% per additional

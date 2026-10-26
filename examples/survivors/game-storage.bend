@@ -121,7 +121,7 @@ def put_players(rest: PlayerRest,players: Col.Column<Schema,Components.PlayerRec
     case PlayerRest{vitals,motions,statuses,pickups,roles,movement,candidates,spaces,enemyPhases,identities,shots}: Owned{StoreFields{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}}
 def project_player(value: Components.PlayerRecord) -> Components.PlayerRecord & Components.PlayerRecord:
   match value:
-    case Components.PlayerRecord{+id,+player,+connected}: (Components.PlayerRecord{id,player,connected},Components.PlayerRecord{id,player,connected})
+    case Components.PlayerRecord{+id,+player,+connected,+reviveTick}: (Components.PlayerRecord{id,player,connected,reviveTick},Components.PlayerRecord{id,player,connected,reviveTick})
 def player_family() -> C.Family<Schema,Store,PlayerRest,Components.PlayerRecord,Components.PlayerRecord,PlayerToken,take_players,put_players,project_player>: C.Family{"player"}
 
 type EnemyPhaseToken is Data: EnemyPhaseToken{}

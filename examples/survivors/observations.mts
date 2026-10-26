@@ -122,6 +122,7 @@ export function gameFrame(value: BendABI.Game.Observation): Frame {
         maxHp: player.maxHp,
         character: player.character,
         connected: true,
+        reviveTick: 0,
         alive: player.hp > 0
       }
     ],
@@ -149,9 +150,10 @@ export function coreFrame(value: BendABI.CoopCore.Observation) {
         rewardRound: { id: value.round },
         requiredPlayers: rows(value.required),
         coop: true,
-        players: rows(value.players).map(({ id, player, connected }) => ({
+        players: rows(value.players).map(({ id, player, connected, reviveTick }) => ({
           id,
           connected,
+          reviveTick,
           px: player.px,
           py: player.py,
           hp: player.hp,

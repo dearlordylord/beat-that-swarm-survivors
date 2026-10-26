@@ -219,7 +219,7 @@ def store(value: Storage.Store) -> Storage.Store & String:
   store_vitals(observed_column(~Components.Vitals,~Components.Vitals,~Storage.VitalRest,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~vitals,value))
 def player_record(value: Components.PlayerRecord) -> String:
   match value:
-    case Components.PlayerRecord{id,RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives},connected}: array([U32.show(id),array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives)]),U32.show(Bool.to_u32(connected))])
+    case Components.PlayerRecord{id,RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives},connected,reviveTick}: array([U32.show(id),array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives)]),U32.show(Bool.to_u32(connected)),U32.show(reviveTick)])
 def store_players_text(players: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,text): (owner,"\"actorColumns\":" ++ text ++ ",\"players\":[" ++ players ++ "]")

@@ -1,7 +1,7 @@
 import { escapeHtml as esc, displayText, defined, errorMessage } from "./host-values.mts"
 import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { Setup, SetupKind, Profile } from "./profile.mts"
-import type { Offer, Frame } from "./frame.mts"
+import { reviveSeconds, type Offer, type Frame, type Player } from "./frame.mts"
 import { CHARACTERS, STAGES, ARCANA, RUN_MODES, WEAPONS, PASSIVES, UNIONS, ACHIEVEMENTS } from "./content.mts"
 import {
   loadProfile,
@@ -39,6 +39,11 @@ const time = (ticks: number) =>
     .padStart(2, "0")}:${Math.floor((ticks / 60) % 60)
     .toString()
     .padStart(2, "0")}`
+function playerHealthLabel(frame: Frame, player: Player) {
+  const remaining = reviveSeconds(frame, player)
+  if (remaining !== null) return `Reviving in ${remaining}s`
+  return player.hp === 0 ? "Fallen" : `${player.hp} / ${player.maxHp}`
+}
 const catalogs = { character: CHARACTERS, arcana: ARCANA, stage: STAGES, mode: RUN_MODES }
 const movementKeys = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"])
 // Device IO: select the nearest of the keyboard's eight directions. Independent
@@ -573,14 +578,14 @@ export class CoopUI {
     const players = frame.players || [{ id: frame.ownPlayerId ?? 0, ...frame }]
     const playerSignature = JSON.stringify([
       frame.ownPlayerId,
-      players.map((player) => [player.id, player.hp, player.maxHp])
+      players.map((player) => [player.id, player.hp, player.maxHp, reviveSeconds(frame, player)])
     ])
     if (playerSignature !== this.playerSignature) {
       this.playerSignature = playerSignature
       this.$("#coop-players").innerHTML = players
         .map(
           (player) =>
-            `<div class="player-status" data-own="${player.id === (frame.ownPlayerId ?? 0)}"><span>${player.id === (frame.ownPlayerId ?? 0) ? "You" : `P${player.id + 1}`}</span><span class="health-track"><i style="width:${Math.max(0, Math.min(100, ((player.hp || 0) / (player.maxHp || 1)) * 100))}%"></i></span><small>${player.hp === 0 ? "Fallen" : esc(`${player.hp} / ${player.maxHp}`)}</small></div>`
+            `<div class="player-status" data-own="${player.id === (frame.ownPlayerId ?? 0)}"><span>${player.id === (frame.ownPlayerId ?? 0) ? "You" : `P${player.id + 1}`}</span><span class="health-track"><i style="width:${Math.max(0, Math.min(100, ((player.hp || 0) / (player.maxHp || 1)) * 100))}%"></i></span><small>${playerHealthLabel(frame, player)}</small></div>`
         )
         .join("")
     }
