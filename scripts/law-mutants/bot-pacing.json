@@ -30,23 +30,33 @@
     "law": "realtime_ready"
   },
   {
-    "label": "slice-early",
+    "label": "first-frame-hidden",
     "source": "examples/survivors/bot-pacing.bend",
     "occurrences": 1,
     "compile_target": "examples/survivors/bot-pacing.bend",
     "proof": "examples/survivors/bot-pacing-PROOF.bend",
-    "old": "Nat.is_le(8n,Nat.sub(now,started))",
-    "new": "Nat.is_le(7n,Nat.sub(now,started))",
-    "law": "slice_continues"
+    "old": "case 0n: True{}",
+    "new": "case 0n: False{}",
+    "law": "first_frame"
   },
   {
-    "label": "slice-late",
+    "label": "render-early",
     "source": "examples/survivors/bot-pacing.bend",
     "occurrences": 1,
     "compile_target": "examples/survivors/bot-pacing.bend",
     "proof": "examples/survivors/bot-pacing-PROOF.bend",
-    "old": "Nat.is_le(8n,Nat.sub(now,started))",
-    "new": "Nat.is_le(9n,Nat.sub(now,started))",
-    "law": "slice_yields"
+    "old": "Nat.is_le(100n,Nat.sub(now,1n+rest))",
+    "new": "Nat.is_le(99n,Nat.sub(now,1n+rest))",
+    "law": "render_waits"
+  },
+  {
+    "label": "render-late",
+    "source": "examples/survivors/bot-pacing.bend",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-pacing.bend",
+    "proof": "examples/survivors/bot-pacing-PROOF.bend",
+    "old": "Nat.is_le(100n,Nat.sub(now,1n+rest))",
+    "new": "Nat.is_le(101n,Nat.sub(now,1n+rest))",
+    "law": "render_ready"
   }
 ]

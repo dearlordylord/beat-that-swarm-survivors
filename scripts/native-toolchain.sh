@@ -15,6 +15,10 @@ export CLANG="$native_toolchain_wrapper"
 native_toolchain_require() {
   CLANG=$("$CC" --bendvy-compiler-path) || return
   export CLANG
+  if [[ $(uname -s) == Darwin ]]; then
+    SDKROOT=$(xcrun --sdk macosx --show-sdk-path) || return
+    export SDKROOT
+  fi
   if command -v sha256sum >/dev/null 2>&1; then
     BEND_NATIVE_TOOLCHAIN_FINGERPRINT=$(sha256sum "$native_toolchain_repo/toolchains/clang.env" "$native_toolchain_repo/scripts/native-toolchain.sh" "$native_toolchain_wrapper") || return
   elif command -v shasum >/dev/null 2>&1; then

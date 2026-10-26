@@ -3,7 +3,11 @@ set -eu
 
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$repo/toolchains/clang.env"
-selection="$repo/.toolchains/clang-$BENDVY_CLANG_VERSION.path"
+platform=$(uname -s)
+case "$platform" in
+  Darwin) selection="$repo/.toolchains/clang-apple.path" ;;
+  *) selection="$repo/.toolchains/clang-$BENDVY_CLANG_VERSION.path" ;;
+esac
 mode=compile
 requested=${BENDVY_CLANG:-}
 if [ "${1:-}" = --select ]; then
@@ -26,12 +30,23 @@ if [ -z "$requested" ] && [ -f "$selection" ]; then
   [ -n "$requested" ] || { echo "Empty Clang selection: $selection" >&2; exit 1; }
 fi
 if [ -z "$requested" ]; then
-  for candidate in /opt/homebrew/opt/llvm@19/bin/clang /usr/local/opt/llvm@19/bin/clang clang-19 clang; do
-    if command -v "$candidate" >/dev/null 2>&1; then requested=$candidate; break; fi
-  done
+  if [ "$platform" = Darwin ]; then
+    requested=$(xcrun --sdk macosx --find clang) || {
+      echo 'Cannot find Apple Clang. Install Command Line Tools with xcode-select --install.' >&2
+      exit 1
+    }
+  else
+    for candidate in clang-19 clang; do
+      if command -v "$candidate" >/dev/null 2>&1; then requested=$candidate; break; fi
+    done
+  fi
 fi
 if [ -z "$requested" ] || ! compiler=$(command -v "$requested"); then
-  echo "LLVM Clang $BENDVY_CLANG_VERSION is required. Install llvm@19 or select it with tools/clang --select /path/to/clang." >&2
+  if [ "$platform" = Darwin ]; then
+    echo 'Apple Clang is required. Check the selected Xcode/Command Line Tools and any explicit compiler override.' >&2
+  else
+    echo "LLVM Clang $BENDVY_CLANG_VERSION is required. Install llvm@19 or select it with tools/clang --select /path/to/clang." >&2
+  fi
   exit 1
 fi
 if is_wrapper "$compiler"; then
@@ -45,12 +60,38 @@ if ! version_output=$("$compiler" --version 2>&1); then
 fi
 first_line=$(printf '%s\n' "$version_output" | sed -n '1p')
 version=$(printf '%s\n' "$first_line" | awk '{for(i=1;i<NF;i++) if($i=="clang" && $(i+1)=="version") {print $(i+2);exit}}')
-case "$first_line" in
-  *Apple*) echo "Expected LLVM Clang $BENDVY_CLANG_VERSION; Apple Clang is a different toolchain: $first_line" >&2; exit 1 ;;
-esac
-if [ "$version" != "$BENDVY_CLANG_VERSION" ]; then
-  printf 'Expected LLVM Clang %s; selected %s reports: %s\nSelect the pinned compiler with tools/clang --select /path/to/clang.\n' "$BENDVY_CLANG_VERSION" "$compiler" "$first_line" >&2
-  exit 1
+if [ "$platform" = Darwin ]; then
+  case "$first_line" in
+    'Apple clang version '*) ;;
+    *) echo "macOS builds require Apple Clang from Xcode/Command Line Tools, not LLVM Clang $version." >&2; exit 1 ;;
+  esac
+  major=${version%%.*}
+  case "$major" in
+    ''|*[!0-9]*) echo "Invalid Apple Clang version: $first_line" >&2; exit 1 ;;
+  esac
+  if [ "$major" -lt "$BENDVY_APPLE_CLANG_MIN_MAJOR" ]; then
+    echo "Apple Clang $BENDVY_APPLE_CLANG_MIN_MAJOR or newer is required; selected: $first_line" >&2
+    exit 1
+  fi
+  SDKROOT=$(xcrun --sdk macosx --show-sdk-path) || {
+    echo 'Cannot locate the macOS SDK. Check the selected Xcode/Command Line Tools.' >&2
+    exit 1
+  }
+  if [ ! -f "$SDKROOT/usr/include/math.h" ]; then
+    echo "The selected macOS SDK has no usr/include/math.h: $SDKROOT" >&2
+    exit 1
+  fi
+  export SDKROOT
+  description="Apple Clang $version"
+else
+  case "$first_line" in
+    *Apple*) echo "Expected LLVM Clang $BENDVY_CLANG_VERSION; Apple Clang is a different toolchain: $first_line" >&2; exit 1 ;;
+  esac
+  if [ "$version" != "$BENDVY_CLANG_VERSION" ]; then
+    printf 'Expected LLVM Clang %s; selected %s reports: %s\nSelect the pinned compiler with tools/clang --select /path/to/clang.\n' "$BENDVY_CLANG_VERSION" "$compiler" "$first_line" >&2
+    exit 1
+  fi
+  description="LLVM Clang $version"
 fi
 
 case "$mode" in
@@ -62,8 +103,11 @@ case "$mode" in
     trap 'rm -f "$temporary"' 0 1 2 3 15
     printf '%s\n' "$compiler" > "$temporary"
     mv -f "$temporary" "$selection"
-    printf 'Selected LLVM Clang %s: %s\n' "$version" "$compiler"
+    printf 'Selected %s: %s\n' "$description" "$compiler"
     ;;
   path) printf '%s\n' "$compiler" ;;
-  compile) exec "$compiler" "$@" ;;
+  compile)
+    if [ "$platform" = Darwin ]; then exec "$compiler" -isysroot "$SDKROOT" "$@"; fi
+    exec "$compiler" "$@"
+    ;;
 esac

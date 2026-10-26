@@ -13,9 +13,14 @@ law realtime_waits: {P.ready(P.Realtime{},15n,0n) == False{} : Bool}
 # Guarantees: realtime mode permits a step at its deadline.
 # Why it matters: the default launch must advance after the wait.
 law realtime_ready: {P.ready(P.Realtime{},16n,0n) == True{} : Bool}
-# Guarantees: the simulation slice continues at seven elapsed milliseconds.
-# Why it matters: unlimited mode can take more than one step per frame.
-law slice_continues: {P.yield_frame(7n,0n) == False{} : Bool}
-# Guarantees: an expired slice returns control to rendering and input.
-# Why it matters: an unlimited bot must not monopolize the application loop.
-law slice_yields: {P.yield_frame(8n,0n) == True{} : Bool}
+# Guarantees: the first frame is presented without waiting for simulation work.
+# Why it matters: an unlimited run must open a usable window immediately.
+law first_frame:
+  for now: Nat
+  {P.render_due(now,0n) == True{} : Bool}
+# Guarantees: a recent presentation does not require another one at 99 ms.
+# Why it matters: simulation steps must not each cause a display wait.
+law render_waits: {P.render_due(100n,1n) == False{} : Bool}
+# Guarantees: presentation is requested at its 100 ms deadline.
+# Why it matters: the picture and close events must keep receiving service.
+law render_ready: {P.render_due(101n,1n) == True{} : Bool}

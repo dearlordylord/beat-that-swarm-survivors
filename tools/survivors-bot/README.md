@@ -16,17 +16,31 @@ bash tools/survivors-bot/visible.sh --profile advanced --seed 12345 --ticks 1800
 bash tools/survivors-bot/visible.sh --unlimited --profile advanced --ticks 1800
 ```
 
-The launcher rebuilds the current Bend sources before opening the native window.
+The launcher reuses the native binary when its build inputs are unchanged.
+It checks content hashes of Bend sources, compiler tools, Bend runtime and package
+cache, dependency pins and SDK identity files. Changed inputs or a changed binary
+trigger a rebuild. The first launch after this update rebuilds once to save the
+build receipt. Profile, seed, pacing and run limits do not require recompilation.
 Close the window or press Escape to stop. `--ticks` bounds game time; `--seconds`
 bounds wall time. Zero means no bound. `--build-only` compiles without opening a
-window. `--no-build` deliberately reuses the existing binary.
+window. `--rebuild` forces compilation. `--no-build` deliberately reuses the
+existing binary without checking its inputs. Native build receipts remain under
+the ignored `dist` directory.
 
-By default, the window runs at realtime pace. `--unlimited` removes the wait
-between simulation steps and can take multiple steps between rendered frames.
-Simulation yields to rendering and input after an eight millisecond work slice,
-or after its current step finishes if that step takes longer. Display refresh
-and rendering still cost time, so this mode is not a headless benchmark.
+By default, the window runs at realtime pace. `--unlimited` uses a separate
+simulation loop that advances continuously and requests a picture approximately
+every 100 ms. There is no eight millisecond simulation budget. About 10 FPS is
+intentional in this mode; TPS and SPEED show the simulation rate independently.
+Presentation and simulation share a thread, so drawing still consumes time.
+Close/Escape is handled on presentations. An expensive simulation step can delay
+the next presentation. This mode is not a headless benchmark.
 `NIGHTFALL_BOT_PACING=unlimited` selects the same mode through the environment.
+
+The bot window displays FPS, actual simulation ticks per wall second (TPS), and
+game-time speed relative to 60 ticks per second. Measurements use half-second
+wall-clock windows and include simulation, rendering and display waits. The
+active `REALTIME` or `UNLIMITED` mode appears beside them. Startup shows dashes
+until the first complete measurement window.
 
 ## Headless simulations
 

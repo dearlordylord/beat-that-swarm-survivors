@@ -52,19 +52,25 @@ from the new native driver.
 
 ## Unlimited window pacing
 
-`visible.sh --unlimited` selects `bot-pacing.Unlimited`. It executes the shared
-driver repeatedly between rendered frames, yielding after an eight millisecond
-work slice. One expensive simulation step can exceed that slice.
+`visible.sh --unlimited` selects the continuous loop in `bot-window-loop.bend`.
+It advances the shared driver between presentation deadlines approximately
+100 ms apart. It has no eight millisecond simulation budget. Drawing still
+consumes time on the same thread. Realtime mode keeps the original app loop.
 
-Native X11 runs with the same advanced profile and seed 12345 reached tick 600
-in both pacing modes. Their completion receipts matched exactly, including one
-upgrade and final position. Unlimited runs also stopped at tick 1 and at a one
-second wall limit. A native diagnostic called the unlimited frame callback four
-times without drawing; it observed ticks 2, 4, 6 and 8. This confirms that the
-callback can advance multiple simulation steps independently of display refresh.
-It does not measure headless throughput or prove full-state equivalence.
+The current scheduler was exercised as a native X11 program with an independent
+counter fixture. Its 1200 simulated steps produced 26 presentations. A second
+run received a real window-close event and stopped at step 121 after four
+presentations. The FPS/TPS/SPEED overlay was inspected on this fixture. These
+are scheduling checks with a synthetic workload, not game throughput results.
 
-Five pacing laws pass the kernel through `bot-pacing-PROOF.bend`. Five
+Earlier 600-tick game comparisons belong to the previous eight millisecond
+version. They do not establish full-game equivalence or speed for this loop.
+The current game entrypoint passes source checking; a macOS game run remains
+to be measured on the user's host. The user confirmed that the macOS launch
+works and reported visible acceleration after the continuous loop change.
+That report is qualitative; it establishes no numeric speedup or 100× result.
+
+Six pacing laws pass the kernel through `bot-pacing-PROOF.bend`. Six
 type-correct mutations in `scripts/law-mutants/bot-pacing.json` are rejected at
-their corresponding laws. The laws cover unrestricted readiness, the default
-sixteen millisecond deadline examples, and the eight millisecond yield examples.
+their corresponding laws. They cover unrestricted simulation readiness, default
+realtime deadlines, initial presentation and subsequent presentation deadlines.

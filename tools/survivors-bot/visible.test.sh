@@ -3,7 +3,7 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/nightfall-visible-test-XXXXXX")
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/repo/tools/survivors-bot" "$fixture/repo/examples/survivors" "$fixture/repo/scripts" "$fixture/repo/toolchains"
+mkdir -p "$fixture/repo/tools/survivors-bot" "$fixture/repo/examples/survivors" "$fixture/repo/scripts" "$fixture/repo/toolchains" "$fixture/bend/bin" "$fixture/bend/bend2" "$fixture/library" "$fixture/sdk"
 cp "$repo/tools/survivors-bot/visible.sh" "$fixture/repo/tools/survivors-bot/"
 cp "$repo/tools/clang" "$fixture/repo/tools/clang"
 cp "$repo/scripts/native-toolchain.sh" "$fixture/repo/scripts/native-toolchain.sh"
@@ -11,9 +11,11 @@ cp "$repo/toolchains/clang.env" "$fixture/repo/toolchains/clang.env"
 cat > "$fixture/compiler" <<'COMPILER'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ ${1:-} == version ]]; then echo 'bend 2.0.39'; exit 0; fi
 [[ $CC == "$FIXTURE/repo/tools/clang" ]]
 [[ $1 == "$FIXTURE/repo/examples/survivors/native-bot.bend" && $2 == -o ]]
 [[ ${FAIL_BUILD:-0} == 0 ]] || exit 42
+if [[ ${CHANGE_DURING_BUILD:-0} == 1 ]]; then printf 'changed during build\n' >> "$FIXTURE/repo/examples/survivors/native-bot.bend"; fi
 printf 'build\n' >> "$FIXTURE/builds"
 cat > "$3" <<'BINARY'
 #!/usr/bin/env bash
@@ -29,11 +31,20 @@ cat > "$fixture/clang" <<'CLANG'
 printf '%s\n' 'clang version 19.1.7'
 CLANG
 chmod +x "$fixture/compiler" "$fixture/clang"
-export FIXTURE="$fixture" BEND="$fixture/compiler" BENDVY_CLANG="$fixture/clang" NODE=/nonexistent/node PYTHON=/nonexistent/python
+cp "$fixture/compiler" "$fixture/bend/bin/bend"
+printf 'source\n' > "$fixture/repo/examples/survivors/native-bot.bend"
+printf 'base\n' > "$fixture/bend/bend2/base.bend"
+printf 'dependency\n' > "$fixture/library/package.bend"
+printf '{}\n' > "$fixture/repo/bendhub-dependencies.json"
+printf 'sdk\n' > "$fixture/sdk/SDKSettings.json"
+export FIXTURE="$fixture" BEND="$fixture/bend/bin/bend" BEND_LIB="$fixture/library" BENDVY_CLANG="$fixture/clang" NODE=/nonexistent/node PYTHON=/nonexistent/python
 export BENDRTS='--gpu on --threads 99'
 runner="$fixture/repo/tools/survivors-bot/visible.sh"
 bash "$runner" --profile advanced --seed 4294967295 --ticks 1800 --seconds 45 > "$fixture/actual"
 [[ $(cat "$fixture/actual") == 'advanced 4294967295 1800 45 realtime' ]]
+[[ $(wc -l < "$fixture/builds") == 1 ]]
+bash "$runner" --seed 12 --unlimited > "$fixture/automatic-reuse"
+[[ $(cat "$fixture/automatic-reuse") == 'fresh 12 0 0 unlimited' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
 BENDVY_CLANG=/nonexistent/clang bash "$runner" --no-build --seed 0 > "$fixture/reuse"
 [[ $(cat "$fixture/reuse") == 'fresh 0 0 0 realtime' ]]
@@ -46,14 +57,49 @@ if NIGHTFALL_BOT_PACING=invalid bash "$runner" --no-build >/dev/null 2>&1; then
   echo 'Accepted invalid pacing' >&2; exit 1
 fi
 bash "$runner" --build-only > "$fixture/build-only"
-[[ $(cat "$fixture/build-only") == "Built: $fixture/repo/examples/survivors/dist/nightfall-bot" ]]
-[[ $(wc -l < "$fixture/builds") == 2 ]]
-for invalid in '--seed 01' '--seed -1' '--seed 4294967296' '--ticks 1.5' '--seconds 4294968' '--profile both' '--no-build --build-only' '--mode heuristic' '--bogus'; do
+[[ $(cat "$fixture/build-only") == "Ready: $fixture/repo/examples/survivors/dist/nightfall-bot" ]]
+[[ $(wc -l < "$fixture/builds") == 1 ]]
+for invalid in '--seed 01' '--seed -1' '--seed 4294967296' '--ticks 1.5' '--seconds 4294968' '--profile both' '--no-build --build-only' '--no-build --rebuild' '--mode heuristic' '--bogus'; do
   if bash "$runner" $invalid >/dev/null 2>&1; then echo "Accepted invalid: $invalid" >&2; exit 1; fi
 done
 status=0
-FAIL_BUILD=1 bash "$runner" > "$fixture/failed" 2>/dev/null || status=$?
+FAIL_BUILD=1 bash "$runner" --rebuild > "$fixture/failed" 2>/dev/null || status=$?
 [[ $status == 42 && ! -s "$fixture/failed" ]]
+for input in "$fixture/repo/examples/survivors/native-bot.bend" "$fixture/library/package.bend" "$fixture/bend/bend2/base.bend" "$fixture/repo/toolchains/clang.env" "$fixture/bend/bin/bend" "$fixture/clang"; do
+  before=$(wc -l < "$fixture/builds")
+  printf '\n' >> "$input"
+  touch -r "$fixture/repo/examples/survivors/dist/nightfall-bot" "$input"
+  bash "$runner" --build-only > /dev/null
+  [[ $(wc -l < "$fixture/builds") == $((before + 1)) ]]
+done
+before=$(wc -l < "$fixture/builds")
+printf 'new module\n' > "$fixture/repo/examples/survivors/new-module.bend"
+bash "$runner" --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 1)) ]]
+mv "$fixture/repo/examples/survivors/new-module.bend" "$fixture/not-a-build-input"
+bash "$runner" --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 2)) ]]
+before=$(wc -l < "$fixture/builds")
+(cd "$fixture/repo/examples"; bash ../tools/survivors-bot/visible.sh --build-only >/dev/null)
+[[ $(wc -l < "$fixture/builds") == $before ]]
+before=$(wc -l < "$fixture/builds")
+SDKROOT="$fixture/sdk" bash "$runner" --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 1)) ]]
+printf 'new sdk\n' >> "$fixture/sdk/SDKSettings.json"
+SDKROOT="$fixture/sdk" bash "$runner" --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 2)) ]]
+SDKROOT="$fixture/sdk" bash "$runner" --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 2)) ]]
+before=$(wc -l < "$fixture/builds")
+printf '# modified executable\n' >> "$fixture/repo/examples/survivors/dist/nightfall-bot"
+SDKROOT="$fixture/sdk" bash "$runner" --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 1)) ]]
+before=$(wc -l < "$fixture/builds")
+SDKROOT="$fixture/sdk" bash "$runner" --rebuild --build-only >/dev/null
+[[ $(wc -l < "$fixture/builds") == $((before + 1)) ]]
+status=0
+CHANGE_DURING_BUILD=1 bash "$runner" --rebuild >/dev/null 2>&1 || status=$?
+[[ $status != 0 ]]
 status=0
 NATIVE_EXIT=23 bash "$runner" --no-build >/dev/null || status=$?
 [[ $status == 23 ]]

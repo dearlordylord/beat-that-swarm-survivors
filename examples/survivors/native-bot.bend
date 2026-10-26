@@ -6,6 +6,9 @@ import offline-policy.bend as Policy
 import native.bend as N
 import native-economy.bend as P
 import bot-pacing.bend as Pacing
+import bot-metrics.bend as Metrics
+import native_draw.bend as D
+import bot-window-loop.bend as WindowLoop
 
 type Bot is Type: Bot{progress: Driver.Progress,last: Nat,started: Nat,ticks: U32,seconds: U32,pacing: Pacing.Mode}
 
@@ -63,38 +66,10 @@ def continue_packet(memory: Policy.Memory,+choices: U32,last: Nat,started: Nat,t
 def continue(state: Bot) -> IO(Maybe<Bot>):
   match state:
     case Bot{Driver.Progress{memory,packet,choices},last,started,ticks,seconds,pacing}: continue_packet(memory,choices,last,started,ticks,seconds,pacing,packet)
-def slice_continue(expired: Bool,state: Bot,rest: Bot -> IO(Maybe<Bot>)) -> IO(Maybe<Bot>):
-  match expired:
-    case True{}: IO.pure(Maybe<Bot>,Some{state})
-    case False{}: rest(state)
-def slice_result(started: Nat,result: Maybe<Bot>,rest: Bot -> IO(Maybe<Bot>)) -> IO(Maybe<Bot>):
-  match result:
-    case None{}: IO.pure(Maybe<Bot>,None{})
-    case Some{state}:
-      do IO<Maybe<Bot>>:
-        now : Nat <- IO.now()
-        slice_continue(Pacing.yield_frame(now,started),state,rest)
-def slice(fuel: Nat,+started: Nat,state: Bot) -> IO(Maybe<Bot>):
-  match fuel:
-    case 0n: IO.pure(Maybe<Bot>,Some{state})
-    case 1n+rest:
-      do IO<Maybe<Bot>>:
-        next : Maybe<Bot> <- continue(state)
-        slice_result(started,next,next => slice(rest,started,next))
-def paced(mode: Pacing.Mode,state: Bot) -> IO(Maybe<Bot>):
-  match mode:
-    case Pacing.Realtime{}: continue(state)
-    case Pacing.Unlimited{}:
-      do IO<Maybe<Bot>>:
-        now : Nat <- IO.now()
-        slice(65536n,now,state)
-def frame(state: Bot) -> IO(Maybe<Bot>):
-  match state:
-    case Bot{progress,last,started,ticks,seconds,+pacing}: paced(pacing,Bot{progress,last,started,ticks,seconds,pacing})
 def tick_closed(closed: Bool,state: Bot) -> IO(Maybe<Bot>):
   match closed:
     case True{}: IO.pure(Maybe<Bot>,None{})
-    case False{}: frame(state)
+    case False{}: continue(state)
 def tick(events: List<Event>,state: Bot) -> IO(Maybe<Bot>): tick_closed(closes(events),state)
 def rendering_run(+run: G.Run,packet: G.Packet) -> N.Native:
   N.Native{packet,N.set_character(N.set_paused(N.set_screen(N.initial_ui(),1),(Bool.to_u32(Bool.or(U32.is_eq(G.run_phase(run),1),U32.is_eq(G.run_phase(run),2))) * 2 : U32)),G.run_character(run)),P.fresh()}
@@ -108,9 +83,65 @@ def viewed(memory: Policy.Memory,choices: U32,last: Nat,started: Nat,ticks: U32,
 def image(memory: Policy.Memory,choices: U32,last: Nat,started: Nat,ticks: U32,seconds: U32,pacing: Pacing.Mode,result: N.Native & Image) -> Bot & Image:
   (native,picture) = result
   viewed(memory,choices,last,started,ticks,seconds,pacing,native,picture)
-def view(state: Bot) -> Bot & Image:
+def metrics_native(text: String,native: N.Native) -> N.Native & Image:
+  match native:
+    case N.Native{G.Packet{G.State{world,+run,+offers,+snapshots,pending}},+ui,profile}:
+      (N.Native{G.Packet{G.State{world,run,offers,snapshots,pending}},ui,profile},D.image(D.text(text,12.0,52.0,1.0,15196103,D.rect(0.0,48.0,512.0,16.0,724763,N.gameplay_rows(run,offers,ui,snapshots)))))
+    case native: N.view(native)
+def mode_label(mode: Pacing.Mode) -> String:
+  match mode:
+    case Pacing.Realtime{}: "  REALTIME"
+    case Pacing.Unlimited{}: "  UNLIMITED"
+def view(text: String,state: Bot) -> Bot & Image:
   match state:
-    case Bot{Driver.Progress{memory,game,choices},last,started,ticks,seconds,pacing}: image(memory,choices,last,started,ticks,seconds,pacing,N.view(rendering_native(game)))
+    case Bot{Driver.Progress{memory,game,choices},last,started,ticks,seconds,+pacing}: image(memory,choices,last,started,ticks,seconds,pacing,metrics_native(text ++ mode_label(pacing),rendering_native(game)))
+
+type Monitor is Type: Monitor{bot: Bot,metrics: Metrics.State}
+def monitor_drawn(metrics: Metrics.State,drawn: Bot & Image) -> Monitor & Image:
+  (bot,picture) = drawn
+  (Monitor{bot,metrics},picture)
+def monitor_view(state: Monitor) -> Monitor & Image:
+  match state:
+    case Monitor{bot,+metrics}: monitor_drawn(metrics,view(Metrics.label(metrics),bot))
+def bot_tick(state: Bot) -> Bot & U32:
+  match state:
+    case Bot{Driver.Progress{memory,G.Packet{G.State{world,+run,offers,snapshots,pending}},choices},last,started,ticks,seconds,pacing}:
+      (Bot{Driver.Progress{memory,G.Packet{G.State{world,run,offers,snapshots,pending}},choices},last,started,ticks,seconds,pacing},G.run_tick(run))
+    case state: (state,0)
+def monitor_measured(metrics: Metrics.State,result: Bot & U32) -> IO(Maybe<Monitor>):
+  (bot,tick) = result
+  do IO<Maybe<Monitor>>:
+    now : Nat <- IO.now()
+    return Some{Monitor{bot,Metrics.sample(now,tick,metrics)}}
+def monitor_next(metrics: Metrics.State,result: Maybe<Bot>) -> IO(Maybe<Monitor>):
+  match result:
+    case None{}: IO.pure(Maybe<Monitor>,None{})
+    case Some{bot}: monitor_measured(metrics,bot_tick(bot))
+def monitor_tick(events: List<Event>,state: Monitor) -> IO(Maybe<Monitor>):
+  match state:
+    case Monitor{bot,metrics}:
+      do IO<Maybe<Monitor>>:
+        next : Maybe<Bot> <- tick(events,bot)
+        monitor_next(metrics,next)
+def monitor_progress(metrics: Metrics.State,next: Maybe<Bot>) -> Maybe<Monitor>:
+  match next:
+    case None{}: None{}
+    case Some{bot}: Some{Monitor{bot,metrics}}
+def monitor_advance(state: Monitor) -> IO(Maybe<Monitor>):
+  match state:
+    case Monitor{bot,metrics}:
+      do IO<Maybe<Monitor>>:
+        next : Maybe<Bot> <- continue(bot)
+        return monitor_progress(metrics,next)
+def presented_closed(closed: Bool,state: Monitor) -> IO(Maybe<Monitor>):
+  match closed state:
+    case True{} _: IO.pure(Maybe<Monitor>,None{})
+    case False{} Monitor{bot,metrics}: monitor_measured(metrics,bot_tick(bot))
+def monitor_presented(events: List<Event>,state: Monitor) -> IO(Maybe<Monitor>): presented_closed(closes(events),state)
+def run_mode(mode: Pacing.Mode,state: Monitor) -> IO(Unit):
+  match mode:
+    case Pacing.Realtime{}: App.run(~Monitor,~App{monitor_view,monitor_tick},"Nightfall - Bend Bot",1024,768,state)
+    case Pacing.Unlimited{}: WindowLoop.run(~Monitor,~App{monitor_view,monitor_presented},~monitor_advance,"Nightfall - Bend Bot",1024,768,state)
 def initial_game(mode: String,seed: U32) -> G.Packet:
   match mode:
     case "advanced": B.advanced_start_seed(seed)
@@ -122,5 +153,6 @@ def main() -> IO(Unit):
     ticks : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_TICKS")
     seconds : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_SECONDS")
     pacing : Result<&1,&1,U32 & String,String> <- IO.get_env("NIGHTFALL_BOT_PACING")
+    +chosen : Pacing.Mode <- IO.pure(Pacing.Mode,Pacing.parse(environment(pacing)))
     +now : Nat <- IO.now()
-    App.run(~Bot,~App{view,tick},"Nightfall - Bend Bot",1024,768,Bot{Driver.Progress{Policy.initial(),initial_game(environment(mode),number(environment(seed),12345)),0},now,now,number(environment(ticks),0),number(environment(seconds),0),Pacing.parse(environment(pacing))})
+    run_mode(chosen,Monitor{Bot{Driver.Progress{Policy.initial(),initial_game(environment(mode),number(environment(seed),12345)),0},now,now,number(environment(ticks),0),number(environment(seconds),0),chosen},Metrics.initial()})

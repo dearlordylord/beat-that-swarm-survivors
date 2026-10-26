@@ -1,0 +1,52 @@
+[
+  {
+    "label": "speed-scale",
+    "source": "examples/survivors/bot-metrics.bend",
+    "old": "Nat.mul(ticks,500n)",
+    "new": "Nat.mul(ticks,250n)",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-metrics.bend",
+    "proof": "examples/survivors/bot-metrics-PROOF.bend",
+    "law": "realtime"
+  },
+  {
+    "label": "rate-scale",
+    "source": "examples/survivors/bot-metrics.bend",
+    "old": "Nat.mul(count,1000n)",
+    "new": "Nat.mul(count,100n)",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-metrics.bend",
+    "proof": "examples/survivors/bot-metrics-PROOF.bend",
+    "law": "window_normalization"
+  },
+  {
+    "label": "zero-duration",
+    "source": "examples/survivors/bot-metrics.bend",
+    "old": "case 0n: 0n",
+    "new": "case 0n: 1n",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-metrics.bend",
+    "proof": "examples/survivors/bot-metrics-PROOF.bend",
+    "law": "no_elapsed_time"
+  },
+  {
+    "label": "frame-count",
+    "source": "examples/survivors/bot-metrics.bend",
+    "old": "clock,1n+frames,previous",
+    "new": "clock,frames,previous",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-metrics.bend",
+    "proof": "examples/survivors/bot-metrics-PROOF.bend",
+    "law": "first_window"
+  },
+  {
+    "label": "early-refresh",
+    "source": "examples/survivors/bot-metrics.bend",
+    "old": "Nat.is_le(500n,span)",
+    "new": "Nat.is_le(250n,span)",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/bot-metrics.bend",
+    "proof": "examples/survivors/bot-metrics-PROOF.bend",
+    "law": "waits_for_window"
+  }
+]
