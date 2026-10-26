@@ -12,7 +12,7 @@ import coop-combat-prediction-policy.bend as ContactPolicy
 import projectile-contact.bend as Contact
 import coop-reward-policy.bend as RP
 import coop-attach.bend as Attach
-import list-map.bend as ListMap
+import personal-totals.bend as Personal
 import game.bend as G
 import coop-prediction.bend as Prediction
 import coop-combat-prediction.bend as CombatPrediction
@@ -438,14 +438,19 @@ def owned_row(+team: G.Team,id: U32,run: G.Run,+row: G.EntityRow) -> G.EntityRow
     case G.EnemyRow{+outcome,credit}: G.EnemyRow{outcome,enemy_personal_credit(run,id,outcome,credit)}
     case G.PickupRow{Pickup.Outcome{state,reward}}: pickup_credit(team,id,state,reward)
     case G.ProjectileRow{_}: owned_row_values(id,run,row,0)
+def personal_totals(totals:Personal.Totals) -> G.Totals:
+  match totals:
+    case Personal.Totals{h,x,g,he,c,k}: G.Totals{h,x,g,he,c,k,[],0}
+def personal_count(row:G.EntityRow) -> Personal.Delta:
+  match row:
+    case G.NoEntityRow{}: Personal.Empty{}
+    case G.ProjectileRow{Shot.Outcome{_,h}}: Personal.Projectile{h}
+    case G.EnemyRow{_,Enemy.Credit{h,k}}: Personal.Enemy{h,k}
+    case G.PickupRow{Pickup.Outcome{_,Pickup.Reward{x,g,he,c,_}}}: Personal.Pickup{x,g,he,c}
 type OwnedRowsContext is Data: OwnedRowsContext{team:G.Team,id:U32,run:G.Run}
 def owned_row_context(context:OwnedRowsContext,row:G.EntityRow) -> G.EntityRow:
   match context:
     case OwnedRowsContext{team,id,run}: owned_row(team,id,run,row)
-def owned_rows_run(team: G.Team,id: U32,run: G.Run,rows: List<&2,G.EntityRow>) -> List<&2,G.EntityRow>:
-  ListMap.map(~G.EntityRow,~G.EntityRow,~OwnedRowsContext,~owned_row_context,OwnedRowsContext{team,id,run},rows)
-def owned_rows(+team: G.Team,+id: U32,rows: List<&2,G.EntityRow>) -> List<&2,G.EntityRow>:
-  owned_rows_run(team,id,G.view_run(G.team_for_id(team,id)),rows)
 def totals_xp(totals: G.Totals) -> U32:
   match totals:
     case G.Totals{_,xp,_,_,_,_,_,_}: xp
@@ -469,14 +474,12 @@ def scheduled_record(old: Components.PlayerRecord,+personal: RS.PlayerState,+tic
     case Components.PlayerRecord{id,+prior,connected,+reviveTick}:
       +newDeath = Bool.and(U32.is_lt(0,RS.player_hp(prior)),U32.is_eq(RS.player_hp(personal),0))
       Components.PlayerRecord{id,personal,connected,Bool.pick(U32,newDeath,(tick + 300 : U32),reviveTick)}
-def finalize_living(next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: Components.PlayerRecord,+view: G.PlayerView,+rows: List<&2,G.EntityRow>,+totals: G.Totals,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
+def finalize_living(next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: Components.PlayerRecord,+view: G.PlayerView,+totals: G.Totals,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
   next(world,scheduled_record(player,G.finish_personal_tick(G.moved_run(view),totals),G.run_tick(G.view_run(view))) <> done,(xp + credit_xp(G.view_run(view),totals_xp(totals)) : U32),(gold + credit_gold(G.view_run(view),totals_gold(totals)) : U32),chest_rewards(U32.to_nat(totals_chests(totals)),record_id(player),chests))
-def finalize_owned(next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,player: Components.PlayerRecord,view: G.PlayerView,+owned: List<&2,G.EntityRow>,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
-  finalize_living(next,player,view,owned,G.accumulate(owned,0,0,0,0,0,0,[],0),world,done,xp,gold,chests)
 def finalize_eligible(eligible: Bool,next: Storage.World() -> List<&2,Components.PlayerRecord> -> U32 -> U32 -> List<&2,Reward> -> PlayersFinalized,+player: Components.PlayerRecord,+team: G.Team,+rows: List<&2,G.EntityRow>,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
   match eligible:
     case False{}: next(world,player <> done,xp,gold,chests)
-    case True{}: finalize_owned(next,player,G.team_for_id(team,record_id(player)),owned_rows(team,record_id(player),rows),world,done,xp,gold,chests)
+    case True{}: finalize_living(next,player,G.team_for_id(team,record_id(player)),personal_totals(Personal.fold(~G.EntityRow,~OwnedRowsContext,~owned_row_context,~personal_count,OwnedRowsContext{team,record_id(player),G.view_run(G.team_for_id(team,record_id(player)))},rows,Personal.Totals{0,0,0,0,0,0})),world,done,xp,gold,chests)
 def finalize_players(players: List<&2,Components.PlayerRecord>,+team: G.Team,+rows: List<&2,G.EntityRow>,world: Storage.World(),done: List<&2,Components.PlayerRecord>,xp: U32,gold: U32,chests: List<&2,Reward>) -> PlayersFinalized:
   match players:
     case []: PlayersFinalized{world,List.reverse(&2,Components.PlayerRecord,done),xp,gold,List.reverse(&2,Reward,chests)}

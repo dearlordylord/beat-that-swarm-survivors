@@ -1,0 +1,32 @@
+[
+  {
+    "label": "drop-projectile-contact",
+    "source": "examples/survivors/personal-totals.bend",
+    "old": "case Projectile{h} Totals{hit,x,g,he,c,k}: Totals{(hit + h : U32),x,g,he,c,k}",
+    "new": "case Projectile{h} Totals{hit,x,g,he,c,k}: Totals{hit,x,g,he,c,k}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/personal-totals.bend",
+    "proof": "examples/survivors/personal-totals-PROOF.bend",
+    "law": "projectile_exact"
+  },
+  {
+    "label": "reset-contact-counter",
+    "source": "examples/survivors/personal-totals.bend",
+    "old": "case Projectile{h} Totals{hit,x,g,he,c,k}: Totals{(hit + h : U32),x,g,he,c,k}",
+    "new": "case Projectile{h} Totals{hit,x,g,he,c,k}: Totals{h,x,g,he,c,k}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/personal-totals.bend",
+    "proof": "examples/survivors/personal-totals-PROOF.bend",
+    "law": "projectile_exact"
+  },
+  {
+    "label": "empty-erases-personal-totals",
+    "source": "examples/survivors/personal-totals.bend",
+    "old": "case Empty{} totals: totals",
+    "new": "case Empty{} totals: Totals{0,0,0,0,0,0}",
+    "occurrences": 1,
+    "compile_target": "examples/survivors/personal-totals.bend",
+    "proof": "examples/survivors/personal-totals-PROOF.bend",
+    "law": "empty_exact"
+  }
+]

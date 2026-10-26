@@ -55,5 +55,37 @@ execution uses its runtime thread pool inside one process. Both write run receip
 and summary JSONL under `examples/survivors/dist/native-batches/`. Output is a
 report, not a transport used to make decisions. No 100× speed claim is established.
 
-`balance-report.py` is an offline report analyzer, not a game runner. Strict audit
-comparison work continues separately in GitHub issue #11.
+## Two bots in one co-op world
+
+The co-op runner uses the same Bend policy for both players. Compile and run it
+without a window or Node.js:
+
+```sh
+mkdir -p examples/survivors/dist
+bend examples/survivors/offline-coop-batch.bend -o examples/survivors/dist/nightfall-coop.c
+tools/clang -std=c11 -O3 examples/survivors/dist/nightfall-coop.c -o examples/survivors/dist/nightfall-coop -lpthread -lm
+NIGHTFALL_COOP_PROFILE=advanced NIGHTFALL_COOP_SEED=982451653 NIGHTFALL_COOP_TICKS=6000 examples/survivors/dist/nightfall-coop +RTS --threads 1 --gpu off -RTS
+```
+
+`NIGHTFALL_COOP_PROFILE` selects `fresh` or `advanced`. The seed defaults to
+12345 and the horizon to 7200 ticks; the maximum horizon is 37000 ticks.
+Characters and arcanas can be set independently with `NIGHTFALL_COOP_CHARACTER0`,
+`NIGHTFALL_COOP_CHARACTER1`, `NIGHTFALL_COOP_ARCANA0`, and `NIGHTFALL_COOP_ARCANA1`.
+The runner prints a sample every 60 game ticks and a terminal summary. Decisions
+and policy memory remain inside the native process.
+
+`offline-coop-step.bend` contains the shared pure controller transition.
+`offline-coop-audit.bend` adds scheduled physical-state, action and policy-memory
+captures; compile that entrypoint and set `NIGHTFALL_COOP_AUDIT=scheduled`.
+Its `bendvy-coop-observer-v3` schema includes each player's revival tick as the
+fourth player-record field. Pre-revival v2 captures use a different schema.
+`offline-coop-journal-audit.bend` records ordered observations and contact events
+with exact F32 bits. These verification entrypoints share the same transition.
+
+The personal-total fold and its laws preserve the existing damage and reward
+calculation while avoiding intermediate personal row and snapshot lists. The
+global snapshot/relic reduction and player revival scheduling remain separate.
+This integration does not establish the 100× performance target.
+
+`balance-report.py` is an offline report analyzer, not a game runner. Performance
+qualification continues separately in GitHub issue #11.
