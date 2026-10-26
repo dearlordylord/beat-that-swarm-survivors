@@ -7,7 +7,7 @@ import re
 import sys
 import tempfile
 
-from process_diagnostics import format_failure, run_process
+from process_diagnostics import format_failure, format_usage, run_process
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,7 +59,8 @@ def main():
         result = run_process([os.environ.get('BEND', 'bend'), path, '--verdict'], cwd=ROOT, wall_timeout_seconds=60, cpu_limit_seconds=10)
         ok = result.normal_exit and result.returncode == 0 and 'ALL PROOFS CHECK' in result.output
         label = str(path.relative_to(ROOT)) if path.is_absolute() else str(path)
-        print(f'{"PASS" if ok else "FAIL"} {label}', flush=True)
+        timing = f' ({format_usage(result)})' if ok else ''
+        print(f'{"PASS" if ok else "FAIL"} {label}{timing}', flush=True)
         if ok:
             passed += 1
         else:

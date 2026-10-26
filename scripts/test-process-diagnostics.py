@@ -14,7 +14,7 @@ import time
 import unittest
 from unittest import mock
 
-from process_diagnostics import format_failure, run_process
+from process_diagnostics import RunResult, format_failure, run_process
 
 SCRIPTS = Path(__file__).resolve().parent
 
@@ -55,6 +55,24 @@ class ProcessDiagnosticsTests(unittest.TestCase):
         self.assertIsNone(unlimited.cpu_limit_seconds)
         self.assertIsNone(unlimited.wall_timeout_seconds)
         self.assertIn('CPU not configured; wall not configured', format_failure(unlimited, 'no marker'))
+
+    def test_actual_busy_child_records_cpu_without_inferring_a_signal_cause(self):
+        result = self.child('while True: pass', wall_timeout_seconds=5, cpu_limit_seconds=1)
+        self.assertEqual(result.classification, 'signal')
+        self.assertIn(result.returncode, [-signal.SIGKILL, -signal.SIGXCPU])
+        self.assertFalse(result.wall_timed_out)
+        self.assertFalse(result.normal_exit)
+        self.assertGreater(result.reaped_children_cpu_seconds, 0)
+        details = format_failure(result, 'busy child did not complete')
+        self.assertIn('CPU 1s; wall 5s', details)
+        self.assertIn('aggregate reaped-child CPU:', details)
+        self.assertIn('user ', details)
+        self.assertIn('system ', details)
+        self.assertNotIn('OOM', details)
+        manual = RunResult(('external-child',), str(SCRIPTS), None, None, .1,
+                           -signal.SIGKILL, False, None, '', '')
+        self.assertIsNone(manual.reaped_children_cpu_seconds)
+        self.assertIn('aggregate reaped-child CPU: unavailable', format_failure(manual, 'external child failed'))
 
     def test_spawn_failure_reports_actual_command_and_error(self):
         command = [str(SCRIPTS / 'does-not-exist-diagnostics-control')]

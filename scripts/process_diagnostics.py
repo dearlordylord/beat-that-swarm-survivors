@@ -1,4 +1,9 @@
-"""Capture subprocess outcomes without treating process failures as check evidence."""
+"""Capture subprocess outcomes without treating process failures as check evidence.
+
+CPU observations are RUSAGE_CHILDREN interval deltas for the calling Python
+process. They include aggregate reaped children and their waited descendants,
+not exact usage of one executable or the usage of still-running descendants.
+"""
 from dataclasses import dataclass
 from pathlib import Path
 import os
@@ -22,6 +27,14 @@ class RunResult:
     spawn_error: str | None
     stdout: str
     stderr: str
+    reaped_children_user_seconds: float | None = None
+    reaped_children_system_seconds: float | None = None
+
+    @property
+    def reaped_children_cpu_seconds(self):
+        if self.reaped_children_user_seconds is None or self.reaped_children_system_seconds is None:
+            return None
+        return self.reaped_children_user_seconds + self.reaped_children_system_seconds
 
     @property
     def normal_exit(self):
@@ -59,6 +72,12 @@ def run_process(command: Sequence[str | Path], *, cwd: Path | None = None,
     argv = tuple(map(str, command))
     location = str((cwd or Path.cwd()).resolve())
     started = time.monotonic()
+    usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
+
+    def observed_cpu():
+        usage_after = resource.getrusage(resource.RUSAGE_CHILDREN)
+        return (usage_after.ru_utime - usage_before.ru_utime,
+                usage_after.ru_stime - usage_before.ru_stime)
 
     def bounded():
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit_seconds, cpu_limit_seconds))
@@ -72,7 +91,7 @@ def run_process(command: Sequence[str | Path], *, cwd: Path | None = None,
     except (OSError, subprocess.SubprocessError) as failure:
         return RunResult(argv, location, wall_timeout_seconds, cpu_limit_seconds,
                          time.monotonic() - started, None, False,
-                         f'{type(failure).__name__}: {failure}', '', '')
+                         f'{type(failure).__name__}: {failure}', '', '', *observed_cpu())
 
     def stop_owned_group():
         # This session belongs to this invocation, including its compiler/kernel children.
@@ -96,7 +115,16 @@ def run_process(command: Sequence[str | Path], *, cwd: Path | None = None,
             cancellation.add_note(f'Owned process cleanup failed: {cleanup_error}')
         raise
     return RunResult(argv, location, wall_timeout_seconds, cpu_limit_seconds,
-                     time.monotonic() - started, child.returncode, timed_out, None, stdout, stderr)
+                     time.monotonic() - started, child.returncode, timed_out, None, stdout, stderr, *observed_cpu())
+
+
+def format_usage(result: RunResult):
+    wall = f'elapsed wall: {result.elapsed_wall_seconds:.3f}s'
+    if result.reaped_children_cpu_seconds is None:
+        return wall + '; aggregate reaped-child CPU: unavailable'
+    return (wall + f'; aggregate reaped-child CPU: {result.reaped_children_cpu_seconds:.3f}s '
+            f'(user {result.reaped_children_user_seconds:.3f}s; '
+            f'system {result.reaped_children_system_seconds:.3f}s)')
 
 
 def format_failure(result: RunResult, reason: str):
@@ -112,7 +140,7 @@ def format_failure(result: RunResult, reason: str):
         f'signal: {result.signal_name or "none"}' + (f' ({signum})' if signum is not None else ''),
         f'wall timeout: {str(result.wall_timed_out).lower()}',
         f'budgets: CPU {cpu}; wall {wall}',
-        f'elapsed wall: {result.elapsed_wall_seconds:.3f}s',
+        format_usage(result),
         *([f'spawn error: {result.spawn_error}'] if result.spawn_error else []),
         'child stdout:', result.stdout or '(empty)',
         'child stderr:', result.stderr or '(empty)',
