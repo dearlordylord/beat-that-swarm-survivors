@@ -60,4 +60,4 @@ def main() -> IO(Unit):
     +runTicks : U32 <- IO.pure(U32,Single.number(Single.environment(ticks),0))
     +session : Session <- IO.pure(Session,Session{mode,chosenSeed,1,now,Single.number(Single.environment(seconds),0),runTicks})
     announced(session)
-    App.run(~Stream,~App{view,tick},"Beat That Swarm: Survivors",1024,768,Stream{new_monitor(mode,chosenSeed,now,runTicks),session})
+    App.run(~Stream,~App{view,tick},"B.T.S: Beat That Swarm - Survivors",1024,768,Stream{new_monitor(mode,chosenSeed,now,runTicks),session})

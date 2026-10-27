@@ -29,7 +29,7 @@ trap 'rm -rf "$staging_dir"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 cd ../..
-echo 'Building Nightfall Survivors from current Bend sources…'
+echo 'Building B.T.S: Beat That Swarm - Survivors from current Bend sources…'
 "${BEND:-bend}" "$app_dir/native.bend" -o "$staging_dir/nightfall"
 chmod +x "$staging_dir/nightfall"
 mv -f "$staging_dir/nightfall" "$app_dir/dist/nightfall"

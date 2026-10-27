@@ -927,4 +927,4 @@ def main() -> IO(Unit):
   do IO<Unit>:
     profile : P.Profile <- ProfileIO.load()
     audio : Maybe<Audio> <- Sound.open()
-    App.run(~Session,~App{session_view,session_tick},"Nightfall Survivors - Bend",1024,768,Session{initial(profile),audio,0,1,100,Sound.initial(),fps_initial()})
+    App.run(~Session,~App{session_view,session_tick},"B.T.S: Beat That Swarm - Survivors",1024,768,Session{initial(profile),audio,0,1,100,Sound.initial(),fps_initial()})

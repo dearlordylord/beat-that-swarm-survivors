@@ -91,7 +91,7 @@ ready; these launchers never start a broadcast themselves.
 ## Native fallback
 
 `Start Stream Bot.command` and `stream-macos.sh` launch the older native bot,
-not the browser strategy session. It opens `Beat That Swarm: Survivors`, replaces
+not the browser strategy session. It opens `B.T.S: Beat That Swarm - Survivors`, replaces
 finished runs inside that same window and prevents idle system/display sleep.
 Its `fresh` preset plays Grove Scribe; `advanced` plays Ash Pianist. It uses the
 Bend policy directly, has no JavaScript strategy control window and currently

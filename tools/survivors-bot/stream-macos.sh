@@ -76,7 +76,7 @@ case "$command" in
       if loaded; then launchctl kickstart "$domain/$label"; else launchctl bootstrap "$domain" "$local_plist"; fi
       echo 'Stream bot started for this desktop session.'
     fi
-    echo 'Capture the Beat That Swarm: Survivors window in OBS.'
+    echo 'Capture the B.T.S: Beat That Swarm - Survivors window in OBS.'
     echo "Log: $state_dir/last-launch.log"
     ;;
 esac

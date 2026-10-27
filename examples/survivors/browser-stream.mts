@@ -137,7 +137,7 @@ export class BrowserStream {
       return
     }
     this.operator = operator
-    operator.document.title = "Beat That Swarm — Strategy controls"
+    operator.document.title = "B.T.S: Beat That Swarm - Survivors | Strategy controls"
     const base = operator.document.createElement("base")
     base.href = location.href
     operator.document.head.append(base)
