@@ -6,6 +6,7 @@ import projectile-state.bend as S
 import pools.bend as PL
 import projectile-pool.bend as SP
 import game-components.bend as K
+import enemy-spatial.bend as Space
 
 def raised(fuel: Nat,+run: G.Run) -> G.Run:
   match fuel:
@@ -50,8 +51,22 @@ def horizontal(value: S.State,left: Bool) -> Bool:
     case _: False{}
 def evolved_radial_spacing() -> Bool:
   Bool.and(horizontal(T.row(G.team_shot_spawn(evolved_v_team(),512,Some{SP.Request{23,SP.Emission{0,0},9,M.Primary{}}})),False{}),horizontal(T.row(G.team_shot_spawn(evolved_v_team(),513,Some{SP.Request{23,SP.Emission{0,2},9,M.Primary{}}})),True{}))
+def hearth_shot(source: U32,slot: U32,x: F32,y: F32) -> G.Snapshot:
+  G.ProjectileSnapshot{S.State{Space.Spatial{x,y,60,14.0},700,S.PlayerShot{},K.ShotPayload{21,10,True{},M.ordinary()},K.Trajectory{1.0,80.0,180,9999,[],21,slot,Some{source}}}}
+def same_position(a: S.State,b: S.State) -> Bool:
+  match a b:
+    case S.State{Space.Spatial{x,y,_,_},_,_,_,_} S.State{Space.Spatial{xx,yy,_,_},_,_,_,_}: Bool.and(F32.is_lt(F32.abs((x - xx : F32)),0.001),F32.is_lt(F32.abs((y - yy : F32)),0.001))
+def hearth_spark(team: G.Team,slot: U32) -> S.State:
+  T.row(G.team_shot_spawn(team,800,Some{SP.Request{21,SP.Emission{0,slot},1,M.Primary{}}}))
+def hearth_live_origin() -> Bool:
+  same_position(hearth_spark(T.team(T.run(1,400,M.empty()),[hearth_shot(1,0,900.0,900.0),hearth_shot(0,2,20.0,30.0),hearth_shot(0,0,145.0,167.0)]),1),T.row(G.ProjectileRow{S.Outcome{S.State{Space.Spatial{145.0,167.0,0,1.0},0,S.PlayerShot{},K.ShotPayload{0,0,True{},M.ordinary()},K.Trajectory{0.0,0.0,1,1,[],21,1,Some{0}}},0}}))
+def hearth_initial_origin() -> Bool:
+  +team = T.team(T.run(1,1,M.empty()),[])
+  same_position(hearth_spark(team,1),T.row(G.team_shot_spawn(team,801,Some{SP.Request{21,SP.Emission{0,0},1,M.Primary{}}})))
 def main() -> IO(Unit):
   do IO<Unit>:
+    T.expect(hearth_live_origin(),"Hearth sparks spawn at their own live paired familiar")
+    T.expect(hearth_initial_origin(),"first-level Hearth spark begins at the simultaneously spawned familiar")
     T.expect(evolved_afterbeat(),"evolved Afterbeat retains scheduled Gathering Ink")
     T.expect(blocked_echo(),"allocation rejection retains a due captured echo")
     T.expect(count_upgrade(),"weapon level projectile bonus increases armed trail capacity")

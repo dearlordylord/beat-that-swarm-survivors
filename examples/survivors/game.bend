@@ -1375,11 +1375,40 @@ def initialized_row(+run: Run,owner: U32,slot: U32,row: EntityRow) -> Shot.State
 def team_shot_plan(team: Team) -> SP.Plan:
   match team:
     case Team{_,_,plan,_}: plan
+def has_familiar(value: Maybe<&2,Shot.State>) -> Bool:
+  match value:
+    case Some{_}: True{}
+    case None{}: False{}
+def familiar_origin(rows: List<&2,Snapshot>,+source: U32,+pairedSlot: U32,+fallback: Maybe<&2,Shot.State>) -> Maybe<&2,Shot.State>:
+  match rows:
+    case []: fallback
+    case ProjectileSnapshot{+shot} <> rest:
+      match shot:
+        case Shot.State{_,_,_,Components.ShotPayload{21,_,_,_},Components.Trajectory{_,_,_,_,_,21,+slot,Some{+player}}}:
+          +valid = Bool.and(Shot.active(shot),U32.is_eq(source,player))
+          Bool.pick(Maybe<&2,Shot.State>,Bool.and(valid,U32.is_eq(slot,pairedSlot)),Some{shot},familiar_origin(rest,source,pairedSlot,Bool.pick(Maybe<&2,Shot.State>,Bool.and(valid,Bool.not(has_familiar(fallback))),Some{shot},fallback)))
+        case _: familiar_origin(rest,source,pairedSlot,fallback)
+    case _ <> rest: familiar_origin(rest,source,pairedSlot,fallback)
+def at_familiar(projectile: Shot.State,familiar: Shot.State) -> Shot.State:
+  match projectile familiar:
+    case Shot.State{Space.Spatial{_,_,age,radius},identity,side,payload,trajectory} Shot.State{Space.Spatial{x,y,_,_},_,_,_,_}: Shot.State{Space.Spatial{x,y,age,radius},identity,side,payload,trajectory}
+def team_snapshots(args: Args) -> List<&2,Snapshot>:
+  match args:
+    case Args{_,_,_,_,snapshots,_}: snapshots
+def hearth_origin_at(origin: Maybe<&2,Shot.State>,+team: Team,seed: U32,+source: U32,+paired: U32,level: U32,run: Run,projectile: Shot.State) -> Shot.State:
+  match origin:
+    case Some{familiar}: at_familiar(projectile,familiar)
+    case None{}: at_familiar(projectile,initialized_row(run,21,paired,shot_spawn_ready(True{},source,seed,21,paired,level,team_args(team,team_for_id(team,source)))))
+def hearth_origin(enabled: Bool,+team: Team,seed: U32,+source: U32,+slot: U32,level: U32,run: Run,projectile: Shot.State) -> Shot.State:
+  match enabled:
+    case False{}: projectile
+    case True{}: hearth_origin_at(familiar_origin(team_snapshots(team_base(team)),source,(slot - slot % 2 : U32),None{}),team,seed,source,(slot - slot % 2 : U32),level,run,projectile)
 def primary_spawn(+team: Team,+seed: U32,+owner: U32,+source: U32,+slot: U32,+level: U32) -> EntityRow:
   +view = team_for_id(team,source)
   +run = view_run(view)
   +weapon = effective_weapon(owner,level,slot)
-  +ordinary = initialized_row(run,owner,slot,shot_spawn_ready(True{},source,seed,owner,slot,level,team_args(team,view)))
+  +created = initialized_row(run,owner,slot,shot_spawn_ready(True{},source,seed,owner,slot,level,team_args(team,view)))
+  +ordinary = hearth_origin(Bool.and(U32.is_eq(owner,21),Bool.not(U32.is_eq(weapon,21))),team,seed,source,slot,level,run,created)
   +amount = admitted_primary(team_shot_plan(team),source,owner,8)
   +rank = admitted_primary(team_shot_plan(team),source,owner,slot)
   ProjectileRow{Shot.Outcome{Bool.pick(Shot.State,Bool.and(U32.is_eq(run_character(run),5),Bool.and(U32.is_eq(owner,23),U32.is_eq(weapon,23))),radial_shot(seed,source,slot,amount,(6.2831855 * U32.to_f32(rank) / U32.to_f32(U32.max(1,amount)) : F32),owner,run_tick(run),True{},run_px(run),run_py(run),weapon_damage(23,level,run_passives(run),run_meta(run),run_arcana(run),run_character(run)),projectile_speed(run_passives(run),run_arcana(run)),area_bonus(run_passives(run),run_arcana(run),level),duration_bonus(run_passives(run),run_arcana(run)),level),ordinary),0}}
