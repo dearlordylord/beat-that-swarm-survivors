@@ -1,10 +1,10 @@
 // Build-time metadata only. Static tags are readable without running the game.
 export const SITE_ORIGIN = "https://survivors.dearlordylord.com"
-const SITE_NAME = "Bendvy ECS examples"
+const SITE_NAME = "B.T.S: Beat That Swarm - Survivors"
 export const PAGE_META = Object.freeze({
   home: {
     path: "/",
-    title: "Survivors — Bendvy ECS example",
+    title: "B.T.S: Beat That Swarm - Survivors",
     description:
       "A playable Vampire Survivors clone built with Bendvy ECS. Play solo or invite a friend in your browser. No installation required.",
     image: "/social/survivors-v1.png",
@@ -13,7 +13,7 @@ export const PAGE_META = Object.freeze({
   },
   coop: {
     path: "/coop.html",
-    title: "Co-op Survivors — Bendvy ECS example",
+    title: "B.T.S: Beat That Swarm - Survivors | Co-op",
     description:
       "Invite a friend to a shared run in this Vampire Survivors clone. Choose your survivors and play together in the browser with Bendvy ECS.",
     image: "/social/survivors-coop-v2.png",
@@ -35,7 +35,7 @@ function pageMetadata(key: keyof typeof PAGE_META) {
     `<link rel="canonical" href="${url}" />`,
     `<meta name="description" content="${escape(page.description)}" />`,
     '<meta name="robots" content="index, follow, max-image-preview:large" />',
-    '<meta name="application-name" content="Survivors · Bendvy ECS example" />',
+    '<meta name="application-name" content="B.T.S: Beat That Swarm - Survivors" />',
     '<meta property="og:type" content="website" />',
     '<meta property="og:locale" content="en_US" />',
     `<meta property="og:site_name" content="${SITE_NAME}" />`,
@@ -58,7 +58,7 @@ function pageMetadata(key: keyof typeof PAGE_META) {
     "@type": "VideoGame",
     "@id": SITE_ORIGIN + "/#game",
     url: SITE_ORIGIN + "/",
-    name: "Survivors — Bendvy ECS example",
+    name: "B.T.S: Beat That Swarm - Survivors",
     description: PAGE_META.home.description,
     image: SITE_ORIGIN + PAGE_META.home.image,
     genre: "Survivors",
