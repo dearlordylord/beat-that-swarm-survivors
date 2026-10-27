@@ -1,4 +1,5 @@
 import Base
+import ../starter-mechanics.bend as SM
 import ../projectile-pool.bend as P
 import ../body-index.bend as BI
 import ../body-index/SPEC.bend as IS
@@ -17,13 +18,14 @@ law accepted_request_consumes_free_head:
   for +owner:U32
   for +slot:P.Emission
   for +level:U32
+  for +emission:SM.Emission
   for +seed:U32
   for +rest:List<&2,U32>
   for +counts:List<&2,U32>
   for +caps:List<&2,U32>
   for +index:BI.Index<P.Request>
   for +count:U32
-  {P.assign(True{},P.Request{owner,slot,level},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level}),(count + 1 : U32)} : P.Pending}
+  {P.assign(True{},P.Request{owner,slot,level,emission},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level,emission}),(count + 1 : U32)} : P.Pending}
 
 # Guarantees: no free identity means no request can modify the assignment plan.
 # Why it matters: saturation drops emissions instead of replacing a live shot.
@@ -44,13 +46,13 @@ def specified_allowed(+owner:U32,counts:List<&2,U32>,caps:List<&2,U32>) -> Bool:
   admission(U32.is_lt(owner,24),U32.is_lt(P.at(counts,owner),P.at(caps,owner)))
 def specified_assign(admitted:Bool,request:P.Request,state:P.Pending) -> P.Pending:
   match admitted request state:
-    case True{} P.Request{+owner,+slot,+level} P.Pending{seed <> rest,counts,caps,index,count}:
-      P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level}),(count + 1 : U32)}
+    case True{} P.Request{+owner,+slot,+level,+emission} P.Pending{seed <> rest,counts,caps,index,count}:
+      P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level,emission}),(count + 1 : U32)}
     case _ _ state: state
 def specified_step(request:P.Request,state:P.Pending) -> P.Pending:
   match request state:
-    case P.Request{+owner,+slot,+level} P.Pending{free,+counts,+caps,index,count}:
-      specified_assign(specified_allowed(owner,counts,caps),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count})
+    case P.Request{+owner,+slot,+level,+emission} P.Pending{free,+counts,+caps,index,count}:
+      specified_assign(specified_allowed(owner,counts,caps),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count})
 def specified_plan(requests:List<&2,P.Request>,state:P.Pending) -> P.Plan:
   match requests state:
     case [] P.Pending{_,_,_,index,count}: P.Plan{index,count}
@@ -113,6 +115,7 @@ law public_admission:
   for +owner:U32
   for +slot:P.Emission
   for +level:U32
+  for +emission:SM.Emission
   for +seed:U32
   for +rest:List<&2,U32>
   for +counts:List<&2,U32>
@@ -121,7 +124,7 @@ law public_admission:
   for +count:U32
   for inCatalogue:{True{} == U32.is_lt(owner,24) : Bool}
   for belowCap:{True{} == U32.is_lt(P.at(counts,owner),P.at(caps,owner)) : Bool}
-  {P.step(P.Request{owner,slot,level},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level}),(count + 1 : U32)} : P.Pending}
+  {P.step(P.Request{owner,slot,level,emission},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level,emission}),(count + 1 : U32)} : P.Pending}
 
 # Guarantees: every out-of-catalogue owner is rejected by the public step.
 # Why it matters: corrupt metadata cannot consume a physical projectile identity.
@@ -129,13 +132,14 @@ law invalid_owner_is_refused:
   for +owner:U32
   for +slot:P.Emission
   for +level:U32
+  for +emission:SM.Emission
   for +free:List<&2,U32>
   for +counts:List<&2,U32>
   for +caps:List<&2,U32>
   for +index:BI.Index<P.Request>
   for +count:U32
   for invalid:{False{} == U32.is_lt(owner,24) : Bool}
-  {P.step(P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}) == P.Pending{free,counts,caps,index,count} : P.Pending}
+  {P.step(P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}) == P.Pending{free,counts,caps,index,count} : P.Pending}
 
 # Guarantees: the whole public allocation agrees with the ordered admission
 # specification, beginning with an empty plan and the supplied free list/counts.

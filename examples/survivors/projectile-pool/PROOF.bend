@@ -7,14 +7,14 @@ import ../body-index/PROOF.bend as IP
 import ../proof-facts.bend as F
 
 def Laws.rejected_request_preserves_state(request,state): {==}
-def Laws.accepted_request_consumes_free_head(owner,slot,level,seed,rest,counts,caps,index,count): {==}
+def Laws.accepted_request_consumes_free_head(owner,slot,level,emission,seed,rest,counts,caps,index,count): {==}
 def saturated_assign(accepted:Bool,+request:P.Request,+counts:List<&2,U32>,+caps:List<&2,U32>,+index:BI.Index<P.Request>,+count:U32) -> {P.assign(accepted,request,P.Pending{[],counts,caps,index,count}) == P.Pending{[],counts,caps,index,count} : P.Pending}:
   match accepted request:
-    case True{} P.Request{_,_,_}: {==}
+    case True{} P.Request{_,_,_,_}: {==}
     case False{} _: {==}
 def saturated_step(+request:P.Request,+counts:List<&2,U32>,+caps:List<&2,U32>,+index:BI.Index<P.Request>,+count:U32) -> {P.step(request,P.Pending{[],counts,caps,index,count}) == P.Pending{[],counts,caps,index,count} : P.Pending}:
   match request:
-    case P.Request{+owner,+slot,+level}: saturated_assign(P.allowed(owner,counts,caps),P.Request{owner,slot,level},counts,caps,index,count)
+    case P.Request{+owner,+slot,+level,+emission}: saturated_assign(P.allowed(owner,counts,caps),P.Request{owner,slot,level,emission},counts,caps,index,count)
 def Laws.saturated_plan_is_preserved(requests,counts,caps,index,count):
   match requests:
     case []: {==}
@@ -27,22 +27,22 @@ def admission_exact(inCatalogue:Bool,underCap:Bool) -> {Bool.and(inCatalogue,und
     case False{} _: {==}
 def Laws.exact_admission(owner,counts,caps):
   admission_exact(U32.is_lt(owner,24),U32.is_lt(P.at(counts,owner),P.at(caps,owner)))
-def Laws.public_admission(owner,slot,level,seed,rest,counts,caps,index,count,inCatalogue,belowCap):
-  %inCatalogue : {P.assign(Bool.and(_,U32.is_lt(P.at(counts,owner),P.at(caps,owner))),P.Request{owner,slot,level},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level}),(count + 1 : U32)} : P.Pending}
-  %belowCap : {P.assign(Bool.and(True{},_),P.Request{owner,slot,level},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level}),(count + 1 : U32)} : P.Pending}
+def Laws.public_admission(owner,slot,level,emission,seed,rest,counts,caps,index,count,inCatalogue,belowCap):
+  %inCatalogue : {P.assign(Bool.and(_,U32.is_lt(P.at(counts,owner),P.at(caps,owner))),P.Request{owner,slot,level,emission},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level,emission}),(count + 1 : U32)} : P.Pending}
+  %belowCap : {P.assign(Bool.and(True{},_),P.Request{owner,slot,level,emission},P.Pending{seed <> rest,counts,caps,index,count}) == P.Pending{rest,P.bump(counts,owner),caps,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level,emission}),(count + 1 : U32)} : P.Pending}
   {==}
-def Laws.invalid_owner_is_refused(owner,slot,level,free,counts,caps,index,count,invalid):
-  %invalid : {P.assign(Bool.and(_,U32.is_lt(P.at(counts,owner),P.at(caps,owner))),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}) == P.Pending{free,counts,caps,index,count} : P.Pending}
+def Laws.invalid_owner_is_refused(owner,slot,level,emission,free,counts,caps,index,count,invalid):
+  %invalid : {P.assign(Bool.and(_,U32.is_lt(P.at(counts,owner),P.at(caps,owner))),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}) == P.Pending{free,counts,caps,index,count} : P.Pending}
   {==}
 def assign_exact(admitted:Bool,+request:P.Request,+state:P.Pending) -> {P.assign(admitted,request,state) == Laws.specified_assign(admitted,request,state) : P.Pending}:
   match admitted request state:
-    case True{} P.Request{_,_,_} P.Pending{[],_,_,_,_}: {==}
-    case True{} P.Request{_,_,_} P.Pending{_ <> _,_,_,_,_}: {==}
+    case True{} P.Request{_,_,_,_} P.Pending{[],_,_,_,_}: {==}
+    case True{} P.Request{_,_,_,_} P.Pending{_ <> _,_,_,_,_}: {==}
     case False{} _ _: {==}
 def step_exact(+request:P.Request,+state:P.Pending) -> {P.step(request,state) == Laws.specified_step(request,state) : P.Pending}:
   match request state:
-    case P.Request{+owner,+slot,+level} P.Pending{+free,+counts,+caps,+index,+count}:
-      Equal.trans(P.Pending,P.assign(P.allowed(owner,counts,caps),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}),P.assign(Laws.specified_allowed(owner,counts,caps),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}),Laws.specified_assign(Laws.specified_allowed(owner,counts,caps),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}),Equal.cong(Bool,P.Pending,admitted => P.assign(admitted,P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}),P.allowed(owner,counts,caps),Laws.specified_allowed(owner,counts,caps),Laws.exact_admission(owner,counts,caps)),assign_exact(Laws.specified_allowed(owner,counts,caps),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count}))
+    case P.Request{+owner,+slot,+level,+emission} P.Pending{+free,+counts,+caps,+index,+count}:
+      Equal.trans(P.Pending,P.assign(P.allowed(owner,counts,caps),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}),P.assign(Laws.specified_allowed(owner,counts,caps),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}),Laws.specified_assign(Laws.specified_allowed(owner,counts,caps),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}),Equal.cong(Bool,P.Pending,admitted => P.assign(admitted,P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}),P.allowed(owner,counts,caps),Laws.specified_allowed(owner,counts,caps),Laws.exact_admission(owner,counts,caps)),assign_exact(Laws.specified_allowed(owner,counts,caps),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count}))
 
 def plan_exact(+requests:List<&2,P.Request>,+state:P.Pending) -> {P.allocate_go(requests,state) == Laws.specified_plan(requests,state) : P.Plan}:
   match requests state:
@@ -57,13 +57,13 @@ def pending_source(~allowedKey:U32 -> Bool,state:P.Pending) -> Bool:
 def assign_source(~allowedKey:U32 -> Bool,admitted:Bool,+request:P.Request,+state:P.Pending,+source:{True{} == pending_source(~allowedKey,state) : Bool}) -> {True{} == pending_source(~allowedKey,P.assign(admitted,request,state)) : Bool}:
   match admitted request state:
     case False{} _ _: source
-    case True{} P.Request{_,_,_} P.Pending{[],_,_,_,_}: source
-    case True{} P.Request{+owner,+slot,+level} P.Pending{+seed <> +free,counts,caps,+index,count}:
-      F.and_true(IS.all_free(~allowedKey,free),IS.all_keys(~P.Request,~allowedKey,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level})),F.and_right(allowedKey(seed),IS.all_free(~allowedKey,free),F.and_left(IS.all_free(~allowedKey,seed <> free),IS.all_keys(~P.Request,~allowedKey,index),source)),IP.insert_go_source(~P.Request,~allowedKey,32n,index,seed,P.Request{owner,slot,level},BI.outside(~P.Request,index,seed),BI.branch(~P.Request,index,seed),F.and_right(IS.all_free(~allowedKey,seed <> free),IS.all_keys(~P.Request,~allowedKey,index),source),F.and_left(allowedKey(seed),IS.all_free(~allowedKey,free),F.and_left(IS.all_free(~allowedKey,seed <> free),IS.all_keys(~P.Request,~allowedKey,index),source))))
+    case True{} P.Request{_,_,_,_} P.Pending{[],_,_,_,_}: source
+    case True{} P.Request{+owner,+slot,+level,+emission} P.Pending{+seed <> +free,counts,caps,+index,count}:
+      F.and_true(IS.all_free(~allowedKey,free),IS.all_keys(~P.Request,~allowedKey,BI.insert(~P.Request,index,seed,P.Request{owner,slot,level,emission})),F.and_right(allowedKey(seed),IS.all_free(~allowedKey,free),F.and_left(IS.all_free(~allowedKey,seed <> free),IS.all_keys(~P.Request,~allowedKey,index),source)),IP.insert_go_source(~P.Request,~allowedKey,32n,index,seed,P.Request{owner,slot,level,emission},BI.outside(~P.Request,index,seed),BI.branch(~P.Request,index,seed),F.and_right(IS.all_free(~allowedKey,seed <> free),IS.all_keys(~P.Request,~allowedKey,index),source),F.and_left(allowedKey(seed),IS.all_free(~allowedKey,free),F.and_left(IS.all_free(~allowedKey,seed <> free),IS.all_keys(~P.Request,~allowedKey,index),source))))
 def step_source(~allowedKey:U32 -> Bool,+request:P.Request,+state:P.Pending,source:{True{} == pending_source(~allowedKey,state) : Bool}) -> {True{} == pending_source(~allowedKey,P.step(request,state)) : Bool}:
   match request state:
-    case P.Request{+owner,+slot,+level} P.Pending{+free,+counts,+caps,+index,+count}:
-      assign_source(~allowedKey,P.allowed(owner,counts,caps),P.Request{owner,slot,level},P.Pending{free,counts,caps,index,count},source)
+    case P.Request{+owner,+slot,+level,+emission} P.Pending{+free,+counts,+caps,+index,+count}:
+      assign_source(~allowedKey,P.allowed(owner,counts,caps),P.Request{owner,slot,level,emission},P.Pending{free,counts,caps,index,count},source)
 def plan_source(~allowedKey:U32 -> Bool,requests:List<&2,P.Request>,+state:P.Pending,source:{True{} == pending_source(~allowedKey,state) : Bool}) -> {True{} == Laws.plan_keys(~allowedKey,P.allocate_go(requests,state)) : Bool}:
   match requests state:
     case [] P.Pending{free,_,_,index,_}: F.and_right(IS.all_free(~allowedKey,free),IS.all_keys(~P.Request,~allowedKey,index),source)
