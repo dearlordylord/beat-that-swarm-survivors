@@ -165,5 +165,5 @@ def put_shot(rest: ShotRest,shots: Col.Column<Schema,Components.ShotPayload>) ->
     case ShotRest{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities}: Owned{StoreFields{vitals,motions,statuses,pickups,roles,movement,candidates,players,spaces,enemyPhases,identities,shots}}
 def project_shot(value: Components.ShotPayload) -> Components.ShotPayload & Components.ShotPayload:
   match value:
-    case Components.ShotPayload{+weapon,+damage,+active}: (Components.ShotPayload{weapon,damage,active},Components.ShotPayload{weapon,damage,active})
+    case Components.ShotPayload{+weapon,+damage,+active,+attack}: (Components.ShotPayload{weapon,damage,active,attack},Components.ShotPayload{weapon,damage,active,attack})
 def shot_family() -> C.Family<Schema,Store,ShotRest,Components.ShotPayload,Components.ShotPayload,ShotToken,take_shot,put_shot,project_shot>: C.Family{"projectile-payload"}

@@ -72,7 +72,13 @@ snapshots.unshift({
     spatial,
     identity: 31,
     side: { $: "PlayerShot" },
-    payload: { $: "ShotPayload", weapon: 11, damage: 5, active: true },
+    payload: {
+      $: "ShotPayload",
+      weapon: 11,
+      damage: 5,
+      active: true,
+      attack: { $: "Attack", castTick: 0, primary: false, mechanic: { $: "Ordinary" } }
+    },
     trajectory: {
       $: "Trajectory",
       vx: 1,

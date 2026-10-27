@@ -65,7 +65,7 @@ def best_offer(+rows: List<&2,G.Offer>,+weapons: List<&2,U32>,+passives: List<&2
       ))
 def upgrade(+run: G.Run,+offers: List<&2,G.Offer>) -> U32:
   match run:
-    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,hp,maxHp,_,weapons,passives,_,_,_,_,_,_,_,_,_}}: best_offer(offers,weapons,passives,hp,maxHp,0,0,(0.0 - 10000.0 : F32))
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{_,_,hp,maxHp,_,weapons,passives,_,_,_,_,_,_,_,_,_,mechanics}}: best_offer(offers,weapons,passives,hp,maxHp,0,0,(0.0 - 10000.0 : F32))
 
 def goal_point(+goal: Goal) -> Point:
   match goal:
@@ -557,7 +557,7 @@ def steer_enemy(+enemy: Space.Spatial,+rows: List<&2,Threats.Threat>,+target: Ma
       ))
 def steer(+run: G.Run,+rows: List<&2,Threats.Threat>,enemies: List<&2,Enemy.State>,+target: Maybe<&2,Point>) -> F32 & F32:
   match run:
-    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,_,weapons,+passives,_,+arcana,_,_,_,_,_,_,_}}:
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,_,_,_,weapons,+passives,_,+arcana,_,_,_,_,_,_,_,+mechanics}}:
       +here : Point = Point{px,py}
       bind(~(Space.Spatial),~(U32),~(F32 & F32),nearest(enemies,here,Space.Spatial{(px + 300.0 : F32),py,0,12.0},1000000.0,0),(+enemy => +count =>
         bind(~(Bool),~(F32),~(F32 & F32),aura(weapons,0,passives,arcana,True{},0.0,0),(+fields => +radius =>
@@ -579,7 +579,7 @@ def invalidated(+old: Maybe<&2,Choice>,+fresh: Maybe<&2,Choice>) -> Bool:
     case _ _: False{}
 def movement(+memory: Memory,+run: G.Run,+snapshots: List<&2,G.Snapshot>) -> Memory & (F32 & F32):
   match memory run:
-    case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_}}:
+    case Memory{+old,lastPlan,lastHp,+anchor,stuckSince,+initialized,+previousKeys,+prepared} G.Run{RS.Session{_,+tick,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,_,+passives,_,+arcana,+meta,_,_,_,_,_,_,+mechanics}}:
       +dangerRows = threats(snapshots)
       +enemies = G.enemy_observations(snapshots)
       +here : Point = Point{px,py}

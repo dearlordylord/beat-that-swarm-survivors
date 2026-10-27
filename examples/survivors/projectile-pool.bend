@@ -1,3 +1,4 @@
+import starter-mechanics.bend as SM
 import Base
 import body-index.bend as BI
 
@@ -9,7 +10,7 @@ def emission_player(value: Emission) -> U32:
 def emission_slot(value: Emission) -> U32:
   match value:
     case Emission{_,slot}: slot
-type Request is Data: Request{weaponOwner:U32,slot:Emission,level:U32}
+type Request is Data: Request{weaponOwner:U32,slot:Emission,level:U32,emission:SM.Emission}
 type Plan is Data: Plan{assignments:BI.Index<Request>,count:U32}
 type Pending is Data:
   Pending{free:List<&2,U32>,counts:List<&2,U32>,caps:List<&2,U32>,assignments:BI.Index<Request>,count:U32}
@@ -31,13 +32,13 @@ def allowed(+owner:U32,counts:List<&2,U32>,caps:List<&2,U32>) -> Bool:
   Bool.and(U32.is_lt(owner,24),U32.is_lt(at(counts,owner),at(caps,owner)))
 def assign(accepted:Bool,+request:Request,state:Pending) -> Pending:
   match accepted request state:
-    case True{} Request{+owner,+slot,+level} Pending{seed <> free,counts,caps,index,count}:
-      Pending{free,bump(counts,owner),caps,BI.insert(~Request,index,seed,Request{owner,slot,level}),(count + 1 : U32)}
+    case True{} Request{+owner,+slot,+level,+emission} Pending{seed <> free,counts,caps,index,count}:
+      Pending{free,bump(counts,owner),caps,BI.insert(~Request,index,seed,Request{owner,slot,level,emission}),(count + 1 : U32)}
     case _ _ state: state
 def step(+request:Request,state:Pending) -> Pending:
   match request state:
-    case Request{+owner,+slot,+level} Pending{+free,+counts,+caps,index,count}:
-      assign(allowed(owner,counts,caps),Request{owner,slot,level},Pending{free,counts,caps,index,count})
+    case Request{+owner,+slot,+level,+emission} Pending{+free,+counts,+caps,index,count}:
+      assign(allowed(owner,counts,caps),Request{owner,slot,level,emission},Pending{free,counts,caps,index,count})
 def finish(state:Pending) -> Plan:
   match state:
     case Pending{_,_,_,index,count}: Plan{index,count}

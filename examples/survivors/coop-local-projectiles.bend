@@ -1,3 +1,4 @@
+import starter-mechanics.bend as SM
 import run-state.bend as RS
 import Base
 import game-components.bend as Components
@@ -79,7 +80,7 @@ def identity(player:U32,bornTick:U32,owner:U32,slot:SP.Emission) -> String:
   Replay.generation(player,bornTick,0,owner,SP.emission_slot(slot))
 def request_identity(bornTick:U32,request:SP.Request) -> String:
   match request:
-    case SP.Request{owner,+slot,_}: identity(SP.emission_player(slot),bornTick,owner,slot)
+    case SP.Request{owner,+slot,_,+emission}: identity(SP.emission_player(slot),bornTick,owner,slot)
 def origin_x(value:Visual) -> F32:
   match value:
     case Visual{_,_,_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: x
@@ -88,7 +89,7 @@ def origin_y(value:Visual) -> F32:
     case Visual{_,_,_,_,_,_,_,y,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: y
 def run_point(run:G.Run) -> Point:
   match run:
-    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{x,y,_,_,_,_,_,_,_,_,_,_,_,_,_,_}}: Point{x,y}
+    case G.Run{RS.Session{_,_,_,_,_,_,_,_,_,_,_,_,_},RS.PlayerState{x,y,_,_,_,_,_,_,_,_,_,_,_,_,_,_,mechanics}}: Point{x,y}
 def shot_id(value:Visual) -> String:
   match value:
     case Visual{id,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_}: id
@@ -324,15 +325,15 @@ def reposition_attached_rows(rows:List<&2,Visual>,+x:F32,+y:F32) -> List<&2,Visu
     case head <> tail: reposition_attached(head,x,y) <> reposition_attached_rows(tail,x,y)
 def released_run(+value:Visual,+run:G.Run) -> G.Run:
   match value run:
-    case Visual{_,_,_,_,_,_,+originX,+originY,_,_,_,_,_,_,_,_,_,_,_,_,_,_} G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{_,_,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}:
-      G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{originX,originY,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}
+    case Visual{_,_,_,_,_,_,+originX,+originY,_,_,_,_,_,_,_,_,_,_,_,_,_,_} G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{_,_,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives,mechanics}}:
+      G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{originX,originY,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives,mechanics}}
 def owner_run(attached:Bool,+value:Visual,run:G.Run) -> G.Run:
   match attached value:
     case True{} _: run
     case False{} _: released_run(value,run)
 def shot_state(value:Visual) -> Shot.State:
   match value:
-    case Visual{_,owner,+slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}: Shot.State{Space.Spatial{x,y,age,radius},poolSeed,Shot.PlayerShot{},Components.ShotPayload{weapon,0,True{}},Components.Trajectory{vx,vy,life,pierce,[],owner,SP.emission_slot(slot),Some{SP.emission_player(slot)}}}
+    case Visual{_,owner,+slot,weapon,poolSeed,age,_,_,Projectile.Shot{x,y,vx,vy,radius,life,pierce},_,_,_,_,_,_,_,_,_,_,_,_,_}: Shot.State{Space.Spatial{x,y,age,radius},poolSeed,Shot.PlayerShot{},Components.ShotPayload{weapon,0,True{},SM.ordinary()},Components.Trajectory{vx,vy,life,pierce,[],owner,SP.emission_slot(slot),Some{SP.emission_player(slot)}}}
 def shot_pierce(value:Projectile.Shot) -> U32:
   match value:
     case Projectile.Shot{_,_,_,_,_,_,pierce}: pierce
@@ -495,7 +496,7 @@ def shot_from_row(row:G.EntityRow) -> Projectile.Shot:
 
 def row_weapon(row:G.EntityRow) -> U32:
   match row:
-    case G.ProjectileRow{Shot.Outcome{Shot.State{_,_,_,Components.ShotPayload{weapon,_,_},_},_}}: weapon
+    case G.ProjectileRow{Shot.Outcome{Shot.State{_,_,_,Components.ShotPayload{weapon,_,_,attack},_},_}}: weapon
     case _: 0
 
 def canonical_visual_match(+player:U32,sourceTick:U32,+visual:Visual,snapshot:G.Snapshot) -> Bool:
@@ -524,9 +525,9 @@ def planning_snapshots(player:U32,sourceTick:U32,+canonical:List<&2,G.Snapshot>,
   List.append(&2,G.Snapshot,canonical,plan_visuals(visuals,player,sourceTick,canonical))
 def new_visual(+bornTick:U32,+originX:F32,+originY:F32,team:G.Team,+seed:U32,+request:SP.Request) -> Visual:
   match request:
-    case SP.Request{+owner,+slot,level}:
+    case SP.Request{+owner,+slot,level,+emission}:
       +id = request_identity(bornTick,request)
-      +row = G.team_shot_spawn(team,seed,Some{SP.Request{owner,slot,level}})
+      +row = G.team_shot_spawn(team,seed,Some{SP.Request{owner,slot,level,SM.Primary{}}})
       +shot = shot_from_row(row)
       +weapon = row_weapon(row)
       Visual{id,owner,slot,weapon,seed,0,originX,originY,shot,False{},0,0,0.0,0.0,0,False{},False{},None{},0,0.0,0.0,0}

@@ -1,3 +1,4 @@
+import starter-mechanics.bend as SM
 import run-state.bend as RS
 import Base
 import enemy-effects.bend as Effect
@@ -87,7 +88,7 @@ def source_player(value: Maybe<&2,U32>) -> String:
     case Some{player}: U32.show(player)
 def projectile_state(value: Shot.State) -> String:
   match value:
-    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}:
+    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active,attack},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}:
       "{\"spatial\":" ++ array([fbits(x),fbits(y),U32.show(age),fbits(radius)]) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"side\":" ++ projectile_side(side) ++ ",\"payload\":" ++ array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))]) ++ ",\"trajectory\":" ++ array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)]) ++ "}"
 def pickup_item(value: Pickup.Item) -> String:
   match value:
@@ -121,7 +122,7 @@ def snapshots_items(rows: List<&2,G.Snapshot>) -> String:
 def snapshots(rows: List<&2,G.Snapshot>) -> String: "[" ++ snapshots_items(rows) ++ "]"
 def run(value: G.Run) -> String:
   match value:
-    case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: array([U32.show(phase),U32.show(tick),fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(xp),U32.show(need),U32.show(level),U32.show(kills),U32.show(gold),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(seed),U32.show(stage),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(bosses),U32.show(mode),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives),u32s(enemyKinds),U32.show(relicCollected)])
+    case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives,mechanics}}: array([U32.show(phase),U32.show(tick),fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(xp),U32.show(need),U32.show(level),U32.show(kills),U32.show(gold),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(seed),U32.show(stage),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(bosses),U32.show(mode),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives),u32s(enemyKinds),U32.show(relicCollected),SM.native_owner(mechanics)])
 def maybe_value(~T: Data,~show: T -> String,value: Maybe<&2,T>) -> String:
   match value:
     case None{}: "null"
@@ -157,7 +158,7 @@ def movement_roster(value: Storage.MovementRoster) -> String:
 # Physical columns retain their actual membership and change stamps. Logical
 def shot_payload(value: Components.ShotPayload) -> String:
   match value:
-    case Components.ShotPayload{weapon,damage,active}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))])
+    case Components.ShotPayload{weapon,damage,active,attack}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active)),SM.native_attack(attack)])
 def trajectory(value: Components.Trajectory) -> String:
   match value:
     case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)])
@@ -219,7 +220,7 @@ def store(value: Storage.Store) -> Storage.Store & String:
   store_vitals(observed_column(~Components.Vitals,~Components.Vitals,~Storage.VitalRest,~Storage.take_vitals,~Storage.put_vitals,~Storage.project_vitals,~vitals,value))
 def player_record(value: Components.PlayerRecord) -> String:
   match value:
-    case Components.PlayerRecord{id,RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives},connected,reviveTick}: array([U32.show(id),array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives)]),U32.show(Bool.to_u32(connected)),U32.show(reviveTick)])
+    case Components.PlayerRecord{id,RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives,mechanics},connected,reviveTick}: array([U32.show(id),array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives),SM.native_owner(mechanics)]),U32.show(Bool.to_u32(connected)),U32.show(reviveTick)])
 def store_players_text(players: String,result: Storage.Store & String) -> Storage.Store & String:
   match result:
     case (owner,text): (owner,"\"actorColumns\":" ++ text ++ ",\"players\":[" ++ players ++ "]")
@@ -337,7 +338,7 @@ def fold_projectile_side(value: Shot.Side) -> U32:
     case Shot.HostileShot{}: 1
 def fold_shot_payload(value: Components.ShotPayload,acc: U32) -> U32:
   match value:
-    case Components.ShotPayload{weapon,damage,active}: fold_words([weapon,damage,Bool.to_u32(active)],acc)
+    case Components.ShotPayload{weapon,damage,active,attack}: fold_words(SM.attack_words(attack),fold_words([weapon,damage,Bool.to_u32(active)],acc))
 def fold_spatial(value: Space.Spatial,acc: U32) -> U32:
   match value:
     case Space.Spatial{x,y,age,radius}: fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius)],acc)
@@ -357,7 +358,7 @@ def fold_source(value: Maybe<&2,U32>) -> U32:
     case Some{player}: player
 def fold_snapshot(value: G.Snapshot,acc: U32) -> U32:
   match value:
-    case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}}: fold_words(visited,fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius),identity,fold_projectile_side(side),weapon,damage,Bool.to_u32(active),F32.bits(vx),F32.bits(vy),life,pierce,owner,slot,fold_source(sourcePlayer)],acc))
+    case G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active,attack},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}}: fold_words(visited,fold_words([F32.bits(x),F32.bits(y),age,F32.bits(radius),identity,fold_projectile_side(side),weapon,damage,Bool.to_u32(active),F32.bits(vx),F32.bits(vy),life,pierce,owner,slot,fold_source(sourcePlayer)],acc))
     case G.EnemySnapshot{Enemy.State{space,archetype,slot,hp,status}}: fold_status(status,fold_vitals(hp,fold_words([archetype,slot],fold_spatial(space,acc))))
     case G.PickupSnapshot{Pickup.State{space,payload,identity}}: fold_pickup(payload,mix(fold_spatial(space,acc),identity))
 def fold_offers(rows: List<&2,G.Offer>,acc: U32) -> U32:
@@ -370,7 +371,7 @@ def fold_snapshots(rows: List<&2,G.Snapshot>,acc: U32) -> U32:
     case value <> rest: fold_snapshots(rest,fold_snapshot(value,mix(acc,1)))
 def fold_run(value: G.Run,acc: U32) -> U32:
   match value:
-    case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: fold_words(enemyKinds,fold_words(passives,fold_words(weapons,fold_words([phase,tick,F32.bits(px),F32.bits(py),hp,maximum,xp,need,level,kills,gold,character,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,relicCollected],acc))))
+    case G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives,mechanics}}: fold_words(SM.owner_words(mechanics),fold_words(enemyKinds,fold_words(passives,fold_words(weapons,fold_words([phase,tick,F32.bits(px),F32.bits(py),hp,maximum,xp,need,level,kills,gold,character,invuln,seed,stage,arcana,meta,revivals,bosses,mode,rerolls,banishes,skips,bannedWeapons,bannedPassives,relicCollected],acc)))))
 def fold_present(~V: Data,~fold: V -> U32 -> U32,value: Maybe<&2,V>,acc: U32) -> U32:
   match value:
     case None{}: mix(acc,0)

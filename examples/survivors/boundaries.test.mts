@@ -70,7 +70,20 @@ const raw: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }> = {
         banishes: 0,
         skips: 0,
         bannedWeapons: 0,
-        bannedPassives: 0
+        bannedPassives: 0,
+        mechanics: {
+          $: "Owner",
+          stillTicks: 0,
+          notes: 0,
+          trailCarry: 0,
+          orbitPhase: 0,
+          orbits: 0,
+          pulseReady: false,
+          comboHits: 0,
+          comboDeadline: 0,
+          comboReady: 0,
+          echoes: nil
+        }
       }
     },
     offers: nil,

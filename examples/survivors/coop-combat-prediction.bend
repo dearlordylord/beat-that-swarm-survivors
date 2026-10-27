@@ -1,3 +1,4 @@
+import starter-mechanics.bend as SM
 import Base
 import enemy-effects.bend as Effect
 import enemy-combat.bend as Enemy
@@ -91,32 +92,10 @@ def views(rows:List<&2,G.PlayerSnapshot>,+own:U32,+x:U32,+y:U32,+directions:Sess
   match rows:
     case []: []
     case +head <> tail: view(own,x,y,directions,tick,head) <> views(tail,own,x,y,directions,tick)
-def any_request(rows:List<&2,SP.Request>) -> Bool:
-  match rows:
-    case []: False{}
-    case _: True{}
-def may_fire(view:G.PlayerView) -> Bool:
-  match view:
-    case G.PlayerView{id,+run,_,_,_}: any_request(G.shot_requests(24n,(G.run_tick(run) % Pool.owner_count() : U32),G.shot_schedule_for(id,run),G.empty_owner_counts()))
-def may_fire_any(rows:List<&2,G.PlayerView>) -> Bool:
-  match rows:
-    case []: False{}
-    case head <> tail: Bool.or(may_fire(head),may_fire_any(tail))
-def future_plan_selected(required:Bool,players:List<&2,G.PlayerView>,snapshots:List<&2,G.Snapshot>) -> SP.Plan:
-  match required:
-    case False{}: G.empty_shot_plan()
-    case True{}: G.team_plan(players,snapshots)
-# Future volleys of every observed player affect enemy survival and therefore
-# which target a later projectile reaches. Their known loadouts/cooldowns must
-# be forecast together, under the same held-input assumption as their movement.
-# Empty locks admit a superset of scheduled requests. Only an empty superset
-# skips allocation; every other case uses the complete game allocator.
-def future_plan(reference:Bool,+players:List<&2,G.PlayerView>,snapshots:List<&2,G.Snapshot>) -> SP.Plan:
-  match reference:
-    case True{}: G.team_plan(players,snapshots)
-    case False{}: future_plan_selected(may_fire_any(G.living_views(players)),players,snapshots)
-def raw_team(reference:Bool,+players:List<&2,G.PlayerView>,+snapshots:List<&2,G.Snapshot>,own:U32,+fallback:G.Run) -> G.Team:
+def future_plan(reference:Bool,players:List<&2,G.PlayerView>,snapshots:List<&2,G.Snapshot>) -> SP.Plan: G.team_plan(players,snapshots)
+def raw_prepared_team(reference:Bool,+players:List<&2,G.PlayerView>,+snapshots:List<&2,G.Snapshot>,own:U32,+fallback:G.Run) -> G.Team:
   G.Team{players,G.Args{G.view_run(G.first_view(players,fallback)),G.enemy_targets(snapshots),0.0,0.0,snapshots,[]},future_plan(reference,players,snapshots),G.effect_origin_index(snapshots)}
+def raw_team(reference:Bool,players:List<&2,G.PlayerView>,+snapshots:List<&2,G.Snapshot>,own:U32,fallback:G.Run) -> G.Team: raw_prepared_team(reference,G.prepare_views(players,snapshots),snapshots,own,fallback)
 type Moving is Data: Moving{targets:List<&2,Contact.Target>,bodies:BI.Index<Space.Spatial>}
 type Prepared is Data: Prepared{team:G.Team,targets:List<&2,Contact.Target>,moved:BI.Index<Space.Spatial>,next:BI.Index<Projectile.Shot>}
 def freeze_moved(+seed:U32,+previous:Space.Spatial,+moved:Space.Spatial,state:Moving) -> Moving:
@@ -148,12 +127,17 @@ def contact_candidates(unlimited:Bool,index:Broadphase.Index,+x:F32,+y:F32,+radi
 def contact_cached(allowed:Bool,state:Shot.State,index:Broadphase.Index,next:Projectile.Shot,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
   match allowed state:
     case False{} _: tail
-    case True{} Shot.State{Space.Spatial{+x,+y,_,+radius},seed,_,Components.ShotPayload{id,damage,_},Components.Trajectory{_,_,_,+pierce,visited,_,_,_}}: G.HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),contact_candidates(U32.is_le(9999,pierce),index,x,y,radius,pierce,visited,next)} <> tail
+    case True{} Shot.State{Space.Spatial{+x,+y,_,+radius},seed,_,Components.ShotPayload{id,damage,_,attack},Components.Trajectory{_,_,_,+pierce,visited,_,_,_}}: G.HitPlan{seed,id,damage,x,y,radius,U32.is_le(9999,pierce),contact_candidates(U32.is_le(9999,pierce),index,x,y,radius,pierce,visited,next)} <> tail
+
+def ordinary_contact_next(found:Maybe<&2,Projectile.Shot>,+team:G.Team,+state:Shot.State,targets:List<&2,Contact.Target>,index:Broadphase.Index,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
+  match found state:
+    case None{} Shot.State{Space.Spatial{_,_,age,_},_,_,Components.ShotPayload{id,_,_,attack},_}: G.contact_shot_plan(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,team,targets,tail)
+    case Some{next} Shot.State{Space.Spatial{_,_,age,_},_,_,Components.ShotPayload{id,_,_,attack},_}: contact_cached(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,index,next,tail)
 
 def contact_next(found:Maybe<&2,Projectile.Shot>,+team:G.Team,+state:Shot.State,targets:List<&2,Contact.Target>,index:Broadphase.Index,tail:List<&2,G.HitPlan>) -> List<&2,G.HitPlan>:
-  match found state:
-    case None{} Shot.State{Space.Spatial{_,_,age,_},_,_,Components.ShotPayload{id,_,_},_}: G.contact_shot_plan(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,team,targets,tail)
-    case Some{next} Shot.State{Space.Spatial{_,_,age,_},_,_,Components.ShotPayload{id,_,_},_}: contact_cached(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,index,next,tail)
+  match state:
+    case Shot.State{Space.Spatial{_,_,+age,_},_,_,Components.ShotPayload{+id,_,_,SM.Attack{_,_,SM.Ordinary{}}},_}: ordinary_contact_next(found,team,state,targets,index,tail)
+    case Shot.State{Space.Spatial{_,_,+age,_},_,_,Components.ShotPayload{+id,_,_,_},_}: G.contact_shot_plan(Bool.and(Projectile.active_hit(id,age),Shot.active(state)),state,team,targets,tail)
 
 def contact_cached_rows(rows:List<&2,G.Snapshot>,+team:G.Team,+targets:List<&2,Contact.Target>,+next:BI.Index<Projectile.Shot>,+index:Broadphase.Index) -> List<&2,G.HitPlan>:
   match rows:
@@ -208,7 +192,8 @@ def projectile_cached(next:Projectile.Shot,+state:Shot.State,team:G.Team) -> G.E
 def projectile_next(found:Maybe<&2,Projectile.Shot>,+snapshot:G.Snapshot,+team:G.Team) -> G.EntityRow:
   match found snapshot:
     case None{} _: projectile_row(team,snapshot)
-    case Some{next} G.ProjectileSnapshot{state}: projectile_cached(next,state,team)
+    case Some{next} G.ProjectileSnapshot{Shot.State{+space,+identity,+side,Components.ShotPayload{+weapon,+damage,+active,SM.Attack{+cast,+primary,SM.Ordinary{}}},+trajectory}}: projectile_cached(next,Shot.State{space,identity,side,Components.ShotPayload{weapon,damage,active,SM.Attack{cast,primary,SM.Ordinary{}}},trajectory},team)
+    case Some{_} G.ProjectileSnapshot{state}: projectile_row(team,G.ProjectileSnapshot{state})
     case _ _: G.missing_row()
 
 def existing_projectiles_cached(rows:List<&2,G.Snapshot>,+team:G.Team,+next:BI.Index<Projectile.Shot>) -> List<&2,G.Snapshot>:
@@ -445,8 +430,12 @@ def diagnostic_contacts(enabled:Bool,step:Prepared,+tick:U32,previous:List<&2,G.
   match enabled:
     case False{}: []
     case True{}: List.append(&2,Policy.Witness,recent_witnesses(contacts,tick),step_witnesses(step,tick,previous,births))
+def settled_views(rows: List<&2,G.PlayerView>,+team: G.Team) -> List<&2,G.PlayerView>:
+  match rows:
+    case []: []
+    case +view <> rest: G.settled_view(team,G.view_id(view)) <> settled_views(rest,team)
 def advanced_rows(own:U32,+players:List<&2,G.PlayerSnapshot>,+previous:List<&2,G.Snapshot>,+births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,+diagnostics:Bool,+step:Prepared,+updated:List<&2,G.Snapshot>) -> Scene:
-  Scene{own,moved_players(players,team_views(prepared_team(step))),updated,W.birth_map(updated,tick,births,W.plan_births(team_plan(prepared_team(step)),tick),BI.Empty{}),directions,diagnostic_contacts(diagnostics,step,tick,previous,births,contacts),tick,diagnostics}
+  Scene{own,moved_players(players,settled_views(team_views(prepared_team(step)),prepared_team(step))),updated,W.birth_map(updated,tick,births,W.plan_births(team_plan(prepared_team(step)),tick),BI.Empty{}),directions,diagnostic_contacts(diagnostics,step,tick,previous,births,contacts),tick,diagnostics}
 def advanced_team(+reference:Bool,own:U32,players:List<&2,G.PlayerSnapshot>,+previous:List<&2,G.Snapshot>,births:BI.Index<U32>,directions:Session.Directions,contacts:List<&2,Policy.Witness>,tick:U32,diagnostics:Bool,+step:Prepared) -> Scene:
   advanced_rows(own,players,previous,births,directions,contacts,tick,diagnostics,step,List.append(&2,G.Snapshot,choose_enemies(reference,previous,prepared_team(step),prepared_moved(step)),List.append(&2,G.Snapshot,choose_projectiles(reference,previous,prepared_team(step),prepared_next(step)),spawned_projectiles(prepared_team(step)))))
 def clocked_scene(+reference:Bool,+own:U32,+players:List<&2,G.PlayerSnapshot>,+snapshots:List<&2,G.Snapshot>,births:BI.Index<U32>,+directions:Session.Directions,contacts:List<&2,Policy.Witness>,+tick:U32,diagnostics:Bool,+x:U32,+y:U32) -> Scene:

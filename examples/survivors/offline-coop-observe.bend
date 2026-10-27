@@ -1,3 +1,4 @@
+import starter-mechanics.bend as SM
 import run-state.bend as RS
 import Base
 import enemy-status-encoder.bend as StatusEncoder
@@ -87,7 +88,7 @@ def source_player(value: Maybe<&2,U32>) -> String:
     case Some{player}: U32.show(player)
 def projectile_state(value: Shot.State) -> String:
   match value:
-    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}:
+    case Shot.State{Space.Spatial{x,y,age,radius},identity,side,Components.ShotPayload{weapon,damage,active,attack},Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}}:
       "{\"spatial\":" ++ array([fbits(x),fbits(y),U32.show(age),fbits(radius)]) ++ ",\"identity\":" ++ U32.show(identity) ++ ",\"side\":" ++ projectile_side(side) ++ ",\"payload\":" ++ array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))]) ++ ",\"trajectory\":" ++ array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)]) ++ "}"
 def pickup_item(value: Pickup.Item) -> String:
   match value:
@@ -124,13 +125,13 @@ def session(value: RS.Session) -> String:
     case RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected}: array([U32.show(phase),U32.show(tick),U32.show(xp),U32.show(need),U32.show(level),U32.show(kills),U32.show(gold),U32.show(seed),U32.show(stage),U32.show(bosses),U32.show(mode),u32s(enemyKinds),U32.show(relicCollected)])
 def player_state(value: RS.PlayerState) -> String:
   match value:
-    case RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}: array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives)])
+    case RS.PlayerState{px,py,hp,maximum,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives,mechanics}: array([fbits(px),fbits(py),U32.show(hp),U32.show(maximum),U32.show(character),u32s(weapons),u32s(passives),U32.show(invuln),U32.show(arcana),U32.show(meta),U32.show(revivals),U32.show(rerolls),U32.show(banishes),U32.show(skips),U32.show(bannedWeapons),U32.show(bannedPassives),SM.native_owner(mechanics)])
 def run(value: G.Run) -> String:
   match value:
     case G.Run{shared,personal}: array([session(shared),player_state(personal)])
 def shot_payload(value: Components.ShotPayload) -> String:
   match value:
-    case Components.ShotPayload{weapon,damage,active}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active))])
+    case Components.ShotPayload{weapon,damage,active,attack}: array([U32.show(weapon),U32.show(damage),U32.show(Bool.to_u32(active)),SM.native_attack(attack)])
 def trajectory(value: Components.Trajectory) -> String:
   match value:
     case Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,+sourcePlayer}: array([fbits(vx),fbits(vy),U32.show(life),U32.show(pierce),u32s(visited),U32.show(owner),U32.show(slot),source_player(sourcePlayer)])
