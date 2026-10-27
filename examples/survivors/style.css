@@ -642,3 +642,11 @@ footer {
 .source-links svg { flex-shrink: 0; }
 
 .start-row-top { margin-top: 0; margin-bottom: 20px; }
+
+.item-icon { display: inline-block; flex: none; vertical-align: middle; max-width: 100%; }
+.slot .item-icon { margin-top: 6px; }
+.innate-motif { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 36px; height: 36px; }
+.choices .item-icon { width: 32px; height: 32px; }
+@media (max-width: 600px) { .choices .item-icon { width: 28px; height: 28px; } }
+
+.choice .starting-weapon .item-icon { width: 20px; height: 20px; }

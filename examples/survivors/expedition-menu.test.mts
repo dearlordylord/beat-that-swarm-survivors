@@ -1,3 +1,4 @@
+import { WEAPONS } from "./content.mts"
 import { at } from "./host-values.mts"
 import type { MenuState } from "./profile.mts"
 import assert from "node:assert/strict"
@@ -61,7 +62,17 @@ await test("closing the dossier leaves all seven choices and no stale detail con
 await test("starting weapons are icons with accessible names in cards and dossiers", () => {
   const html = renderCoopSetup(state(5))
   assert(!html.includes("<p>Starting weapon:"))
-  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Dream Frame" tabindex="0"/)
-  assert.match(html, /class="weapon-tooltip" aria-hidden="true">Dream Frame<\/span>/)
-  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Indigo Composition" tabindex="0"/)
+  assert(
+    html.includes(
+      `class="starting-weapon" role="img" aria-label="Starting weapon: ${at(WEAPONS, 23).name}" tabindex="0"`
+    )
+  )
+  assert(html.includes(`class="weapon-tooltip" aria-hidden="true">${at(WEAPONS, 23).name}</span>`))
+  assert(
+    html.includes(
+      `class="starting-weapon" role="img" aria-label="Starting weapon: ${at(WEAPONS, 20).name}" tabindex="0"`
+    )
+  )
+  assert.match(html, /data-icon="weapon\/23"/)
+  assert.match(html, /data-icon="personal\/5"/)
 })

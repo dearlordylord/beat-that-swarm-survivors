@@ -1,3 +1,4 @@
+import { rewardIcon } from "./item-icons.mts"
 import { escapeHtml as esc, defined, errorMessage } from "./host-values.mts"
 import { element, enableSecondaryRewardTouch } from "./dom.mts"
 import type { Setup, SetupKind, Profile } from "./profile.mts"
@@ -83,7 +84,7 @@ function offerPresentation(offer: Offer) {
           ? item.evolvedDescription
           : undefined
         : item?.description) || "",
-    icon: item?.icon || "✦",
+    iconMarkup: rewardIcon(offer.kind, offer.id, item?.icon || "✦"),
     detail: offer.kind === 5 ? "Union" : offer.kind === 3 ? "Evolution" : offer.kind <= 1 ? `Level ${offer.level}` : ""
   }
 }
@@ -652,7 +653,7 @@ export class CoopUI {
             : offers
                 .map((offer, index) => {
                   const item = offerPresentation(offer)
-                  return `<button class="reward-offer banner-panel" data-choice="${index}"><span class="banner-heading"><span class="offer-icon" aria-hidden="true">${esc(item.icon)}</span><strong>${esc(item.name)}</strong></span><small>${esc(item.description)}</small><small>${esc(item.detail)} · ${index + 1}</small></button>`
+                  return `<button class="reward-offer banner-panel" data-choice="${index}"><span class="banner-heading"><span class="offer-icon" aria-hidden="true">${item.iconMarkup}</span><strong>${esc(item.name)}</strong></span><small>${esc(item.description)}</small><small>${esc(item.detail)} · ${index + 1}</small></button>`
                 })
                 .join("")
         this.document.querySelector<HTMLButtonElement>("#coop-offers button")?.focus({ preventScroll: true })

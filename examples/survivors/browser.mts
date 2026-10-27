@@ -1,3 +1,4 @@
+import { itemIcon, rewardIcon } from "./item-icons.mts"
 import { gameFrame } from "./observations.mts"
 import { escapeHtml as esc, displayText, defined, errorMessage, at, text } from "./host-values.mts"
 import { element, enableSecondaryRewardTouch } from "./dom.mts"
@@ -140,13 +141,13 @@ function settings() {
   audio.setVolume(profile.settings.volume)
 }
 function card(
-  item: { color?: string; icon?: string; name?: string; description?: string },
+  item: { color?: string; icon?: string; iconMarkup?: string; name?: string; description?: string },
   attributes = "",
   extra = "",
   selected = false
 ) {
   const pressed = /data-(stage|arcana|mode)=/.test(attributes) ? `aria-pressed="${selected}"` : ""
-  return `<button class="card banner-panel ${selected ? "selected" : ""}" ${attributes} ${pressed}><div class="banner-heading"><span class="icon" style="color:${item.color || "var(--gold)"}">${item.icon || "✦"}</span><h3>${esc(item?.name)}</h3></div><p>${esc(item?.description)}</p>${extra}</button>`
+  return `<button class="card banner-panel ${selected ? "selected" : ""}" ${attributes} ${pressed}><div class="banner-heading"><span class="icon" style="color:${item.color || "var(--gold)"}">${item.iconMarkup || esc(item.icon || "✦")}</span><h3>${esc(item?.name)}</h3></div><p>${esc(item?.description)}</p>${extra}</button>`
 }
 function menu() {
   const returningToMenu = $("#menu").hidden
@@ -333,6 +334,7 @@ function phase() {
         return card(
           {
             ...item,
+            iconMarkup: rewardIcon(o.kind, o.id, chosen.icon || "✦"),
             name: text(o.kind === 3 && "evolvedName" in chosen ? chosen.evolvedName : chosen.name),
             description: text(
               o.kind === 3 && "evolvedDescription" in chosen ? chosen.evolvedDescription : chosen.description
@@ -411,13 +413,26 @@ function hud() {
   if (signature === loadoutSignature) return
   loadoutSignature = signature
   const slots = [
-    ...(frame.weapons || []).flatMap((n, i) => (n ? [{ ...WEAPONS[i], ...(n >= 10 ? UNIONS[n - 10] : {}), n }] : [])),
-    ...(frame.passives || []).flatMap((n, i) => (n ? [{ ...PASSIVES[i], n }] : []))
+    ...(frame.weapons || []).flatMap((n, i) =>
+      n
+        ? [
+            {
+              ...WEAPONS[i],
+              ...(n >= 10 ? UNIONS[n - 10] : {}),
+              n,
+              iconMarkup: n >= 10 ? "" : itemIcon("weapon", i, 20)
+            }
+          ]
+        : []
+    ),
+    ...(frame.passives || []).flatMap((n, i) =>
+      n ? [{ ...PASSIVES[i], n, iconMarkup: itemIcon("passive", i, 20) }] : []
+    )
   ]
   $("#loadout").innerHTML = slots
     .map(
       (w) =>
-        `<span class="slot" title="${esc(w.n >= 10 ? w.name : w.n > 8 ? ("evolvedName" in w ? w.evolvedName : undefined) : w.name)}" style="color:${displayText(("color" in w ? w.color : undefined) || "#d9d0b7")}">${w.icon}<small>${w.n > 8 ? "✦" : w.n}</small></span>`
+        `<span class="slot" title="${esc(w.n >= 10 ? w.name : w.n > 8 ? ("evolvedName" in w ? w.evolvedName : undefined) : w.name)}" style="color:${displayText(("color" in w ? w.color : undefined) || "#d9d0b7")}">${w.iconMarkup || esc(w.icon)}<small>${w.n > 8 ? "✦" : w.n}</small></span>`
     )
     .join("")
 }

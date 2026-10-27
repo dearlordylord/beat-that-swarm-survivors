@@ -88,3 +88,7 @@ html[data-entry=guest] [data-host-ui],html[data-entry=host] [data-guest-ui]{disp
   #app #coop-invitation.banner-panel{--banner-inset:16px}
   #app #coop-reward .coop-panel.banner-panel{--banner-inset:12px;padding:22px 20px}
 }
+
+.item-icon{display:inline-block;flex:none;vertical-align:middle;max-width:100%}.innate-motif{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:36px;height:36px}.reward-offer .item-icon{width:30px;height:30px}@media(max-width:520px){.reward-offer .item-icon{width:24px;height:24px}}
+
+.choice .starting-weapon .item-icon{width:20px;height:20px}

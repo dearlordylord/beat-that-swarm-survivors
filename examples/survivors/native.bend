@@ -10,6 +10,7 @@ import enemy-presentation.bend as EnemyView
 import encounters.bend as E
 import native_draw.bend as D
 import native_art.bend as Art
+import native_icons.bend as Icons
 import loot-visual.bend as LV
 import native_audio.bend as Sound
 import native-content.bend as C
@@ -265,7 +266,7 @@ def cards(fuel: Nat,+index: U32,+ui: Ui,+profile: P.Profile,tail: List<&2,D.Rect
       +y = (96.0 + U32.to_f32(index) * 44.0 : F32)
       +category = ui_tab(ui)
       +color = select_color(U32.is_eq(id,ui_selected(ui)),15584891,4020038)
-      D.text(C.name(category,id),22.0,(y + 8.0 : F32),1.0,15196103,D.text(status(profile,category,id),22.0,(y + 23.0 : F32),1.0,9874884,border(14.0,y,484.0,40.0,color,D.rect(14.0,y,484.0,40.0,1186082,cards(k,(index + 1 : U32),ui,profile,tail)))))
+      Icons.icon(category,id,22.0,(y + 8.0 : F32),24.0,D.text(C.name(category,id),54.0,(y + 8.0 : F32),1.0,15196103,D.text(status(profile,category,id),54.0,(y + 23.0 : F32),1.0,9874884,border(14.0,y,484.0,40.0,color,D.rect(14.0,y,484.0,40.0,1186082,cards(k,(index + 1 : U32),ui,profile,tail))))))
 
 def menu_rows(+ui: Ui,+profile: P.Profile) -> List<&2,D.Rect>:
   +category = ui_tab(ui)
@@ -381,7 +382,7 @@ def loadout(rows: List<&2,U32>,+index: U32,+x: F32,+y: F32,+category: U32,tail: 
   match rows:
     case []: tail
     case +level <> rest:
-      D.text(select_label(U32.is_lt(0,level),C.name(category,index) ++ " " ++ U32.show(level),""),x,y,1.0,15196103,loadout(rest,(index + 1 : U32),x,(y + 10.0 * U32.to_f32(Bool.to_u32(U32.is_lt(0,level))) : F32),category,tail))
+      Icons.icon(category,select_color(U32.is_lt(0,level),index,999),x,y,16.0,D.text(select_label(U32.is_lt(0,level),C.name(category,index) ++ " " ++ U32.show(level),""),(x + 20.0 : F32),(y + 4.0 : F32),1.0,15196103,loadout(rest,(index + 1 : U32),x,(y + 18.0 * U32.to_f32(Bool.to_u32(U32.is_lt(0,level))) : F32),category,tail)))
 
 def seconds_label(short: Bool,value: U32) -> String:
   match short:
@@ -433,12 +434,19 @@ def offer_detail(offer: G.Offer) -> String:
   match offer:
     case G.Offer{kind,id,level}: offer_detail_kind(kind,id)
 
+def offer_icon(offer: G.Offer,x: F32,y: F32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match offer:
+    case G.Offer{0,id,_}: Icons.icon(0,id,x,y,24.0,tail)
+    case G.Offer{1,id,_}: Icons.icon(1,id,x,y,24.0,tail)
+    case G.Offer{3,id,_}: Icons.icon(0,id,x,y,24.0,tail)
+    case _: tail
+
 def offer_rows(rows: List<&2,G.Offer>,+index: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match rows:
     case []: tail
     case +offer <> rest:
       +y = (116.0 + U32.to_f32(index) * 58.0 : F32)
-      D.text(U32.show((index + 1 : U32)) ++ "  " ++ offer_name(offer),52.0,(y + 9.0 : F32),1.0,15584891,D.wrapped(offer_detail(offer),52.0,(y + 24.0 : F32),52.0,458.0,(y + 43.0 : F32),15196103,border(42.0,y,428.0,54.0,4020038,D.rect(42.0,y,428.0,54.0,1186082,offer_rows(rest,(index + 1 : U32),tail)))))
+      offer_icon(offer,52.0,(y + 9.0 : F32),D.text(U32.show((index + 1 : U32)) ++ "  " ++ offer_name(offer),84.0,(y + 9.0 : F32),1.0,15584891,D.wrapped(offer_detail(offer),84.0,(y + 24.0 : F32),84.0,458.0,(y + 43.0 : F32),15196103,border(42.0,y,428.0,54.0,4020038,D.rect(42.0,y,428.0,54.0,1186082,offer_rows(rest,(index + 1 : U32),tail))))))
 
 def modal(phase: U32,+run: G.Run,offers: List<&2,G.Offer>,paused: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   match phase paused:
