@@ -1,5 +1,32 @@
 # Short solo performance checks
 
+## iPhone Safari: use HTTPS
+
+Do not assume a plain HTTP preview measures the same execution mode as the
+public HTTPS game. WebKit developers [confirmed an iOS 27 Enhanced Security
+policy](https://bugs.webkit.org/show_bug.cgi?id=324968#c3) that can disable JIT
+for plaintext HTTP. Slow simulation on that origin can affect both the mod and
+the original, even after all files have loaded.
+
+On the Mac hosting the shared workspace, with Tailscale running:
+
+```sh
+bash tools/survivors-performance/serve-private-macos.sh
+```
+
+Keep the terminal open and use the HTTPS hostname printed by Tailscale, including
+port 9443. The script serves the local build through a loopback Python backend
+and Tailscale Serve, restricted to the tailnet. It does not use Funnel or publish
+to the public Survivors site. First-time HTTPS/Serve enablement may require
+following the link printed by Tailscale. Stop with Ctrl+C.
+The HTTPS port can be changed with `SURVIVORS_HTTPS_PORT` if another Serve
+listener already owns it. The launcher does not reset existing Serve mappings.
+
+An HTTP-versus-HTTPS performance comparison must use the same device and build.
+The affected player's HTTPS result is still needed to confirm this diagnosis.
+
+## Simulation checkpoints
+
 Capture a world once, then measure short replay windows from that saved state.
 Measurements do not replay the entire prefix each time. This development tool
 uses the compiled Bend simulation; it does not implement game rules or require
