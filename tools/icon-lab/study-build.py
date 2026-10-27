@@ -26,7 +26,6 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     data = json.loads((HERE/'study-matrix.json').read_text())
     current = json.loads(subprocess.run(['node', '--input-type=module', '-e', 'import {CHARACTERS,WEAPONS,PASSIVES,ARCANA} from "./examples/survivors/content.mts"; process.stdout.write(JSON.stringify({characters:CHARACTERS,weapons:WEAPONS,passives:PASSIVES,arcana:ARCANA}));'], cwd=ROOT, check=True, capture_output=True, text=True).stdout)
-    # The study preserves its research baseline after approved production changes.
     for kind in ['weapons','passives','arcana']:
         assert [item['id'] for item in data['catalog'][kind]] == [item['id'] for item in current[kind]], f'{kind}: stable IDs changed'
     assets = out/'assets'
