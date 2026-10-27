@@ -8,6 +8,9 @@ There is no Node/Python bot controller, observation file or JSON command bridge.
 Run these commands from the repository root. Native builds require Bend and the
 [pinned LLVM Clang toolchain](../../toolchains/README.md).
 
+For continuous native play on a Mac with an OBS capture window, use the
+[streaming setup](STREAMING.md).
+
 ## Watch a bot
 
 ```sh
