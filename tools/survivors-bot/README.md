@@ -3,12 +3,13 @@
 The bot policy lives in [offline-policy.bend](../../examples/survivors/offline-policy.bend).
 The native window and headless runners call that same Bend implementation.
 Movement, XP planning, memory and upgrade selection stay in the native process.
-There is no Node/Python bot controller, observation file or JSON command bridge.
+These native runners need no Node or Python controller. The optional browser
+stream adds a sandboxed JavaScript strategy worker over the Bend policy.
 
 Run these commands from the repository root. Native builds require Bend and the
 [pinned LLVM Clang toolchain](../../toolchains/README.md).
 
-For continuous native play on a Mac with an OBS capture window, use the
+For browser play with separate strategy controls, or the native fallback, use the
 [streaming setup](STREAMING.md).
 
 ## Watch a bot

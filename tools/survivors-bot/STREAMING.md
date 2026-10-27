@@ -1,108 +1,152 @@
-# Run the native bot on a Mac for OBS
+# Stream the game and strategy controls on a Mac
 
-The stream bot opens its own native game window named `Beat That Swarm: Survivors`.
-Each completed run starts a new world inside that same window, with a new seed.
-OBS keeps the same window across normal run transitions. A process crash creates
-another window when macOS restarts the bot.
+Use the browser stream mode for the themed game, normal audio and a reloadable
+JavaScript strategy. The game runs in one browser window; its operator controls
+can move into a second window. This is a private mod preview, not publication to
+the public Survivors site.
 
-## Start the window
+## Start the browser stream
 
-1. Open this checkout on your Mac. Install Bend and the [native compiler toolchain](../../toolchains/README.md).
-2. Open `tools/survivors-bot/Start Stream Bot.command` in Finder.
-3. Wait for the native Mac build. The first build can take several minutes.
-4. Keep your Mac connected to power and remain logged in.
+1. Build the current browser sources with `npm run build --prefix examples/survivors/web`.
+2. On the Mac hosting this checkout, run `bash tools/survivors-performance/serve-private-macos.sh`.
+3. Open the printed private HTTPS hostname with `?stream=1`. For the current host,
+   use `https://pepkas-macbook-pro.tailc8c871.ts.net:9443/?stream=1`.
+4. Select the character and other game options, then click **Start stream**.
+   This gesture also enables browser audio.
+5. Click **Separate controls** to move the operator panel into its own browser
+   window. Allow the popup for this private origin if the browser blocks it.
 
-The launcher verifies the native build on the Mac. It does not use a Docker Linux
-executable. Once the window opens, you can close the launcher's Terminal window.
-The bot stays active in your desktop session and prevents idle display and
-system sleep while it runs. Closing a laptop lid can still suspend the Mac.
+The original window keeps the game, HUD and character announcement. The second
+window provides pause/resume, stop, strategy reload, audio resume and diagnostics;
+it does not start another simulation. **Return controls to game**, or closing
+the control window, restores the panel to the game window. This browser strategy
+feature was brought across from the separate `bendvy-stream-bot` checkout; the
+detachable operator window is part of this mod's integration.
 
-The current preset is `fresh`, which plays Grove Scribe. The existing `advanced`
-preset plays Ash Pianist with its qualification upgrades. These presets do not
-rotate through all seven characters or advance your human player profile.
-The stream window does not currently provide the normal native game's audio
-session. Do not expect game audio from this bot mode.
+Use HTTPS for iPhone Safari comparisons; see the
+[private preview rules](../../examples/survivors/README.md#private-https-preview-on-iphone).
+Keep the Mac powered and awake. The browser session pauses when its game document
+becomes hidden and requires explicit resume on return. Moving to another Space,
+minimizing a window or retaining only the control window is not a 24/7 guarantee.
+Check game ticks and the OBS picture in the intended window arrangement before
+leaving it unattended. Use **Resume audio** if the browser suspends sound.
 
-## Capture only the game in OBS
+## Edit and reload strategy
 
-1. Add a **macOS Screen Capture** source in OBS.
-2. Select **Window Capture** as its capture method.
-3. Select the window named `Beat That Swarm: Survivors`.
-4. Hide the cursor in the source settings if you do not want it in the broadcast.
-5. Confirm that the OBS preview contains the game window.
+The default strategy is `examples/survivors/stream-strategy.mts`. Bend owns the
+simulation, legal choices and fallback navigation. The strategy runs in a
+replaceable Web Worker and supplies bounded intentions and upgrade preferences.
 
-Use a window source so other applications are outside the captured picture.
-On recent macOS versions, OBS uses **macOS Screen Capture** rather than the older
-Window Capture source. See the [OBS source guide](https://obsproject.com/kb/macos-screen-capture-source).
-If macOS requests screen-recording permission for OBS, grant it in System Settings
-and restart OBS as instructed by macOS. Configure your Twitch account in OBS and
-start broadcasting there when you are ready. These launchers do not start a broadcast.
-
-## Stop or inspect the bot
-
-Open `tools/survivors-bot/Stop Stream Bot.command` to stop the service. Closing
-the game window or pressing Escape also stops normal play. macOS restarts the
-process after a failure. Launch frequency is throttled to one launch per 60 seconds.
-
-From the repository root, inspect the service with:
+After an ordinary browser build has generated the Bend types, rebuild only the
+strategy from the repository root:
 
 ```sh
+node tools/survivors-bot/build-stream-strategy.mts \
+  examples/survivors/stream-strategy.mts \
+  examples/survivors/dist/web/stream-strategy.json
+```
+
+Then click **Reload strategy** in the operator window. The default manifest is
+`./stream-strategy.json`; a different manifest can be selected in the control
+panel or with the `strategy` URL option. The builder checks and bundles the
+module before replacing its manifest. A failed replacement leaves the working
+strategy active; a failed active strategy visibly falls back to Bend. Reloading
+a strategy does not restart the world or replay the character announcement.
+
+## Character announcement
+
+Each successfully started run shows **NOW PLAYING**, the actual character's
+name and title, its enlarged current sprite, and the run number. After six
+seconds the card becomes a compact identity badge. The character comes from
+the authoritative game frame after startup, not from a preset label or editable
+strategy text. Stopping the stream hides the card. The presentation does not
+pause combat or create another simulation.
+
+The announcement is inside the game picture, so it is captured with the game.
+Twitch receives the encoded video from software such as OBS; the card needs no
+Twitch Extension or chat command. This is an integration inference from the
+[Twitch broadcasting pipeline](https://dev.twitch.tv/docs/video-broadcast/).
+An independent OBS [Browser Source](https://obsproject.com/kb/browser-source)
+could also render graphics, but would require a separate current-run data
+channel. The in-game card keeps portrait and name tied to the captured run.
+
+## Capture the game in OBS
+
+1. Add a **macOS Screen Capture** source.
+2. Choose **Window Capture** and select the game browser window, not the operator
+   window or the whole display.
+3. Frame/crop the source to the game content if browser chrome is visible.
+4. Hide the cursor if desired and confirm that the operator controls are outside
+   the broadcast picture.
+5. Check a run transition, the large card becoming compact, sound, and the result
+   after switching to the workspace where you intend to work.
+
+The official [macOS Screen Capture guide](https://obsproject.com/kb/macos-screen-capture-source)
+documents single-window capture and the option to show fullscreen/hidden windows
+in the source list. That option does not establish that the game continues
+rendering while hidden. Grant macOS screen-recording permission and restart OBS
+if macOS requests it. Configure Twitch in OBS and start broadcasting there when
+ready; these launchers never start a broadcast themselves.
+
+## Native fallback
+
+`Start Stream Bot.command` and `stream-macos.sh` launch the older native bot,
+not the browser strategy session. It opens `Beat That Swarm: Survivors`, replaces
+finished runs inside that same window and prevents idle system/display sleep.
+Its `fresh` preset plays Grove Scribe; `advanced` plays Ash Pianist. It uses the
+Bend policy directly, has no JavaScript strategy control window and currently
+has no normal game audio session. A crash restart creates a new native window.
+
+From the repository root on the Mac:
+
+```sh
+bash tools/survivors-bot/stream-macos.sh start
 bash tools/survivors-bot/stream-macos.sh status
+bash tools/survivors-bot/stream-macos.sh stop
 ```
 
-The latest process launch writes to
-`~/Library/Application Support/Nightfall Stream Bot/last-launch.log`.
-Each process launch replaces that log. It contains native build and bot output;
-there is no accumulated archive of past process launches. Output from one healthy
-continuous process is not size-capped.
+Use `install` to start the native mode now and after graphical login; use
+`uninstall` to stop it and remove login startup. Remain logged in; closing a
+laptop lid may suspend the Mac. The log is
+`~/Library/Application Support/Nightfall Stream Bot/last-launch.log`. Each
+process launch replaces it; a healthy process's output is not size-capped.
 
-## Start after login
+## Verification limits
 
-Run this command on the Mac to install a user login agent and start it now:
+The built browser artifact passed a local Chromium interaction check covering detached
+controls, Start from the game window, advancing ticks, Pause, Resume, strategy
+reload without a world restart, and restoring controls after user-close. A second
+detach and Stop passed. The check selected Hearth Voyager and verified the actual
+character announcement, its compact transition, running audio, unchanged player
+profile, ordinary player mode, and no browser exceptions.
+
+The session check passed 34 laws and 21 literal scenarios, with semantic mutants
+rejected. The compiled observation and preference behavior checks passed.
+`preference-PROOF.bend --verdict` remains unverified because BendTT reports
+out-of-scope imported ECS templates. Runtime checks do not establish that proof.
+
+Run the browser interaction check against a running private preview:
 
 ```sh
-bash tools/survivors-bot/stream-macos.sh install
+node tools/survivors-bot/check-browser-stream.mts https://your-private-host:9443/
 ```
 
-The agent runs only in your logged-in graphical session. It does not run a visible
-window before login. Move the checkout only after uninstalling the agent, then
-install it again from its new location.
+The check uses a fresh browser context and unlocks Hearth Voyager only inside
+that context. It writes its screenshot to the system temporary directory.
+`STREAM_CHECK_CAPTURE` overrides that path. `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
+selects an existing Chromium executable instead of Playwright's installed one.
 
-`stop` stops the current service but leaves login startup installed. To stop it
-and remove login startup, run:
+A cold Chromium load through the current Mac HTTPS server returned HTTP 502 for
+some ES modules. The same address loaded with HTTP/2 disabled. The launcher now
+uses `serve-private.py` with an explicit 128-connection accept queue instead of
+Python's default server settings. Its local 110-request concurrency check passed.
+Restart the existing Mac launcher to use the new backend. The queue change is a
+candidate fix; its behavior behind the target Tailscale proxy remains unverified.
 
-```sh
-bash tools/survivors-bot/stream-macos.sh uninstall
-```
+Target-Mac OBS capture, hidden-window behavior and 24-hour continuous operation
+remain unverified. The browser pauses when the game document becomes hidden.
 
-## Run a bounded check
-
-To check several run transitions without leaving a service running:
-
-```sh
-bash tools/survivors-bot/visible.sh --stream --ticks 30 --seconds 10
-```
-
-In stream mode, `--ticks` bounds each individual run. `--seconds` bounds the whole
-session. Zero means no bound. The stream mode uses one window at realtime pace.
-Closing the window ends the session instead of starting another world.
-
-The native lifecycle is checked in the development environment. The launchd
-commands and OBS capture require verification on the target Mac. This setup has
-not established a 24-hour soak-test result.
-
-## Development verification
-
-The native Linux build passed. An eight-second GUI check used a three-tick
-per-run bound to exercise 99 world replacements in one unchanged window ID,
-with the exact title `Beat That Swarm: Survivors`. A separate GUI check closed
-the stream window after multiple replacements and confirmed exit status zero.
-An ordinary single-bot window retained its existing bounded exit behavior.
-These accelerated transitions test lifecycle behavior, not complete-run survival.
-
-The visible-launcher fixture passed, including stream environment forwarding
-and rejection of grid/unlimited combinations. Mac setup fixtures covered
-start, stop, login installation/removal, build failures and XML-escaped paths.
-Independent review found no remaining actionable lifecycle defects. One redundant
-comment was removed; the documentation records the log-size and target-Mac
-verification limits above.
+The older native lifecycle passed a Linux GUI check that exercised 99 world
+replacements in one unchanged window ID, plus a clean close after replacements.
+Launcher fixtures covered stream options and Mac service setup. These checks
+establish native lifecycle behavior, not full-run survival or browser uptime.

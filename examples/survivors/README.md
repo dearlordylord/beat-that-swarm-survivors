@@ -91,12 +91,17 @@ The Lunar Stone menu uses Moon Seal controls, with Start at the top and in a res
 
 The shared browser decoration uses header banners over rectangular panels. CSS fits N full square teeth and N−1 equal gaps into width W: side length `s = W / (2N − 1)`. Container units and `round()` keep s near 8 CSS pixels from the first paint, including after resizing. Browsers without typed length division use stable CSS container breakpoints with odd cell counts. No JavaScript geometry pass or observer is needed, so module loading cannot change the pattern. Only decorative surfaces are masked, preserving control hit areas and focus.
 
-Each survivor has distinct idle geometry in [`survivor-shapes.mts`](survivor-shapes.mts). The Bend-authored eight-frame walk catalog is exported to `survivor-walk-shapes.mts`. Static portraits retain the selected idle artwork. Solo and co-op players select walk poses from each player's traveled distance and return to idle when stopped; reduced motion uses the idle pose. Canvas paths are cached per pose. Current walk artwork faces forward for every travel direction; it does not include side or back views, and distance-driven cadence does not guarantee exact world-space foot contact. Accessories retain selected variant D and follow the wrist during walking. The native renderer uses checked-in Bend rectangles generated from the same idle and walk masks, so native launch requires no Node.js. After exporting the walk catalog, run `node scripts/generate-native-survivor-art.mts`; `--check` verifies the generated source. See the [walk artwork workflow](../../tools/sprite-lab/walk-README.md) for regeneration and finite visual checks.
+Each survivor has distinct idle geometry in [`survivor-shapes.mts`](survivor-shapes.mts). The Bend-authored eight-frame walk catalog is exported to `survivor-walk-shapes.mts`. Static portraits retain the selected idle artwork. Solo and co-op players select walk poses from each player's traveled distance and return to idle when stopped; reduced motion uses the idle pose. Canvas paths are cached per pose. Current walk artwork faces forward for every travel direction; it does not include side or back views, and distance-driven cadence does not guarantee exact world-space foot contact. Accessories use selected variant D, with a direct-grid RJ refinement, and follow the wrist during walking. The native renderer uses checked-in Bend rectangles generated from the same idle and walk masks, so native launch requires no Node.js. After exporting the walk catalog, run `node scripts/generate-native-survivor-art.mts`; `--check` verifies the generated source. See the [walk artwork workflow](../../tools/sprite-lab/walk-README.md) for regeneration and finite visual checks.
 
 
 The selected filled vector icon set covers 24 weapons, 18 shared relics, and seven personal innate motifs. Browser and native presentation derive from the same Bend artwork. Evolutions reuse their base icons. See [icon regeneration](../../tools/icon-lab/game-README.md). The [seven automatic starter mechanics](../../docs/design/SEVEN_MECHANICS_IMPLEMENTATION.md) use ordinary movement and combat, with no additional controls.
 
 ## Browser launch
+
+For a private stream with an editable JavaScript strategy, open `?stream=1`.
+Use **Separate controls** to move Start, Pause, and Reload into a second window.
+The game window includes the current character announcement. See the
+[browser streaming setup](../../tools/survivors-bot/STREAMING.md).
 
 [Browser demo](https://survivors.dearlordylord.com). [Two-to-four-player co-op](COOP.md) uses the same ECS systems with a browser host and Iroh transport. Bend compiles the simulation to JavaScript; Canvas and browser APIs handle presentation, keyboard/touch input and audio.
 

@@ -18,7 +18,7 @@ export TAILSCALE_BE_CLI=1
 https_port=${SURVIVORS_HTTPS_PORT:-9443}
 
 # Use a separate loopback backend; the old HTTP preview can keep running.
-python3 -m http.server 18813 --bind 127.0.0.1 --directory "$game_dir" &
+python3 "$repo_root/tools/survivors-performance/serve-private.py" "$game_dir" &
 backend_pid=$!
 cleanup() {
   kill "$backend_pid" 2>/dev/null || true
