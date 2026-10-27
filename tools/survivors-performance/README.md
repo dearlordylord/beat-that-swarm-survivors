@@ -28,7 +28,11 @@ requested active-game ticks. It does not silently time paused or rejected work.
 
 The gzip envelope records the full state, compiled-module hash, Git revision and
 tracked-diff fingerprint where available, Bend version, dependency-manifest
-hash, input scenario, loadout, actor counts and observation checksums. Raw state
+hash, input scenario, loadout, actor counts and observation checksums. The
+`provenance.revision` field is the checkout HEAD at capture time, not proof of
+the module's build commit. The compiled-module SHA-256 is the authoritative
+identity of the code measured. Keep source/build provenance separately when
+comparing a module built before later commits. Raw state
 must contain only ordinary JSON values; functions, hidden/accessor fields,
 nonfinite numbers and other opaque values are rejected.
 
@@ -96,6 +100,6 @@ Use a freshly built local engine:
 node --test tools/survivors-performance/checkpoints.test.mts
 ```
 
-Set `SURVIVORS_PERF_TEST_MODULE` when the compiled module is elsewhere. The test
+Set `SURVIVORS_PERF_TEST_MODULE` when the compiled current-mod module is elsewhere. The test
 uses real Bend advancement over a three-tick window and verifies restore,
 module-hash rejection, explicit candidate compatibility and checksum failures.

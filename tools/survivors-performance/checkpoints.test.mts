@@ -24,6 +24,45 @@ await test("checkpoint JSON rejects values JSON.stringify would silently change 
   assert.equal(json({ tick: 1, values: [0, true, null] }), '{"tick":1,"values":[0,true,null]}')
 })
 
+await test("array accessors and hidden fields are rejected without reading them", () => {
+  let reads = 0
+  const accessor = [0]
+  Object.defineProperty(accessor, "0", {
+    enumerable: true,
+    get() {
+      reads++
+      return 1
+    }
+  })
+  assert.throws(() => json(accessor), /Checkpoint/)
+  assert.equal(reads, 0)
+  const hiddenIndex = [0]
+  Object.defineProperty(hiddenIndex, "0", { enumerable: false, value: 1 })
+  assert.throws(() => json(hiddenIndex), /Checkpoint/)
+  const hiddenProperty = [0]
+  Object.defineProperty(hiddenProperty, "secret", { enumerable: false, value: 1 })
+  assert.throws(() => json(hiddenProperty), /Checkpoint/)
+})
+
+await test("capture rejects a requested character normalized by the current mod", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "survivors-character-test-"))
+  try {
+    await assert.rejects(
+      captureCheckpoint(modulePath, join(directory, "invalid.json.gz"), {
+        character: 7,
+        seed: 12345,
+        tick: 0,
+        steps: 1,
+        dx: 1,
+        dy: 0
+      }),
+      /requested character/
+    )
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 await test("real Bend checkpoint restores independently and enforces compatibility and replay digests", async () => {
   const directory = await mkdtemp(join(tmpdir(), "survivors-checkpoint-test-"))
   try {

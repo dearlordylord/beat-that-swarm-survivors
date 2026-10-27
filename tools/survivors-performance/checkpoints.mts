@@ -85,9 +85,20 @@ function validateJson(value: unknown, ancestors: WeakSet<object>): void {
   if (Object.getOwnPropertySymbols(value).length) throw Error("Checkpoint contains symbol keys")
   ancestors.add(value)
   if (Array.isArray(value)) {
-    if (Object.keys(value).some((key) => !/^(0|[1-9][0-9]*)$/.test(key)))
+    const descriptors = Object.getOwnPropertyDescriptors(value)
+    if (
+      Object.keys(descriptors).some(
+        (key) => key !== "length" && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length)
+      )
+    )
       throw Error("Checkpoint contains an array property")
-    for (const entry of value) validateJson(entry, ancestors)
+    for (let index = 0; index < value.length; index++) {
+      const descriptor = descriptors[String(index)]
+      if (!descriptor || descriptor.get || descriptor.set || !descriptor.enumerable)
+        throw Error("Checkpoint contains an array accessor, hidden field or hole")
+      const entry: unknown = descriptor.value
+      validateJson(entry, ancestors)
+    }
   } else {
     for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) {
       if (descriptor.get || descriptor.set || !descriptor.enumerable)
@@ -202,8 +213,10 @@ export async function captureCheckpoint(modulePath: string, output: string, scen
   const engine = await loadEngine(modulePath)
   let state = packet(engine.start(scenario.character, scenario.seed))
   for (let i = 0; i < scenario.tick; i++) state = packet(engine.advance(state, scenario.dx, scenario.dy))
-  const initial = observed(engine.observe(state)),
-    stateJson = json(initial.state),
+  const initial = observed(engine.observe(state))
+  const player = record(record(record(initial.observation).run).player)
+  if (number(player.character) !== scenario.character) throw Error("Engine normalized the requested character")
+  const stateJson = json(initial.state),
     initialSummary = summary(initial.observation)
   if (initialSummary.tick !== scenario.tick || initialSummary.phase !== 0)
     throw Error("Capture did not reach the requested active tick")
