@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { array } from "./host-values.mts"
+import { array, list } from "./host-values.mts"
 import { admitSnapshot, snapshotValues, encodeSnapshotValues, decodeSnapshotValues } from "./snapshot-envelope.mts"
 
 const scene: BendABI.CoopCombatPrediction.Scene = {
@@ -146,6 +146,77 @@ await test("admits only the current compact Bend contract with exact numeric val
   assert.throws(() => admitSnapshot([...values, 0]))
   assert.throws(() => admitSnapshot(values.slice(1)))
   assert.throws(() => admitSnapshot({ ...envelope, frame: raw }))
+})
+
+await test("co-op snapshots retain personal charges, delayed origins and per-cast hit ledgers", () => {
+  const snapshot = structuredClone(envelope)
+  if (snapshot.view.players.$ !== "Con") throw Error("player")
+  snapshot.view.players.head.player.mechanics = {
+    $: "Owner",
+    stillTicks: 29,
+    notes: 3,
+    trailCarry: 39.5,
+    orbitPhase: 6.25,
+    orbits: 2,
+    pulseReady: 2,
+    comboHits: 2,
+    comboDeadline: 220,
+    comboReady: 2,
+    echoes: list([
+      {
+        $: "Echo",
+        castTick: 7,
+        due: 34,
+        x: 20,
+        y: 30,
+        damage: 100,
+        amount: 4,
+        speed: 1.5,
+        area: 2,
+        duration: 1.25,
+        level: 9
+      }
+    ])
+  }
+  const mechanics: BendABI.StarterMechanics.Mechanic[] = [
+    { $: "Ordinary" },
+    { $: "Fan", marks: list([10, 11]), returnBudget: 4, returning: true },
+    { $: "Ink", heldTicks: 59, resolved: false },
+    { $: "Trail", armed: false },
+    { $: "Streak", credited: true }
+  ]
+  snapshot.view.snapshots = list(
+    mechanics.map(
+      (mechanic, index): BendABI.Game.Snapshot => ({
+        $: "ProjectileSnapshot",
+        projectile: {
+          $: "State",
+          spatial: { $: "Spatial", x: 20, y: 30, age: 45, radius: 10 },
+          identity: 512 + index,
+          side: { $: "PlayerShot" },
+          payload: {
+            $: "ShotPayload",
+            weapon: 8,
+            damage: 100,
+            active: true,
+            attack: { $: "Attack", castTick: 7, primary: true, mechanic }
+          },
+          trajectory: {
+            $: "Trajectory",
+            vx: 1,
+            vy: 0,
+            life: 60,
+            pierce: 0,
+            visited: list([11]),
+            weaponOwner: 8,
+            logicalSlot: 0,
+            sourcePlayer: { $: "Some", value: 0 }
+          }
+        }
+      })
+    )
+  )
+  assert.deepEqual(decodeSnapshotValues(encodeSnapshotValues(snapshot)), snapshot)
 })
 
 await test("CBOR ingress rejects malformed values before building unbounded structures", async () => {
