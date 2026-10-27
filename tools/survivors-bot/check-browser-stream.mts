@@ -48,6 +48,8 @@ try {
   await page.locator("#start").click()
   const card = page.locator("#stream-announcement")
   await card.waitFor()
+  const capture = process.env.STREAM_CHECK_CAPTURE ?? join(tmpdir(), "beat-stream-announcement.png")
+  await page.screenshot({ path: capture })
   await controls.waitForFunction(
     () => Number(document.querySelector("#stream-diagnostics")?.textContent?.match(/"tick":\s*(\d+)/)?.[1]) > 60
   )
@@ -55,8 +57,7 @@ try {
   assert.equal(first.run, 1)
   assert.equal(await card.getAttribute("data-character"), "1")
   assert.match(await card.innerText(), /Hearth Voyager/)
-  const capture = process.env.STREAM_CHECK_CAPTURE ?? join(tmpdir(), "beat-stream-announcement.png")
-  await page.screenshot({ path: capture })
+  assert.equal(await card.locator("svg").count(), 7)
   await controls.locator("#stream-pause").click()
   assert.equal((await diagnostic(controls)).paused, true)
   const paused = await diagnostic(controls)
@@ -77,6 +78,12 @@ try {
   await page.waitForFunction(() =>
     document.querySelector("#stream-announcement")?.classList.contains("stream-announcement-compact")
   )
+  const compactCapture = capture.replace(/\.png$/, "-compact.png")
+  await page.screenshot({ path: compactCapture })
+  const group = await card.locator(".stream-group").boundingBox()
+  const identity = await card.locator(".stream-identity").boundingBox()
+  assert(group && identity)
+  assert(group.x + group.width <= identity.x, "The group must not overlap the character name")
   assert.equal(await page.evaluate(() => localStorage.getItem("nightfall-survivors-v1")), saved)
   await controls.close({ runBeforeUnload: true })
   await page.locator("#stream-controls").waitFor()

@@ -56,7 +56,9 @@ a strategy does not restart the world or replay the character announcement.
 ## Character announcement
 
 Each successfully started run shows **NOW PLAYING**, the actual character's
-name and title, its enlarged current sprite, and the run number. After six
+name and title, its enlarged current sprite, and the run number. The other six
+survivors stand behind the current survivor as a borderless group. This is the
+roster, not a promised next-run order. After six
 seconds the card becomes a compact identity badge. The character comes from
 the authoritative game frame after startup, not from a preset label or editable
 strategy text. Stopping the stream hides the card. The presentation does not
