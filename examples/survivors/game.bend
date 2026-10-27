@@ -1334,7 +1334,8 @@ def count_held(rows: List<&2,Snapshot>,+x: F32,+y: F32,+radius: F32) -> U32:
     case _ <> +rest: count_held(rest,x,y,radius)
 def prepared_projectile(+projectile: Shot.State,team: Team) -> Shot.State:
   match projectile team:
-    case Shot.State{Space.Spatial{+x,+y,_,+radius},_,_,_,_} Team{_,Args{_,_,_,_,+snapshots,_},_,_}: Shot.prepare(projectile,count_held(snapshots,x,y,radius))
+    case Shot.State{Space.Spatial{+x,+y,_,+radius},_,_,Components.ShotPayload{_,_,_,SM.Attack{_,_,SM.Ink{_,False{}}}},_} Team{_,Args{_,_,_,_,snapshots,_},_,_}: Shot.prepare(projectile,count_held(snapshots,x,y,radius))
+    case _ _: Shot.prepare(projectile,0)
 def trail_newer(rows: List<&2,Snapshot>,+id: U32,+age: U32,+identity: U32) -> U32:
   match rows:
     case []: 0
@@ -1808,7 +1809,8 @@ def contact_ink_ready(attack: SM.Attack) -> Bool:
     case SM.Attack{_,_,SM.Ink{60,True{}}}: True{}
     case _: False{}
 def contact_shot_plan(active: Bool,+projectile: Shot.State,+team: Team,targets: List<&2,Contact.Target>,tail: List<&2,HitPlan>) -> List<&2,HitPlan>:
-  contact_prepared_plan(Bool.and(Bool.not(retire_trail(projectile,team)),Bool.or(active,contact_ink_ready(Shot.attack(prepared_projectile(projectile,team))))),prepared_projectile(projectile,team),team,targets,tail)
+  +prepared = prepared_projectile(projectile,team)
+  contact_prepared_plan(Bool.and(Bool.not(retire_trail(projectile,team)),Bool.or(active,contact_ink_ready(Shot.attack(prepared)))),prepared,team,targets,tail)
 
 def contact_plans(rows: List<&2,Snapshot>,+team: Team,+targets: List<&2,Contact.Target>) -> List<&2,HitPlan>:
   match rows:
