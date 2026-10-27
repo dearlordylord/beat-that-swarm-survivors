@@ -82,6 +82,24 @@ for (const id of [0, 1, 2, 3]) {
     assert.equal(b.px, a.px)
   }
 }
+let shootingState = after.state
+for (let tick = 0; tick < 30; tick++) {
+  const packet = Core.core_step_players(shootingState, list([
+    { $: "Movement", id: 0, x: 1, y: 0 },
+    { $: "Movement", id: 1, x: -1, y: 0 },
+    { $: "Movement", id: 2, x: 0, y: 1 },
+    { $: "Movement", id: 3, x: 0, y: -1 }
+  ]))
+  if (packet.$ !== "CorePacket") throw Error(packet.message)
+  shootingState = packet.state
+}
+const shooting = Core.core_network_observe(shootingState, 0)
+const shooters = new Set(rows(shooting.view.snapshots).flatMap((snapshot) => {
+  if (snapshot.$ !== "ProjectileSnapshot") return []
+  const source = snapshot.projectile.trajectory.sourcePlayer
+  return source.$ === "Some" ? [source.value] : []
+}))
+for (const id of [0, 1, 2, 3]) assert(shooters.has(id), `player ${id} fires its own starter`)
 const invalidStart = Core.core_start(7, 0, 12345)
 if (invalidStart.$ !== "CorePacket") throw Error(invalidStart.message)
 const invalidJoin = Core.core_attach_player(invalidStart.state, 1, 7, 0, 0, 16777215)
