@@ -1,4 +1,4 @@
-import { WEAPONS } from "./content.mts"
+import { CHARACTERS, WEAPONS } from "./content.mts"
 import { at } from "./host-values.mts"
 import type { MenuState } from "./profile.mts"
 import assert from "node:assert/strict"
@@ -75,4 +75,12 @@ await test("starting weapons are icons with accessible names in cards and dossie
   )
   assert.match(html, /data-icon="weapon\/23"/)
   assert.match(html, /data-icon="personal\/5"/)
+})
+
+await test("every selected survivor explains the automatic mechanic before starting", () => {
+  for (const character of CHARACTERS) {
+    const html = renderCoopSetup({ ...state(character.id), character: character.id, pendingUnlock: null })
+    const card = html.slice(html.indexOf('<section class="a-run-card"'), html.indexOf("</section>"))
+    assert(card.includes(character.description), `selected ${character.name} explains its mechanic`)
+  }
 })

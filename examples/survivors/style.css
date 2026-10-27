@@ -650,3 +650,13 @@ footer {
 @media (max-width: 600px) { .choices .item-icon { width: 28px; height: 28px; } }
 
 .choice .starting-weapon .item-icon { width: 20px; height: 20px; }
+
+.expedition .a-mechanic-summary {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px 22px;
+  border-top: 1px solid #67545c;
+  color: #d6cbb6;
+  font-size: 13px;
+  line-height: 1.5;
+}
