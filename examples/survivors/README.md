@@ -175,6 +175,9 @@ npm run test:full-game:manual
 bash examples/survivors/check-proofs.sh
 bash examples/survivors/check-roster-migration.sh
 bend examples/survivors/character-kit-test.bend
+bend examples/survivors/starter-mechanics-test.bend
+bend examples/survivors/starter-mechanics-integration-test.bend
+bend examples/survivors/starter-mechanics-review-test.bend
 ```
 
 These commands check native profile/UI behavior, a complete game run and Bend proofs separately.

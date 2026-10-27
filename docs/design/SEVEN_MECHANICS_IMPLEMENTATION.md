@@ -34,4 +34,20 @@ Evolved Afterbeat keeps movement-triggered marks and adds periodic Gathering Ink
 
 ## Verification record
 
-Implementation is in progress. Completed checks and review findings are recorded here before delivery. The browser build must compile the changed Bend simulation. Reusing an earlier compiled backend is insufficient.
+The final gameplay revision is `60574e4`. Both independent review axes have zero remaining findings; see [the review record](SEVEN_MECHANICS_REVIEW.md).
+
+- 58 Bend mechanic checks passed: 27 policy, 23 integration, and eight review regressions.
+- All 63 Bend proof entrypoints passed.
+- All 22 TypeScript tests, typechecking, lint, and formatting of changed TypeScript files passed.
+- Roster migration (12 checks), character kits (10 checks), native/browser catalog parity, and actual four-player starter firing passed.
+- A fresh browser build compiled the changed Bend backends. Live browser checks selected and played all seven characters, verified starter icons, movement through all eight walk poses, return to idle, and no browser errors. Mobile checks verified all seven mechanic descriptions and no horizontal overflow.
+- The native executable built and launched. Its menu showed the installed names and icons; starting, movement, and normal window closure worked.
+- Icon regeneration matched the checked-in browser and native geometry.
+
+The repository-wide formatting command still reports the pre-existing generated `survivor-walk-shapes.mts` formatting difference, unchanged from the review baseline. This change does not reformat that unrelated generated file.
+
+The full native complete-run check did not finish within its existing 900-second wall limit (exit 124). Its last checkpoint was tick 28,800, level 24, HP 186, and 3,834 kills, with boss, chest, level-up, and evolved-weapon observations all present. It reported no gameplay assertion failure before cancellation. The required terminal state at ticks 36,000–37,000 remains unverified. This result is a verification gap, not a complete-run pass; no performance comparison with the baseline was made.
+
+### Open verification issue: complete native run
+
+Re-run `npm run test:full-game:manual` on the target native environment and confirm its terminal-state assertion. If the same wall limit prevents completion, investigate native/controller execution cost against the review baseline before changing the limit. Keep the terminal-state assertion intact. Browser checks and the focused mechanic regressions do not close this issue.

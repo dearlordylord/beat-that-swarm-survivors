@@ -8,11 +8,12 @@
   "namingLane": {
     "value": "original game epithets",
     "status": "selected",
-    "scope": "Naming direction only; individual epithets are not separately approved or trademark-cleared."
+    "scope": "The seven epithets in the approved matrix are installed. No trademark clearance is claimed."
   },
   "mechanics": {
-    "status": "all seven approved for implementation",
-    "candidateCount": 7
+    "status": "all seven implemented and independently reviewed",
+    "candidateCount": 7,
+    "reviewedRevision": "60574e4cc95356a1013ab1bdeb8504a1afc65e37"
   },
   "source": "User selected style A and original game epithets, then approved the entire table and requested implementation of mechanics 1\u20137."
 }
