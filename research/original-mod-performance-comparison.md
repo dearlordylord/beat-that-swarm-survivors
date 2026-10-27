@@ -2,7 +2,21 @@
 
 ## Conclusion
 
-The severe sustained slowdown reported on the player's device remains unresolved.
+The severe sustained slowdown was resolved by serving the same build over
+private HTTPS instead of HTTP. On 2026-10-27 the player confirmed smooth play
+on iPhone Safari at the Tailscale HTTPS origin on port 9443. Both original and
+mod were slow at the HTTP origin. The diagnostic isolated the cost to advance,
+and freezing simulation restored FPS. Bundling JavaScript did not resolve it.
+
+WebKit developers [confirmed that iOS 27 Enhanced Security can disable JIT for
+plaintext HTTP](https://bugs.webkit.org/show_bug.cgi?id=324968#c3). Local WebKit
+tests with JIT explicitly disabled reproduced a large simulation slowdown in
+both versions. This explains the origin-dependent behavior; the phone's JIT
+status itself was not directly measured. Use the
+[private HTTPS launcher](../tools/survivors-performance/README.md#iphone-safari-use-https)
+for iPhone performance work. No gameplay or sprite changes were needed to
+resolve this incident.
+
 The earlier report measured a mod optimization, not the original game. This
 comparison freshly builds the original fork point and measures both products.
 It does not reproduce a mod-only slowdown in the tested Linux browsers.
@@ -81,6 +95,7 @@ an isolated worktree; its local comparison preview has a separate save key.
 The comparison preview is private/local only and must never replace the public
 Survivors site.
 
-The next useful evidence is original and mod behavior on the same affected
-device/browser. If only the mod is slow there, measure presented-frame intervals
-and rendering on that device rather than extrapolating these CPU timings.
+The affected device comparison was subsequently completed: both versions were
+slow over HTTP, and the mod became smooth over private HTTPS. Future browser
+regression claims must record the origin scheme and device/browser, alongside
+the build identity. Desktop CPU timings alone did not expose this incident.

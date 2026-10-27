@@ -23,7 +23,13 @@ The HTTPS port can be changed with `SURVIVORS_HTTPS_PORT` if another Serve
 listener already owns it. The launcher does not reset existing Serve mappings.
 
 An HTTP-versus-HTTPS performance comparison must use the same device and build.
-The affected player's HTTPS result is still needed to confirm this diagnosis.
+On 2026-10-27 the affected player confirmed that the same mod runs without lag
+on iPhone Safari through private HTTPS on port 9443. Both mod and original had
+been severely slow over the HTTP preview. Disabling simulation restored FPS;
+advance dominated the diagnostic timings. This confirms the origin-dependent
+execution slowdown in this incident. JIT suppression is the explanation supported
+by WebKit's policy and local JIT-disabled reproduction, rather than a directly
+observed JIT status on the phone. Use HTTPS for subsequent iPhone comparisons.
 
 ## Simulation checkpoints
 
