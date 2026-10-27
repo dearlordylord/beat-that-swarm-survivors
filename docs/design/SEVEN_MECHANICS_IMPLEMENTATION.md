@@ -28,6 +28,10 @@ The alternatives were an external match registry and separate ECS components. Th
 
 The finite fan survives exhausted outgoing pierce until its return begins. Its return has its own budget and hit ledger. Familiar orbit progress belongs to the owner because a familiar projectile's existing lifetime is shorter than three orbits.
 
+Echoes keep a bounded ledger of unfulfilled angles. At tick 27, the oldest due volley receives allocation priority. If capacity is blocked, it retries on later simulation ticks without duplicating accepted angles. Eight pending volleys temporarily stop new personal Waking Frame casts until space returns. Evolved Waking Frame captures only the admitted radial spokes, excluding its secondary strikes.
+
+Evolved Afterbeat keeps movement-triggered marks and adds periodic Gathering Ink fields. Its wording describes these two schedules instead of claiming strict alternation. Weapon-level projectile-count bonuses increase the armed-mark cap along with item bonuses, up to eight.
+
 ## Verification record
 
 Implementation is in progress. Completed checks and review findings are recorded here before delivery. The browser build must compile the changed Bend simulation. Reusing an earlier compiled backend is insufficient.

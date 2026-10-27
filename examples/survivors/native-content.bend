@@ -436,7 +436,7 @@ def evolved_description(id: U32) -> String:
     case 19: "Alternates Garden Orbit with Hearth Glow. Damage +120%; area +35%."
     case 20: "Alternates Gathering Ink with Moon Orbit. Damage +120%; area +35%."
     case 21: "Orbiting lights fire homing sparks and add targeted slowing strikes. Damage +120%; area +35%."
-    case 22: "Alternates Afterbeat with Gathering Ink. Damage +120%; area +35%."
+    case 22: "Walking lays Afterbeat marks and adds periodic Gathering Ink fields. Damage +120%; area +35%."
     case 23: "Alternates Waking Frame with Stage Flash. Damage +120%; area +35%."
     case _: ""
 

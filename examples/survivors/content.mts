@@ -2225,7 +2225,7 @@ export const WEAPONS = [
     "icon": "x",
     "color": "#a5e38b",
     "description": "Leaves beat marks at your position. They arm after a delay and pulse at nearby enemies.",
-    "evolvedDescription": "Alternates Afterbeat with Gathering Ink. Damage +120%; area +35%.",
+    "evolvedDescription": "Walking lays Afterbeat marks and adds periodic Gathering Ink fields. Damage +120%; area +35%.",
     "passive": 5,
     "maxLevel": 8,
     "evolutionRequires": {
