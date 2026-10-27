@@ -1,5 +1,6 @@
 import run-state.bend as RS
 import Base
+import character-policy.bend as Character
 import enemy-effects.bend as Effect
 import pickup-state.bend as Pickup
 import pickup-xp-pool.bend as PickupPool
@@ -295,15 +296,12 @@ def meta_max(id: U32) -> U32:
     case 9: 2
     case _: 5
 def meta_rank(+meta: U32,+id: U32) -> U32: U32.min(meta_max(id),(U32.shrn(meta,U32.to_nat((id * 3 : U32))) % 8 : U32))
-def starter(character: U32) -> U32: at([0,1,4,8,2,10,15,21],(character % 8 : U32))
-def character_health(character: U32) -> U32:
-  match character:
-    case 4: 125
-    case _: 100
+def starter(character: U32) -> U32: Character.starter(character)
+def character_health(character: U32) -> U32: Character.health(character)
 def initial_health(+character: U32,+meta: U32) -> U32: (character_health(character) * (100 + meta_rank(meta,1) * 10) / 100 : U32)
 def stat_bonus(+arcana: U32,+wanted: U32) -> F32: U32.to_f32(Bool.to_u32(U32.is_eq(arcana,wanted)))
 def speed_bonus(+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> F32:
-  ((1.0 + U32.to_f32(at(passives,5)) * 0.10 + U32.to_f32(meta_rank(meta,5)) * 0.05 + 0.15 * U32.to_f32(Bool.to_u32(U32.is_eq(character,1))) + 0.30 * stat_bonus(arcana,10)) * (1.0 - 0.15 * stat_bonus(arcana,2)) : F32)
+  ((1.0 + U32.to_f32(at(passives,5)) * 0.10 + U32.to_f32(meta_rank(meta,5)) * 0.05 + U32.to_f32(Character.speed_percent(character)) / 100.0 + 0.30 * stat_bonus(arcana,10)) * (1.0 - 0.15 * stat_bonus(arcana,2)) : F32)
 def configured(run: Run,+selectedStage: U32,+selectedArcana: U32) -> Run:
   match run:
     case Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+seed,_,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,_,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}:
@@ -332,7 +330,7 @@ type Args is Data: Args{run: Run,targets: Targets.Targets,dx: F32,dy: F32,snapsh
 def empty_shot_plan() -> SP.Plan: SP.Plan{BI.Empty{},0}
 type Error is Data: MissingComponent{}
 def pickup_radius(+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> F32:
-  (24.0 * (1.0 + U32.to_f32(at(passives,8)) * 0.25 + U32.to_f32(meta_rank(meta,6)) * 0.15 + stat_bonus(arcana,6) + 0.50 * U32.to_f32(Bool.to_u32(U32.is_eq(character,7)))) : F32)
+  (24.0 * (1.0 + U32.to_f32(at(passives,8)) * 0.25 + U32.to_f32(meta_rank(meta,6)) * 0.15 + stat_bonus(arcana,6) + U32.to_f32(Character.pickup_percent(character)) / 100.0) : F32)
 # Age and item kind never authorize collection: only physical reach does.
 def pickup_admission(x: F32,y: F32,px: F32,py: F32,radius: F32,age: U32,kind: U32) -> Bool:
   PickupPolicy.admission(x,y,px,py,radius,age,kind)
@@ -384,13 +382,13 @@ def hit_targets(rows: List<&2,HitPlan>,+seed: U32) -> List<&2,U32>:
     case []: []
     case HitPlan{+shot,_,_,_,_,_,_,+targets} <> rest: List.append(&2,U32,select_hit_targets(U32.is_eq(shot,seed),targets),hit_targets(rest,seed))
 def cooldown_for(+id: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
-  U32.max(6,F32.to_u32((U32.to_f32(period(id)) * F32.max(0.12,(1.0 - U32.to_f32(at(passives,1)) * 0.07 - U32.to_f32(meta_rank(meta,4)) * 0.03 - 0.20 * stat_bonus(arcana,1) - 0.10 * U32.to_f32(Bool.to_u32(U32.is_eq(character,5))) + 0.15 * stat_bonus(arcana,3) : F32)) : F32)))
+  U32.max(6,F32.to_u32((U32.to_f32(period(id)) * F32.max(0.12,(1.0 - U32.to_f32(at(passives,1)) * 0.07 - U32.to_f32(meta_rank(meta,4)) * 0.03 - 0.20 * stat_bonus(arcana,1) - U32.to_f32(Character.cooldown_reduction(character)) / 100.0 + 0.15 * stat_bonus(arcana,3) : F32)) : F32)))
 def area_bonus(+passives: List<&2,U32>,+arcana: U32,+level: U32) -> F32:
   ((1.0 + U32.to_f32(at(passives,2)) * 0.10 + 0.35 * stat_bonus(arcana,2) + 0.15 * stat_bonus(arcana,11) + U32.to_f32(level) * 0.025) * (1.0 - 0.15 * stat_bonus(arcana,1)) * (1.0 + 0.35 * U32.to_f32(Bool.to_u32(U32.is_le(9,level)))) : F32)
 def duration_bonus(+passives: List<&2,U32>,+arcana: U32) -> F32: (1.0 + U32.to_f32(at(passives,3)) * 0.15 + 0.50 * stat_bonus(arcana,7) : F32)
 def projectile_speed(+passives: List<&2,U32>,+arcana: U32) -> F32: ((1.0 + U32.to_f32(at(passives,12)) * 0.15 + 0.50 * stat_bonus(arcana,8)) * (1.0 - 0.20 * stat_bonus(arcana,7)) : F32)
 def weapon_damage(+id: U32,+level: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
-  F32.to_u32((U32.to_f32((5 + level * 3 + id % 4 * 2 : U32)) * (1.0 + U32.to_f32(at(passives,0)) * 0.10 + U32.to_f32(meta_rank(meta,0)) * 0.05 + 0.35 * stat_bonus(arcana,0) + 0.15 * stat_bonus(arcana,8) + 0.10 * U32.to_f32(Bool.to_u32(U32.is_eq(character,0))) + 0.20 * U32.to_f32(Bool.to_u32(U32.is_eq(character,6)))) * (1.0 - 0.15 * stat_bonus(arcana,4)) * (1.0 + (0.20 + U32.to_f32(at(passives,14)) * 0.05) * U32.to_f32(Bool.to_u32(Bool.and(U32.is_eq(arcana,5),Bool.or(U32.is_eq(id,9),U32.is_eq(id,11)))))) * (1.0 + 1.2 * U32.to_f32(Bool.to_u32(U32.is_le(9,level)))) : F32))
+  F32.to_u32((U32.to_f32((5 + level * 3 + id % 4 * 2 : U32)) * (1.0 + U32.to_f32(at(passives,0)) * 0.10 + U32.to_f32(meta_rank(meta,0)) * 0.05 + 0.35 * stat_bonus(arcana,0) + 0.15 * stat_bonus(arcana,8) + U32.to_f32(Character.might_percent(character)) / 100.0) * (1.0 - 0.15 * stat_bonus(arcana,4)) * (1.0 + (0.20 + U32.to_f32(at(passives,14)) * 0.05) * U32.to_f32(Bool.to_u32(Bool.and(U32.is_eq(arcana,5),Bool.or(U32.is_eq(id,9),U32.is_eq(id,11)))))) * (1.0 + 1.2 * U32.to_f32(Bool.to_u32(U32.is_le(9,level)))) : F32))
 def direction_x(+dx: F32,+dy: F32) -> F32: ((dx + U32.to_f32(Bool.to_u32(F32.is_lt((dx * dx + dy * dy : F32),0.01)))) / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32)
 def direction_y(+dx: F32,+dy: F32) -> F32: (dy / F32.max(1.0,F32.sqrt((dx * dx + dy * dy : F32))) : F32)
 def union_base(+id: U32) -> U32: at([0,1,2,3,4,6],id)
@@ -834,7 +832,7 @@ def boss_kills(rows: List<&2,EntityRow>) -> U32:
     case _ <> rest: boss_kills(rest)
 def earned_xp(+earned: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32) -> U32: (earned * (100 + at(passives,9) * 10 + at(passives,14) * 10 + meta_rank(meta,7) * 5 + 30 * Bool.to_u32(U32.is_eq(arcana,5))) / 100 : U32)
 def player_damage(+hit: U32,+invuln: U32,+passives: List<&2,U32>,+meta: U32,+arcana: U32,+character: U32) -> U32:
-  Combat.contact_damage(hit,invuln,U32.max(1,Combat.lose(6,(at(passives,6) + meta_rank(meta,3) + 3 * Bool.to_u32(U32.is_eq(arcana,4)) + Bool.to_u32(U32.is_eq(character,3)) : U32))))
+  Combat.contact_damage(hit,invuln,U32.max(1,Combat.lose(6,(at(passives,6) + meta_rank(meta,3) + 3 * Bool.to_u32(U32.is_eq(arcana,4)) + Character.armor(character) : U32))))
 # Armor remains valuable, but crowd pressure cannot be reduced to one damage.
 # The last minute is a deliberate lethal gauntlet rather than an Storage.empty victory lap.
 def pressure_damage(+hit: U32,+tick: U32,+mode: U32,+invuln: U32,passives: List<&2,U32>,meta: U32,arcana: U32,character: U32) -> U32:
@@ -881,7 +879,7 @@ def run_kinds(run: Run) -> List<&2,U32>:
 def personal_health_after_tick(run: Run,+hit: U32,+heal: U32,+killed: U32) -> U32:
   match run:
     case Run{RS.Session{_,+tick,_,_,_,_,_,_,+stage,_,+mode,_,_},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,_,_,_,_,_,_}}:
-      heal_after_damage(hp,(pressure_damage(hit,tick,mode,invuln,passives,meta,arcana,character) + E.hazard(stage,tick,px,py) * Bool.to_u32(U32.is_eq(invuln,0)) : U32),(heal + killed * Bool.to_u32(Bool.and(U32.is_eq((tick % 12 : U32),0),Bool.and(U32.is_eq(arcana,9),Bool.or(U32.is_lt(0,at(weapons,4)),U32.is_lt(0,at(weapons,19)))))) + (meta_rank(meta,2) + at(passives,11) + 2 * Bool.to_u32(U32.is_eq(arcana,9)) + Bool.to_u32(U32.is_eq(character,2))) * Bool.to_u32(U32.is_eq((tick % 60 : U32),0)) : U32),(100 + at(passives,17) * 20 + 30 * Bool.to_u32(U32.is_eq(arcana,10)) : U32),maxHp)
+      heal_after_damage(hp,(pressure_damage(hit,tick,mode,invuln,passives,meta,arcana,character) + E.hazard(stage,tick,px,py) * Bool.to_u32(U32.is_eq(invuln,0)) : U32),(heal + killed * Bool.to_u32(Bool.and(U32.is_eq((tick % 12 : U32),0),Bool.and(U32.is_eq(arcana,9),Bool.or(U32.is_lt(0,at(weapons,4)),U32.is_lt(0,at(weapons,19)))))) + (meta_rank(meta,2) + at(passives,11) + 2 * Bool.to_u32(U32.is_eq(arcana,9)) + Character.regeneration(character)) * Bool.to_u32(U32.is_eq((tick % 60 : U32),0)) : U32),(100 + at(passives,17) * 20 + 30 * Bool.to_u32(U32.is_eq(arcana,10)) : U32),maxHp)
 def personal_invulnerability_after_tick(+invuln: U32,hit: U32) -> U32:
   U32.max(dec(invuln),(45 * Bool.to_u32(Bool.and(U32.is_lt(0,hit),U32.is_eq(invuln,0))) : U32))
 def finish_personal_tick(+run: Run,totals: Totals) -> RS.PlayerState:
@@ -1348,7 +1346,7 @@ def team_enemy_view(phase: Enemy.Phase,+team: Team,space: Space.Spatial,identity
 def enemy_spawn_context(team: Team,run: Run) -> EnemySpawn.Context:
   match run:
     case Run{RS.Session{_,+tick,_,_,_,_,_,rng,stage,_,+mode,_,_},RS.PlayerState{px,py,_,_,character,_,+passives,_,+arcana,_,_,_,_,_,_,_}}:
-      EnemySpawn.Context{tick,mode,stage,(rng - tick + 1 : U32),px,py,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) : U32),(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) + 15 * Bool.to_u32(U32.is_eq(character,6)) : U32),party_spawn_players(team)}
+      EnemySpawn.Context{tick,mode,stage,(rng - tick + 1 : U32),px,py,(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) : U32),(at(passives,14) * 10 + 35 * Bool.to_u32(U32.is_eq(mode,1)) + 20 * Bool.to_u32(U32.is_eq(arcana,5)) : U32),party_spawn_players(team)}
 def candidate_state(candidate: EnemyLife.Candidate,status: Components.Status) -> Enemy.State:
   match candidate:
     case EnemyLife.Candidate{x,y,archetype,identity,vitals,radius}: Enemy.State{Space.Spatial{x,y,0,radius},archetype,identity,vitals,status}
@@ -1607,7 +1605,7 @@ def started(+character: U32,+meta: U32,created: W.Creation<Storage.Schema,Storag
   match created:
     case W.Created{_,world}: packet(State{prepare_movement_roster(W.barrier(~Storage.Schema,~Storage.Store,~Unit,~Unit,boot_pool(PL.total_nat(),0,world))),Run{RS.Session{0,0,0,20,1,0,0,12345,0,0,0,[],0},RS.PlayerState{A.center(),A.center(),(initial_health(character,meta) * 70 / 100 : U32),(initial_health(character,meta) * 70 / 100 : U32),character,bump([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],starter(character)),[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],0,0,meta,0,3,3,3,0,0}},[],[],[]})
     case W.CreateRejected{_,_}: Failed{"Storage.World creation refused"}
-def start(character: U32,meta: U32) -> Packet: started(U32.min(character,7),meta,W.create(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.empty,W.factory(),Unit{}))
+def start(character: U32,meta: U32) -> Packet: started(Character.normalize(character),meta,W.create(~Storage.Schema,~Storage.Store,~Unit,~Unit,~Storage.empty,W.factory(),Unit{}))
 
 def seeded_run(run: Run,+selectedSeed: U32) -> Run:
   match run:
@@ -1626,9 +1624,10 @@ def set_mode(state: State,+selected: U32) -> Packet:
   match state:
     case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,mode_configured(Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}},selected),offers,snapshots,pending})
     case state: packet(state)
+def starter_unlocks(mask: U32,character: U32) -> U32: U32.or(mask,U32.shln(1,U32.to_nat(starter(character))))
 def configure_unlocks(state: State,+unlockedMask: U32) -> Packet:
   match state:
-    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(unlockedMask,16777215))),bannedPassives}},offers,snapshots,pending})
+    case State{world,Run{RS.Session{+phase,0,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+enemyKinds,+relicCollected},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}},+offers,+snapshots,pending}: packet(State{world,Run{RS.Session{phase,0,xp,need,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(starter_unlocks(unlockedMask,character),16777215))),bannedPassives}},offers,snapshots,pending})
     case state: packet(state)
 
 def reroll_seed(seed: U32) -> U32: (seed + 41 : U32)

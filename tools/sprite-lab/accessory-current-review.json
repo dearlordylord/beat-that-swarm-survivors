@@ -1,0 +1,28 @@
+{
+  "reviewer": "gpt-6-astra; independent image review",
+  "recommended_variant": "D, native-grid held plush",
+  "scope": "Prototype recommendation; not human acceptance or a gameplay recognition guarantee",
+  "blind_identifications": [
+    "MANG",
+    "KOYA",
+    "COOKY",
+    "RJ",
+    "TATA",
+    "SHOOKY",
+    "CHIMMY"
+  ],
+  "confounding": "Known mascot set, colors and2x views helped; not a measured recognition rate",
+  "per_character": {
+    "KOYA": "D improves oval face/nose; actual gameplay partial",
+    "RJ": "White face and red scarf readable; fleece and facial fidelity partial",
+    "SHOOKY": "Frontal cookie now coherent; actual face partial",
+    "MANG": "D cleaner profile; heart nose and mane still unresolved at gameplay scale",
+    "CHIMMY": "D improves white face/hood/ear; actual gameplay partial",
+    "TATA": "Strongest surviving heart/yellow-mouth identity",
+    "COOKY": "Pink/asymmetric rabbit silhouette readable; expression partial"
+  },
+  "reviewed_sha256": {
+    "comparison.png": "0d3d8875f97045c2e03508191dd46dc9a6bffd778c47c6845bd49aa5ce6df2bf",
+    "gameplay-blind.png": "35f3e4c90e7cdf3039e07940d6391eeca354026e2990cbcf0670f4e5ce6cc058"
+  }
+}

@@ -1,6 +1,7 @@
 import { at, defined } from "./host-values.mts"
 import { reviveSeconds, type Frame, type Enemy, type Projectile, type Pickup, type Player } from "./frame.mts"
 import { drawSurvivor } from "./survivor-art.mts"
+import { SurvivorLocomotion } from "./survivor-locomotion.mts"
 import Game from "./dist/game.mjs"
 /* Presentation only. All positions, health, drops and weapon effects come from Bend. */
 const TAU = Math.PI * 2
@@ -20,31 +21,32 @@ const THEMES: [string, string, string, string][] = [
   ["#291c24", "#3e252b", "#694035", "#d79964"]
 ]
 const COLORS = [
-  "#f5d17b",
-  "#9ce5fa",
-  "#ad9dff",
-  "#ff967d",
-  "#d5ec95",
-  "#75e6d4",
-  "#ffce76",
-  "#c791f5",
-  "#a1d7ff",
-  "#f6a2cf",
-  "#e7edc1",
-  "#ff8765",
-  "#9bffc2",
-  "#a6b6ff",
-  "#edca86",
-  "#e3aaff",
-  "#89e5d8",
-  "#ffcb8f",
-  "#d1e88a",
-  "#92cbff",
-  "#f8a5a5",
-  "#b8a6ff",
-  "#f7e7a1",
-  "#b4fff4"
+  "#9ab8ff",
+  "#f6cf68",
+  "#c39977",
+  "#c9b8ee",
+  "#fff0d1",
+  "#c9b8ee",
+  "#ef646d",
+  "#b3c9ee",
+  "#dbc0ff",
+  "#8e9bea",
+  "#b9d9ee",
+  "#fff0bc",
+  "#edb9e2",
+  "#ebcf8e",
+  "#f05265",
+  "#b8a7cc",
+  "#c18d63",
+  "#ffe1a6",
+  "#f6d26b",
+  "#99bf99",
+  "#8696ef",
+  "#fff0d1",
+  "#7ff3cb",
+  "#c9989c"
 ]
+
 function hash(x: number, y = 0) {
   let n = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263)
   n = Math.imul(n ^ (n >>> 13), 1274126177)
@@ -70,6 +72,7 @@ export class Renderer {
   frame!: Frame
   theme!: [string, string, string, string]
   bodyOpacity!: number
+  locomotion!: SurvivorLocomotion
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -87,6 +90,7 @@ export class Renderer {
   }
   reset() {
     this.time = 0
+    this.locomotion = new SurvivorLocomotion()
     this.previous = new Map()
     this.shotPositions = new Map()
     this.labels = []
@@ -159,6 +163,7 @@ export class Renderer {
         throw Error("Unknown actor reference.")
       })
       .sort((left, right) => left.y - right.y)
+    this.locomotion.retain(new Set(frame.players.map((player) => player.id)))
     const players = frame.players.slice().sort((a, b) => a.py - b.py || a.id - b.id)
     let playerIndex = 0
     for (const actor of ordered) {
@@ -715,7 +720,7 @@ export class Renderer {
   }
   observedPlayer(player: Player, multiplayer: boolean) {
     if (!multiplayer) {
-      this.player(player.px, player.py, player.character)
+      this.player(player.px, player.py, player.character, player.id, player.hp > 0)
       return
     }
     const c = this.ctx,
@@ -724,7 +729,7 @@ export class Renderer {
       color = own ? "#f3dfb0" : "#9ce5fa"
     c.save()
     if (player.hp === 0) this.setAlpha(0.35)
-    this.player(player.px, player.py, player.character)
+    this.player(player.px, player.py, player.character, player.id, player.hp > 0)
     this.setAlpha(1)
     c.font = "bold 10px monospace"
     c.textAlign = "center"
@@ -751,11 +756,10 @@ export class Renderer {
     }
     c.restore()
   }
-  player(wx: number, wy: number, character = 0) {
+  player(wx: number, wy: number, character = 0, id = 0, alive = true) {
     const [x, y] = this.xy(wx, wy),
       c = this.ctx,
-      t = this.time,
-      step = this.options.reducedMotion ? 0 : Math.sin(t * 9) * 1.5
+      step = this.locomotion.frame(id, wx, wy, this.frame.tick, alive && !this.options.reducedMotion)
     c.fillStyle = "#e9d4a10c"
     c.beginPath()
     c.arc(x, y - 6, 65, 0, TAU)
@@ -912,28 +916,61 @@ export class Renderer {
       c.stroke()
       this.setAlpha(spent ? 0.12 : 0.65)
       // All glyphs lie inside the authoritative collision circle.
-      if (id === 9) {
-        c.rotate(this.options.reducedMotion ? 0 : this.time * 0.25)
-        c.strokeRect(-radius * 0.48, -radius * 0.48, radius * 0.96, radius * 0.96)
-      } else if (id === 20) {
+      if (id === 9 || id === 7) {
         for (let i = 0; i < 3; i++) {
+          const line = (i - 1) * radius * 0.25
           c.beginPath()
-          c.arc(0, 0, radius * (0.25 + i * 0.22), this.time + i, this.time + i + Math.PI)
+          c.moveTo(-radius * 0.4, line)
+          c.lineTo(radius * (0.4 - i * 0.08), line)
+          c.stroke()
+        }
+      } else if (id === 4) {
+        c.beginPath()
+        c.moveTo(-radius * 0.4, 0)
+        c.lineTo(0, -radius * 0.35)
+        c.lineTo(radius * 0.4, 0)
+        c.moveTo(-radius * 0.28, -radius * 0.1)
+        c.lineTo(-radius * 0.28, radius * 0.3)
+        c.lineTo(radius * 0.28, radius * 0.3)
+        c.lineTo(radius * 0.28, -radius * 0.1)
+        c.stroke()
+      } else if (id === 20) {
+        const turn = this.options.reducedMotion ? 0 : age * 0.025
+        c.rotate(turn)
+        for (let i = 0; i < 3; i++) {
+          const line = (i - 1) * radius * 0.24
+          c.beginPath()
+          c.moveTo(-radius * 0.45, line)
+          c.lineTo(radius * (0.42 - i * 0.08), line)
+          c.stroke()
+          c.beginPath()
+          c.arc(0, 0, radius * (0.55 + i * 0.12), i * 2, i * 2 + 1.1)
           c.stroke()
         }
       } else if (id === 22) {
+        const pulse = this.options.reducedMotion ? 0.5 : (age % 45) / 45
         c.beginPath()
-        c.moveTo(-radius * 0.4, 0)
-        c.lineTo(radius * 0.4, 0)
-        c.moveTo(0, -radius * 0.4)
-        c.lineTo(0, radius * 0.4)
+        c.arc(0, 0, radius * (0.3 + pulse * 0.5), 0, TAU)
         c.stroke()
+        for (let i = 0; i < 5; i++) {
+          const h = radius * (i % 2 ? 0.55 : 0.3)
+          c.fillRect((i - 2) * radius * 0.17 - 1, -h / 2, 2, h)
+        }
+      } else if (id === 14) {
+        c.strokeStyle = "#fff0e8"
+        for (let i = 0; i < 8; i++) {
+          const theta = (i * TAU) / 8
+          c.beginPath()
+          c.moveTo(Math.cos(theta) * radius * 0.25, Math.sin(theta) * radius * 0.25)
+          c.lineTo(Math.cos(theta) * radius * 0.7, Math.sin(theta) * radius * 0.7)
+          c.stroke()
+        }
       } else if (id === 5) {
         c.beginPath()
-        c.moveTo(-radius * 0.2, -radius * 0.7)
-        c.lineTo(radius * 0.2, -radius * 0.05)
-        c.lineTo(-radius * 0.15, 0)
-        c.lineTo(radius * 0.15, radius * 0.65)
+        c.moveTo(0, -radius * 0.6)
+        c.lineTo(-radius * 0.4, radius * 0.4)
+        c.lineTo(radius * 0.4, radius * 0.4)
+        c.closePath()
         c.stroke()
       } else {
         for (let i = 0; i < 4; i++) {
@@ -953,7 +990,7 @@ export class Renderer {
     const moved = previous && (previous.x !== projectile.x || previous.y !== projectile.y)
     const heading = moved ? Math.atan2(projectile.y - previous.y, projectile.x - previous.x) : previous?.angle || 0
     this.shotPositions.set(key, { x: projectile.x, y: projectile.y, angle: heading })
-    c.rotate([1, 10, 13, 18].includes(id) || hostile ? heading : a)
+    c.rotate(id === 21 ? 0 : [1, 10, 13, 18].includes(id) || hostile ? heading : a)
     c.shadowColor = col
     c.shadowBlur = hostile ? 4 : 5
     if (hostile) {
@@ -968,7 +1005,18 @@ export class Renderer {
       c.lineTo(-r, Math.min(3, r * 0.35))
       c.closePath()
       c.fill()
-    } else if ([2, 12, 15].includes(id)) {
+    } else if (id === 2) {
+      c.beginPath()
+      c.arc(0, 0, r * 0.85, 0, TAU)
+      c.fill()
+      c.strokeStyle = "#53413b"
+      c.lineWidth = Math.max(1, r * 0.12)
+      c.beginPath()
+      c.arc(0, 0, r * 0.55, 0, TAU)
+      c.stroke()
+      c.fillStyle = "#efd7a7"
+      c.fillRect(-r * 0.13, -r * 0.13, r * 0.26, r * 0.26)
+    } else if ([12, 15].includes(id)) {
       c.lineWidth = 3
       c.beginPath()
       c.arc(0, 0, r * 0.83, -1.2, 1.2)
@@ -978,44 +1026,85 @@ export class Renderer {
       c.moveTo(-r * 0.6, 0)
       c.lineTo(r * 0.75, 0)
       c.stroke()
-    } else if ([3, 8, 19].includes(id)) {
+    } else if (id === 8) {
+      c.beginPath()
+      c.moveTo(0, r * 0.6)
+      c.arc(0, r * 0.6, r, -Math.PI * 0.87, -Math.PI * 0.13)
+      c.closePath()
+      c.fill()
+      c.strokeStyle = "#fff3ff"
+      c.lineWidth = 1
+      for (let i = 0; i < 5; i++) {
+        const theta = -Math.PI * (0.85 - i * 0.175)
+        c.beginPath()
+        c.moveTo(0, r * 0.6)
+        c.lineTo(Math.cos(theta) * r * 0.95, r * 0.6 + Math.sin(theta) * r * 0.95)
+        c.stroke()
+      }
+    } else if (id === 3) {
       c.lineWidth = Math.min(5, r * 0.25)
       c.beginPath()
-      c.arc(0, 0, r * 0.75, 0, TAU)
+      c.arc(0, 0, r * 0.75, -Math.PI * 0.6, Math.PI * 0.6)
       c.stroke()
+      c.fillRect(-r * 0.5, -r * 0.15, r * 0.2, r * 0.2)
+    } else if (id === 19) {
+      c.lineWidth = 1
       c.beginPath()
-      c.moveTo(-r * 0.65, 0)
-      c.lineTo(r * 0.65, 0)
-      c.moveTo(0, -r * 0.65)
-      c.lineTo(0, r * 0.65)
+      c.arc(0, 0, r * 0.7, 0, TAU)
       c.stroke()
+      for (let i = 0; i < 3; i++) {
+        const theta = (i * TAU) / 3
+        c.save()
+        c.rotate(theta)
+        c.beginPath()
+        c.ellipse(r * 0.65, 0, r * 0.28, r * 0.13, 0.6, 0, TAU)
+        c.fill()
+        c.restore()
+      }
     } else if (id === 16) {
-      c.fillStyle = "#e4c45c"
-      c.fillRect(-r * 0.65, -r * 0.4, r * 1.3, r * 0.8)
-      c.fillStyle = "#312f39"
-      c.fillRect(-1, -r * 0.45, 2, r * 0.9)
-      c.fillStyle = "#d9f4eaaa"
-      c.fillRect(-r * 0.6, -r * 0.8, r * 0.5, r * 0.45)
-      c.fillRect(r * 0.1, -r * 0.8, r * 0.5, r * 0.45)
+      c.beginPath()
+      c.arc(0, 0, r * 0.8, 0, TAU)
+      c.fill()
+      c.fillStyle = "#513c34"
+      c.fillRect(-r * 0.4, -r * 0.3, 2, 2)
+      c.fillRect(r * 0.15, -r * 0.3, 2, 2)
+      c.fillRect(-r * 0.1, r * 0.2, 2, 2)
     } else if (id === 21) {
-      c.fillStyle = "#8ee4d9"
-      c.beginPath()
-      c.moveTo(0, -r)
-      c.lineTo(r * 0.7, 0)
-      c.lineTo(0, r)
-      c.lineTo(-r * 0.7, 0)
-      c.closePath()
-      c.fill()
-      c.fillStyle = "#fff1b5"
-      c.fillRect(-2, -2, 4, 4)
+      c.fillStyle = "#fff0d1"
+      c.fillRect(-r * 0.55, -r * 0.45, r * 1.1, r * 1.05)
+      c.fillRect(-r * 0.45, -r * 0.9, r * 0.25, r * 0.65)
+      c.fillRect(r * 0.2, -r * 0.9, r * 0.25, r * 0.65)
+      c.fillStyle = "#34354b"
+      c.fillRect(-r * 0.3, -r * 0.1, Math.max(1, r * 0.12), Math.max(1, r * 0.12))
+      c.fillRect(r * 0.2, -r * 0.1, Math.max(1, r * 0.12), Math.max(1, r * 0.12))
+      c.fillStyle = "#d8808b"
+      c.fillRect(-r * 0.55, r * 0.3, r * 1.1, r * 0.2)
     } else if (id === 23) {
+      c.strokeStyle = "#d9b66e"
+      c.strokeRect(-r * 0.65, -r * 0.65, r * 1.3, r * 1.3)
       c.beginPath()
-      c.moveTo(0, -r)
-      c.lineTo(r, 0)
+      c.moveTo(0, r * 0.45)
+      c.bezierCurveTo(-r * 0.8, -r * 0.05, -r * 0.3, -r * 0.65, 0, -r * 0.2)
+      c.bezierCurveTo(r * 0.3, -r * 0.65, r * 0.8, -r * 0.05, 0, r * 0.45)
+      c.fill()
+    } else if (id === 0 || id === 6 || id === 17) {
+      c.beginPath()
+      c.moveTo(r, 0)
+      c.lineTo(r * 0.25, r * 0.25)
       c.lineTo(0, r)
+      c.lineTo(-r * 0.25, r * 0.25)
       c.lineTo(-r, 0)
+      c.lineTo(-r * 0.25, -r * 0.25)
+      c.lineTo(0, -r)
+      c.lineTo(r * 0.25, -r * 0.25)
       c.closePath()
       c.fill()
+    } else if (id === 14) {
+      c.fillStyle = "#25212b"
+      c.fillRect(-r * 0.65, -r * 0.65, r * 1.3, r * 1.3)
+      c.strokeRect(-r * 0.65, -r * 0.65, r * 1.3, r * 1.3)
+      c.fillStyle = "#f05265"
+      c.fillRect(-r * 0.4, -r * 0.1, r * 0.8, Math.max(1, r * 0.2))
     } else {
       c.beginPath()
       c.arc(0, 0, r, 0, TAU)

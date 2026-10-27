@@ -1,0 +1,1269 @@
+{
+  "status": "Unreviewed vector prototypes. Production names, glyphs, mechanics and IDs unchanged.",
+  "iteration": 2,
+  "canvas": 32,
+  "style": "A filled objects",
+  "sizes": [
+    16,
+    20,
+    24,
+    32
+  ],
+  "sourceSha256": {
+    "weapon-artwork.bend": "3bba1995cd781aa9b17902d3e8ba19c763e53736a600b1ac22ad9dbd1c33519f",
+    "artwork.bend": "d626a8ec328575a70d894ac8189387ffe61b0a84a3efc870f41c87fbc4de9492"
+  },
+  "icons": [
+    {
+      "key": "weapon/0",
+      "id": 0,
+      "currentName": "Starlight Letter",
+      "proposedName": "Guiding Letter",
+      "oldGlyph": "*",
+      "mechanic": "Homing letters seek the nearest enemy.",
+      "starterHero": null,
+      "svgSha256": "804891b2a7bb912ba27d84279a4fe814fd10103ee987321ff51bde12a09ae369",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            13,
+            12
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            17,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            20,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            6,
+            27,
+            25
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/1",
+      "id": 1,
+      "currentName": "Golden Rush",
+      "proposedName": "Forward Drive",
+      "oldGlyph": ">",
+      "mechanic": "Fast gold streaks fire in your movement direction.",
+      "starterHero": 6,
+      "svgSha256": "f24bf8cd2a2b6c87fab40873e53a06937959c243917c52a8e05a7fd3b7d50ba4",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            14,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            5,
+            18,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            6,
+            21,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            8,
+            28,
+            25
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/2",
+      "id": 2,
+      "currentName": "Vinyl Arc",
+      "proposedName": "Vinyl Arc",
+      "oldGlyph": "O",
+      "mechanic": "Heavy records arc through approaching enemies.",
+      "starterHero": null,
+      "svgSha256": "7e63e27bbc5c02c705a1dcc5ec4421d3d9276c7512e3993953979be6943a9b93",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            13,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            17,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            20,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            3,
+            27,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/3",
+      "id": 3,
+      "currentName": "Moon Orbit",
+      "proposedName": "Moon Orbit",
+      "oldGlyph": "o",
+      "mechanic": "Moon discs orbit you and strike nearby enemies.",
+      "starterHero": null,
+      "svgSha256": "c7d4b8e7f36309a5f7e4cf2df3e16e6c47ad9487a5ee643a526383ec05d2e07d",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            12,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            5,
+            15,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            6,
+            19,
+            20
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            8,
+            25,
+            27
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/4",
+      "id": 4,
+      "currentName": "Warm Hearth",
+      "proposedName": "Hearth Glow",
+      "oldGlyph": "+",
+      "mechanic": "A warm close aura burns approaching enemies.",
+      "starterHero": null,
+      "svgSha256": "fbfe705c5dd6298b9e04829514342cbc7d2d34739d535f0392cff87b4a19abf1",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            14,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            18,
+            18
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            21,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            28,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/5",
+      "id": 5,
+      "currentName": "Spotlight Snap",
+      "proposedName": "Stage Flash",
+      "oldGlyph": "!",
+      "mechanic": "Targeted spotlights strike enemies across the arena.",
+      "starterHero": null,
+      "svgSha256": "420fbf41d39db8862b69cce9ae479fa7fcf6c4f35c4425b67371913948c1283e",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            2,
+            13,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            5,
+            3,
+            16,
+            18
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            5,
+            3,
+            19,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            7,
+            4,
+            26,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/6",
+      "id": 6,
+      "currentName": "Red Verse",
+      "proposedName": "Burning Verse",
+      "oldGlyph": "*",
+      "mechanic": "Burning verses pierce enemy formations.",
+      "starterHero": null,
+      "svgSha256": "2267cd4bcfe8e395c23dc8827f618539e63511ffe318070956eab46ac6cb6b48",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            14,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            17,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            20,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            8,
+            27,
+            25
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/7",
+      "id": 7,
+      "currentName": "Indigo Rain",
+      "proposedName": "Ink Rain",
+      "oldGlyph": "~",
+      "mechanic": "Ink rain leaves damaging pools at selected locations.",
+      "starterHero": null,
+      "svgSha256": "91667edc3727308d95a5e4bbcfd5e3373b03849af4f768c8b9ec376e9ffb5d17",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            3,
+            13,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            4,
+            16,
+            18
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            5,
+            4,
+            19,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            7,
+            6,
+            26,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/8",
+      "id": 8,
+      "currentName": "Mirror Fan",
+      "proposedName": "Silk Return",
+      "oldGlyph": "/",
+      "mechanic": "A mirrored fan flies out and returns through pursuers.",
+      "starterHero": 4,
+      "svgSha256": "2dd6e05dff12b5f5949f2fbcb39141157267a6928e3080779bde371eef0fa83e",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            14,
+            12
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            18,
+            15
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            21,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            4,
+            28,
+            25
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/9",
+      "id": 9,
+      "currentName": "Poem Fragment",
+      "proposedName": "Scattered Lines",
+      "oldGlyph": "A",
+      "mechanic": "Fragments of a poem appear around you as damaging fields.",
+      "starterHero": null,
+      "svgSha256": "7bc14863ddafd8028242b1e8e9749bd6afedd7a68d6ab0a48d63f3ce6383a263",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            13,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            17,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            20,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            4,
+            27,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/10",
+      "id": 10,
+      "currentName": "Quiet Reflection",
+      "proposedName": "Quiet Reflection",
+      "oldGlyph": "|",
+      "mechanic": "Aimed mirror shards slow approaching enemies.",
+      "starterHero": null,
+      "svgSha256": "fee648892bad421f0d652f936d4e121c8fefd8495dc486bd4b895707e6607da3",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            14,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            18,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            22,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            29,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/11",
+      "id": 11,
+      "currentName": "Final Bow",
+      "proposedName": "Curtain Flash",
+      "oldGlyph": "*",
+      "mechanic": "An infrequent stage flash strikes every visible enemy.",
+      "starterHero": null,
+      "svgSha256": "8d0d348057d885594f9d365f053c6bc2c148ddc092fd1660439315efd7806fd5",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            14,
+            15
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            18,
+            18
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            21,
+            22
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            6,
+            29,
+            29
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/12",
+      "id": 12,
+      "currentName": "Ribbon Sweep",
+      "proposedName": "Ribbon Sweep",
+      "oldGlyph": "~",
+      "mechanic": "A broad ribbon strike sweeps the ground ahead.",
+      "starterHero": null,
+      "svgSha256": "7403fdb6663ae55eafb914f164a6ba3941c1ed07eb1f1a362eef374c18f22f41",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            14,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            18,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            22,
+            20
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            29,
+            27
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/13",
+      "id": 13,
+      "currentName": "Practice Line",
+      "proposedName": "Practice Thrust",
+      "oldGlyph": ">",
+      "mechanic": "Long gold thrusts strike along your movement direction.",
+      "starterHero": null,
+      "svgSha256": "4bbff00bcf299b59a23811c1a0a2926555f9e94fab934676fd961ef3cfae37a7",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            14,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            17,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            21,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            4,
+            28,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/14",
+      "id": 14,
+      "currentName": "D-DAY Release",
+      "proposedName": "Pressure Break",
+      "oldGlyph": "!",
+      "mechanic": "A thrown sound charge detonates after a delay and damages an area.",
+      "starterHero": 2,
+      "svgSha256": "06020b4d5c24922a97ad0eebb11cd3c14c3971eeb34a8c267110d897748d7c47",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            14,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            18,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            21,
+            20
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            6,
+            29,
+            26
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/15",
+      "id": 15,
+      "currentName": "Shadow Verse",
+      "proposedName": "Shadow Verse",
+      "oldGlyph": "/",
+      "mechanic": "Heavy radial sound blades slice through enemy formations.",
+      "starterHero": null,
+      "svgSha256": "665d06384bc1c31765f069523ff6c6a04b172b9a0c85ead61522bdb94e810e53",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            14,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            17,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            21,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            4,
+            28,
+            26
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/16",
+      "id": 16,
+      "currentName": "SHOOKY Mischief",
+      "proposedName": "Mischief Crumb",
+      "oldGlyph": "o",
+      "mechanic": "Homing cookie sparks chase nearby enemies.",
+      "starterHero": null,
+      "svgSha256": "8cc2e962e907c81b5750e0cce6154eae8166ce7fd20b58c497403e9ef3cc780b",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            1,
+            2,
+            13,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            16,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            19,
+            20
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            26,
+            27
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/17",
+      "id": 17,
+      "currentName": "Astronaut Comet",
+      "proposedName": "Homeward Comet",
+      "oldGlyph": "*",
+      "mechanic": "Falling comets explode among enemy clusters.",
+      "starterHero": null,
+      "svgSha256": "0fb2e341e65dc0c34495530307f279fc04314e26a554c09888ef9e47876bf764",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            2,
+            14,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            17,
+            18
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            3,
+            21,
+            21
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            5,
+            4,
+            28,
+            28
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/18",
+      "id": 18,
+      "currentName": "Stage Beam",
+      "proposedName": "Spotlight Lance",
+      "oldGlyph": "|",
+      "mechanic": "A long stage beam strikes enemies along a line.",
+      "starterHero": null,
+      "svgSha256": "0190a16a1cf742184c1acec943aba814c8ee9489b0e9898411c765fd9b66ef35",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            1,
+            5,
+            15,
+            12
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            6,
+            18,
+            15
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            7,
+            22,
+            18
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            9,
+            29,
+            24
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/19",
+      "id": 19,
+      "currentName": "Leaf Orbit",
+      "proposedName": "Garden Orbit",
+      "oldGlyph": "+",
+      "mechanic": "Orbiting leaves defend the space close to you.",
+      "starterHero": null,
+      "svgSha256": "50994f28fd433b69294a57c1a7df146d2860470c9813276589e3fa85e7a5ed40",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            14,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            17,
+            17
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            21,
+            20
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            5,
+            28,
+            27
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/20",
+      "id": 20,
+      "currentName": "Indigo Composition",
+      "proposedName": "Gathering Ink",
+      "oldGlyph": "O",
+      "mechanic": "Ink fields pull enemies inward and repeatedly damage the chosen area.",
+      "starterHero": 0,
+      "svgSha256": "2f3bac398d8babd03c33c771c9e585352cbe803f90c50f9da5af97e61d7e9f08",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            15,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            18,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            22,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            6,
+            29,
+            25
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/21",
+      "id": 21,
+      "currentName": "Home Star",
+      "proposedName": "Hearth Orbit",
+      "oldGlyph": "*",
+      "mechanic": "An RJ-inspired orbiting star strikes nearby enemies and launches homing letters.",
+      "starterHero": 1,
+      "svgSha256": "80b93b06fbffd48fd3a95c3a008644e25dcadb842f76adae33b08d670bb79cb9",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            4,
+            14,
+            13
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            5,
+            17,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            6,
+            21,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            8,
+            28,
+            25
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/22",
+      "id": 22,
+      "currentName": "Street Beat",
+      "proposedName": "Afterbeat",
+      "oldGlyph": "x",
+      "mechanic": "Leaves beat marks at your position. They arm after a delay and pulse at pursuers.",
+      "starterHero": 3,
+      "svgSha256": "74e46bdc6f7565de7181b02a40c0796358744aa04438fd57a516adc9676b3dd3",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            2,
+            14,
+            14
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            2,
+            17,
+            18
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            4,
+            3,
+            21,
+            22
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            5,
+            4,
+            28,
+            29
+          ]
+        }
+      }
+    },
+    {
+      "key": "weapon/23",
+      "id": 23,
+      "currentName": "Dream Frame",
+      "proposedName": "Waking Frame",
+      "oldGlyph": "+",
+      "mechanic": "Surreal frames send projectiles outward in several directions.",
+      "starterHero": 5,
+      "svgSha256": "cdb0e74a0adc0106e0cc36c8bd8176e52eb82eeb0e678a64fc265db0f4cfb645",
+      "sizes": {
+        "16": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            2,
+            14,
+            12
+          ]
+        },
+        "20": {
+          "nonempty": true,
+          "opaque_bbox": [
+            2,
+            3,
+            17,
+            16
+          ]
+        },
+        "24": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            3,
+            21,
+            19
+          ]
+        },
+        "32": {
+          "nonempty": true,
+          "opaque_bbox": [
+            3,
+            4,
+            28,
+            25
+          ]
+        }
+      }
+    }
+  ],
+  "blindOrder": [
+    {
+      "number": 1,
+      "weapon": 4
+    },
+    {
+      "number": 2,
+      "weapon": 7
+    },
+    {
+      "number": 3,
+      "weapon": 17
+    },
+    {
+      "number": 4,
+      "weapon": 22
+    },
+    {
+      "number": 5,
+      "weapon": 18
+    },
+    {
+      "number": 6,
+      "weapon": 19
+    },
+    {
+      "number": 7,
+      "weapon": 6
+    },
+    {
+      "number": 8,
+      "weapon": 21
+    },
+    {
+      "number": 9,
+      "weapon": 0
+    },
+    {
+      "number": 10,
+      "weapon": 3
+    },
+    {
+      "number": 11,
+      "weapon": 16
+    },
+    {
+      "number": 12,
+      "weapon": 13
+    },
+    {
+      "number": 13,
+      "weapon": 1
+    },
+    {
+      "number": 14,
+      "weapon": 10
+    },
+    {
+      "number": 15,
+      "weapon": 5
+    },
+    {
+      "number": 16,
+      "weapon": 14
+    },
+    {
+      "number": 17,
+      "weapon": 8
+    },
+    {
+      "number": 18,
+      "weapon": 2
+    },
+    {
+      "number": 19,
+      "weapon": 23
+    },
+    {
+      "number": 20,
+      "weapon": 15
+    },
+    {
+      "number": 21,
+      "weapon": 11
+    },
+    {
+      "number": 22,
+      "weapon": 9
+    },
+    {
+      "number": 23,
+      "weapon": 20
+    },
+    {
+      "number": 24,
+      "weapon": 12
+    }
+  ],
+  "scope": "Finite output checks cover nonempty and two-unit-safe-area renders. They do not establish semantic recognition, aesthetics, full accessibility or trademark clearance."
+}

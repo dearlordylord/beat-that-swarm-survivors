@@ -1,5 +1,6 @@
 # Native catalog prices, conditions and bounds; separate from display text.
 import Base
+import character-policy.bend as CP
 
 def cost_0(id: U32) -> U32:
   match id:
@@ -160,7 +161,6 @@ def cost_2(id: U32) -> U32:
     case 4: 1000
     case 5: 1500
     case 6: 2200
-    case 7: 3000
     case _: 0
 
 def condition_stat_2(id: U32) -> U32:
@@ -172,7 +172,6 @@ def condition_stat_2(id: U32) -> U32:
     case 4: 30
     case 5: 23
     case 6: 20
-    case 7: 28
     case _: 63
 
 def condition_value_2(id: U32) -> U32:
@@ -184,7 +183,6 @@ def condition_value_2(id: U32) -> U32:
     case 4: 2
     case 5: 1
     case 6: 3000
-    case 7: 10
     case _: 0
 
 def cost_3(id: U32) -> U32:
@@ -470,12 +468,12 @@ def condition_value_7(id: U32) -> U32:
     case 11: 12
     case 12: 20
     case 13: 50
-    case 14: 8
+    case 14: CP.count()
     case 15: 5
     case 16: 24
     case 17: 1
     case 18: 20
-    case 19: 8
+    case 19: CP.count()
     case _: 0
 
 def cost_8(id: U32) -> U32:
@@ -578,7 +576,7 @@ def count(id: U32) -> U32:
   match id:
     case 0: 24
     case 1: 18
-    case 2: 8
+    case 2: CP.count()
     case 3: 5
     case 4: 12
     case 5: 10

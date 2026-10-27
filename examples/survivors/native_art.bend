@@ -235,27 +235,132 @@ def cross(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,
 def area(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   cross(x,y,F32.min(4.0,(r * 0.2 : F32)),color,ring(x,y,r,color,tail))
 
-def projectile(variant: U32,+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+def weapon_color(variant: U32) -> U32:
   match variant:
-    case 1: ray(x,y,r,color,tail)
-    case 3: ring(x,y,r,color,tail)
-    case 4: area(x,y,r,color,tail)
-    case 5: area(x,y,r,color,tail)
-    case 7: area(x,y,r,color,tail)
-    case 8: cross(x,y,r,color,tail)
-    case 9: area(x,y,r,color,tail)
-    case 10: ray(x,y,r,color,tail)
-    case 11: area(x,y,r,color,tail)
-    case 13: ray(x,y,r,color,tail)
-    case 18: ray(x,y,r,color,tail)
-    case 19: ring(x,y,r,color,tail)
-    case 20: area(x,y,r,color,tail)
-    case 21: spark(x,y,r,color,tail)
-    case 22: area(x,y,r,color,tail)
-    case _: spark(x,y,F32.min(r,9.0),color,tail)
+    case 0: 10139903
+    case 1: 16174952
+    case 2: 12818807
+    case 3: 13220078
+    case 4: 16773329
+    case 5: 13220078
+    case 6: 15688813
+    case 7: 11782638
+    case 8: 14401791
+    case 9: 9346026
+    case 10: 12179950
+    case 11: 16773308
+    case 12: 15579618
+    case 13: 15454094
+    case 14: 15749733
+    case 15: 12101580
+    case 16: 12684643
+    case 17: 16769446
+    case 18: 16175723
+    case 19: 10076057
+    case 20: 8820463
+    case 21: 16773329
+    case 22: 8385483
+    case 23: 13211804
+    case _: 16741501
 
-def player(+x: F32,+y: F32,character: U32,invuln: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
-  Heroes.player(character,x,y,U32.is_lt(0,invuln),tail)
+def composition(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = ring(x,y,r,color,tail)
+  b = D.rect((x - r * 0.45 : F32),(y - r * 0.25 : F32),(r * 0.9 : F32),1.0,color,a)
+  c = D.rect((x - r * 0.45 : F32),y,(r * 0.7 : F32),1.0,color,b)
+  D.rect((x - r * 0.45 : F32),(y + r * 0.25 : F32),(r * 0.5 : F32),1.0,color,c)
+
+def beat(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = ring(x,y,r,color,ring(x,y,(r * 0.55 : F32),color,tail))
+  b = D.rect((x - r * 0.35 : F32),(y - r * 0.15 : F32),2.0,(r * 0.3 : F32),color,a)
+  c = D.rect((x - r * 0.15 : F32),(y - r * 0.3 : F32),2.0,(r * 0.6 : F32),color,b)
+  d = D.rect((x + r * 0.05 : F32),(y - r * 0.2 : F32),2.0,(r * 0.4 : F32),color,c)
+  D.rect((x + r * 0.25 : F32),(y - r * 0.1 : F32),2.0,(r * 0.2 : F32),color,d)
+
+def fan(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = D.rect((x - r * 0.8 : F32),(y - r * 0.4 : F32),(r * 1.6 : F32),(r * 0.4 : F32),color,tail)
+  b = D.rect((x - r * 0.55 : F32),y,(r * 1.1 : F32),(r * 0.3 : F32),color,a)
+  c = D.rect((x - r * 0.25 : F32),(y + r * 0.3 : F32),(r * 0.5 : F32),(r * 0.3 : F32),color,b)
+  d = D.rect((x - 0.5 : F32),(y - r * 0.4 : F32),1.0,r,16774143,c)
+  D.rect((x - r * 0.6 : F32),(y - r * 0.2 : F32),(r * 1.2 : F32),1.0,16774143,d)
+
+def home_star(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = D.rect((x - r * 0.55 : F32),(y - r * 0.45 : F32),(r * 1.1 : F32),(r * 1.05 : F32),color,tail)
+  b = D.rect((x - r * 0.45 : F32),(y - r * 0.9 : F32),(r * 0.25 : F32),(r * 0.65 : F32),color,a)
+  c = D.rect((x + r * 0.2 : F32),(y - r * 0.9 : F32),(r * 0.25 : F32),(r * 0.65 : F32),color,b)
+  d = D.rect((x - r * 0.3 : F32),(y - r * 0.1 : F32),1.0,1.0,3421515,c)
+  e = D.rect((x + r * 0.2 : F32),(y - r * 0.1 : F32),1.0,1.0,3421515,d)
+  D.rect((x - r * 0.55 : F32),(y + r * 0.3 : F32),(r * 1.1 : F32),(r * 0.2 : F32),14188683,e)
+
+def dream_frame(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = D.rect((x - r * 0.7 : F32),(y - r * 0.7 : F32),(r * 1.4 : F32),1.0,14268014,tail)
+  b = D.rect((x - r * 0.7 : F32),(y + r * 0.7 : F32),(r * 1.4 : F32),1.0,14268014,a)
+  c = D.rect((x - r * 0.7 : F32),(y - r * 0.7 : F32),1.0,(r * 1.4 : F32),14268014,b)
+  d = D.rect((x + r * 0.7 : F32),(y - r * 0.7 : F32),1.0,(r * 1.4 : F32),14268014,c)
+  e = D.rect((x - r * 0.45 : F32),(y - r * 0.3 : F32),(r * 0.9 : F32),(r * 0.35 : F32),color,d)
+  f = D.rect((x - r * 0.3 : F32),(y + r * 0.05 : F32),(r * 0.6 : F32),(r * 0.2 : F32),color,e)
+  D.rect((x - r * 0.1 : F32),(y + r * 0.25 : F32),(r * 0.2 : F32),(r * 0.2 : F32),color,f)
+
+def release(exploded: Bool,+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match exploded:
+    case True{}: spark(x,y,(r * 0.55 : F32),16773352,ring(x,y,r,color,tail))
+    case False{}: D.rect((x - r * 0.4 : F32),(y - 1.0 : F32),(r * 0.8 : F32),2.0,color,D.rect((x - r * 0.65 : F32),(y - r * 0.65 : F32),(r * 1.3 : F32),(r * 1.3 : F32),2433323,tail))
+
+def cookie(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = D.rect((x - r * 0.7 : F32),(y - r * 0.7 : F32),(r * 1.4 : F32),(r * 1.4 : F32),color,tail)
+  b = D.rect((x - r * 0.35 : F32),(y - r * 0.25 : F32),1.0,1.0,5323828,a)
+  c = D.rect((x + r * 0.2 : F32),(y - r * 0.25 : F32),1.0,1.0,5323828,b)
+  D.rect(x,(y + r * 0.25 : F32),1.0,1.0,5323828,c)
+
+def hearth(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = ring(x,y,r,color,tail)
+  b = D.rect((x - r * 0.3 : F32),y,1.0,(r * 0.3 : F32),color,a)
+  c = D.rect((x + r * 0.3 : F32),y,1.0,(r * 0.3 : F32),color,b)
+  d = D.rect((x - r * 0.3 : F32),(y + r * 0.3 : F32),(r * 0.6 : F32),1.0,color,c)
+  e = D.rect((x - r * 0.4 : F32),(y - r * 0.1 : F32),(r * 0.8 : F32),1.0,color,d)
+  f = D.rect((x - r * 0.2 : F32),(y - r * 0.25 : F32),(r * 0.4 : F32),1.0,color,e)
+  D.rect((x - r * 0.05 : F32),(y - r * 0.4 : F32),(r * 0.1 : F32),(r * 0.15 : F32),color,f)
+
+def spotlight(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = ring(x,y,r,color,tail)
+  b = D.rect((x - r * 0.4 : F32),(y + r * 0.3 : F32),(r * 0.8 : F32),1.0,color,a)
+  c = D.rect((x - r * 0.28 : F32),y,(r * 0.56 : F32),1.0,color,b)
+  d = D.rect((x - r * 0.15 : F32),(y - r * 0.25 : F32),(r * 0.3 : F32),1.0,color,c)
+  D.rect(x,(y - r * 0.5 : F32),1.0,1.0,color,d)
+
+def leaves(+x: F32,+y: F32,+r: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  a = ring(x,y,(r * 0.65 : F32),color,tail)
+  b = D.rect((x - r * 0.8 : F32),(y - r * 0.2 : F32),(r * 0.4 : F32),(r * 0.2 : F32),color,a)
+  c = D.rect((x + r * 0.4 : F32),(y + r * 0.2 : F32),(r * 0.4 : F32),(r * 0.2 : F32),color,b)
+  D.rect((x - r * 0.1 : F32),(y - r * 0.8 : F32),(r * 0.2 : F32),(r * 0.4 : F32),color,c)
+
+def themed_projectile(variant: U32,+x: F32,+y: F32,+r: F32,+theme: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  match variant:
+    case 1: ray(x,y,r,theme,tail)
+    case 2: spark(x,y,(r * 0.2 : F32),15718311,ring(x,y,(r * 0.8 : F32),theme,tail))
+    case 3: ring(x,y,r,theme,tail)
+    case 4: hearth(x,y,r,theme,tail)
+    case 5: spotlight(x,y,r,theme,tail)
+    case 7: composition(x,y,r,theme,tail)
+    case 8: fan(x,y,r,theme,tail)
+    case 9: composition(x,y,r,theme,tail)
+    case 10: ray(x,y,r,theme,tail)
+    case 11: area(x,y,r,theme,tail)
+    case 13: ray(x,y,r,theme,tail)
+    case 14: release(F32.is_lt(30.0,r),x,y,r,theme,tail)
+    case 16: cookie(x,y,r,theme,tail)
+    case 18: ray(x,y,r,theme,tail)
+    case 19: leaves(x,y,r,theme,tail)
+    case 20: composition(x,y,r,theme,tail)
+    case 21: home_star(x,y,r,theme,tail)
+    case 22: beat(x,y,r,theme,tail)
+    case 23: dream_frame(x,y,r,theme,tail)
+    case _: spark(x,y,F32.min(r,9.0),theme,tail)
+
+def projectile(+variant: U32,x: F32,y: F32,r: F32,color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  themed_projectile(variant,x,y,r,weapon_color(variant),tail)
+
+def player(+x: F32,+y: F32,character: U32,invuln: U32,frame: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
+  Heroes.player(character,frame,x,y,U32.is_lt(0,invuln),tail)
 
 def gem_scaled(+x: F32,+y: F32,+scale: F32,+color: U32,tail: List<&2,D.Rect>) -> List<&2,D.Rect>:
   a = box(x,y,scale,(0.0 - 1.0 : F32),(0.0 - 4.0 : F32),2.0,8.0,color,tail)

@@ -1,0 +1,17 @@
+{
+  "authority": "user",
+  "decision": "Use pixel-grid variant D and integrate with themed abilities",
+  "scope": "Accessory construction and size; does not claim every miniature face is fully faithful",
+  "variant": 3,
+  "mount": "translate(32 38) scale(2) on64x80 authoring frame",
+  "approved_native_png_sha256": {
+    "0": "a8e15d64c75ae6bf3ddc8fb1c022a441f8d814130c175911e75890e298b30823",
+    "1": "52dfef97fbbc310640f2e43625322bfce04f4ca368ca120b8727ce5cf68d6316",
+    "2": "349b36b45270279d7cd74f8172d4748678f9ec7bf2f78496871a85105ebb25ab",
+    "3": "a18a33820ac4080c168cb8475088e8565dcd2b211fc6691989f2d3c32f8f139b",
+    "4": "24294c16e425248864e0bf84ead86f29bab02b1fd770dbfffcd36c1a76faba0c",
+    "5": "b861a02c2108a3112a7f0af8a5792f8043e3b0f8706ca57723dfae6b2d387795",
+    "6": "1643a549a8993fc6133828c4746052168759ed23c2648b09d9b3c6924f8541f2"
+  },
+  "remaining_review": "MANG fidelity and tiny face details remain partial, documented in accessory-current-review.json"
+}

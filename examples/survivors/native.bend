@@ -23,92 +23,118 @@ type SaveState is Data:
   Pending{}
   Failed{}
 
-type Ui is Data: Ui{screen: U32,tab: U32,page: U32,selected: U32,character: U32,stage: U32,arcana: U32,mode: U32,paused: U32,keys: U32,quit: U32,dirty: SaveState,recorded: U32,frames: U32,clock: Nat,lag: U32}
+type Ui is Data: Ui{screen: U32,tab: U32,page: U32,selected: U32,character: U32,stage: U32,arcana: U32,mode: U32,paused: U32,keys: U32,quit: U32,dirty: SaveState,recorded: U32,frames: U32,clock: Nat,lag: U32,stride: F32,walk: U32}
 type Native is Type: Native{game: G.Packet,ui: Ui,profile: P.Profile}
 def ui_screen(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: screen
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: screen
 def ui_tab(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: tab
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: tab
 def ui_page(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: page
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: page
 def ui_selected(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: selected
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: selected
 def ui_character(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: character
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: character
 def ui_stage(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: stage
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: stage
 def ui_arcana(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: arcana
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: arcana
 def ui_mode(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: mode
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: mode
 def ui_paused(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: paused
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: paused
 def ui_keys(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: keys
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: keys
 def ui_quit(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: quit
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: quit
 def ui_dirty(ui: Ui) -> SaveState:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: dirty
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: dirty
 def ui_recorded(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: recorded
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: recorded
 def ui_frames(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: frames
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: frames
 def set_screen(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{value,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{value,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_tab(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,value,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,value,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_page(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,value,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,value,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_selected(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,value,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,value,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_character(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,value,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,value,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_stage(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,value,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,value,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_arcana(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,value,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,value,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_mode(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,value,paused,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,value,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_paused(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,value,keys,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,value,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_keys(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,value,quit,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,value,quit,dirty,recorded,frames,clock,lag,stride,walk}
 def set_quit(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,value,dirty,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,value,dirty,recorded,frames,clock,lag,stride,walk}
 def set_dirty(ui: Ui,value: SaveState) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,value,recorded,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,value,recorded,frames,clock,lag,stride,walk}
 def set_recorded(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,value,frames,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,value,frames,clock,lag,stride,walk}
 def set_frames(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,value,clock,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,value,clock,lag,stride,walk}
+
+def ui_walk(ui: Ui) -> U32:
+  match ui:
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: walk
+
+def ui_stride(ui: Ui) -> F32:
+  match ui:
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: stride
+
+def set_walk(ui: Ui,distance: F32,frame: U32) -> Ui:
+  match ui:
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,distance,frame}
+
+def walk_advance(moving: Bool,+distance: F32,ui: Ui) -> Ui:
+  match moving:
+    case False{}: set_walk(ui,0.0,8)
+    case True{}: set_walk(ui,distance,(F32.to_u32((distance / 18.0 : F32)) % 8 : U32))
+
+def walk_when_active(paused: U32,frame: U32) -> U32:
+  match paused:
+    case 0: frame
+    case _: 8
+
+def visible_walk(+ui: Ui) -> U32:
+  walk_when_active(ui_paused(ui),ui_walk(ui))
+
 def run_phase(run: G.Run) -> U32:
   match run:
     case G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: phase
@@ -121,6 +147,15 @@ def run_px(run: G.Run) -> F32:
 def run_py(run: G.Run) -> F32:
   match run:
     case G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: py
+def walk_observed(+oldx: F32,+oldy: F32,state: Native) -> Native:
+  match state:
+    case Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},+ui,profile}:
+      +dx = (run_px(run) - oldx : F32)
+      +dy = (run_py(run) - oldy : F32)
+      +distance = F32.sqrt((dx * dx + dy * dy : F32))
+      Native{G.Packet{G.State{world,run,offers,snapshots,pending}},walk_advance(Bool.and(F32.is_lt(0.0001,distance),F32.is_le(distance,48.0)),(ui_stride(ui) + distance : F32),ui),profile}
+    case state: state
+
 def run_hp(run: G.Run) -> U32:
   match run:
     case G.Run{RS.Session{phase,tick,xp,xpNeed,level,kills,gold,seed,stage,bosses,mode,enemyKinds,relicCollected},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,bannedWeapons,bannedPassives}}: hp
@@ -166,18 +201,18 @@ def run_stage(run: G.Run) -> U32:
 
 def ui_clock(ui: Ui) -> Nat:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: clock
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: clock
 def ui_lag(ui: Ui) -> U32:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: lag
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: lag
 def set_clock(ui: Ui,value: Nat) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,value,lag}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,value,lag,stride,walk}
 def set_lag(ui: Ui,value: U32) -> Ui:
   match ui:
-    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,value}
+    case Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,lag,stride,walk}: Ui{screen,tab,page,selected,character,stage,arcana,mode,paused,keys,quit,dirty,recorded,frames,clock,value,stride,walk}
 
-def initial_ui() -> Ui: Ui{0,2,0,0,0,0,0,0,0,0,0,Clean{},0,0,0n,0}
+def initial_ui() -> Ui: Ui{0,2,0,0,0,0,0,0,0,0,0,Clean{},0,0,0n,0,0.0,8}
 def initial_game(profile: P.Profile) -> G.Packet: G.start(0,P.meta(profile))
 def select_color(selected: Bool,yes: U32,no: U32) -> U32:
   match selected:
@@ -486,7 +521,7 @@ def ground(fuel: Nat,+index: U32,+run: G.Run,tail: List<&2,D.Rect>) -> List<&2,D
       D.rect(x,y,16.0,16.0,color,ground(k,(index + 1 : U32),run,tail))
 def gameplay_rows(+run: G.Run,offers: List<&2,G.Offer>,+ui: Ui,+snapshots: List<&2,G.Snapshot>) -> List<&2,D.Rect>:
   hud(run,world_modal(run,snapshots,offers,ui_paused(ui),
-  Art.player(256.0,210.0,ui_character(ui),run_invuln(run),
+  Art.player(256.0,210.0,ui_character(ui),run_invuln(run),visible_walk(ui),
   actors(snapshots,run_px(run),run_py(run),ground(768n,0,run,[])))))
 
 def scene_screen(screen: U32,+ui: Ui,+profile: P.Profile,run: G.Run,offers: List<&2,G.Offer>,snapshots: List<&2,G.Snapshot>) -> Image:
@@ -527,7 +562,7 @@ def configured(packet: G.Packet,+ui: Ui,+profile: P.Profile) -> G.Packet:
 def begin(state: Native) -> Native:
   match state:
     case Native{game,+ui,+profile}:
-      Native{configured(G.start(ui_character(ui),P.meta(profile)),ui,profile),set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),Pending{}),0),0),P.begin(profile)}
+      Native{configured(G.start(ui_character(ui),P.meta(profile)),ui,profile),set_walk(set_frames(set_recorded(set_dirty(set_keys(set_paused(set_screen(ui,1),0),0),Pending{}),0),0),0.0,8),P.begin(profile)}
 
 def active_category(screen: U32,tab: U32,+direction: U32) -> U32:
   match screen:
@@ -729,7 +764,7 @@ def new_reward(previousPhase: U32,state: Native) -> Native:
     case _: state
 def simulate(active: Bool,state: Native) -> Native:
   match active state:
-    case True{} Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},+ui,profile}: new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,offers,snapshots,pending}},s => G.advance_live(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile})
+    case True{} Native{G.Packet{G.State{world,+run,offers,snapshots,pending}},+ui,profile}: walk_observed(run_px(run),run_py(run),new_reward(run_phase(run),Native{apply_game(G.Packet{G.State{world,run,offers,snapshots,pending}},s => G.advance_live(s,direction(ui_keys(ui),8,2),direction(ui_keys(ui),4,1))),ui,profile}))
     case _ state: state
 
 def frame(state: Native) -> Native:

@@ -1,0 +1,62 @@
+{
+  "scope": "Independent semantic and rendering review of proposed personal trinket/attack vectors. No production selection or trademark clearance.",
+  "iterations": [
+    {
+      "iteration": 1,
+      "comparison_sha256": "8e60d81e8a2bdf74d234ea4a3a69d8aaa9ea2cbe2de930df8c773149a11a47e3",
+      "blind_sha256": "9cc6ba2d500e573948c54cadb03a57d4199e6db1227be44eef87f86decc8606d",
+      "reviewer": "icon_visual_review; independent image-capable reviewer",
+      "preferred_style": "A filled",
+      "findings": [
+        "SUGA pressure icon reads flame or sword rather than pressure.",
+        "Jin orbit core reads an oversized planet badge.",
+        "V radial shards vanish on the dark ground.",
+        "j-hope footprint reads microphone.",
+        "Jin lantern reads bag or lock.",
+        "Notebook, fan, keys, sneaker and glove silhouettes are stronger.",
+        "B etched loses identifying anchors at16/20px."
+      ],
+      "edits_for_next": [
+        "Pale rectangular key halves around a compact pressure core.",
+        "Smaller orbiting body and distinct satellite.",
+        "Three filled brass radial triangles.",
+        "Broader forefoot, narrow waist, round heel and clear tread.",
+        "Lantern cap, feet and dark window."
+      ]
+    },
+    {
+      "iteration": 2,
+      "comparison_sha256": "45c98da91c67880801dee69c9d534ffeab4b191ebd36184f14f95e27bbbdd0f6",
+      "status": "reviewed; one semantic edit remains",
+      "reviewer": "icon_visual_review; independent image-capable reviewer",
+      "findings": [
+        "SUGA structured pressure, Jin orbit, Jin lantern and V radial shards improved.",
+        "A remains preferred.",
+        "j-hope footprint still reads microphone or bell at20/24px."
+      ],
+      "edits_for_next": [
+        "Rotate the footprint28degrees while keeping its pulse horizontal.",
+        "Detach heel from forefoot with a full-width dark gap."
+      ]
+    },
+    {
+      "iteration": 3,
+      "comparison_sha256": "b108c4417f425846e1f9e340515f6da67cd028b85beed9ae1b10c9aa96099cfd",
+      "blind_sha256": "eb6f33f13ae921bda5c25941333cd0a26c9cf2468e8dae4d0f123280aa725aa0",
+      "reviewer": "icon_visual_review; independent image-capable reviewer",
+      "status": "recommended candidate; not user-selected or production-integrated",
+      "preferred_style": "A filled",
+      "findings": [
+        "The diagonal separated forefoot/heel removes the microphone stem.",
+        "At20/24px the footprint and pulse communicate sufficiently in labelled ability UI.",
+        "At16px the forefoot and heel become two marks; exact object recognition is not established.",
+        "Other thirteen geometries remain unchanged from reviewed iteration02.",
+        "V trinket is recognized as a frame, not a camera."
+      ],
+      "remaining": [
+        "Actual rank-overlay and 34px HUD screenshots still need final UI-context review.",
+        "Fan recognition of nicknames and trademark status are outside the icon study."
+      ]
+    }
+  ]
+}

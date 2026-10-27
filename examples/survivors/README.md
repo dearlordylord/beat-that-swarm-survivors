@@ -1,6 +1,10 @@
 # Survivors example
 
+**This checkout is a separate mod. Never publish it to https://survivors.dearlordylord.com or replace the existing public Survivors Site with it. Local builds and previews are allowed. Read [the owner's publication restriction](../../MOD-NOTICE.md).**
+
 A Vampire Survivors clone built as a Bendvy ECS example. See [setup](../../README.md), [requirements](GAME_SPEC.md) and [reference scope](REFERENCE_SCOPE.md).
+
+The current roster has seven themed heroes. [Roster and progression mapping](THEMATIC_ROSTER.md) records their starting attacks, innate bonuses and the complete themed gear pool. Shared gameplay facts live in `character-policy.bend`; presentation text lives in the Bend menu and native catalogs.
 
 ## ECS
 
@@ -87,7 +91,7 @@ The Lunar Stone menu uses Moon Seal controls, with Start at the top and in a res
 
 The shared browser decoration uses header banners over rectangular panels. CSS fits N full square teeth and N−1 equal gaps into width W: side length `s = W / (2N − 1)`. Container units and `round()` keep s near 8 CSS pixels from the first paint, including after resizing. Browsers without typed length division use stable CSS container breakpoints with odd cell counts. No JavaScript geometry pass or observer is needed, so module loading cannot change the pattern. Only decorative surfaces are masked, preserving control hit areas and focus.
 
-Each survivor has distinct geometry in [`survivor-shapes.mts`](survivor-shapes.mts). Browser portraits and solo/co-op Canvas players share those layers through [`survivor-art.mts`](survivor-art.mts); Canvas paths are cached per character. The native renderer uses checked-in Bend rectangles generated from the same shapes, so native launch requires no Node.js. After editing the shapes, run `node scripts/generate-native-survivor-art.mts`; `--check` verifies the generated source.
+Each survivor has distinct idle geometry in [`survivor-shapes.mts`](survivor-shapes.mts). The Bend-authored eight-frame walk catalog is exported to `survivor-walk-shapes.mts`. Static portraits retain the selected idle artwork. Solo and co-op players select walk poses from each player's traveled distance and return to idle when stopped; reduced motion uses the idle pose. Canvas paths are cached per pose. Current walk artwork faces forward for every travel direction; it does not include side or back views, and distance-driven cadence does not guarantee exact world-space foot contact. Accessories retain selected variant D and follow the wrist during walking. The native renderer uses checked-in Bend rectangles generated from the same idle and walk masks, so native launch requires no Node.js. After exporting the walk catalog, run `node scripts/generate-native-survivor-art.mts`; `--check` verifies the generated source. See the [walk artwork workflow](../../tools/sprite-lab/walk-README.md) for regeneration and finite visual checks.
 
 
 ## Browser launch
@@ -112,6 +116,8 @@ publication preparation step replaces it with the immutable release manifest.
 Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend, Astro or Node.js. `index.html` is the source HTML shell; the deployable, prerendered page is `dist/web/index.html`. `content.mts` is generated from `menu-catalog.bend` at build time; edit the Bend catalog, not the generated file.
 
 ## Publication
+
+**The procedure below is inherited documentation for the original game. Do not run it to prepare or publish this mod to the existing public Site.**
 
 Use `master` locally and on GitHub. Publication stays on Sites; no GitHub Actions deployment is required.
 
@@ -165,6 +171,8 @@ Checks require Node.js, Bend, a C compiler and platform audio/window development
 ```sh
 npm run test:full-game:manual
 bash examples/survivors/check-proofs.sh
+bash examples/survivors/check-roster-migration.sh
+bend examples/survivors/character-kit-test.bend
 ```
 
 These commands check native profile/UI behavior, a complete game run and Bend proofs separately.

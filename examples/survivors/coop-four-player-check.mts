@@ -82,6 +82,14 @@ for (const id of [0, 1, 2, 3]) {
     assert.equal(b.px, a.px)
   }
 }
+const invalidStart = Core.core_start(7, 0, 12345)
+if (invalidStart.$ !== "CorePacket") throw Error(invalidStart.message)
+const invalidJoin = Core.core_attach_player(invalidStart.state, 1, 7, 0, 0, 16777215)
+if (invalidJoin.$ !== "CorePacket") throw Error(invalidJoin.message)
+const normalized = Core.core_network_observe(invalidJoin.state, 0)
+for (const player of rows(normalized.view.players)) {
+  assert.equal(player.player.character, 0)
+}
 let lobby = Lobby.fresh(0)
 assert.equal(Lobby.can_configure_host(lobby, 1, 1, 1, 1, 16777215), true)
 assert.equal(Lobby.can_configure_host(lobby, 8, 1, 1, 1, 16777215), false)

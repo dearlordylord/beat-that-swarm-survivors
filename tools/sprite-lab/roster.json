@@ -1,0 +1,55 @@
+[
+  {
+    "id": 0,
+    "file": "character-01",
+    "reference_slot": 1,
+    "identity": "Dark tousled hair, olive jacket, brown boots",
+    "status": "family-preview"
+  },
+  {
+    "id": 1,
+    "file": "character-02",
+    "reference_slot": 2,
+    "identity": "Brown rounded fringe, green glasses, pink sweatshirt, pale shoes",
+    "status": "family-preview",
+    "remaining": "Green glasses and sweatshirt-specific cut"
+  },
+  {
+    "id": 2,
+    "file": "character-03",
+    "reference_slot": 3,
+    "identity": "Orange swept hair, teal open jacket, pale shirt, brown boots",
+    "status": "accepted-static-pilot",
+    "motion": "needs-work"
+  },
+  {
+    "id": 3,
+    "file": "character-04",
+    "reference_slot": 4,
+    "identity": "Mint bowl hair, mustard jacket, red shirt, pale/red shoes",
+    "status": "family-preview",
+    "remaining": "Red shoe accents"
+  },
+  {
+    "id": 4,
+    "file": "character-05",
+    "reference_slot": 5,
+    "identity": "Pink side fringe, white sleeves, black graphic top, brown straps",
+    "status": "family-preview",
+    "remaining": "Graphic top and brown straps"
+  },
+  {
+    "id": 5,
+    "file": "character-06",
+    "reference_slot": 6,
+    "identity": "Straight brown fringe, taupe jacket, pale shirt, brown boots",
+    "status": "family-preview"
+  },
+  {
+    "id": 6,
+    "file": "character-07",
+    "reference_slot": 7,
+    "identity": "Black fringe, white jacket, red inner shirt, dark boots",
+    "status": "family-preview"
+  }
+]

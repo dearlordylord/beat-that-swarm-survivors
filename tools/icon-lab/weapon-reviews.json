@@ -1,0 +1,33 @@
+{
+  "status": "Recommended vector study; not user selection or production integration",
+  "reviewer": "gpt-6-astra; independent image review",
+  "iterations": [
+    {
+      "iteration": 1,
+      "blind_first": true,
+      "findings": [
+        "Most object silhouettes readable; exact homing, delay and global targeting need tooltips.",
+        "Practice Thrust and Spotlight Lance both read as diagonal gold marks.",
+        "Curtain Flash reads as a static curtain or banner.",
+        "Mischief Crumb reads as a red button or cookie.",
+        "Hearth Glow dome can suggest protection rather than damage."
+      ]
+    },
+    {
+      "iteration": 2,
+      "changes": [
+        "Spotlight Lance is a horizontal, parallel-sided beam with a square emitter and bright core.",
+        "Curtain Flash uses two side panels and a central pale flash.",
+        "Mischief Crumb has biscuit-tan fill, dark chips and a bite notch.",
+        "Hearth Glow has a visible flame inside the hearth opening."
+      ],
+      "verdict": "Pass for labelled20/24-pixel UI distinction and family consistency. No further edits requested.",
+      "rank_overlay": "Rank8 remains clear.",
+      "limits": "This is a contextual semantic review, not an independent recognition score. Tooltips remain necessary for homing, delay and global-target behavior."
+    }
+  ],
+  "reviewed_sha256": {
+    "comparison.png": "0bf5b6a4ff8449a63c9a325f767b0fd86800cb7089511cdf391fe768de5f46ea",
+    "blind.png": "69c97beec2d0c94173d84b6ab56743818056cebce69ea56c1ff4048115a19b1b"
+  }
+}

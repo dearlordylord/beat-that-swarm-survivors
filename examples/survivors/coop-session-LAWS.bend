@@ -33,7 +33,7 @@ def action_domain(action: S.Action) -> Bool:
     case S.Movement{x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
     case S.MovementTick{_,x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
     case S.Choice{round,index}: Bool.and(U32.is_gt(round,0),U32.is_lt(index,16))
-    case S.Setup{character,arcana,_,weapons}: Bool.and(U32.is_lt(character,8),Bool.and(U32.is_lt(arcana,12),U32.is_le(weapons,16777215)))
+    case S.Setup{character,arcana,_,weapons}: Bool.and(U32.is_lt(character,7),Bool.and(U32.is_lt(arcana,12),U32.is_le(weapons,16777215)))
 
 # Guarantees: movement accepts precisely the three encoded positions on each axis; choices and setup use their declared domains.
 # Why it matters: real input and setup packets must be accepted without allowing malformed values into gameplay.

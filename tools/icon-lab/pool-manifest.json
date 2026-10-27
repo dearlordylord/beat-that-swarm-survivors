@@ -1,0 +1,170 @@
+{
+  "status": "Prototype family; each generated output requires independent review. Iteration02 review is recorded in pool-review.json. No production integration or trademark clearance.",
+  "canvas": 32,
+  "safeArea": 2,
+  "stroke": 2,
+  "items": [
+    {
+      "id": 0,
+      "key": "passive/0",
+      "currentName": "GOLDEN Drive",
+      "currentGlyph": "+",
+      "effect": "All weapon damage +10% per rank.",
+      "proposedName": "Drive Weight",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 1,
+      "key": "passive/1",
+      "currentName": "Beat Clock",
+      "currentGlyph": "o",
+      "effect": "Attack cooldown -7% per rank.",
+      "proposedName": "Pocket Metronome",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 2,
+      "key": "passive/2",
+      "currentName": "Gallery Lens",
+      "currentGlyph": "O",
+      "effect": "Weapon and effect area +10% per rank.",
+      "proposedName": "Wideglass Lens",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 3,
+      "key": "passive/3",
+      "currentName": "Long Encore",
+      "currentGlyph": "~",
+      "effect": "Weapon duration +15% per rank.",
+      "proposedName": "Silk Spool",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 4,
+      "key": "passive/4",
+      "currentName": "Harmony Split",
+      "currentGlyph": "Y",
+      "effect": "One additional projectile per rank.",
+      "proposedName": "Split Fork",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 5,
+      "key": "passive/5",
+      "currentName": "Dance Sneakers",
+      "currentGlyph": ">",
+      "effect": "Movement speed +10% per rank.",
+      "proposedName": "Street Soles",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 6,
+      "key": "passive/6",
+      "currentName": "Mirror Guard",
+      "currentGlyph": "#",
+      "effect": "Reduces incoming damage by 1 per rank.",
+      "proposedName": "Lacquer Guard",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 7,
+      "key": "passive/7",
+      "currentName": "Warm Heart",
+      "currentGlyph": "+",
+      "effect": "Maximum health +20% per rank.",
+      "proposedName": "Hearth Locket",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 8,
+      "key": "passive/8",
+      "currentName": "KOYA Focus",
+      "currentGlyph": "O",
+      "effect": "Experience pickup radius +25% per rank.",
+      "proposedName": "Pressed Leaf",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 9,
+      "key": "passive/9",
+      "currentName": "Lyric Notebook",
+      "currentGlyph": "A",
+      "effect": "Experience gained +10% per rank.",
+      "proposedName": "Field Notebook",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 10,
+      "key": "passive/10",
+      "currentName": "TATA Curiosity",
+      "currentGlyph": "?",
+      "effect": "Luck +10% per rank, improving normal enemy gold and healing drops.",
+      "proposedName": "Odd Die",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 11,
+      "key": "passive/11",
+      "currentName": "RJ Comfort",
+      "currentGlyph": "+",
+      "effect": "Regenerates 1 health per second per rank.",
+      "proposedName": "Travel Mug",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 12,
+      "key": "passive/12",
+      "currentName": "Golden Tempo",
+      "currentGlyph": ">",
+      "effect": "Projectile speed +15% per rank.",
+      "proposedName": "Flight Feather",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 13,
+      "key": "passive/13",
+      "currentName": "Second Encore",
+      "currentGlyph": "8",
+      "effect": "One additional full-health revival per rank.",
+      "proposedName": "Spare Wick",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 14,
+      "key": "passive/14",
+      "currentName": "Jack in the Box",
+      "currentGlyph": "!",
+      "effect": "Enemy health and count +10% per rank; experience and gold +10% per rank.",
+      "proposedName": "Restless Box",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 15,
+      "key": "passive/15",
+      "currentName": "Platinum Record",
+      "currentGlyph": "O",
+      "effect": "Gold gained +15% per rank.",
+      "proposedName": "Gilt Record",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 16,
+      "key": "passive/16",
+      "currentName": "Bass Pulse",
+      "currentGlyph": ">",
+      "effect": "Enemy knockback +15% per rank.",
+      "proposedName": "Bass Cabinet",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    },
+    {
+      "id": 17,
+      "key": "passive/17",
+      "currentName": "Home Cooking",
+      "currentGlyph": "+",
+      "effect": "Healing from pickups and regeneration +20% per rank.",
+      "proposedName": "Steam Bowl",
+      "namingStatus": "Descriptive working name; trademark status unknown"
+    }
+  ]
+}

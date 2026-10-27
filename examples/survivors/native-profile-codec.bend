@@ -1,5 +1,6 @@
 import Base
 import native-economy.bend as P
+import character-policy.bend as CP
 
 def encode_values(values: List<&2,U32>) -> String:
   match values:
@@ -41,9 +42,12 @@ def normalize_ranks(n: Nat,+id: U32,+profile: P.Profile) -> P.Profile:
     case 0n: profile
     case 1n+p: normalize_ranks(p,(id + 1 : U32),P.put(profile,(id + 1 : U32),P.rank(profile,id)))
 def normalize(+profile: P.Profile) -> P.Profile:
-  +p0 = P.put(profile,11,U32.or(1,U32.and(P.get(profile,11),255)))
+  +p0 = P.put(profile,11,U32.or(1,U32.and(P.get(profile,11),CP.mask())))
   +p1 = P.put(p0,12,U32.or(1,U32.and(P.get(p0,12),31)))
-  normalize_ranks(10n,0,p1)
+  +p2 = P.put(p1,15,U32.and(P.get(p1,15),CP.mask()))
+  +p3 = P.put(p2,26,P.pop(32n,P.get(p2,11)))
+  +p4 = P.put(p3,31,P.pop(32n,P.get(p3,15)))
+  normalize_ranks(10n,0,p4)
 def decode_rows(+rows: List<&2,String>) -> P.Profile:
   P.choose(valid_save(rows),normalize(decode_lines(rows)),P.fresh())
 def decode(text: String) -> P.Profile: decode_rows(String.lines(text))

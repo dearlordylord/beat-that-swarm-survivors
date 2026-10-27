@@ -1,0 +1,208 @@
+[
+  {
+    "iteration": "01",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-01/sheet.png",
+    "findings": [
+      "Boots join into one bar",
+      "Teal garment reads as sweater",
+      "Eyes dominate face",
+      "Four-unit foot lift reads as marching",
+      "Other six need garment-specific identity details"
+    ],
+    "changes_for_next": [
+      "Separate boots into x21..30 and x35..44",
+      "Use existing brighter coat color for two lapel strips",
+      "Reduce both full eyes from 4x7 to shared 3x6",
+      "Limit lift to two units and bend lifted knee one unit inward"
+    ],
+    "preserve": [
+      "Head and hair silhouettes",
+      "Common face frame",
+      "Restrained arm motion"
+    ],
+    "status": "revised",
+    "artifact_retention": "deleted-after-rejection; decisions retained in this log"
+  },
+  {
+    "iteration": "02",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-02/comparison.png",
+    "status": "revised",
+    "findings": [
+      "Separate feet and calmer equal eyes are improvements",
+      "Jacket remains tunic-like",
+      "Dark contour too weak at native scale"
+    ],
+    "changes_for_next": [
+      "Increase shared dark underpass from one-half to one effective pixel",
+      "Add shared angular collar and hem details"
+    ],
+    "preserve": [
+      "Eye size",
+      "Hair silhouette",
+      "Restrained front lift study"
+    ],
+    "artifact_retention": "deleted-after-rejection; decisions retained in this log"
+  },
+  {
+    "iteration": "03",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-03/comparison.png",
+    "status": "rejected-reference-fidelity",
+    "findings": [
+      "Stronger silhouette contour",
+      "Separated feet across eight poses",
+      "Collar and hem improve jacket reading"
+    ],
+    "remaining": [
+      "Hands and boots can read as rectangular pads",
+      "Front lift study still lacks weight transfer and stance synchronization"
+    ],
+    "scope": "Orange pilot only; family lineup demonstrates reuse.",
+    "user_feedback": "Drawing works as an original illustration but has lost source style, colors, and overall appearance. Add reference-preservation checks.",
+    "next_priority": "Restore fidelity before promoting this shared geometry to the other six.",
+    "artifact_retention": "deleted-after-rejection; decisions retained in this log"
+  },
+  {
+    "iteration": "03-reference-fidelity",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-03/comparison.png",
+    "reference_precedence": [
+      "original identity",
+      "selected Nightfall middle row",
+      "generated supporting roster"
+    ],
+    "status": "fail",
+    "axes": {
+      "silhouette": {
+        "verdict": "fail",
+        "evidence": "Shoulders, sleeves, and hands form a broad rectangular body instead of the narrower, head-dominant source silhouette."
+      },
+      "proportions": {
+        "verdict": "fail",
+        "evidence": "Body width approaches head width; large hands and straight legs make the figure sturdier and less compact."
+      },
+      "palette": {
+        "verdict": "fail",
+        "evidence": "Jacket is brighter and more saturated than muted Nightfall teal; the broad cream opening changes lightness and color-area balance."
+      },
+      "garment_identity": {
+        "verdict": "fail",
+        "evidence": "Open-jacket folds and accents are lost; the cream center reads as a generic garment template."
+      },
+      "face_expression": {
+        "verdict": "fail",
+        "evidence": "Broad symmetric face, square eyes, and straight mouth weaken the source fringe-framed expression."
+      },
+      "rendering_style": {
+        "verdict": "fail",
+        "evidence": "Broad flat fills and simple highlight stripes replace smaller irregular clusters and articulated shading."
+      },
+      "motion_identity": {
+        "verdict": "unreviewed",
+        "evidence": "Review inspected static poses; a gameplay-scale looping animation needs temporal review."
+      }
+    },
+    "priorities": [
+      "Narrow shoulders and torso; reduce hands",
+      "Restore muted teal and narrow pale shirt opening",
+      "Recover swept fringe, jacket folds, and face character",
+      "Restore deliberate pixel clusters and shading before reviewing animation"
+    ],
+    "artifact_retention": "deleted-after-rejection; decisions retained in this log"
+  },
+  {
+    "iteration": "04",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-04-fidelity/comparison.png",
+    "status": "fail",
+    "observed_improvements": [
+      "Muted teal and narrow pale shirt",
+      "Smaller hands and subdued mouth"
+    ],
+    "remaining": [
+      "Rigid lower silhouette",
+      "Flat schematic rendering",
+      "Motion timing unreviewed"
+    ],
+    "reference_scope": "Original identity plus selected Nightfall; full enlarged comparison required in following pass",
+    "artifact_retention": "deleted-after-rejection; decisions retained in this log"
+  },
+  {
+    "iteration": "05",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-05-fidelity/fidelity-comparison.png",
+    "status": "fail",
+    "observed_improvements": [
+      "Shorter legs and smaller stepped boots",
+      "Added sleeve and hair clusters"
+    ],
+    "remaining": [
+      "Shallow hair cap and long exposed neck",
+      "Mint undershirt and missing red chest accent",
+      "Short eyes and weak pink accents",
+      "Motion timing unreviewed"
+    ],
+    "reference_scope": "Full enlarged four-column fidelity comparison",
+    "artifact_retention": "deleted-after-rejection; decisions retained in this log"
+  },
+  {
+    "iteration": "06",
+    "reviewer": "gpt-6-astra",
+    "artifact": "bend-pilot/iteration-06-fidelity/fidelity-comparison.png",
+    "status": "fail",
+    "changes": [
+      "Taller hair and deeper side locks",
+      "Broader chin and shorter neck",
+      "3x8 shared eyes, pink face accents",
+      "Near-white shirt and red chest detail",
+      "Shorter lapel light blocks"
+    ],
+    "axes": {
+      "silhouette": {
+        "verdict": "fail",
+        "evidence": "Closer orange identity and side locks, but crown remains flatter and figure more upright than the broad tousled Nightfall head and compact body."
+      },
+      "proportions": {
+        "verdict": "fail",
+        "evidence": "Shorter neck helps; torso remains long and rectangular compared with the oversized-head reference balance."
+      },
+      "palette": {
+        "verdict": "pass",
+        "evidence": "Orange hair, pale skin, muted teal jacket, near-white shirt, navy trousers, and brown shoes preserve principal reference color relationships."
+      },
+      "garment_identity": {
+        "verdict": "pass",
+        "evidence": "Open teal jacket, white center shirt, and small red chest accent are legible; garment volume is simplified."
+      },
+      "face_expression": {
+        "verdict": "fail",
+        "evidence": "Taller eyes and pink cheeks read, but the tiny mouth is not legible enough at native size and expression remains blank."
+      },
+      "rendering_style": {
+        "verdict": "fail",
+        "evidence": "Coherent pixel art but repeated rectangular anatomy and flat garment panels remain more geometric than the reference irregular contour and shaded volume."
+      },
+      "motion_identity": {
+        "verdict": "unreviewed",
+        "evidence": "Static poses preserve identity; timing, weight, and smoothness need temporal review."
+      }
+    },
+    "next_priorities": [
+      "Broaden and roughen hair silhouette; shorten rectangular torso",
+      "Make small pink mouth readable at native size without substantially enlarging it"
+    ],
+    "review_scope": "Partial observations are recorded as fail under the strict pass/fail/unreviewed gate. No overall fidelity acceptance.",
+    "artifact_retention": "retained-selected-output"
+  },
+  {
+    "iteration": "06-user-selection",
+    "reviewer": "user",
+    "status": "accepted-static-direction",
+    "artifact": "bend-pilot/review-06-fidelity",
+    "feedback": "Latest pictures look very good; walking animation still looks somewhat awkward.",
+    "motion_status": "needs-work",
+    "artifact_retention": "retained-selected-output"
+  }
+]

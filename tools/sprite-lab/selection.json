@@ -1,0 +1,15 @@
+{
+  "decision": "accepted-static-direction",
+  "authority": "user",
+  "feedback": "Latest pictures look very good; walking animation still looks somewhat awkward.",
+  "artifact": "bend-pilot/review-06-fidelity",
+  "scope": "Selected visual direction and orange static pilot. Other character identity details remain tracked in roster.json.",
+  "static_art": "accepted",
+  "walking_animation": "needs-work",
+  "static_sha256": {
+    "comparison.png": "c54d5be858a2e5e3a41df76300555fad78a54284f096847e96c38825973ee705",
+    "fidelity-comparison.png": "aa4251160a836143909cfd780e717328dc510635e430d27eb6b6da3d7264a192",
+    "character-03.svg": "30bc3094bdaddd667948ecf059d88c59a54781fa2792e1badb4b9339bbd45cc4"
+  },
+  "model_review": "Retain previous fidelity findings as evidence. User selection accepts the visual direction without rewriting model verdicts as passes."
+}

@@ -1,5 +1,6 @@
 # Admission clock is independent of the paused gameplay clock.
 import Base
+import character-policy.bend as CP
 
 type Action is Data:
   Movement{x: U32,y: U32}
@@ -25,7 +26,7 @@ def action_allowed(action: Action) -> Bool:
     case Movement{x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
     case MovementTick{_,x,y}: Bool.and(U32.is_le(x,2),U32.is_le(y,2))
     case Choice{round,index}: Bool.and(U32.is_gt(round,0),U32.is_lt(index,16))
-    case Setup{character,arcana,_,allowed}: Bool.and(U32.is_lt(character,8),Bool.and(U32.is_lt(arcana,12),U32.is_le(allowed,16777215)))
+    case Setup{character,arcana,_,allowed}: Bool.and(CP.valid(character),Bool.and(U32.is_lt(arcana,12),U32.is_le(allowed,16777215)))
 def command_player(command: Command) -> U32:
   match command:
     case Command{_,player,_,_,_}: player

@@ -1,0 +1,66 @@
+{
+  "precedence": [
+    "original-identity",
+    "selected-nightfall-style",
+    "generated-support"
+  ],
+  "references": [
+    {
+      "id": "original-identity",
+      "path": "tumblr_o3pqt9wwOf1r8ugkco3_r2_640.webp",
+      "sha256": "2d8046afcac517713a77c2e2c29e695d5b1f5b1d36ef926a4a0354fcf449bb29",
+      "role": "Character identity, silhouette cues, recognizable clothing and accessories",
+      "pilot_crop": [
+        190,
+        82,
+        257,
+        191
+      ]
+    },
+    {
+      "id": "selected-nightfall-style",
+      "path": "survivors-sprite-concepts-abc.png",
+      "sha256": "137a9d381158fef978c0692c5ab7183ad6872b05c0c45ce0a495aeb6fabb0d2c",
+      "role": "Only the middle B / NIGHTFALL row is the approved style direction",
+      "style_crop": [
+        0,
+        375,
+        1536,
+        650
+      ],
+      "pilot_crop": [
+        370,
+        415,
+        520,
+        630
+      ]
+    },
+    {
+      "id": "generated-support",
+      "path": "survivors-nightfall-art/01-generated-roster.png",
+      "sha256": "fe2060ce5a21ac7a4786ca0bd0d0b98918bbc696ee70ffcd06bc76a739572a0f",
+      "role": "Supporting interpretation of all seven; does not replace the original or approved direction",
+      "pilot_crop": [
+        670,
+        195,
+        895,
+        555
+      ]
+    }
+  ],
+  "review_axes": [
+    "silhouette",
+    "proportions",
+    "palette",
+    "garment_identity",
+    "face_expression",
+    "rendering_style",
+    "motion_identity"
+  ],
+  "axis_verdicts": [
+    "pass",
+    "fail",
+    "unreviewed"
+  ],
+  "acceptance": "All axes must pass with concrete visual evidence for this exact artifact. Any fail or unreviewed axis blocks visual acceptance. Structural checks do not grant style acceptance."
+}

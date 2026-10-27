@@ -1,0 +1,1259 @@
+{
+  "status": "Research and vector prototypes. No production names, recipes, icons or abilities replaced.",
+  "researchDate": "2026-10-26",
+  "characters": [
+    {
+      "id": 0,
+      "key": "rm",
+      "handle": "Joonie / Joon",
+      "nickname": "Grove Scribe",
+      "alternatives": [
+        "Leaf Archivist",
+        "Parkside Scribe"
+      ],
+      "trinket": "Leaf Journal",
+      "attack": "Gathering Ink",
+      "innate": "Open Attention",
+      "innateTooltip": "Experience pickup radius +50%.",
+      "tooltip": "Ink fields pull enemies inward and repeatedly damage the chosen area.",
+      "feel": "Gather a scattered crowd into one deliberate composition.",
+      "mechanic": "Collected Thoughts",
+      "proposal": "A field that holds at least three enemies for 60 ticks releases one finishing pulse at 30% of its base damage. One pulse per field; the pulse cannot trigger itself.",
+      "state": "Per-field captured-enemy timer and one resolved flag.",
+      "priority": 4,
+      "desiredPassive": 8,
+      "study": "rm-jin.md",
+      "source": "https://magazine.weverse.io/article/view/639?artist=BTS&lang=en",
+      "nicknameSource": "https://www.wired.com/video/watch/google-autocomplete-interviews-bts-bangtansonyeondan-answer-the-webs-most-searched-questions",
+      "reference": "RM",
+      "weaponId": 20,
+      "currentAttack": "Indigo Composition",
+      "currentPassiveId": 8,
+      "currentPassive": "KOYA Focus",
+      "currentPassiveEffect": "Experience pickup radius +25% per rank.",
+      "recipeChanges": false,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "rm-trinket",
+      "attackIcon": "rm-attack"
+    },
+    {
+      "id": 1,
+      "key": "jin",
+      "handle": "Jinnie / Jjan",
+      "nickname": "Hearth Voyager",
+      "alternatives": [
+        "Starlit Cook",
+        "Ladle Voyager"
+      ],
+      "trinket": "Hearth Lantern",
+      "attack": "Hearth Orbit",
+      "innate": "Warm Welcome",
+      "innateTooltip": "Regenerate 1 health per second.",
+      "tooltip": "An orbiting light strikes nearby enemies and fires homing sparks.",
+      "feel": "Carry a small sense of home through hostile space.",
+      "mechanic": "Safe Return",
+      "proposal": "Every third completed familiar orbit releases one short outward knockback pulse. It grants no shield or invulnerability and does not heal beyond the existing innate.",
+      "state": "Owner-specific completed-orbit count; one pulse per third orbit.",
+      "priority": 6,
+      "desiredPassive": 11,
+      "study": "rm-jin.md",
+      "source": "https://magazine.weverse.io/article/view/571?artist=BTS&lang=en",
+      "nicknameSource": "https://www.wired.com/video/watch/google-autocomplete-interviews-bts-bangtansonyeondan-answer-the-webs-most-searched-questions",
+      "reference": "Jin",
+      "weaponId": 21,
+      "currentAttack": "Home Star",
+      "currentPassiveId": 10,
+      "currentPassive": "TATA Curiosity",
+      "currentPassiveEffect": "Luck +10% per rank, improving normal enemy gold and healing drops.",
+      "recipeChanges": true,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "jin-trinket",
+      "attackIcon": "jin-attack"
+    },
+    {
+      "id": 2,
+      "key": "suga",
+      "handle": "Yoongi",
+      "nickname": "Ash Pianist",
+      "alternatives": [
+        "Quiet Cinder",
+        "Cinder Pianist"
+      ],
+      "trinket": "Quiet Keys",
+      "attack": "Pressure Break",
+      "innate": "Quiet Power",
+      "innateTooltip": "Weapon damage +20%.",
+      "tooltip": "Throws a sound charge that explodes after a short delay.",
+      "feel": "Choose a dangerous moment of stillness, then release pressure.",
+      "mechanic": "Held Note",
+      "proposal": "Each 30 consecutive stationary simulation ticks stores one note, up to three. Movement resets the partial stillness timer but preserves earned notes. Regular automatic casts do not consume one or two notes. Once three are stored, the next starter cast consumes all three once for +75% damage on that cast. No storage during pause, menus or death; death clears the bank. No charge-input button.",
+      "state": "Per-player consecutive-stillness timer, capped note bank, and one consumed receipt per starter cast.",
+      "priority": 3,
+      "desiredPassive": 2,
+      "study": "suga-jhope.md",
+      "source": "https://magazine.weverse.io/article/view/819?lang=en",
+      "nicknameSource": "https://weverse.io/bts/fanletter/3-222972051",
+      "reference": "SUGA",
+      "weaponId": 14,
+      "currentAttack": "D-DAY Release",
+      "currentPassiveId": 2,
+      "currentPassive": "Gallery Lens",
+      "currentPassiveEffect": "Weapon and effect area +10% per rank.",
+      "recipeChanges": false,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "suga-trinket",
+      "attackIcon": "suga-attack"
+    },
+    {
+      "id": 3,
+      "key": "jhope",
+      "handle": "Hobi",
+      "nickname": "Sunlit Stepper",
+      "alternatives": [
+        "Daylight Freestyler",
+        "Pavement Spark"
+      ],
+      "trinket": "Street Sole",
+      "attack": "Afterbeat",
+      "innate": "Light Feet",
+      "innateTooltip": "Movement speed +15%.",
+      "tooltip": "Leaves beat marks at your position. They arm after a delay and pulse at nearby enemies.",
+      "feel": "Draw the fight with your route and let pursuers meet the delayed beat.",
+      "mechanic": "Footwork Trail",
+      "proposal": "Replace periodic placement with one mark per 40 world units traveled at baseline cooldown. Cooldown bonuses reduce this threshold with a 24-unit floor. Keep the existing first pulse at age 25 and later pulses every 45 ticks. Pending marks cannot be evicted before their first pulse. Bound the pending queue at eight per owner; when full, suppress placement and cap carried distance at one placement threshold. After a mark pulses, promote it to the armed pool. Start with three armed marks per owner; projectile-count bonuses raise that cap, up to eight. Evict only the oldest already-pulsed mark. Teleports add no trail distance.",
+      "state": "Per-player actual movement, bounded pending and armed mark queues, and first-pulse state. No client animation counter enters game logic.",
+      "priority": 1,
+      "desiredPassive": 5,
+      "study": "suga-jhope.md",
+      "source": "https://magazine.weverse.io/article/view/1308?lang=en",
+      "nicknameSource": "https://weverse.io/bts/live/2-159709015",
+      "reference": "j-hope",
+      "weaponId": 22,
+      "currentAttack": "Street Beat",
+      "currentPassiveId": 3,
+      "currentPassive": "Long Encore",
+      "currentPassiveEffect": "Weapon duration +15% per rank.",
+      "recipeChanges": true,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "jhope-trinket",
+      "attackIcon": "jhope-attack"
+    },
+    {
+      "id": 4,
+      "key": "jimin",
+      "handle": "Mimi / Mochi",
+      "nickname": "Swanward",
+      "alternatives": [
+        "Silk Pivot"
+      ],
+      "trinket": "Silver Fan",
+      "attack": "Silk Return",
+      "innate": "Poised Guard",
+      "innateTooltip": "Armor +1.",
+      "tooltip": "A silver fan flies out and returns through enemies.",
+      "feel": "Set up the outward arc and reposition for the return.",
+      "mechanic": "Reprise",
+      "proposal": "Outgoing hits mark enemies for that owner and cast. The same fan consumes its own marks on return for +30% damage once per marked enemy. Give the fan separate bounded outgoing and returning hit sets and pierce budgets, permitting at most one hit per enemy on each leg. The current lifetime-wide visited filter must change for this attack; adding marks alone is insufficient. Marks expire with the cast; other players and later casts cannot consume them.",
+      "state": "Owner/cast/enemy marks, separate per-leg hit ledgers and bounded pierce budgets, and one return-consumption flag per mark.",
+      "priority": 2,
+      "desiredPassive": 6,
+      "study": "jimin-v-jungkook.md",
+      "source": "https://magazine.weverse.io/article/view/56?lang=en",
+      "nicknameSource": "https://weverse.io/bts/fanpost/0-104434870",
+      "reference": "Jimin",
+      "weaponId": 8,
+      "currentAttack": "Mirror Fan",
+      "currentPassiveId": 10,
+      "currentPassive": "TATA Curiosity",
+      "currentPassiveEffect": "Luck +10% per rank, improving normal enemy gold and healing drops.",
+      "recipeChanges": true,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "jimin-trinket",
+      "attackIcon": "jimin-attack"
+    },
+    {
+      "id": 5,
+      "key": "v",
+      "handle": "TaeTae",
+      "nickname": "Sepia Wanderer",
+      "alternatives": [
+        "Nocturne Lens"
+      ],
+      "trinket": "Pocket Frame",
+      "attack": "Waking Frame",
+      "innate": "Loose Time",
+      "innateTooltip": "Weapon cooldown -10%.",
+      "tooltip": "Frames fire projectiles outward in several directions.",
+      "feel": "Leave an echo in a place you have already abandoned.",
+      "mechanic": "Double Exposure",
+      "proposal": "A radial cast leaves a frame at its cast origin. After 27 ticks, it emits one second volley rotated by half the original volley spacing at 50% base damage. The echo stays at the recorded origin and cannot create another echo.",
+      "state": "Bounded delayed cast event with owner, origin, angle, damage and a non-echo flag.",
+      "priority": 5,
+      "desiredPassive": 12,
+      "study": "jimin-v-jungkook.md",
+      "source": "https://magazine.weverse.io/article/view/436?lang=en",
+      "nicknameSource": "https://weverse.io/bts/fanpost/0-103714295",
+      "reference": "V",
+      "weaponId": 23,
+      "currentAttack": "Dream Frame",
+      "currentPassiveId": 12,
+      "currentPassive": "Golden Tempo",
+      "currentPassiveEffect": "Projectile speed +15% per rank.",
+      "recipeChanges": false,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "v-trinket",
+      "attackIcon": "v-attack"
+    },
+    {
+      "id": 6,
+      "key": "jk",
+      "handle": "Kookie / Koo",
+      "nickname": "Gilt Hare",
+      "alternatives": [
+        "Gilt Strider"
+      ],
+      "trinket": "Training Wrap",
+      "attack": "Forward Drive",
+      "innate": "Tempered Heart",
+      "innateTooltip": "Weapon damage +10%. Base maximum health: 125.",
+      "tooltip": "Fast gold streaks fire in your movement direction.",
+      "feel": "Keep a clean line through the crowd and earn a stronger follow-through.",
+      "mechanic": "Clean Combo",
+      "proposal": "Three successful starter-projectile hits within 120 ticks trigger one piercing straight punch at base starter damage. Each projectile earns at most one combo credit; the bonus punch earns none. Reset on expiry or death and keep counters per owner.",
+      "state": "Owner-specific three-hit counter, expiry tick and credited projectile identity.",
+      "priority": 7,
+      "desiredPassive": 12,
+      "study": "jimin-v-jungkook.md",
+      "source": "https://magazine.weverse.io/article/view/433?lang=en",
+      "nicknameSource": "https://weverse.io/bts/fanpost/4-122878021",
+      "reference": "Jung Kook",
+      "weaponId": 1,
+      "currentAttack": "Golden Rush",
+      "currentPassiveId": 12,
+      "currentPassive": "Golden Tempo",
+      "currentPassiveEffect": "Projectile speed +15% per rank.",
+      "recipeChanges": false,
+      "nicknameStatus": "UNKNOWN. Original candidate with limited exact-phrase collision screening, not registry clearance. Familiar handle is research reference, not a cleared recommendation.",
+      "trinketScope": "Proposed personal motif / innate symbol. Not a new inventory item or existing evolution partner.",
+      "newMechanicStatus": "PROPOSED, NOT IMPLEMENTED",
+      "trinketIcon": "jungkook-trinket",
+      "attackIcon": "jungkook-attack"
+    }
+  ],
+  "catalog": {
+    "characters": [
+      {
+        "id": 0,
+        "name": "RM",
+        "title": "Order in Chaos",
+        "description": "Pulling ink fields organize the crowd. Pickup radius +50%.",
+        "weapon": 20,
+        "color": "#7b98dc",
+        "cost": 0
+      },
+      {
+        "id": 1,
+        "name": "Jin",
+        "title": "Warm Astronaut",
+        "description": "An orbiting Home Star fires homing letters. Regenerates 1 health per second.",
+        "weapon": 21,
+        "color": "#f6ddba",
+        "cost": 250,
+        "condition": {
+          "stat": "kills",
+          "value": 100
+        },
+        "hint": "Defeat 100 enemies across your runs."
+      },
+      {
+        "id": 2,
+        "name": "SUGA",
+        "title": "Quiet Storm",
+        "description": "Delayed sound charges release a heavy burst. Might +20%.",
+        "weapon": 14,
+        "color": "#e65e64",
+        "cost": 500,
+        "condition": {
+          "stat": "survive",
+          "value": 120
+        },
+        "hint": "Survive for 2 minutes in a single run."
+      },
+      {
+        "id": 3,
+        "name": "j-hope",
+        "title": "Street Choreographer",
+        "description": "Leave delayed beat pulses for pursuers. Movement speed +15%.",
+        "weapon": 22,
+        "color": "#a5e38b",
+        "cost": 750,
+        "condition": {
+          "stat": "evolutions",
+          "value": 1
+        },
+        "hint": "Obtain a weapon evolution."
+      },
+      {
+        "id": 4,
+        "name": "Jimin",
+        "title": "Mirror Dancer",
+        "description": "A mirrored fan cuts outward and returns. Armor +1.",
+        "weapon": 8,
+        "color": "#f2b5d5",
+        "cost": 1000,
+        "condition": {
+          "stat": "bosskills",
+          "value": 2
+        },
+        "hint": "Defeat 2 bosses across your runs."
+      },
+      {
+        "id": 5,
+        "name": "V",
+        "title": "Dream Wanderer",
+        "description": "Dream frames fire in several directions. Weapon cooldown -10%.",
+        "weapon": 23,
+        "color": "#c58da4",
+        "cost": 1500,
+        "condition": {
+          "stat": "wins",
+          "value": 1
+        },
+        "hint": "Win a run."
+      },
+      {
+        "id": 6,
+        "name": "Jung Kook",
+        "title": "Golden All-rounder",
+        "description": "Fast gold streaks follow your movement. Might +10%; maximum health +25%.",
+        "weapon": 1,
+        "color": "#f4c861",
+        "cost": 2200,
+        "condition": {
+          "stat": "kills",
+          "value": 3000
+        },
+        "hint": "Defeat 3,000 enemies across your runs."
+      }
+    ],
+    "weapons": [
+      {
+        "id": 0,
+        "name": "Starlight Letter",
+        "evolvedName": "Constellation Letter",
+        "icon": "*",
+        "color": "#bedbff",
+        "description": "Homing letters seek the nearest enemy.",
+        "evolvedDescription": "Starlight Letter alternates with Spotlight Snap. Damage +120%; area +35%.",
+        "passive": 1,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 5,
+        "proposedName": "Guiding Letter",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Homing letters seek the nearest enemy.",
+        "proposedEvolvedName": "Guiding Constellation",
+        "proposedEvolvedDescription": "Alternates Guiding Letter with Stage Flash. Damage +120%; area +35%."
+      },
+      {
+        "id": 1,
+        "name": "Golden Rush",
+        "evolvedName": "Golden Overdrive",
+        "icon": ">",
+        "color": "#f4c861",
+        "description": "Fast gold streaks fire in your movement direction.",
+        "evolvedDescription": "Golden Rush alternates with Practice Line. Damage +120%; area +35%.",
+        "passive": 12,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 13,
+        "proposedName": "Forward Drive",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Fast gold streaks fire in your movement direction.",
+        "proposedEvolvedName": "Gilt Overdrive",
+        "proposedEvolvedDescription": "Alternates Forward Drive with Practice Thrust. Damage +120%; area +35%."
+      },
+      {
+        "id": 2,
+        "name": "Vinyl Arc",
+        "evolvedName": "Midnight Rotation",
+        "icon": "O",
+        "color": "#b99970",
+        "description": "Heavy records arc through approaching enemies.",
+        "evolvedDescription": "Vinyl Arc alternates with Shadow Verse. Damage +120%; area +35%.",
+        "passive": 2,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 15,
+        "proposedName": "Vinyl Arc",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Throws records in an arc through enemies.",
+        "proposedEvolvedName": "Midnight Rotation",
+        "proposedEvolvedDescription": "Alternates Vinyl Arc with Shadow Verse. Damage +120%; area +35%."
+      },
+      {
+        "id": 3,
+        "name": "Moon Orbit",
+        "evolvedName": "Astronaut Halo",
+        "icon": "o",
+        "color": "#d8d1fa",
+        "description": "Moon discs orbit you and strike nearby enemies.",
+        "evolvedDescription": "Moon Orbit alternates with Dream Frame. Damage +120%; area +35%.",
+        "passive": 4,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 23,
+        "proposedName": "Moon Orbit",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Moon discs orbit you and damage nearby enemies.",
+        "proposedEvolvedName": "Lunar Parade",
+        "proposedEvolvedDescription": "Alternates Moon Orbit with Waking Frame. Damage +120%; area +35%."
+      },
+      {
+        "id": 4,
+        "name": "Warm Hearth",
+        "evolvedName": "Homecoming Glow",
+        "icon": "+",
+        "color": "#ffe5ba",
+        "description": "A warm close aura burns approaching enemies.",
+        "evolvedDescription": "Warm Hearth alternates with Leaf Orbit. Damage +120%; area +35%.",
+        "passive": 11,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 19,
+        "proposedName": "Hearth Glow",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Damages enemies in a small aura around you.",
+        "proposedEvolvedName": "Homecoming Glow",
+        "proposedEvolvedDescription": "Alternates Hearth Glow with Garden Orbit. Damage +120%; area +35%."
+      },
+      {
+        "id": 5,
+        "name": "Spotlight Snap",
+        "evolvedName": "Stage Thunder",
+        "icon": "!",
+        "color": "#d2afff",
+        "description": "Targeted spotlights strike enemies across the arena.",
+        "evolvedDescription": "Spotlight Snap alternates with Starlight Letter. Damage +120%; area +35%.",
+        "passive": 4,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 0,
+        "proposedName": "Stage Flash",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Places short-lived strikes at targeted enemy positions.",
+        "proposedEvolvedName": "Stage Thunder",
+        "proposedEvolvedDescription": "Alternates Stage Flash with Guiding Letter. Damage +120%; area +35%."
+      },
+      {
+        "id": 6,
+        "name": "Red Verse",
+        "evolvedName": "Agust Inferno",
+        "icon": "*",
+        "color": "#ed6972",
+        "description": "Burning verses pierce enemy formations.",
+        "evolvedDescription": "Red Verse alternates with Astronaut Comet. Damage +120%; area +35%.",
+        "passive": 0,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 17,
+        "proposedName": "Burning Verse",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Fires piercing verses that burn enemies.",
+        "proposedEvolvedName": "Cinder Canticle",
+        "proposedEvolvedDescription": "Alternates Burning Verse with Homeward Comet. Damage +120%; area +35%."
+      },
+      {
+        "id": 7,
+        "name": "Indigo Rain",
+        "evolvedName": "Namjooning Rain",
+        "icon": "~",
+        "color": "#86adc9",
+        "description": "Ink rain leaves damaging pools at selected locations.",
+        "evolvedDescription": "Indigo Rain alternates with Indigo Composition. Damage +120%; area +35%.",
+        "passive": 3,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 20,
+        "proposedName": "Ink Rain",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Creates persistent damaging ink pools.",
+        "proposedEvolvedName": "Collected Rain",
+        "proposedEvolvedDescription": "Alternates Ink Rain with Gathering Ink. Damage +120%; area +35%."
+      },
+      {
+        "id": 8,
+        "name": "Mirror Fan",
+        "evolvedName": "MUSE Reflection",
+        "icon": "/",
+        "color": "#f2b5d5",
+        "description": "A mirrored fan flies out and returns through pursuers.",
+        "evolvedDescription": "Mirror Fan alternates with Poem Fragment. Damage +120%; area +35%.",
+        "passive": 10,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 9,
+        "proposedName": "Silk Return",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "A silver fan flies out and returns through enemies.",
+        "proposedEvolvedName": "Silver Reprise",
+        "proposedEvolvedDescription": "Alternates Silk Return with Scattered Lines. Damage +120%; area +35%."
+      },
+      {
+        "id": 9,
+        "name": "Poem Fragment",
+        "evolvedName": "Indigo Manuscript",
+        "icon": "A",
+        "color": "#96a9e5",
+        "description": "Fragments of a poem appear around you as damaging fields.",
+        "evolvedDescription": "Poem Fragment alternates with Dream Frame. Damage +120%; area +35%.",
+        "passive": 3,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 23,
+        "proposedName": "Scattered Lines",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Creates damaging paper fields around you.",
+        "proposedEvolvedName": "Living Manuscript",
+        "proposedEvolvedDescription": "Alternates Scattered Lines with Waking Frame. Damage +120%; area +35%."
+      },
+      {
+        "id": 10,
+        "name": "Quiet Reflection",
+        "evolvedName": "FACE Stillness",
+        "icon": "|",
+        "color": "#c2e7ed",
+        "description": "Aimed mirror shards slow approaching enemies.",
+        "evolvedDescription": "Quiet Reflection alternates with Spotlight Snap. Damage +120%; area +35%.",
+        "passive": 1,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 5,
+        "proposedName": "Quiet Reflection",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Fires aimed mirror shards that slow enemies on hit.",
+        "proposedEvolvedName": "Stillwater Glass",
+        "proposedEvolvedDescription": "Alternates Quiet Reflection with Stage Flash. Damage +120%; area +35%."
+      },
+      {
+        "id": 11,
+        "name": "Final Bow",
+        "evolvedName": "Encore Sky",
+        "icon": "*",
+        "color": "#f9e9af",
+        "description": "An infrequent stage flash strikes every visible enemy.",
+        "evolvedDescription": "Final Bow alternates with Astronaut Comet. Damage +120%; area +35%.",
+        "passive": 9,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 17,
+        "proposedName": "Curtain Flash",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "An infrequent flash damages enemies across a large area.",
+        "proposedEvolvedName": "Encore Sky",
+        "proposedEvolvedDescription": "Alternates Curtain Flash with Homeward Comet. Damage +120%; area +35%."
+      },
+      {
+        "id": 12,
+        "name": "Ribbon Sweep",
+        "evolvedName": "Silk Crescendo",
+        "icon": "~",
+        "color": "#eaa5bc",
+        "description": "A broad ribbon strike sweeps the ground ahead.",
+        "evolvedDescription": "Ribbon Sweep alternates with Warm Hearth. Damage +120%; area +35%.",
+        "passive": 7,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 4,
+        "proposedName": "Ribbon Sweep",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Sweeps a wide ribbon through enemies ahead of you.",
+        "proposedEvolvedName": "Silk Crescendo",
+        "proposedEvolvedDescription": "Alternates Ribbon Sweep with Hearth Glow. Damage +120%; area +35%."
+      },
+      {
+        "id": 13,
+        "name": "Practice Line",
+        "evolvedName": "Perfect Take",
+        "icon": ">",
+        "color": "#f1d894",
+        "description": "Long gold thrusts strike along your movement direction.",
+        "evolvedDescription": "Practice Line alternates with Mirror Fan. Damage +120%; area +35%.",
+        "passive": 12,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 8,
+        "proposedName": "Practice Thrust",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Thrusts a long gold strike in your movement direction.",
+        "proposedEvolvedName": "Perfect Take",
+        "proposedEvolvedDescription": "Alternates Practice Thrust with Silk Return. Damage +120%; area +35%."
+      },
+      {
+        "id": 14,
+        "name": "D-DAY Release",
+        "evolvedName": "Agust Storm",
+        "icon": "!",
+        "color": "#e65e64",
+        "description": "A thrown sound charge detonates after a delay and damages an area.",
+        "evolvedDescription": "D-DAY Release alternates with Astronaut Comet. Damage +120%; area +35%.",
+        "passive": 2,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 17,
+        "proposedName": "Pressure Break",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Throws a sound charge that explodes after a short delay.",
+        "proposedEvolvedName": "Pressure Storm",
+        "proposedEvolvedDescription": "Alternates Pressure Break with Homeward Comet. Damage +120%; area +35%."
+      },
+      {
+        "id": 15,
+        "name": "Shadow Verse",
+        "evolvedName": "Daechwita Echo",
+        "icon": "/",
+        "color": "#c3b5d6",
+        "description": "Heavy radial sound blades slice through enemy formations.",
+        "evolvedDescription": "Shadow Verse alternates with Vinyl Arc. Damage +120%; area +35%.",
+        "passive": 0,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 2,
+        "proposedName": "Shadow Verse",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Fires piercing sound blades in several directions.",
+        "proposedEvolvedName": "Night Resonance",
+        "proposedEvolvedDescription": "Alternates Shadow Verse with Vinyl Arc. Damage +120%; area +35%."
+      },
+      {
+        "id": 16,
+        "name": "SHOOKY Mischief",
+        "evolvedName": "Cookie Chorus",
+        "icon": "o",
+        "color": "#d0a373",
+        "description": "Homing cookie sparks chase nearby enemies.",
+        "evolvedDescription": "SHOOKY Mischief alternates with Red Verse. Damage +120%; area +35%.",
+        "passive": 4,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 6,
+        "proposedName": "Mischief Crumb",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Homing crumbs chase nearby enemies.",
+        "proposedEvolvedName": "Crumb Chorus",
+        "proposedEvolvedDescription": "Alternates Mischief Crumb with Burning Verse. Damage +120%; area +35%."
+      },
+      {
+        "id": 17,
+        "name": "Astronaut Comet",
+        "evolvedName": "Homeward Meteor",
+        "icon": "*",
+        "color": "#ffd5ab",
+        "description": "Falling comets explode among enemy clusters.",
+        "evolvedDescription": "Astronaut Comet alternates with D-DAY Release. Damage +120%; area +35%.",
+        "passive": 2,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 14,
+        "proposedName": "Homeward Comet",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Drops comets that explode after a short delay.",
+        "proposedEvolvedName": "Homeward Meteor",
+        "proposedEvolvedDescription": "Alternates Homeward Comet with Pressure Break. Damage +120%; area +35%."
+      },
+      {
+        "id": 18,
+        "name": "Stage Beam",
+        "evolvedName": "Golden Spotlight",
+        "icon": "|",
+        "color": "#fff0aa",
+        "description": "A long stage beam strikes enemies along a line.",
+        "evolvedDescription": "Stage Beam alternates with Poem Fragment. Damage +120%; area +35%.",
+        "passive": 3,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 9,
+        "proposedName": "Spotlight Lance",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Fires a fast piercing beam along a line.",
+        "proposedEvolvedName": "Gilt Spotlight",
+        "proposedEvolvedDescription": "Alternates Spotlight Lance with Scattered Lines. Damage +120%; area +35%."
+      },
+      {
+        "id": 19,
+        "name": "Leaf Orbit",
+        "evolvedName": "Museum Garden",
+        "icon": "+",
+        "color": "#94b89a",
+        "description": "Orbiting leaves defend the space close to you.",
+        "evolvedDescription": "Leaf Orbit alternates with Warm Hearth. Damage +120%; area +35%.",
+        "passive": 6,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 4,
+        "proposedName": "Garden Orbit",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Leaves orbit you and damage nearby enemies.",
+        "proposedEvolvedName": "Museum Garden",
+        "proposedEvolvedDescription": "Alternates Garden Orbit with Hearth Glow. Damage +120%; area +35%."
+      },
+      {
+        "id": 20,
+        "name": "Indigo Composition",
+        "evolvedName": "Order in Chaos",
+        "icon": "O",
+        "color": "#7b98dc",
+        "description": "Ink fields pull enemies inward and repeatedly damage the chosen area.",
+        "evolvedDescription": "Indigo Composition alternates with Moon Orbit. Damage +120%; area +35%.",
+        "passive": 8,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 3,
+        "proposedName": "Gathering Ink",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Ink fields pull enemies inward and repeatedly damage the chosen area.",
+        "proposedEvolvedName": "Quiet Composition",
+        "proposedEvolvedDescription": "Alternates Gathering Ink with Moon Orbit. Damage +120%; area +35%."
+      },
+      {
+        "id": 21,
+        "name": "Home Star",
+        "evolvedName": "RJ Constellation",
+        "icon": "*",
+        "color": "#f6ddba",
+        "description": "An RJ-inspired orbiting star strikes nearby enemies and launches homing letters.",
+        "evolvedDescription": "Orbiting Home Stars launch homing letters and add targeted slowing spotlights. Damage +120%; area +35%.",
+        "passive": 10,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 5,
+        "proposedName": "Hearth Orbit",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "An orbiting light strikes nearby enemies and fires homing sparks.",
+        "proposedEvolvedName": "Traveling Hearth",
+        "proposedEvolvedDescription": "Orbiting lights fire homing sparks and add targeted slowing strikes. Damage +120%; area +35%."
+      },
+      {
+        "id": 22,
+        "name": "Street Beat",
+        "evolvedName": "HOPE Block Party",
+        "icon": "x",
+        "color": "#a5e38b",
+        "description": "Leaves beat marks at your position. They arm after a delay and pulse at pursuers.",
+        "evolvedDescription": "Street Beat alternates with Indigo Composition. Damage +120%; area +35%.",
+        "passive": 3,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 20,
+        "proposedName": "Afterbeat",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Leaves beat marks at your position. They arm after a delay and pulse at nearby enemies.",
+        "proposedEvolvedName": "Street Crescendo",
+        "proposedEvolvedDescription": "Alternates Afterbeat with Gathering Ink. Damage +120%; area +35%."
+      },
+      {
+        "id": 23,
+        "name": "Dream Frame",
+        "evolvedName": "TATA Dreamscape",
+        "icon": "+",
+        "color": "#c58da4",
+        "description": "Surreal frames send projectiles outward in several directions.",
+        "evolvedDescription": "Dream Frame alternates with Spotlight Snap. Damage +120%; area +35%.",
+        "passive": 12,
+        "maxLevel": 8,
+        "evolutionRequires": {
+          "weaponLevel": 8,
+          "passiveLevel": 1
+        },
+        "evolutionSecondary": 5,
+        "proposedName": "Waking Frame",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Frames fire projectiles outward in several directions.",
+        "proposedEvolvedName": "Waking Gallery",
+        "proposedEvolvedDescription": "Alternates Waking Frame with Stage Flash. Damage +120%; area +35%."
+      }
+    ],
+    "passives": [
+      {
+        "id": 0,
+        "name": "GOLDEN Drive",
+        "icon": "+",
+        "description": "All weapon damage +10% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Drive Weight",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "All weapon damage +10% per rank."
+      },
+      {
+        "id": 1,
+        "name": "Beat Clock",
+        "icon": "o",
+        "description": "Attack cooldown -7% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Pocket Metronome",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Attack cooldown -7% per rank."
+      },
+      {
+        "id": 2,
+        "name": "Gallery Lens",
+        "icon": "O",
+        "description": "Weapon and effect area +10% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Wideglass Lens",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Weapon and effect area +10% per rank."
+      },
+      {
+        "id": 3,
+        "name": "Long Encore",
+        "icon": "~",
+        "description": "Weapon duration +15% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Silk Spool",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Weapon duration +15% per rank."
+      },
+      {
+        "id": 4,
+        "name": "Harmony Split",
+        "icon": "Y",
+        "description": "One additional projectile per rank.",
+        "maxLevel": 5,
+        "proposedName": "Split Fork",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "One additional projectile per rank."
+      },
+      {
+        "id": 5,
+        "name": "Dance Sneakers",
+        "icon": ">",
+        "description": "Movement speed +10% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Street Soles",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Movement speed +10% per rank."
+      },
+      {
+        "id": 6,
+        "name": "Mirror Guard",
+        "icon": "#",
+        "description": "Reduces incoming damage by 1 per rank.",
+        "maxLevel": 5,
+        "proposedName": "Lacquer Guard",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Reduces incoming damage by 1 per rank."
+      },
+      {
+        "id": 7,
+        "name": "Warm Heart",
+        "icon": "+",
+        "description": "Maximum health +20% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Hearth Locket",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Maximum health +20% per rank."
+      },
+      {
+        "id": 8,
+        "name": "KOYA Focus",
+        "icon": "O",
+        "description": "Experience pickup radius +25% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Pressed Leaf",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Experience pickup radius +25% per rank."
+      },
+      {
+        "id": 9,
+        "name": "Lyric Notebook",
+        "icon": "A",
+        "description": "Experience gained +10% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Field Notebook",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Experience gained +10% per rank."
+      },
+      {
+        "id": 10,
+        "name": "TATA Curiosity",
+        "icon": "?",
+        "description": "Luck +10% per rank, improving normal enemy gold and healing drops.",
+        "maxLevel": 5,
+        "proposedName": "Odd Die",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Luck +10% per rank, improving normal enemy gold and healing drops."
+      },
+      {
+        "id": 11,
+        "name": "RJ Comfort",
+        "icon": "+",
+        "description": "Regenerates 1 health per second per rank.",
+        "maxLevel": 5,
+        "proposedName": "Travel Mug",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Regenerates 1 health per second per rank."
+      },
+      {
+        "id": 12,
+        "name": "Golden Tempo",
+        "icon": ">",
+        "description": "Projectile speed +15% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Flight Feather",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Projectile speed +15% per rank."
+      },
+      {
+        "id": 13,
+        "name": "Second Encore",
+        "icon": "8",
+        "description": "One additional full-health revival per rank.",
+        "maxLevel": 5,
+        "proposedName": "Spare Wick",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "One additional full-health revival per rank."
+      },
+      {
+        "id": 14,
+        "name": "Jack in the Box",
+        "icon": "!",
+        "description": "Enemy health and count +10% per rank; experience and gold +10% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Restless Box",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Enemy health and count +10% per rank; experience and gold +10% per rank."
+      },
+      {
+        "id": 15,
+        "name": "Platinum Record",
+        "icon": "O",
+        "description": "Gold gained +15% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Gilt Record",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Gold gained +15% per rank."
+      },
+      {
+        "id": 16,
+        "name": "Bass Pulse",
+        "icon": ">",
+        "description": "Enemy knockback +15% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Bass Cabinet",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Enemy knockback +15% per rank."
+      },
+      {
+        "id": 17,
+        "name": "Home Cooking",
+        "icon": "+",
+        "description": "Healing from pickups and regeneration +20% per rank.",
+        "maxLevel": 5,
+        "proposedName": "Steam Bowl",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Healing from pickups and regeneration +20% per rank."
+      }
+    ],
+    "arcana": [
+      {
+        "id": 0,
+        "name": "FACE of Glass",
+        "icon": "/",
+        "description": "Might +35%, maximum health -30%.",
+        "proposedName": "Glass Resolve",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Might +35%, maximum health -30%."
+      },
+      {
+        "id": 1,
+        "name": "Street Metronome",
+        "icon": "o",
+        "description": "Attack cooldown -20%, area -15%.",
+        "proposedName": "Street Metronome",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Attack cooldown -20%, area -15%."
+      },
+      {
+        "id": 2,
+        "name": "Indigo Gallery",
+        "icon": "O",
+        "description": "Area +35%, movement speed -15%.",
+        "proposedName": "Open Gallery",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Area +35%, movement speed -15%."
+      },
+      {
+        "id": 3,
+        "name": "Duet Reflection",
+        "icon": "Y",
+        "description": "Projectile count +1, attack cooldown +15%.",
+        "proposedName": "Duet Reflection",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Projectile count +1, attack cooldown +15%."
+      },
+      {
+        "id": 4,
+        "name": "Mirror Resolve",
+        "icon": "#",
+        "description": "Armor +3, might -15%. Taking damage releases protective orbiting leaves, even without Leaf Orbit equipped.",
+        "synergy": {
+          "kind": "retaliation",
+          "weapons": [
+            19
+          ],
+          "requiresOwned": false
+        },
+        "proposedName": "Mirror Resolve",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Armor +3, might -15%. Taking damage releases protective orbiting leaves, even without Leaf Orbit equipped."
+      },
+      {
+        "id": 5,
+        "name": "Unwritten Verse",
+        "icon": "A",
+        "description": "Experience +30%; enemy health and count +20%. Poem Fragment and Final Bow gain 20% damage, plus 5% per Jack in the Box rank.",
+        "synergy": {
+          "kind": "curseDamage",
+          "weapons": [
+            9,
+            11
+          ],
+          "passive": 14
+        },
+        "proposedName": "Unwritten Verse",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Experience +30%; enemy health and count +20%. Poem Fragment and Final Bow gain 20% damage, plus 5% per Jack in the Box rank."
+      },
+      {
+        "id": 6,
+        "name": "Cosmic Hospitality",
+        "icon": "+",
+        "description": "Pickup radius +100%, gold +25%.",
+        "proposedName": "Cosmic Hospitality",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Pickup radius +100%, gold +25%."
+      },
+      {
+        "id": 7,
+        "name": "D-DAY Ember",
+        "icon": "!",
+        "description": "Duration +50%, projectile speed -20%. Burns last twice as long and deal double damage per tick.",
+        "synergy": {
+          "kind": "burn",
+          "weapons": [
+            6,
+            17
+          ],
+          "durationMultiplier": 2,
+          "damageMultiplier": 2
+        },
+        "proposedName": "Banked Ember",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Duration +50%, projectile speed -20%. Burns last twice as long and deal double damage per tick."
+      },
+      {
+        "id": 8,
+        "name": "Golden Trajectory",
+        "icon": ">",
+        "description": "Projectile speed +50%, might +15%. Traveling projectiles ricochet from the world boundary.",
+        "synergy": {
+          "kind": "ricochet",
+          "weapons": [
+            0,
+            1,
+            2,
+            6,
+            8,
+            10,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            23
+          ]
+        },
+        "proposedName": "Gilt Trajectory",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Projectile speed +50%, might +15%. Traveling projectiles ricochet from the world boundary."
+      },
+      {
+        "id": 9,
+        "name": "Namjooning",
+        "icon": "+",
+        "description": "Regenerates 2 health per second; maximum health +25%. With Warm Hearth or Leaf Orbit equipped, kills on periodic life-steal pulses restore 1 health each.",
+        "synergy": {
+          "kind": "killHealing",
+          "weapons": [
+            4,
+            19
+          ],
+          "healthPerKill": 2
+        },
+        "proposedName": "Garden Rest",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Regenerates 2 health per second; maximum health +25%. With Warm Hearth or Leaf Orbit equipped, kills on periodic life-steal pulses restore 1 health each."
+      },
+      {
+        "id": 10,
+        "name": "Hopeful Footwork",
+        "icon": ">",
+        "description": "Movement speed +30%, healing received +30%.",
+        "proposedName": "Hopeful Footwork",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Movement speed +30%, healing received +30%."
+      },
+      {
+        "id": 11,
+        "name": "Composition of Wind",
+        "icon": "~",
+        "description": "Knockback +75%, area +15%. Vortex pull strength increases from 3 to 7.",
+        "synergy": {
+          "kind": "pull",
+          "weapons": [
+            20
+          ],
+          "baseStrength": 3,
+          "strength": 7
+        },
+        "proposedName": "Composition of Wind",
+        "nameStatus": "Working wording. No trademark clearance.",
+        "proposedDescription": "Knockback +75%, area +15%. Vortex pull strength increases from 3 to 7."
+      }
+    ]
+  },
+  "priority": [
+    "jhope",
+    "jimin",
+    "suga",
+    "rm",
+    "v",
+    "jin",
+    "jk"
+  ],
+  "namingLimits": {
+    "noTrademarkClearance": true,
+    "fanRecognitionUntested": true,
+    "knownCommercialCollision": {
+      "Joonie": "https://www.joonie.kr/"
+    },
+    "guidance": [
+      "https://www.uspto.gov/trademarks/search/comprehensive-clearance-search-similar-trademarks",
+      "https://www.wipo.int/en/web/global-brand-database/index"
+    ],
+    "rejectedOriginalCandidates": [
+      "Petalguard: existing software and game",
+      "Velvet Drifter: existing musician",
+      "Giltbound: existing game character",
+      "Velvet Aperture: existing photography business",
+      "Sidewalk Sun: existing music release",
+      "Quiet Curator: existing retail collection"
+    ]
+  },
+  "wordingAudit": [
+    {
+      "key": "arcana/9",
+      "finding": "Current text and game.bend heal 1 base health per qualifying pulse kill; catalog synergy.healthPerKill says 2. Preserve the correct text and fix metadata in a separate verified content change.",
+      "source": "examples/survivors/game.bend:882",
+      "state": "Recorded, not changed by this study."
+    }
+  ],
+  "updatedDate": "2026-10-27",
+  "mechanicReview": {
+    "status": "No remaining blockers for authoring study; proposed mechanics remain unimplemented",
+    "resolved": [
+      "Protected pending trail marks before first pulse",
+      "Separate per-leg fan hit ledgers and finite budgets",
+      "Held Note consumes only a full three-note bank"
+    ],
+    "playtestQuestions": [
+      "Footwork maximum-speed field density and damage",
+      "Reprise total damage with separate leg budgets",
+      "Held Note short-pause accumulation feel"
+    ]
+  }
+}

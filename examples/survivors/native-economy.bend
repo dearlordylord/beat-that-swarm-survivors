@@ -5,6 +5,7 @@
 # Call begin for every new run, then record exactly at a terminal observation.
 import Base
 import native-content-policy.bend as C
+import character-policy.bend as CP
 
 type Profile is Data: Profile{values: List<&2,U32>,lastSeed: U32,settled: Bool}
 def choose(test: Bool,yes: Profile,no: Profile) -> Profile:
@@ -59,7 +60,7 @@ def weapon_allowed(+profile: Profile,id: U32) -> Bool:
 def allowed(+profile: Profile,+category: U32,+id: U32) -> Bool:
   match category:
     case 0: Bool.and(U32.is_lt(id,24),weapon_allowed(profile,id))
-    case 2: Bool.and(U32.is_lt(id,8),has(get(profile,11),id))
+    case 2: Bool.and(CP.valid(id),has(get(profile,11),id))
     case 3: Bool.and(U32.is_lt(id,5),has(get(profile,12),id))
     case 9: Bool.and(U32.is_lt(id,4),met(profile,category,id))
     case _: True{}
@@ -89,12 +90,12 @@ def qualifies(+profile: Profile,id: U32) -> Bool:
     case 11: Bool.and(U32.is_ge(get(profile,24),12),True{})
     case 12: Bool.and(U32.is_ge(get(profile,25),20),True{})
     case 13: Bool.and(U32.is_ge(get(profile,25),50),True{})
-    case 14: Bool.and(U32.is_ge(get(profile,26),8),True{})
+    case 14: Bool.and(U32.is_ge(get(profile,26),CP.count()),True{})
     case 15: Bool.and(U32.is_ge(get(profile,27),5),True{})
     case 16: Bool.and(U32.is_ge(get(profile,28),24),True{})
     case 17: Bool.and(U32.is_ge(get(profile,29),1),True{})
     case 18: Bool.and(U32.is_ge(get(profile,30),20),True{})
-    case 19: Bool.and(U32.is_ge(get(profile,31),8),True{})
+    case 19: Bool.and(U32.is_ge(get(profile,31),CP.count()),True{})
     case _: False{}
 def award_go(n: Nat,+id: U32,+profile: Profile) -> Profile:
   match n:

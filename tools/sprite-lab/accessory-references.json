@@ -1,0 +1,37 @@
+[
+  {
+    "name": "koya",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/koya.gif",
+    "sha256": "89aac1f32909556076efa01cd441c97f761f577b3a71d796d9265a972d6de1cd"
+  },
+  {
+    "name": "rj",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/rj.gif",
+    "sha256": "bf9a591475990bbf16b5ec93c4be46e61d8f8687a4c2f6efd558ae35827e2173"
+  },
+  {
+    "name": "shooky",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/shooky.gif",
+    "sha256": "bb2f2e4711a4b626d33fe6eb778571475f18b90d05b08bd35116f5f067bc931c"
+  },
+  {
+    "name": "mang",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/mang.gif",
+    "sha256": "a69e97aadf3be571b8effce25097d598bfd1072987a81e12288c67fa28a1ac9f"
+  },
+  {
+    "name": "chimmy",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/chimmy.gif",
+    "sha256": "bebf48a5c644c6cab39158cff22658479852adaf5b6b85122abf8865997b419f"
+  },
+  {
+    "name": "tata",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/tata.gif",
+    "sha256": "7182f5ff7e8e1612fbc3bcc0f370cacccc4ab9cdd00aff62da6235d36d9a7ada"
+  },
+  {
+    "name": "cooky",
+    "url": "https://cdn-bt21.line-scdn.net/img/character/bt21/cooky.gif",
+    "sha256": "d93e2cc3ce395c36c0b9c78b2be3b6065147e3c522fcf78b32ec9fc6a8053d41"
+  }
+]

@@ -506,7 +506,7 @@ def set_profile_stat(+profile: Progress,+key: Stat,+value: A.Amount) -> Progress
 def add_stat(+profile: Progress,+key: Stat,+value: A.Amount) -> Progress: set_profile_stat(profile,key,A.add(stat(key,progress_stats(profile)),value))
 def max_stat(+profile: Progress,+key: Stat,+value: A.Amount) -> Progress: set_profile_stat(profile,key,A.maximum(stat(key,progress_stats(profile)),value))
 def refresh_counts(+profile: Progress) -> Progress:
-  set_profile_stat(set_profile_stat(profile,Characters{},A.natural(List.length(&2,U32,progress_characters(profile)))),Stages{},A.natural(List.length(&2,U32,progress_stages(profile))))
+  set_profile_stat(set_profile_stat(set_profile_stat(profile,Characters{},A.natural(List.length(&2,U32,progress_characters(profile)))),Stages{},A.natural(List.length(&2,U32,progress_stages(profile)))),CharacterWins{},A.natural(List.length(&2,U32,progress_wonCharacters(profile))))
 def purchase_ok(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Progress:
   award(refresh_counts(add_owned(set_gold(profile,A.subtract(progress_gold(profile),unlock_cost(unlock_item(kind,catalog,id)))),kind,id)),catalog)
 def purchase(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> Maybe<&2,Progress>: purchase_decided(purchase_admitted(profile,kind,id,catalog),purchase_ok(profile,kind,id,catalog))
@@ -535,7 +535,7 @@ def normalize_collection(+collection: Collection) -> Collection:
   match collection:
     case Collection{weapons,evolutions,enemies}: Collection{unique_ids(weapons,[]),unique_ids(evolutions,[]),unique_ids(enemies,[])}
 def normalize(+profile: Progress,+catalog: Catalog) -> Progress:
-  Progress{A.whole(progress_gold(profile)),normalize_meta(catalog_upgrades(catalog),progress_meta(profile),0n),valid_catalog_ids(progress_characters(profile),catalog_characters(catalog),[0]),valid_catalog_ids(progress_stages(profile),catalog_stages(catalog),[0]),progress_achievements(profile),progress_stats(profile),normalize_collection(progress_collection(profile)),valid_relics(progress_stageRelics(profile),[]),progress_wonCharacters(profile),progress_recorded(profile)}
+  refresh_counts(Progress{A.whole(progress_gold(profile)),normalize_meta(catalog_upgrades(catalog),progress_meta(profile),0n),valid_catalog_ids(progress_characters(profile),catalog_characters(catalog),[0]),valid_catalog_ids(progress_stages(profile),catalog_stages(catalog),[0]),progress_achievements(profile),progress_stats(profile),normalize_collection(progress_collection(profile)),valid_relics(progress_stageRelics(profile),[]),valid_catalog_ids(progress_wonCharacters(profile),catalog_characters(catalog),[]),progress_recorded(profile)})
 def setup_id(+profile: Progress,+kind: SelectionKind,+id: U32,+catalog: Catalog) -> U32: Bool.pick(U32,Bool.and(catalog_member(kind,id,catalog),unlocked(profile,kind,id,catalog)),id,0)
 def validate_setup(+profile: Progress,+setup: Setup,+catalog: Catalog) -> Setup:
   Setup{setup_id(profile,Character{},setup_character(setup),catalog),setup_id(profile,Stage{},setup_stage(setup),catalog),Bool.pick(U32,contains_id(catalog_arcana(catalog),setup_arcana(setup)),setup_arcana(setup),0),setup_id(profile,Mode{},setup_mode(setup),catalog)}

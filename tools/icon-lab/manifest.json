@@ -1,0 +1,139 @@
+{
+  "status": "A filled independently recommended; not user-selected or production-integrated",
+  "canvas": 32,
+  "safeArea": 2,
+  "strokeWidth": 2,
+  "renderSizes": [
+    16,
+    20,
+    24,
+    32
+  ],
+  "styles": {
+    "a": "Filled objects",
+    "b": "Etched objects"
+  },
+  "heroes": [
+    {
+      "id": 0,
+      "key": "rm",
+      "displayName": "RM",
+      "icons": {
+        "trinket": {
+          "key": "rm-trinket",
+          "label": "Pressed Leaf",
+          "intent": "A pressed leaf inside a bound notebook."
+        },
+        "attack": {
+          "key": "rm-attack",
+          "label": "Gathering Ink",
+          "intent": "An ink field draws inward around a written frame."
+        }
+      }
+    },
+    {
+      "id": 1,
+      "key": "jin",
+      "displayName": "Jin",
+      "icons": {
+        "trinket": {
+          "key": "jin-trinket",
+          "label": "Hearth Lantern",
+          "intent": "A carried lantern with a crescent-shaped light."
+        },
+        "attack": {
+          "key": "jin-attack",
+          "label": "Hearth Orbit",
+          "intent": "A warm orbiting body and comet trail."
+        }
+      }
+    },
+    {
+      "id": 2,
+      "key": "suga",
+      "displayName": "SUGA",
+      "icons": {
+        "trinket": {
+          "key": "suga-trinket",
+          "label": "Quiet Keys",
+          "intent": "A miniature piano-key charm with a red pressure core."
+        },
+        "attack": {
+          "key": "suga-attack",
+          "label": "Pressure Break",
+          "intent": "A split key releases its contained pressure."
+        }
+      }
+    },
+    {
+      "id": 3,
+      "key": "jhope",
+      "displayName": "j-hope",
+      "icons": {
+        "trinket": {
+          "key": "jhope-trinket",
+          "label": "Street Sole",
+          "intent": "An unbranded dance sneaker."
+        },
+        "attack": {
+          "key": "jhope-attack",
+          "label": "Afterbeat",
+          "intent": "A planted sole leaves a delayed pulse on the floor."
+        }
+      }
+    },
+    {
+      "id": 4,
+      "key": "jimin",
+      "displayName": "Jimin",
+      "icons": {
+        "trinket": {
+          "key": "jimin-trinket",
+          "label": "Silver Fan",
+          "intent": "A folding fan with a silver handle."
+        },
+        "attack": {
+          "key": "jimin-attack",
+          "label": "Silk Return",
+          "intent": "A returning fan traces a turning arc."
+        }
+      }
+    },
+    {
+      "id": 5,
+      "key": "v",
+      "displayName": "V",
+      "icons": {
+        "trinket": {
+          "key": "v-trinket",
+          "label": "Brass View",
+          "intent": "A canted brass viewfinder with an empty dark aperture."
+        },
+        "attack": {
+          "key": "v-attack",
+          "label": "Waking Frame",
+          "intent": "A frame breaks perspective into radial prisms."
+        }
+      }
+    },
+    {
+      "id": 6,
+      "key": "jungkook",
+      "displayName": "Jung Kook",
+      "icons": {
+        "trinket": {
+          "key": "jungkook-trinket",
+          "label": "Training Wrap",
+          "intent": "A fingerless training glove with a pink wrist wrap."
+        },
+        "attack": {
+          "key": "jungkook-attack",
+          "label": "Forward Drive",
+          "intent": "A padded fist drives forward with short motion trails."
+        }
+      }
+    }
+  ],
+  "recommendedStyle": "a",
+  "remaining": "Afterbeat exact-object recognition at16px is unestablished; final full-interface screenshot review pending."
+}

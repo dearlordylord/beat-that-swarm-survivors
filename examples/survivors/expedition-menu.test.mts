@@ -16,7 +16,7 @@ const state = (id: number): MenuState => ({
 })
 
 await test("every locked survivor opens one full-width dossier beneath its own card pair", () => {
-  for (let id = 1; id < 8; id++) {
+  for (let id = 1; id < 7; id++) {
     const html = renderRunSelectors(state(id), ["character"])
     const pairs = html.split(/<div class="choice-pair(?: details-right)?">/).slice(1)
     assert.equal(pairs.length, 4)
@@ -24,10 +24,11 @@ await test("every locked survivor opens one full-width dossier beneath its own c
     for (let pair = 0; pair < 4; pair++) {
       assert.equal(at(pairs, pair).includes("data-unlock-details"), pair === selectedPair)
       assert(at(pairs, pair).includes(`data-character="${pair * 2}"`))
-      assert(at(pairs, pair).includes(`data-character="${pair * 2 + 1}"`))
+      if (pair * 2 + 1 < 7) assert(at(pairs, pair).includes(`data-character="${pair * 2 + 1}"`))
+      else assert(!at(pairs, pair).includes('data-character="7"'))
     }
     const row = at(pairs, selectedPair)
-    assert(row.indexOf("data-unlock-details") > row.indexOf(`data-character="${selectedPair * 2 + 1}"`))
+    assert(row.indexOf("data-unlock-details") > row.indexOf(`data-character="${Math.min(selectedPair * 2 + 1, 6)}"`))
     assert.match(
       html,
       new RegExp(
@@ -50,9 +51,9 @@ await test("solo selectors and both co-op roles share the same pair layout", () 
   }
 })
 
-await test("closing the dossier leaves all eight choices and no stale detail controls", () => {
+await test("closing the dossier leaves all seven choices and no stale detail controls", () => {
   const html = renderRunSelectors({ ...state(1), pendingUnlock: null }, ["character"])
-  assert.equal((html.match(/data-character="/g) || []).length, 8)
+  assert.equal((html.match(/data-character="/g) || []).length, 7)
   assert(!html.includes("data-unlock-details"))
   assert(!html.includes("aria-controls="))
 })
@@ -60,7 +61,7 @@ await test("closing the dossier leaves all eight choices and no stale detail con
 await test("starting weapons are icons with accessible names in cards and dossiers", () => {
   const html = renderCoopSetup(state(5))
   assert(!html.includes("<p>Starting weapon:"))
-  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Frost Needle" tabindex="0"/)
-  assert.match(html, /class="weapon-tooltip" aria-hidden="true">Frost Needle<\/span>/)
-  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Spark Wand" tabindex="0"/)
+  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Dream Frame" tabindex="0"/)
+  assert.match(html, /class="weapon-tooltip" aria-hidden="true">Dream Frame<\/span>/)
+  assert.match(html, /class="starting-weapon" role="img" aria-label="Starting weapon: Indigo Composition" tabindex="0"/)
 })

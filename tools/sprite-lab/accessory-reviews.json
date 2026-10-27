@@ -1,0 +1,32 @@
+[
+  {
+    "iteration": 1,
+    "change": "Official references;12x14 emblem vs plush",
+    "finding": "All enlarged identities guessed, actual gameplay mostly palette; Shooky animal-like, missing dog ears",
+    "comparison_sha256": "8c6e0d4be9a119c5dbbbaeefe19f9d7969df8dc56e0548d0efddfde897e12023"
+  },
+  {
+    "iteration": 2,
+    "change": "Frontal cookie, shorter scarf, eye and ears; add larger heldplacementC",
+    "finding": "C strongest; KOYA mask-like, CHIMMY capsule-like, Shooky dark ring",
+    "comparison_sha256": "3f11e44c65187eab8d44d1fa6b183a8adf16e6e77a6f2bb0e787a49e237f14e9"
+  },
+  {
+    "iteration": 3,
+    "change": "Distinct purple nose; charcoal floppy ear",
+    "finding": "Improved ear contrast but insufficient shape budget",
+    "comparison_sha256": "89373aa6ae1260a08c776e3a2f7f16a19e37e38ce837ff172e3728d95a7a4831"
+  },
+  {
+    "iteration": 4,
+    "change": "Continuous koala face, solid cookie face, stepped pink muzzle",
+    "finding": "C strongest prototype;3weak actual-scale identities remained",
+    "comparison_sha256": "a980d7800368bb9ae3639067c9e3b2cf7b41f2367b15f7196e24ba54207709a5"
+  },
+  {
+    "iteration": 5,
+    "change": "Author KOYA/MANG/CHIMMY directly on16x17nativegrid; mountwithoutfractionalscale",
+    "finding": "D improves KOYA/CHIMMY; MANG unresolved; retain prototype recommendation only",
+    "comparison_sha256": "0d3d8875f97045c2e03508191dd46dc9a6bffd778c47c6845bd49aa5ce6df2bf"
+  }
+]

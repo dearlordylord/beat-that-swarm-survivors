@@ -1,0 +1,18 @@
+{
+  "authority": "user",
+  "date": "2026-10-27",
+  "iconStyle": {
+    "value": "A filled",
+    "status": "selected"
+  },
+  "namingLane": {
+    "value": "original game epithets",
+    "status": "preferred provisionally",
+    "scope": "Naming direction only; individual epithets are not separately approved or trademark-cleared."
+  },
+  "mechanics": {
+    "status": "seven proposals under discussion; no implementation approval inferred from asking for the complete table",
+    "candidateCount": 7
+  },
+  "source": "User selected style A, leaned toward original game epithets, and requested the complete seven-mechanic table."
+}

@@ -2,6 +2,7 @@ import pickup-state.bend as Pickup
 import enemy-spatial.bend as PickupSpace
 import run-state.bend as RS
 import Base
+import character-policy.bend as Character
 import enemy-combat.bend as Enemy
 import game-components.bend as Components
 import projectile-state.bend as Shot
@@ -294,7 +295,7 @@ def core_start(character: U32,meta: U32,seed: U32) -> CorePacket: core_started_p
 
 def unlock_run(+mask: U32,run: G.Run) -> G.Run:
   match run:
-    case G.Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+kinds,+relic},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,kinds,relic},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(mask,16777215))),bannedPassives}}
+    case G.Run{RS.Session{+phase,+tick,+xp,+need,+level,+kills,+gold,+seed,+stage,+bosses,+mode,+kinds,+relic},RS.PlayerState{+px,+py,+hp,+maxHp,+character,+weapons,+passives,+invuln,+arcana,+meta,+revivals,+rerolls,+banishes,+skips,+bannedWeapons,+bannedPassives}}: G.Run{RS.Session{phase,tick,xp,need,level,kills,gold,seed,stage,bosses,mode,kinds,relic},RS.PlayerState{px,py,hp,maxHp,character,weapons,passives,invuln,arcana,meta,revivals,rerolls,banishes,skips,U32.or(bannedWeapons,U32.and(16777215,U32.xor(G.starter_unlocks(mask,character),16777215))),bannedPassives}}
 type PlayerEdit is Data:
   EditConfigure{stage: U32,mode: U32,arcana: U32}
   EditUnlock{mask: U32}
@@ -338,7 +339,7 @@ def join_allowed(allowed: Bool,state: CoreState,character: U32,meta: U32,arcana:
     case False{} state: CoreRejected{state,"Join is only allowed before the two-player match starts"}
 def core_join(state: CoreState,character: U32,meta: U32,arcana: U32) -> CorePacket:
   match state:
-    case CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: join_allowed(Bool.and(U32.is_eq(RS.session_tick(shared),0),Nat.is_eq(List.length(&2,PlayerRef,refs),1n)),CoreState{world,shared,refs,snapshots,round,required,offers,pending},U32.min(7,character),meta,U32.min(11,arcana))
+    case CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: join_allowed(Bool.and(U32.is_eq(RS.session_tick(shared),0),Nat.is_eq(List.length(&2,PlayerRef,refs),1n)),CoreState{world,shared,refs,snapshots,round,required,offers,pending},Character.normalize(character),meta,U32.min(11,arcana))
 
 # A returning guest occupies the existing player record. Setup belongs only to
 # the first attachment: reload must not replace equipment, health or reward state.
@@ -367,7 +368,7 @@ def attach_player_configured(+id: U32,mask: U32,packet: CorePacket) -> CorePacke
 def attach_player_selected(exists: Bool,state: CoreState,+id: U32,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
   match exists state:
     case True{} state: completed(state)
-    case False{} CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: attach_player_configured(id,mask,join_player_allowed(Bool.and(U32.is_eq(RS.session_tick(shared),0),Bool.and(U32.is_gt(id,0),U32.is_lt(id,4))),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,U32.min(7,character),meta,U32.min(11,arcana)))
+    case False{} CoreState{world,+shared,+refs,snapshots,round,required,offers,pending}: attach_player_configured(id,mask,join_player_allowed(Bool.and(U32.is_eq(RS.session_tick(shared),0),Bool.and(U32.is_gt(id,0),U32.is_lt(id,4))),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,Character.normalize(character),meta,U32.min(11,arcana)))
 def core_attach_player(state: CoreState,+id: U32,character: U32,meta: U32,arcana: U32,mask: U32) -> CorePacket:
   match state:
     case CoreState{world,shared,+refs,snapshots,round,required,offers,pending}: attach_player_selected(has_player(refs,id),CoreState{world,shared,refs,snapshots,round,required,offers,pending},id,character,meta,arcana,mask)

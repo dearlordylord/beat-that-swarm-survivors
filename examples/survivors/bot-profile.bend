@@ -19,7 +19,7 @@ def fresh_start_seed(seed: U32) -> G.Packet:
   start_unlocks(start_mode(start_configured(G.start_seed(0,P.meta(P.fresh()),seed),0,0),0),P.weapon_mask(P.fresh()))
 
 def fresh_start() -> G.Packet: fresh_start_seed(12345)
-# Explicit qualification preset: advanced profile, Agatha, Living Tree Arcana.
+# Explicit qualification preset: advanced profile, SUGA, Namjooning Arcana.
 def advanced_start_seed(seed: U32) -> G.Packet:
   start_mode(start_configured(G.start_seed(2,364304237,seed),0,9),0)
 

@@ -1,0 +1,39 @@
+{
+  "reviewer": "gpt-6-astra, independent image review via motion_accessory_visual_review",
+  "authority": "Candidate recommendation only; user-selected D remains production baseline",
+  "reviewed_sha256": {
+    "revision-01-comparison.png": "3d9ec2c9dd88efc4f3943059b6500f0652f8234268cce145b6fc83c6ea7b526c",
+    "revision-02-comparison.png": "54c732a2c5a2f7a2eaa892f4c8f0d8574f63455943e10d083b1fc757825e045b"
+  },
+  "recommended": {
+    "MANG": "E",
+    "KOYA": "E",
+    "CHIMMY": "E"
+  },
+  "iteration_01": {
+    "MANG": "E heart on cyan mask plus purple projecting muzzle corrects bird-like profile; F cluttered",
+    "KOYA": "Rounder ears improved but dark nose stripe loses broad purple oval",
+    "CHIMMY": "E clearer eyes/muzzle/black ears; F facial marks crowded"
+  },
+  "iteration_02": {
+    "KOYA": "Rounder ears and broad purple stepped nose restore principal anchors; prefer E"
+  },
+  "scoped_axes_vs_selected_D": {
+    "palette": "pass",
+    "rendering_style": "pass",
+    "hero_proportions": "pass",
+    "garment_mount_continuity": "pass"
+  },
+  "strict_official_fidelity": {
+    "silhouette": "fail",
+    "accessory_proportions": "fail",
+    "face": "fail",
+    "motion": "unreviewed"
+  },
+  "remaining": {
+    "KOYA": "Lacks broad rounded cheek/head mass",
+    "MANG": "Purple lower body/muzzle simplistic; tiny heart ambiguous",
+    "CHIMMY": "Enlarged face improves; gameplay marks collapse"
+  },
+  "limits": "Best candidate does not mean all-axis acceptance. No complete fidelity or gameplay recognition rate claim."
+}
