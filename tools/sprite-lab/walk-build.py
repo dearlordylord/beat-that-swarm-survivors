@@ -106,6 +106,10 @@ export function survivorWalkLayers(id = 0, frame = 0): SurvivorLayers {
   return at(at(walks, hero), pose)
 }
 '''
+    source = subprocess.run(
+        [str(ROOT/'node_modules/.bin/dprint'), 'fmt', '--stdin', 'survivor-walk-shapes.mts'],
+        input=source, text=True, capture_output=True, check=True, cwd=ROOT
+    ).stdout
     if args.check:
         assert TARGET.read_text() == source, 'Walk data stale; rerun walk-build.py'
     else:

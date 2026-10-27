@@ -14,7 +14,7 @@
   "confounding": "Known mascot set, colors and2x views helped; not a measured recognition rate",
   "per_character": {
     "KOYA": "D improves oval face/nose; actual gameplay partial",
-    "RJ": "White face and red scarf readable; fleece and facial fidelity partial",
+    "RJ": "Direct 16x18 grid repair improves intact fleece silhouette, balanced face, scarf and feet. Exact tiny RJ recognition remains partial.",
     "SHOOKY": "Frontal cookie now coherent; actual face partial",
     "MANG": "D cleaner profile; heart nose and mane still unresolved at gameplay scale",
     "CHIMMY": "D improves white face/hood/ear; actual gameplay partial",
@@ -24,5 +24,28 @@
   "reviewed_sha256": {
     "comparison.png": "0d3d8875f97045c2e03508191dd46dc9a6bffd778c47c6845bd49aa5ce6df2bf",
     "gameplay-blind.png": "35f3e4c90e7cdf3039e07940d6391eeca354026e2990cbcf0670f4e5ce6cc058"
+  },
+  "rj_refinement": {
+    "date": "2026-10-27",
+    "reviewer": "gpt-6-astra",
+    "iterations": 2,
+    "verdict": "Targeted damaged-dog defect addressed; carry improved construction forward",
+    "passed": [
+      "intact fluffy silhouette",
+      "proportions",
+      "equal eyes",
+      "centered balanced muzzle",
+      "thin diagonal scarf",
+      "separated feet",
+      "palette and pixel style",
+      "preserved human identity"
+    ],
+    "remaining": [
+      "Exact official likeness remains partial",
+      "Unique RJ identification at 24x30 not established",
+      "Motion not independently reviewed"
+    ],
+    "comparison_sha256": "811acd16ae6bdfc098589777e4e55f2146d05a20d3e8015151cb4a7313a928dd",
+    "native_sha256": "74eab35977e11a9ea850c7d302d706b4a094d9a115674ea53425eb9501301e18"
   }
 }

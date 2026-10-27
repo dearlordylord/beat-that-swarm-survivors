@@ -14,6 +14,8 @@ Verify that the committed shape catalog matches a fresh Bend compilation:
 ```
 
 The Python environment needs Pillow and CairoSVG. Bend and Clang must be on PATH.
+Run `npm ci` at the repository root to install the pinned dprint formatter used
+for generated source.
 Generated previews stay outside tracked source. The generated source module is
 `examples/survivors/survivor-walk-shapes.mts`. Its public surface contains
 `survivorWalkLayers(id, frame)`, `survivorWalkFrameCount`, and `survivorWalkCount`.
@@ -22,7 +24,7 @@ Native rendering consumes that same catalog through its generator.
 
 `walk-artwork.bend` owns the shared hips, eight step poses, knee/ankle endpoints,
 boots, arm phase, wrist mount and foreground boot depth order. Each character
-reuses its selected head, palette and unchanged accessory D geometry. Accepted
+reuses its selected head, palette and selected accessory D geometry with the direct-grid RJ refinement. Accepted
 idle artwork remains a separate, unchanged catalog. Moving accessories use a
 wrist mount one authoring unit higher than the preceding prototype, and the boot
 fills draw in front to preserve visible feet beside the large held plush.

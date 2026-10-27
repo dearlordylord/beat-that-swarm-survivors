@@ -2,7 +2,7 @@
 
 The user requested seven BTS-inspired heroes in the accepted Nightfall drawing style. The new brief explicitly changes outfit palettes and motifs. The previous selected orange-haired pilot remains the style reference. These sprites are human chibi interpretations, not verified portrait likenesses.
 
-`theme-artwork.bend` imports the accepted shared face, hair variants, rig and outline construction. It owns the seven themed color recipes and shared body. `accessories-native.bend` and `accessories.bend` supply the user-selected D accessories. `theme-generate.bend` emits the seven static neutral figures after the existing pose validation. The original artwork and selected review snapshot remain unchanged.
+`theme-artwork.bend` imports the accepted shared face, hair variants, rig and outline construction. It owns the seven themed color recipes and shared body. `accessories-native.bend` and `accessories.bend` supply the user-selected D accessories, including the targeted direct-grid RJ refinement. `theme-generate.bend` emits the seven static neutral figures after the existing pose validation. The original artwork and selected review snapshot remain unchanged.
 
 | ID | Hero | Palette and motifs |
 | --- | --- | --- |
@@ -39,6 +39,6 @@ The exporter checks the inherited structural proofs, actual unoccluded equal eye
 
 The user selected pixel-grid variant D for game adoption. `theme-selection.json` records the exact approved PNG hashes. The production exporter rejects output that differs from those seven selected images. This protects the selected artifact; it does not prove aesthetic fidelity.
 
-The accessory group is mounted at authoring `(32,38)` with scale2. KOYA, MANG and CHIMMY have direct16x17native geometry; the other four retain the selected larger-plush construction. The human face and shared body are the same as the reviewed prototype. Browser portraits, Canvas and generated native rectangles consume the same32x40pixel masks.
+The accessory group is mounted at authoring `(32,38)` with scale2. KOYA, MANG and CHIMMY have direct 16x17 native geometry. RJ now has direct 16x18 geometry; the remaining three retain the selected larger-plush construction. The human face and shared body are the same as the reviewed prototype. Browser portraits, Canvas and generated native rectangles consume the same32x40pixel masks.
 
-The independent findings in `accessory-current-review.json` remain unchanged. User acceptance chooses the construction and size; miniature facial detail and MANG fidelity remain partial. Gameplay uses the seven starter/innate contracts in `examples/survivors/THEMATIC_ROSTER.md`.
+The independent findings in `accessory-current-review.json` include the RJ refinement review. Its whole wool silhouette, equal eyes, centered muzzle, scarf, and separated feet passed independent visual review. Exact reference fidelity and recognition at 24x30 remain partial. The other six accessories are byte-identical to their selected exports. User acceptance chooses the construction and size; miniature facial detail and MANG fidelity remain partial. Gameplay uses the seven starter/innate contracts in `examples/survivors/THEMATIC_ROSTER.md`.
