@@ -174,7 +174,8 @@ await test("co-op snapshots retain personal charges, delayed origins and per-cas
         speed: 1.5,
         area: 2,
         duration: 1.25,
-        level: 9
+        level: 9,
+        remaining: list([0, 2])
       }
     ])
   }

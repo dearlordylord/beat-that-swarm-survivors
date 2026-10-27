@@ -62,10 +62,10 @@ def trails(+fuel:Nat,+age:U32) -> List<&2,G.Snapshot>:
     case 0n: []
     case 1n+rest: G.ProjectileSnapshot{shot(22,(PL.player_start() + U32.from_nat(fuel) : U32),age,9999,M.Attack{1,True{},M.Trail{False{}}})} <> trails(rest,age)
 def ready_trail() -> M.Owner: M.Owner{0,0,40.0,0.0,0,0,0,0,0,[]}
-def request_count(rows:List<&2,SP.Request>,+kind:U32) -> U32:
+def request_count(rows:List<&2,SP.Request>,+kind:M.EmissionKind) -> U32:
   match rows:
     case []: 0
-    case SP.Request{_,_,_,emission} <> rest: (Bool.to_u32(G.emission_kind(emission,kind)) + request_count(rest,kind) : U32)
+    case SP.Request{_,_,_,emission} <> rest: (Bool.to_u32(M.emission_is(emission,kind)) + request_count(rest,kind) : U32)
 def prepared_owner(character:U32,owner:M.Owner,snapshots:List<&2,G.Snapshot>) -> M.Owner:
   G.run_mechanics(G.view_run(G.prepare_view(G.PlayerView{0,run(character,100,owner),0.0,0.0,True{}},snapshots)))
 def orbit_phase(value:M.Owner) -> F32:
@@ -101,7 +101,7 @@ def partitioned(index: BI.Index<SP.Request>) -> Bool:
     case BI.Fork{_,_,zero,one}: Bool.and(partitioned(zero),partitioned(one))
 def four_assignments(+plan: SP.Plan) -> Bool:
   match plan:
-    case SP.Plan{index,_}: Bool.and(partitioned(index),Bool.and(U32.is_lt(0,G.accepted(plan,0,1,0)),Bool.and(U32.is_lt(0,G.accepted(plan,1,1,0)),Bool.and(U32.is_lt(0,G.accepted(plan,2,1,0)),U32.is_lt(0,G.accepted(plan,3,1,0))))))
+    case SP.Plan{index,_}: Bool.and(partitioned(index),Bool.and(U32.is_lt(0,G.accepted(plan,0,1,M.PrimaryKind{})),Bool.and(U32.is_lt(0,G.accepted(plan,1,1,M.PrimaryKind{})),Bool.and(U32.is_lt(0,G.accepted(plan,2,1,M.PrimaryKind{})),U32.is_lt(0,G.accepted(plan,3,1,M.PrimaryKind{}))))))
 def source_is(value: S.State,+source: U32) -> Bool:
   match value:
     case S.State{_,_,_,K.ShotPayload{1,_,_,M.Attack{1,True{},M.Streak{False{}}}},K.Trajectory{_,_,_,_,_,1,_,Some{player}}}: U32.is_eq(source,player)
@@ -119,13 +119,13 @@ def main() -> IO(Unit):
     expect(U32.is_eq(ink_ticks(G.prepared_projectile(ink(59,False{}),team(run(0,100,M.empty()),[enemy(10),enemy(11)]))),0),"ink continuous capture resets below three enemies")
     expect(U32.is_eq(target_damage(ink_plans(ink(59,False{}),[enemy(10),enemy(11),enemy(12)]),10),30),"ink finishing pulse adds only thirty percent off ordinary cadence")
     expect(U32.is_eq(U32.from_nat(List.length(&2,G.HitPlan,ink_plans(ink(60,True{}),[enemy(10),enemy(11),enemy(12)]))),0),"resolved ink cannot emit another finishing pulse")
-    expect(U32.is_eq(G.accepted(G.team_plan([G.PlayerView{0,run(2,1,ready_notes()),1.0,0.0,True{}}],[]),0,14,0),2),"held note cast allocates a multishot volley")
+    expect(U32.is_eq(G.accepted(G.team_plan([G.PlayerView{0,run(2,1,ready_notes()),1.0,0.0,True{}}],[]),0,14,M.PrimaryKind{}),2),"held note cast allocates a multishot volley")
     expect(U32.is_eq(notes(G.settle_owner(G.PlayerView{0,run(2,1,ready_notes()),1.0,0.0,True{}},G.empty_shot_plan(),[],[])),3),"rejected cast preserves full note bank")
     expect(U32.is_eq(notes(G.settle_owner(G.PlayerView{0,run(2,1,ready_notes()),1.0,0.0,True{}},G.team_plan([G.PlayerView{0,run(2,1,ready_notes()),1.0,0.0,True{}}],[]),[],[])),0),"allocated cast consumes bank once")
     expect(Bool.and(U32.is_eq(S.damage(row(G.primary_spawn(team(run(2,1,ready_notes()),[]),PL.player_start(),14,0,0,3))),(G.weapon_damage(14,3,[],0,99,2) * 175 / 100 : U32)),U32.is_eq(S.damage(row(G.primary_spawn(team(run(2,1,ready_notes()),[]),(PL.player_start() + 1 : U32),14,0,1,3))),(G.weapon_damage(14,3,[],0,99,2) * 175 / 100 : U32))),"every admitted shot shares held-note damage boost")
-    expect(echo_ok(row(G.bonus_spawn(team(run(5,100,M.empty()),[]),PL.player_start(),23,0,0,3,M.EchoEmission{M.Echo{7,34,20.0,30.0,100,2,1.0,1.0,1.0,3}}))),"echo preserves captured origin and cast with half spacing and half damage")
-    expect(U32.is_eq(request_count(G.mechanic_requests(0,run(3,100,ready_trail()),trails(8n,20),G.empty_owner_counts()),1),0),"eight pending trails suppress placement")
-    expect(U32.is_eq(request_count(G.mechanic_requests(0,run(3,100,ready_trail()),trails(7n,20),G.empty_owner_counts()),1),1),"seventh pending trail permits exactly one placement")
+    expect(echo_ok(row(G.bonus_spawn(team(run(5,100,M.empty()),[]),PL.player_start(),23,0,0,3,M.EchoEmission{M.fresh_echo(7,34,20.0,30.0,100,2,1.0,1.0,1.0,3)}))),"echo preserves captured origin and cast with half spacing and half damage")
+    expect(U32.is_eq(request_count(G.mechanic_requests(0,run(3,100,ready_trail()),trails(8n,20),G.empty_owner_counts()),M.TrailKind{}),0),"eight pending trails suppress placement")
+    expect(U32.is_eq(request_count(G.mechanic_requests(0,run(3,100,ready_trail()),trails(7n,20),G.empty_owner_counts()),M.TrailKind{}),1),"seventh pending trail permits exactly one placement")
     expect(Bool.not(G.retire_trail(shot(22,PL.player_start(),25,9999,M.Attack{1,True{},M.Trail{False{}}}),team(run(3,100,M.empty()),trails(8n,26)))),"first trail pulse cannot be evicted by armed marks")
     expect(F32.is_eq(orbit_phase(prepared_owner(1,M.empty(),[G.ProjectileSnapshot{shot(21,PL.player_start(),10,9999,M.ordinary())},G.ProjectileSnapshot{shot(21,(PL.player_start() + 1 : U32),10,9999,M.ordinary())}])),0.035),"multiple familiars advance one owner orbit clock")
     expect(pulse_ok(row(G.bonus_spawn(team(run(1,100,M.empty()),[]),PL.player_start(),21,0,0,3,M.PulseEmission{}))),"safe return creates only one-tick zero-damage knockback field")

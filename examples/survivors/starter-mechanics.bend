@@ -1,8 +1,9 @@
 import Base
 
-type Echo is Data: Echo{castTick:U32,due:U32,x:F32,y:F32,damage:U32,amount:U32,speed:F32,area:F32,duration:F32,level:U32}
+type Echo is Data: Echo{castTick:U32,due:U32,x:F32,y:F32,damage:U32,amount:U32,speed:F32,area:F32,duration:F32,level:U32,remaining:List<&2,U32>}
 type Owner is Data: Owner{stillTicks:U32,notes:U32,trailCarry:F32,orbitPhase:F32,orbits:U32,pulseReady:U32,comboHits:U32,comboDeadline:U32,comboReady:U32,echoes:List<&2,Echo>}
 type Emission is Data: Primary{} TrailEmission{} EchoEmission{echo:Echo} ComboEmission{} PulseEmission{}
+type EmissionKind is Data: PrimaryKind{} TrailKind{} EchoKind{} ComboKind{} PulseKind{}
 type Mechanic is Data: Ordinary{} Fan{marks:List<&2,U32>,returnBudget:U32,returning:Bool} Ink{heldTicks:U32,resolved:Bool} Trail{armed:Bool} Streak{credited:Bool}
 type Attack is Data: Attack{castTick:U32,primary:Bool,mechanic:Mechanic}
 
@@ -56,18 +57,13 @@ def keep_echo(keep:Bool,echo:Echo,tail:List<&2,Echo>) -> List<&2,Echo>:
 def select_echoes(rows:List<&2,Echo>,+tick:U32,+ready:Bool) -> List<&2,Echo>:
   match rows:
     case []: []
-    case Echo{castTick,+deadline,x,y,damage,amount,speed,area,duration,level} <> tail:
-      keep_echo(U32.is_eq(Bool.to_u32(U32.is_le(deadline,tick)),Bool.to_u32(ready)),Echo{castTick,deadline,x,y,damage,amount,speed,area,duration,level},select_echoes(tail,tick,ready))
+    case Echo{castTick,+deadline,x,y,damage,amount,speed,area,duration,level,remaining} <> tail:
+      keep_echo(U32.is_eq(Bool.to_u32(U32.is_le(deadline,tick)),Bool.to_u32(ready)),Echo{castTick,deadline,x,y,damage,amount,speed,area,duration,level,remaining},select_echoes(tail,tick,ready))
 
 def enqueue(owner:Owner,echo:Echo) -> Owner:
   match owner:
     case Owner{+stillTicks,+notes,+trailCarry,+orbitPhase,+orbits,+pulseReady,+comboHits,+comboDeadline,+comboReady,+echoes}:
       Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,comboHits,comboDeadline,comboReady,List.append(&2,Echo,echoes,keep_echo(U32.is_lt(U32.from_nat(List.length(&2,Echo,echoes)),8),echo,[]))}
-
-def drain(owner:Owner,tick:U32) -> Owner:
-  match owner:
-    case Owner{+stillTicks,+notes,+trailCarry,+orbitPhase,+orbits,+pulseReady,+comboHits,+comboDeadline,+comboReady,+echoes}:
-      Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,comboHits,comboDeadline,comboReady,select_echoes(echoes,tick,False{})}
 
 def due(owner:Owner,tick:U32) -> List<&2,Echo>:
   match owner:
@@ -77,9 +73,13 @@ def native_bool(value:Bool) -> String:
   match value:
     case True{}: "true"
     case False{}: "false"
+def native_nums(rows: List<&2,U32>) -> String:
+  match rows:
+    case []: "{\"$\":\"Nil\"}"
+    case head <> tail: "{\"$\":\"Con\",\"head\":" ++ U32.show(head) ++ ",\"tail\":" ++ native_nums(tail) ++ "}"
 def native_echo(value:Echo) -> String:
   match value:
-    case Echo{castTick,due,x,y,damage,amount,speed,area,duration,level}: "{\"$\":\"Echo\"" ++ ",\"castTick\":" ++ U32.show(castTick) ++ ",\"due\":" ++ U32.show(due) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"damage\":" ++ U32.show(damage) ++ ",\"amount\":" ++ U32.show(amount) ++ ",\"speed\":" ++ F32.show(speed) ++ ",\"area\":" ++ F32.show(area) ++ ",\"duration\":" ++ F32.show(duration) ++ ",\"level\":" ++ U32.show(level) ++ "}"
+    case Echo{castTick,due,x,y,damage,amount,speed,area,duration,level,remaining}: "{\"$\":\"Echo\"" ++ ",\"castTick\":" ++ U32.show(castTick) ++ ",\"due\":" ++ U32.show(due) ++ ",\"x\":" ++ F32.show(x) ++ ",\"y\":" ++ F32.show(y) ++ ",\"damage\":" ++ U32.show(damage) ++ ",\"amount\":" ++ U32.show(amount) ++ ",\"speed\":" ++ F32.show(speed) ++ ",\"area\":" ++ F32.show(area) ++ ",\"duration\":" ++ F32.show(duration) ++ ",\"level\":" ++ U32.show(level) ++ ",\"remaining\":" ++ native_nums(remaining) ++ "}"
 
 def native_echoes(rows:List<&2,Echo>) -> String:
   match rows:
@@ -95,10 +95,6 @@ def expire(owner: Owner,+tick: U32) -> Owner:
   match owner:
     case Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,+comboHits,+comboDeadline,comboReady,echoes}: Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,number(U32.is_lt(comboDeadline,tick),0,comboHits),number(U32.is_lt(comboDeadline,tick),0,comboDeadline),comboReady,echoes}
 
-def native_nums(rows: List<&2,U32>) -> String:
-  match rows:
-    case []: "{\"$\":\"Nil\"}"
-    case head <> tail: "{\"$\":\"Con\",\"head\":" ++ U32.show(head) ++ ",\"tail\":" ++ native_nums(tail) ++ "}"
 def native_mechanic(value: Mechanic) -> String:
   match value:
     case Ordinary{}: "{\"$\":\"Ordinary\"}"
@@ -112,7 +108,7 @@ def native_attack(value: Attack) -> String:
 
 def echo_words(value: Echo) -> List<&2,U32>:
   match value:
-    case Echo{cast,due,x,y,damage,amount,speed,area,duration,level}: [cast,due,F32.bits(x),F32.bits(y),damage,amount,F32.bits(speed),F32.bits(area),F32.bits(duration),level]
+    case Echo{cast,due,x,y,damage,amount,speed,area,duration,level,+remaining}: List.append(&2,U32,[cast,due,F32.bits(x),F32.bits(y),damage,amount,F32.bits(speed),F32.bits(area),F32.bits(duration),level,U32.from_nat(List.length(&2,U32,remaining))],remaining)
 def echoes_words(rows: List<&2,Echo>) -> List<&2,U32>:
   match rows:
     case []: []
@@ -130,3 +126,55 @@ def mechanic_words(value: Mechanic) -> List<&2,U32>:
 def attack_words(value: Attack) -> List<&2,U32>:
   match value:
     case Attack{cast,primary,mechanic}: cast <> Bool.to_u32(primary) <> mechanic_words(mechanic)
+
+def emission_is(value: Emission,kind: EmissionKind) -> Bool:
+  match value kind:
+    case Primary{} PrimaryKind{}: True{}
+    case TrailEmission{} TrailKind{}: True{}
+    case EchoEmission{_} EchoKind{}: True{}
+    case ComboEmission{} ComboKind{}: True{}
+    case PulseEmission{} PulseKind{}: True{}
+    case _ _: False{}
+def trail_carry(owner: Owner) -> F32:
+  match owner:
+    case Owner{_,_,carry,_,_,_,_,_,_,_}: carry
+def notes_ready(owner: Owner) -> Bool:
+  match owner:
+    case Owner{_,notes,_,_,_,_,_,_,_,_}: U32.is_eq(notes,3)
+def combo_ready(owner: Owner) -> Bool:
+  match owner:
+    case Owner{_,_,_,_,_,_,_,_,ready,_}: U32.is_lt(0,ready)
+def pulse_ready(owner: Owner) -> Bool:
+  match owner:
+    case Owner{_,_,_,_,_,ready,_,_,_,_}: U32.is_lt(0,ready)
+
+def echo_slots(fuel: Nat,+slot: U32) -> List<&2,U32>:
+  match fuel:
+    case 0n: []
+    case 1n+rest: slot <> echo_slots(rest,(slot + 1 : U32))
+def fresh_echo(castTick: U32,due: U32,x: F32,y: F32,damage: U32,+amount: U32,speed: F32,area: F32,duration: F32,level: U32) -> Echo:
+  Echo{castTick,due,x,y,damage,amount,speed,area,duration,level,echo_slots(U32.to_nat(amount),0)}
+def echo_full(owner: Owner) -> Bool:
+  match owner:
+    case Owner{_,_,_,_,_,_,_,_,_,echoes}: U32.is_le(8,U32.from_nat(List.length(&2,Echo,echoes)))
+def has_slot(rows: List<&2,U32>,+slot: U32) -> Bool:
+  match rows:
+    case []: False{}
+    case head <> tail: Bool.or(U32.is_eq(head,slot),has_slot(tail,slot))
+def remaining_slots(rows: List<&2,U32>,+accepted: List<&2,U32>) -> List<&2,U32>:
+  match rows:
+    case []: []
+    case +slot <> tail: List.filter.put(U32,slot,remaining_slots(tail,accepted),Bool.not(has_slot(accepted,slot)))
+def complete_entry(value: Echo,+cast: U32,accepted: List<&2,U32>,tail: List<&2,Echo>) -> List<&2,Echo>:
+  match value:
+    case Echo{+castTick,due,x,y,damage,amount,speed,area,duration,level,+remaining}:
+      +next = Bool.pick(List<&2,U32>,U32.is_eq(castTick,cast),remaining_slots(remaining,accepted),remaining)
+      keep_echo(Bool.or(Bool.not(U32.is_eq(castTick,cast)),U32.is_lt(0,U32.from_nat(List.length(&2,U32,next)))),Echo{castTick,due,x,y,damage,amount,speed,area,duration,level,next},tail)
+def complete_rows(rows: List<&2,Echo>,+cast: U32,+accepted: List<&2,U32>) -> List<&2,Echo>:
+  match rows:
+    case []: []
+    case head <> tail: complete_entry(head,cast,accepted,complete_rows(tail,cast,accepted))
+def complete_echo(owner: Owner,cast: U32,acceptedSlots: List<&2,U32>) -> Owner:
+  match owner:
+    case Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,comboHits,comboDeadline,comboReady,echoes}:
+      Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,comboHits,comboDeadline,comboReady,complete_rows(echoes,cast,acceptedSlots)}

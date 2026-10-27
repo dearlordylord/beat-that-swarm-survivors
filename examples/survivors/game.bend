@@ -440,14 +440,14 @@ def scheduled_shot_owned(owned: Bool,+base: U32,+slot: U32,+level: U32,+passives
     case False{}: False{}
     case True{}: Bool.and(volley_slot(base,slot,projectile_amount(base,level,passives,arcana),tick,cooldown_for(base,passives,meta,arcana,character)),U32.is_eq((tick % cooldown_for(base,passives,meta,arcana,character) : U32),1))
 def scheduled_shot(+base: U32,+slot: U32,+level: U32,+passives: List<&2,U32>,+tick: U32,+meta: U32,+arcana: U32,+character: U32) -> Bool:
-  scheduled_shot_owned(Bool.and(U32.is_lt(0,level),Bool.not(Bool.and(U32.is_eq(base,22),U32.is_eq(character,3)))),base,slot,level,passives,tick,meta,arcana,character)
+  scheduled_shot_owned(Bool.and(U32.is_lt(0,level),Bool.not(Bool.and(U32.is_eq(base,22),Bool.and(U32.is_eq(character,3),U32.is_eq(effective_weapon(base,level,slot),22))))),base,slot,level,passives,tick,meta,arcana,character)
 # Physical slots are independent of weapon ownership and logical spread slots.
 type ShotInventory is Data: ShotInventory{occupied: BI.Index<Bool>,counts: List<&2,U32>,locks: List<&2,U32>}
 def empty_owner_counts() -> List<&2,U32>: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 def inventory_add(alive: Bool,+seed: U32,+owner: U32,+slot: U32,inventory: ShotInventory) -> ShotInventory:
   match alive inventory:
     case False{} inventory: inventory
-    case True{} ShotInventory{occupied,+counts,+locks}: ShotInventory{BI.insert(~Bool,occupied,seed,True{}),bump(counts,owner),set_at(locks,owner,U32.or(at(locks,owner),U32.shln(1,U32.to_nat(U32.min(7,slot)))))}
+    case True{} ShotInventory{occupied,+counts,+locks}: ShotInventory{BI.insert(~Bool,occupied,seed,True{}),bump(counts,owner),set_at(locks,owner,U32.or(at(locks,owner),Bool.pick(U32,U32.is_lt(slot,8),U32.shln(1,U32.to_nat(slot)),0)))}
 def shot_inventory(rows: List<&2,Snapshot>,inventory: ShotInventory) -> ShotInventory:
   match rows:
     case []: inventory
@@ -1208,18 +1208,6 @@ def with_mechanics(run: Run,mechanics: SM.Owner) -> Run:
   match run:
     case Run{+session,+player}: Run{session,RS.player_with_mechanics(player,mechanics)}
 def trail_threshold(+run: Run) -> F32: F32.max(24.0,(40.0 * U32.to_f32(cooldown_for(22,run_passives(run),run_meta(run),run_arcana(run),run_character(run))) / U32.to_f32(period(22)) : F32))
-def trail_carry(owner: SM.Owner) -> F32:
-  match owner:
-    case SM.Owner{_,_,+carry,_,_,_,_,_,_,_}: carry
-def notes_ready(owner: SM.Owner) -> Bool:
-  match owner:
-    case SM.Owner{_,+notes,_,_,_,_,_,_,_,_}: U32.is_eq(notes,3)
-def combo_ready(owner: SM.Owner) -> Bool:
-  match owner:
-    case SM.Owner{_,_,_,_,_,_,_,_,+ready,_}: U32.is_lt(0,ready)
-def pulse_ready(owner: SM.Owner) -> Bool:
-  match owner:
-    case SM.Owner{_,_,_,_,_,+ready,_,_,_,_}: U32.is_lt(0,ready)
 def familiar_active(rows: List<&2,Snapshot>,+id: U32) -> Bool:
   match rows:
     case []: False{}
@@ -1248,22 +1236,31 @@ def technique_request(fire: Bool,source: U32,owner: U32,slot: U32,level: U32,emi
   match fire:
     case False{}: tail
     case True{}: SP.Request{owner,SP.Emission{source,slot},level,emission} <> tail
-def echo_slots(fuel: Nat,+slot: U32,+source: U32,+echo: SM.Echo,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
-  match fuel echo:
-    case 0n _: tail
-    case 1n+rest SM.Echo{+cast,+due,+x,+y,+damage,+amount,+speed,+area,+duration,+level}: SP.Request{23,SP.Emission{source,slot},level,SM.EchoEmission{SM.Echo{cast,due,x,y,damage,amount,speed,area,duration,level}}} <> echo_slots(rest,(slot + 1 : U32),source,SM.Echo{cast,due,x,y,damage,amount,speed,area,duration,level},tail)
+def echo_slots(rows: List<&2,U32>,+source: U32,+echo: SM.Echo,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
+  match rows echo:
+    case [] _: tail
+    case slot <> rest SM.Echo{+cast,+due,+x,+y,+damage,+amount,+speed,+area,+duration,+level,+remaining}: SP.Request{23,SP.Emission{source,slot},level,SM.EchoEmission{SM.Echo{cast,due,x,y,damage,amount,speed,area,duration,level,remaining}}} <> echo_slots(rest,source,SM.Echo{cast,due,x,y,damage,amount,speed,area,duration,level,remaining},tail)
 def echo_requests(rows: List<&2,SM.Echo>,+source: U32,tail: List<&2,SP.Request>) -> List<&2,SP.Request>:
   match rows:
     case []: tail
-    case SM.Echo{+cast,+due,+x,+y,+damage,+amount,+speed,+area,+duration,+level} <> +rest: echo_slots(U32.to_nat(amount),0,source,SM.Echo{cast,due,x,y,damage,amount,speed,area,duration,level},echo_requests(rest,source,tail))
+    case SM.Echo{+cast,+due,+x,+y,+damage,+amount,+speed,+area,+duration,+level,+remaining} <> _: echo_slots(remaining,source,SM.Echo{cast,due,x,y,damage,amount,speed,area,duration,level,remaining},tail)
+def backpressure_requests(requests: List<&2,SP.Request>) -> List<&2,SP.Request>:
+  match requests:
+    case []: []
+    case SP.Request{23,_,_,SM.Primary{}} <> rest: backpressure_requests(rest)
+    case request <> rest: request <> backpressure_requests(rest)
+def request_backpressure(blocked: Bool,requests: List<&2,SP.Request>) -> List<&2,SP.Request>:
+  match blocked:
+    case False{}: requests
+    case True{}: backpressure_requests(requests)
 def mechanic_requests(+id: U32,+run: Run,+snapshots: List<&2,Snapshot>,locks: List<&2,U32>) -> List<&2,SP.Request>:
   +character = run_character(run)
   +personal = run_mechanics(run)
   +level = at(run_weapons(run),starter(character))
-  +normal = shot_requests(24n,(run_tick(run) % PL.owner_count() : U32),shot_schedule_for(id,run),locks)
-  +extra = technique_request(Bool.and(U32.is_eq(character,3),Bool.and(U32.is_lt(0,level),Bool.and(F32.is_le(trail_threshold(run),trail_carry(personal)),U32.is_lt(trail_pending(snapshots,id),8)))),id,22,(run_tick(run) % 8 : U32),level,SM.TrailEmission{},normal)
-  +combo = technique_request(Bool.and(U32.is_eq(character,6),combo_ready(personal)),id,1,0,level,SM.ComboEmission{},extra)
-  +pulse = technique_request(Bool.and(U32.is_eq(character,1),pulse_ready(personal)),id,21,0,level,SM.PulseEmission{},combo)
+  +normal = request_backpressure(Bool.and(U32.is_eq(character,5),SM.echo_full(personal)),shot_requests(24n,(run_tick(run) % PL.owner_count() : U32),shot_schedule_for(id,run),locks))
+  +extra = technique_request(Bool.and(U32.is_eq(character,3),Bool.and(U32.is_lt(0,level),Bool.and(F32.is_le(trail_threshold(run),SM.trail_carry(personal)),U32.is_lt(trail_pending(snapshots,id),8)))),id,22,(8 + run_tick(run) % 8 : U32),level,SM.TrailEmission{},normal)
+  +combo = technique_request(Bool.and(U32.is_eq(character,6),SM.combo_ready(personal)),id,1,0,level,SM.ComboEmission{},extra)
+  +pulse = technique_request(Bool.and(U32.is_eq(character,1),SM.pulse_ready(personal)),id,21,0,level,SM.PulseEmission{},combo)
   echo_requests(SM.due(personal,run_tick(run)),id,pulse)
 def mechanic_plan_inventory(+id: U32,+run: Run,+snapshots: List<&2,Snapshot>,all: ShotInventory,own: ShotInventory,split: Bool) -> SP.Plan:
   match all own:
@@ -1276,20 +1273,13 @@ def team_plan_all(views: List<&2,PlayerView>,+snapshots: List<&2,Snapshot>) -> S
     case []: empty_shot_plan()
     case +view <> +rest: merge_player_plan(view_id(view),player_plan(view,snapshots),team_plan_all(rest,snapshots))
 
-def emission_kind(value: SM.Emission,kind: U32) -> Bool:
-  match value:
-    case SM.Primary{}: U32.is_eq(kind,0)
-    case SM.TrailEmission{}: U32.is_eq(kind,1)
-    case SM.ComboEmission{}: U32.is_eq(kind,2)
-    case SM.PulseEmission{}: U32.is_eq(kind,3)
-    case _: False{}
-def accepted_emissions(index: BI.Index<SP.Request>,+id: U32,+owner: U32,+kind: U32) -> U32:
+def accepted_emissions(index: BI.Index<SP.Request>,+id: U32,+owner: U32,+kind: SM.EmissionKind) -> U32:
   match index:
     case BI.Empty{}: 0
     case BI.Item{_,SP.Request{+weapon,SP.Emission{+source,_},_,+emission}}:
-      Bool.to_u32(Bool.and(emission_kind(emission,kind),Bool.and(U32.is_eq(source,id),U32.is_eq(weapon,owner))))
+      Bool.to_u32(Bool.and(SM.emission_is(emission,kind),Bool.and(U32.is_eq(source,id),U32.is_eq(weapon,owner))))
     case BI.Fork{_,_,+zero,+one}: (accepted_emissions(zero,id,owner,kind) + accepted_emissions(one,id,owner,kind) : U32)
-def accepted(plan: SP.Plan,id: U32,owner: U32,kind: U32) -> U32:
+def accepted(plan: SP.Plan,id: U32,owner: U32,kind: SM.EmissionKind) -> U32:
   match plan:
     case SP.Plan{+index,_}: accepted_emissions(index,id,owner,kind)
 def combo_credits(rows: List<&2,Snapshot>,+hits: List<&2,HitPlan>,+id: U32) -> U32:
@@ -1301,16 +1291,36 @@ def apply_credits(fuel: Nat,owner: SM.Owner,+tick: U32) -> SM.Owner:
   match fuel:
     case 0n: owner
     case 1n+rest: apply_credits(rest,SM.credit(owner,tick),tick)
+def admitted_primary_slots(index: BI.Index<SP.Request>,+source: U32,+owner: U32,+limit: U32) -> U32:
+  match index:
+    case BI.Empty{}: 0
+    case BI.Item{_,SP.Request{+weapon,SP.Emission{player,+slot},level,SM.Primary{}}}: Bool.to_u32(Bool.and(U32.is_eq(player,source),Bool.and(U32.is_eq(weapon,owner),Bool.and(U32.is_lt(slot,limit),U32.is_eq(effective_weapon(weapon,level,slot),owner)))))
+    case BI.Item{_,_}: 0
+    case BI.Fork{_,_,zero,one}: (admitted_primary_slots(zero,source,owner,limit) + admitted_primary_slots(one,source,owner,limit) : U32)
+def admitted_primary(plan: SP.Plan,source: U32,owner: U32,limit: U32) -> U32:
+  match plan:
+    case SP.Plan{index,_}: admitted_primary_slots(index,source,owner,limit)
+def accepted_echo_slots(index: BI.Index<SP.Request>,+source: U32,+cast: U32) -> List<&2,U32>:
+  match index:
+    case BI.Empty{}: []
+    case BI.Item{_,SP.Request{_,SP.Emission{player,slot},_,SM.EchoEmission{SM.Echo{castTick,_,_,_,_,_,_,_,_,_,_}}}}: select_hit_targets(Bool.and(U32.is_eq(player,source),U32.is_eq(castTick,cast)),[slot])
+    case BI.Item{_,_}: []
+    case BI.Fork{_,_,zero,one}: List.append(&2,U32,accepted_echo_slots(zero,source,cast),accepted_echo_slots(one,source,cast))
+def settle_echo_head(rows: List<&2,SM.Echo>,+owner: SM.Owner,plan: SP.Plan,source: U32) -> SM.Owner:
+  match rows plan:
+    case [] _: owner
+    case SM.Echo{+cast,_,_,_,_,_,_,_,_,_,_} <> _ SP.Plan{index,_}: SM.complete_echo(owner,cast,accepted_echo_slots(index,source,cast))
+def settle_echoes(+owner: SM.Owner,plan: SP.Plan,source: U32,tick: U32) -> SM.Owner: settle_echo_head(SM.due(owner,tick),owner,plan,source)
 def captured_echo(+run: Run,amount: U32) -> SM.Echo:
   +level = at(run_weapons(run),23)
-  SM.Echo{run_tick(run),(run_tick(run) + 27 : U32),run_px(run),run_py(run),weapon_damage(23,level,run_passives(run),run_meta(run),run_arcana(run),run_character(run)),amount,projectile_speed(run_passives(run),run_arcana(run)),area_bonus(run_passives(run),run_arcana(run),level),duration_bonus(run_passives(run),run_arcana(run)),level}
+  SM.fresh_echo(run_tick(run),(run_tick(run) + 27 : U32),run_px(run),run_py(run),weapon_damage(23,level,run_passives(run),run_meta(run),run_arcana(run),run_character(run)),amount,projectile_speed(run_passives(run),run_arcana(run)),area_bonus(run_passives(run),run_arcana(run),level),duration_bonus(run_passives(run),run_arcana(run)),level)
 def settle_owner(+view: PlayerView,+plan: SP.Plan,+snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>) -> SM.Owner:
   match view:
     case PlayerView{+id,+run,_,_,_}:
       +character = run_character(run)
-      +owner = SM.consume_bonus(SM.consume_trail(SM.consume_cast(SM.drain(run_mechanics(run),run_tick(run)),character,U32.is_lt(0,accepted(plan,id,starter(character),0))),trail_threshold(run),U32.is_lt(0,accepted(plan,id,22,1))),U32.is_lt(0,accepted(plan,id,1,2)),U32.is_lt(0,accepted(plan,id,21,3)))
+      +owner = SM.consume_bonus(SM.consume_trail(SM.consume_cast(settle_echoes(run_mechanics(run),plan,id,run_tick(run)),character,U32.is_lt(0,accepted(plan,id,starter(character),SM.PrimaryKind{}))),trail_threshold(run),U32.is_lt(0,accepted(plan,id,22,SM.TrailKind{}))),U32.is_lt(0,accepted(plan,id,1,SM.ComboKind{})),U32.is_lt(0,accepted(plan,id,21,SM.PulseKind{})))
       +charged = apply_credits(U32.to_nat(combo_credits(snapshots,hits,id)),owner,run_tick(run))
-      Bool.pick(SM.Owner,Bool.and(U32.is_eq(character,5),U32.is_lt(0,accepted(plan,id,23,0))),SM.enqueue(charged,captured_echo(run,projectile_amount(23,at(run_weapons(run),23),run_passives(run),run_arcana(run)))),charged)
+      Bool.pick(SM.Owner,Bool.and(U32.is_eq(character,5),U32.is_lt(0,admitted_primary(plan,id,23,8))),SM.enqueue(charged,captured_echo(run,admitted_primary(plan,id,23,8))),charged)
 def settled_view_value(view: PlayerView,plan: SP.Plan,snapshots: List<&2,Snapshot>,hits: List<&2,HitPlan>) -> PlayerView:
   match view:
     case PlayerView{+player,+run,+dx,+dy,+eligible}: PlayerView{player,with_mechanics(run,settle_owner(PlayerView{player,run,dx,dy,eligible},plan,snapshots,hits)),dx,dy,eligible}
@@ -1335,7 +1345,7 @@ def retire_trail(projectile: Shot.State,+team: Team) -> Bool:
   match projectile team:
     case Shot.State{Space.Spatial{_,_,+age,_},+identity,_,Components.ShotPayload{_,_,_,SM.Attack{_,_,SM.Trail{_}}},Components.Trajectory{_,_,_,_,_,_,_,Some{+source}}} Team{_,Args{_,_,_,_,+snapshots,_},_,_}:
       +run = view_run(team_for_id(team,source))
-      Bool.and(U32.is_lt(25,age),U32.is_le(U32.min(8,(3 + at(run_passives(run),4) + Bool.to_u32(U32.is_eq(run_arcana(run),3)) : U32)),trail_newer(snapshots,source,age,identity)))
+      Bool.and(U32.is_lt(25,age),U32.is_le(U32.min(8,(2 + projectile_amount(22,at(run_weapons(run),22),run_passives(run),run_arcana(run)) : U32)),trail_newer(snapshots,source,age,identity)))
     case _ _: False{}
 def special_mechanic(owner: U32,pierce: U32) -> SM.Mechanic:
   match owner:
@@ -1355,20 +1365,23 @@ def familiar_phase(value: Shot.State,+phase: F32) -> Shot.State:
 def initialized_primary(+run: Run,+owner: U32,+slot: U32,projectile: Shot.State) -> Shot.State:
   match projectile:
     case Shot.State{+space,+identity,+side,Components.ShotPayload{+weapon,+damage,+enabled,_},Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+weaponOwner,+logicalSlot,+source}}:
-      Shot.with_attack(Shot.State{space,identity,side,Components.ShotPayload{weapon,Bool.pick(U32,Bool.and(U32.is_eq(run_character(run),2),Bool.and(U32.is_eq(owner,14),notes_ready(run_mechanics(run)))),(damage * 175 / 100 : U32),damage),enabled,SM.ordinary()},Components.Trajectory{vx,vy,life,pierce,visited,weaponOwner,logicalSlot,source}},special_attack(run_character(run),owner,weapon,run_tick(run),pierce))
+      Shot.with_attack(Shot.State{space,identity,side,Components.ShotPayload{weapon,Bool.pick(U32,Bool.and(U32.is_eq(run_character(run),2),Bool.and(U32.is_eq(owner,14),SM.notes_ready(run_mechanics(run)))),(damage * 175 / 100 : U32),damage),enabled,SM.ordinary()},Components.Trajectory{vx,vy,life,pierce,visited,weaponOwner,logicalSlot,source}},special_attack(run_character(run),owner,weapon,run_tick(run),pierce))
 def radial_shot(identity: U32,source: U32,slot: U32,+amount: U32,+angle: F32,owner: U32,cast: U32,primary: Bool,x: F32,y: F32,damage: U32,+speed: F32,+area: F32,duration: F32,level: U32) -> Shot.State:
   Shot.with_attack(Shot.created(identity,Shot.PlayerShot{},23,damage,owner,Some{source},slot,P.Shot{x,y,(F32.cos(angle) * 8.0 * speed : F32),(F32.sin(angle) * 8.0 * speed : F32),(7.0 * area : F32),P.duration_life(110,duration),(2 + level / 2 : U32)}),SM.Attack{cast,primary,SM.Ordinary{}})
 def initialized_row(+run: Run,owner: U32,slot: U32,row: EntityRow) -> Shot.State:
   match row:
     case ProjectileRow{Shot.Outcome{+projectile,_}}: familiar_phase(initialized_primary(run,owner,slot,projectile),Bool.pick(F32,U32.is_eq(run_character(run),1),owner_orbit_phase(run_mechanics(run)),0.0))
     case _: Shot.dormant(0.0,0.0,0,Shot.PlayerShot{})
+def team_shot_plan(team: Team) -> SP.Plan:
+  match team:
+    case Team{_,_,plan,_}: plan
 def primary_spawn(+team: Team,+seed: U32,+owner: U32,+source: U32,+slot: U32,+level: U32) -> EntityRow:
   +view = team_for_id(team,source)
   +run = view_run(view)
   +weapon = effective_weapon(owner,level,slot)
   +ordinary = initialized_row(run,owner,slot,shot_spawn_ready(True{},source,seed,owner,slot,level,team_args(team,view)))
-  +amount = projectile_amount(owner,level,run_passives(run),run_arcana(run))
-  +rank = ((slot + 8 - (run_tick(run) / cooldown_for(owner,run_passives(run),run_meta(run),run_arcana(run),run_character(run)) * amount) % 8) % 8 : U32)
+  +amount = admitted_primary(team_shot_plan(team),source,owner,8)
+  +rank = admitted_primary(team_shot_plan(team),source,owner,slot)
   ProjectileRow{Shot.Outcome{Bool.pick(Shot.State,Bool.and(U32.is_eq(run_character(run),5),Bool.and(U32.is_eq(owner,23),U32.is_eq(weapon,23))),radial_shot(seed,source,slot,amount,(6.2831855 * U32.to_f32(rank) / U32.to_f32(U32.max(1,amount)) : F32),owner,run_tick(run),True{},run_px(run),run_py(run),weapon_damage(23,level,run_passives(run),run_meta(run),run_arcana(run),run_character(run)),projectile_speed(run_passives(run),run_arcana(run)),area_bonus(run_passives(run),run_arcana(run),level),duration_bonus(run_passives(run),run_arcana(run)),level),ordinary),0}}
 def aim_x(value: Aim) -> F32:
   match value:
@@ -1382,7 +1395,7 @@ def combo_spawn(+team: Team,seed: U32,+source: U32,+slot: U32,+level: U32,view: 
 def bonus_spawn(+team: Team,+seed: U32,+owner: U32,+source: U32,+slot: U32,+level: U32,emission: SM.Emission) -> EntityRow:
   match emission:
     case SM.Primary{}: primary_spawn(team,seed,owner,source,slot,level)
-    case SM.EchoEmission{SM.Echo{+cast,_,+x,+y,+damage,+amount,+speed,+area,+duration,+echoLevel}}: ProjectileRow{Shot.Outcome{radial_shot(seed,source,slot,amount,(6.2831855 * (U32.to_f32(slot) + 0.5) / U32.to_f32(U32.max(1,amount)) : F32),23,cast,False{},x,y,(damage / 2 : U32),speed,area,duration,echoLevel),0}}
+    case SM.EchoEmission{SM.Echo{+cast,_,+x,+y,+damage,+amount,+speed,+area,+duration,+echoLevel,_}}: ProjectileRow{Shot.Outcome{radial_shot(seed,source,slot,amount,(6.2831855 * (U32.to_f32(slot) + 0.5) / U32.to_f32(U32.max(1,amount)) : F32),23,cast,False{},x,y,(damage / 2 : U32),speed,area,duration,echoLevel),0}}
     case SM.TrailEmission{}:
       +run = view_run(team_for_id(team,source))
       ProjectileRow{Shot.Outcome{Shot.with_attack(Shot.spawn(seed,22,level,22,slot,source,slot,shot_spawn_input(22,level,run,0.0,0.0,enemy_targets([]))),SM.Attack{run_tick(run),True{},SM.Trail{False{}}}),0}}
