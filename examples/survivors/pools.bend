@@ -23,6 +23,7 @@ def total_count() -> U32: xp_end()
 def total_nat() -> Nat: U32.to_nat(total_count())
 def owner_count() -> U32: 24
 def logical_count() -> U32: 8
+def coop_player_capacity() -> U32: 4
 def normal_enemy_cap() -> U32: 300
 def max_regular_enemies() -> U32: 500
 

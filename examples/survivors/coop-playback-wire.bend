@@ -24,7 +24,7 @@ def projectile_hostile(side:Shot.Side) -> Bool:
 def pickup_actor(pickup:Pickup.State) -> P.Actor: Projection.pickup_actor(pickup)
 def snapshot_actor(context:ActorContext,snapshot:G.Snapshot) -> P.Actor:
   match context snapshot:
-    case ActorContext{tick,births} G.ProjectileSnapshot{Shot.State{Space.Spatial{x,y,+age,_},+seed,side,_,Components.Trajectory{_,_,life,pierce,_,owner,slot,+sourcePlayer}}}: Projection.projectile_actor(projectile_hostile(side),seed,Projection.birth(births,tick,age,seed),owner,slot,sourcePlayer,x,y,age,life,pierce)
+    case ActorContext{tick,births} G.ProjectileSnapshot{Shot.State{Space.Spatial{+x,+y,+age,+radius},+seed,+side,+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot,+sourcePlayer}}}: Projection.projectile_actor(projectile_hostile(side),seed,Projection.birth(births,tick,age,seed),owner,slot,sourcePlayer,x,y,age,life,Bool.pick(U32,Shot.active(Shot.State{Space.Spatial{x,y,age,radius},seed,side,payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,sourcePlayer}}),U32.max(1,pierce),0))
     case _ G.PickupSnapshot{pickup}: pickup_actor(pickup)
     case ActorContext{tick,births} G.EnemySnapshot{Enemy.State{Space.Spatial{x,y,+age,_},_,+identity,Components.Vitals{health,_},_}}: Projection.enemy_actor(identity,Projection.birth(births,tick,age,identity),x,y,age,health)
 def join(first:List<&2,P.Actor>,second:List<&2,P.Actor>) -> List<&2,P.Actor>: Projection.join(first,second)

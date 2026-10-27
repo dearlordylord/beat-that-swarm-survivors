@@ -47,7 +47,7 @@ def ink_ticks_attack(value:M.Attack) -> U32:
     case M.Attack{_,_,M.Ink{ticks,_}}: ticks
     case _: 999
 def ink_ticks(value:S.State) -> U32: ink_ticks_attack(S.attack(value))
-def ready_notes() -> M.Owner: M.Owner{0,3,0.0,0.0,0,False{},0,0,0,[]}
+def ready_notes() -> M.Owner: M.Owner{0,3,0.0,0.0,0,0,0,0,0,[]}
 def notes(value:M.Owner) -> U32:
   match value:
     case M.Owner{_,notes,_,_,_,_,_,_,_,_}: notes
@@ -61,7 +61,7 @@ def trails(+fuel:Nat,+age:U32) -> List<&2,G.Snapshot>:
   match fuel:
     case 0n: []
     case 1n+rest: G.ProjectileSnapshot{shot(22,(PL.player_start() + U32.from_nat(fuel) : U32),age,9999,M.Attack{1,True{},M.Trail{False{}}})} <> trails(rest,age)
-def ready_trail() -> M.Owner: M.Owner{0,0,40.0,0.0,0,False{},0,0,0,[]}
+def ready_trail() -> M.Owner: M.Owner{0,0,40.0,0.0,0,0,0,0,0,[]}
 def request_count(rows:List<&2,SP.Request>,+kind:U32) -> U32:
   match rows:
     case []: 0
@@ -86,8 +86,33 @@ def combo_pending(value:M.Owner) -> U32:
 def six_streaks(+seed:U32) -> List<&2,G.Snapshot>:
   [combo_snapshot(seed,True{},False{}),combo_snapshot((seed + 1 : U32),True{},False{}),combo_snapshot((seed + 2 : U32),True{},False{}),combo_snapshot((seed + 3 : U32),True{},False{}),combo_snapshot((seed + 4 : U32),True{},False{}),combo_snapshot((seed + 5 : U32),True{},False{}),enemy(10)]
 def six_contact_team() -> G.Team: G.contact_team(team(run(6,100,M.empty()),six_streaks(PL.player_start())))
+def no_assignment(value: Maybe<&2,SP.Request>) -> Bool:
+  match value:
+    case None{}: True{}
+    case _: False{}
+def exhausted_fan_plan() -> SP.Plan:
+  G.team_plan([G.PlayerView{0,run(4,1,M.empty()),0.0,0.0,True{}}],[G.ProjectileSnapshot{shot(8,PL.player_start(),10,0,M.Attack{1,True{},M.Fan{[10],1,False{}}})}])
+def four_views() -> List<&2,G.PlayerView>:
+  [G.PlayerView{0,run(6,1,M.empty()),0.0,0.0,True{}},G.PlayerView{1,run(6,1,M.empty()),0.0,0.0,True{}},G.PlayerView{2,run(6,1,M.empty()),0.0,0.0,True{}},G.PlayerView{3,run(6,1,M.empty()),0.0,0.0,True{}}]
+def partitioned(index: BI.Index<SP.Request>) -> Bool:
+  match index:
+    case BI.Empty{}: True{}
+    case BI.Item{seed,SP.Request{_,SP.Emission{source,_},_,_}}: U32.is_eq((seed % PL.coop_player_capacity() : U32),source)
+    case BI.Fork{_,_,zero,one}: Bool.and(partitioned(zero),partitioned(one))
+def four_assignments(+plan: SP.Plan) -> Bool:
+  match plan:
+    case SP.Plan{index,_}: Bool.and(partitioned(index),Bool.and(U32.is_lt(0,G.accepted(plan,0,1,0)),Bool.and(U32.is_lt(0,G.accepted(plan,1,1,0)),Bool.and(U32.is_lt(0,G.accepted(plan,2,1,0)),U32.is_lt(0,G.accepted(plan,3,1,0))))))
+def source_is(value: S.State,+source: U32) -> Bool:
+  match value:
+    case S.State{_,_,_,K.ShotPayload{1,_,_,M.Attack{1,True{},M.Streak{False{}}}},K.Trajectory{_,_,_,_,_,1,_,Some{player}}}: U32.is_eq(source,player)
+    case _: False{}
+def fourth_owner_spawn() -> S.State:
+  row(G.team_shot_spawn(G.Team{four_views(),G.combat_args(run(6,1,M.empty()),0.0,0.0,[]),G.team_plan(four_views(),[]),BI.Empty{}},(PL.player_start() + 3 : U32),Some{SP.Request{1,SP.Emission{3,0},3,M.Primary{}}}))
 def main() -> IO(Unit):
   do IO<Unit>:
+    expect(four_assignments(G.team_plan(four_views(),[])),"four owners receive distinct nonempty projectile assignments")
+    expect(source_is(fourth_owner_spawn(),3),"fourth owner starter keeps its source and mechanic provenance")
+    expect(no_assignment(SP.lookup(exhausted_fan_plan(),PL.player_start())),"allocator reserves an exhausted outward fan until return")
     expect(S.active(outcome(S.step(shot(8,PL.player_start(),10,1,M.Attack{1,True{},M.Fan{[],1,False{}}}),input(),[10]))),"fan survives exhausted outgoing budget")
     expect(Bool.and(U32.is_eq(target_damage(plans(shot(8,PL.player_start(),45,0,M.Attack{1,True{},M.Fan{[10],2,False{}}})),10),130),U32.is_eq(target_damage(plans(shot(8,PL.player_start(),45,0,M.Attack{1,True{},M.Fan{[10],2,False{}}})),11),100)),"return contacts restore finite budget and split marked damage")
     expect(U32.is_eq(count(G.hit_targets(plans(shot(8,PL.player_start(),45,0,M.Attack{1,True{},M.Fan{[10],1,False{}}})),PL.player_start())),1),"return leg respects independent finite pierce budget")

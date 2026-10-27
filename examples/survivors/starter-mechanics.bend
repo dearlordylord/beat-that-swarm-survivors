@@ -1,12 +1,12 @@
 import Base
 
 type Echo is Data: Echo{castTick:U32,due:U32,x:F32,y:F32,damage:U32,amount:U32,speed:F32,area:F32,duration:F32,level:U32}
-type Owner is Data: Owner{stillTicks:U32,notes:U32,trailCarry:F32,orbitPhase:F32,orbits:U32,pulseReady:Bool,comboHits:U32,comboDeadline:U32,comboReady:U32,echoes:List<&2,Echo>}
+type Owner is Data: Owner{stillTicks:U32,notes:U32,trailCarry:F32,orbitPhase:F32,orbits:U32,pulseReady:U32,comboHits:U32,comboDeadline:U32,comboReady:U32,echoes:List<&2,Echo>}
 type Emission is Data: Primary{} TrailEmission{} EchoEmission{echo:Echo} ComboEmission{} PulseEmission{}
 type Mechanic is Data: Ordinary{} Fan{marks:List<&2,U32>,returnBudget:U32,returning:Bool} Ink{heldTicks:U32,resolved:Bool} Trail{armed:Bool} Streak{credited:Bool}
 type Attack is Data: Attack{castTick:U32,primary:Bool,mechanic:Mechanic}
 
-def empty() -> Owner: Owner{0,0,0.0,0.0,0,False{},0,0,0,[]}
+def empty() -> Owner: Owner{0,0,0.0,0.0,0,0,0,0,0,[]}
 def ordinary() -> Attack: Attack{0,False{},Ordinary{}}
 def number(select:Bool,yes:U32,no:U32) -> U32:
   match select:
@@ -26,7 +26,7 @@ def advance(owner:Owner,+character:U32,+distance:F32,+threshold:F32,familiarActi
       +crossed = F32.is_le(6.2831855,phase)
       +completed = (orbits + Bool.to_u32(crossed) : U32)
       +travel = scalar(Bool.and(U32.is_eq(character,3),Bool.and(F32.is_le(0.0,distance),F32.is_le(distance,48.0))),distance,0.0)
-      Owner{(ticks % 30 : U32),U32.min(3,(notes + ticks / 30 : U32)),F32.min((threshold + 48.0 : F32),(trailCarry + travel : F32)),(phase - scalar(crossed,6.2831855,0.0) : F32),(completed % 3 : U32),Bool.or(pulseReady,U32.is_le(3,completed)),comboHits,comboDeadline,comboReady,echoes}
+      Owner{(ticks % 30 : U32),U32.min(3,(notes + ticks / 30 : U32)),F32.min((threshold + 48.0 : F32),(trailCarry + travel : F32)),(phase - scalar(crossed,6.2831855,0.0) : F32),(completed % 3 : U32),(pulseReady + completed / 3 : U32),comboHits,comboDeadline,comboReady,echoes}
 
 def credit(owner:Owner,+tick:U32) -> Owner:
   match owner:
@@ -47,7 +47,7 @@ def consume_trail(owner:Owner,+threshold:F32,accepted:Bool) -> Owner:
 def consume_bonus(owner:Owner,combo:Bool,pulse:Bool) -> Owner:
   match owner:
     case Owner{+stillTicks,+notes,+trailCarry,+orbitPhase,+orbits,+pulseReady,+comboHits,+comboDeadline,+comboReady,+echoes}:
-      Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,Bool.and(pulseReady,Bool.not(pulse)),comboHits,comboDeadline,(comboReady - number(Bool.and(combo,U32.is_lt(0,comboReady)),1,0) : U32),echoes}
+      Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,(pulseReady - number(Bool.and(pulse,U32.is_lt(0,pulseReady)),1,0) : U32),comboHits,comboDeadline,(comboReady - number(Bool.and(combo,U32.is_lt(0,comboReady)),1,0) : U32),echoes}
 
 def keep_echo(keep:Bool,echo:Echo,tail:List<&2,Echo>) -> List<&2,Echo>:
   match keep:
@@ -89,7 +89,7 @@ def native_echoes(rows:List<&2,Echo>) -> String:
 
 def native_owner(value:Owner) -> String:
   match value:
-    case Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,comboHits,comboDeadline,comboReady,echoes}: "{\"$\":\"Owner\"" ++ ",\"stillTicks\":" ++ U32.show(stillTicks) ++ ",\"notes\":" ++ U32.show(notes) ++ ",\"trailCarry\":" ++ F32.show(trailCarry) ++ ",\"orbitPhase\":" ++ F32.show(orbitPhase) ++ ",\"orbits\":" ++ U32.show(orbits) ++ ",\"pulseReady\":" ++ native_bool(pulseReady) ++ ",\"comboHits\":" ++ U32.show(comboHits) ++ ",\"comboDeadline\":" ++ U32.show(comboDeadline) ++ ",\"comboReady\":" ++ U32.show(comboReady) ++ ",\"echoes\":" ++ native_echoes(echoes) ++ "}"
+    case Owner{stillTicks,notes,trailCarry,orbitPhase,orbits,pulseReady,comboHits,comboDeadline,comboReady,echoes}: "{\"$\":\"Owner\"" ++ ",\"stillTicks\":" ++ U32.show(stillTicks) ++ ",\"notes\":" ++ U32.show(notes) ++ ",\"trailCarry\":" ++ F32.show(trailCarry) ++ ",\"orbitPhase\":" ++ F32.show(orbitPhase) ++ ",\"orbits\":" ++ U32.show(orbits) ++ ",\"pulseReady\":" ++ U32.show(pulseReady) ++ ",\"comboHits\":" ++ U32.show(comboHits) ++ ",\"comboDeadline\":" ++ U32.show(comboDeadline) ++ ",\"comboReady\":" ++ U32.show(comboReady) ++ ",\"echoes\":" ++ native_echoes(echoes) ++ "}"
 
 def expire(owner: Owner,+tick: U32) -> Owner:
   match owner:
@@ -119,7 +119,7 @@ def echoes_words(rows: List<&2,Echo>) -> List<&2,U32>:
     case head <> tail: List.append(&2,U32,echo_words(head),echoes_words(tail))
 def owner_words(value: Owner) -> List<&2,U32>:
   match value:
-    case Owner{ticks,notes,carry,phase,orbits,pulse,hits,deadline,ready,+echoes}: List.append(&2,U32,[ticks,notes,F32.bits(carry),F32.bits(phase),orbits,Bool.to_u32(pulse),hits,deadline,ready,U32.from_nat(List.length(&2,Echo,echoes))],echoes_words(echoes))
+    case Owner{ticks,notes,carry,phase,orbits,pulse,hits,deadline,ready,+echoes}: List.append(&2,U32,[ticks,notes,F32.bits(carry),F32.bits(phase),orbits,pulse,hits,deadline,ready,U32.from_nat(List.length(&2,Echo,echoes))],echoes_words(echoes))
 def mechanic_words(value: Mechanic) -> List<&2,U32>:
   match value:
     case Ordinary{}: [0]

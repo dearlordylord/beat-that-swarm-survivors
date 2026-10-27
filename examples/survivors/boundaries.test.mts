@@ -78,7 +78,7 @@ const raw: Extract<BendABI.CoopCore.Observation, { $: "ViewObservation" }> = {
           trailCarry: 0,
           orbitPhase: 0,
           orbits: 0,
-          pulseReady: false,
+          pulseReady: 0,
           comboHits: 0,
           comboDeadline: 0,
           comboReady: 0,

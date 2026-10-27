@@ -451,7 +451,7 @@ def inventory_add(alive: Bool,+seed: U32,+owner: U32,+slot: U32,inventory: ShotI
 def shot_inventory(rows: List<&2,Snapshot>,inventory: ShotInventory) -> ShotInventory:
   match rows:
     case []: inventory
-    case ProjectileSnapshot{Shot.State{_,+seed,Shot.PlayerShot{},Components.ShotPayload{_,_,active,attack},Components.Trajectory{_,_,life,pierce,_,owner,slot,+sourcePlayer}}} <> rest: shot_inventory(rest,inventory_add(Bool.and(active,Bool.and(PL.is_player_shot(seed),Bool.and(U32.is_lt(0,life),U32.is_lt(0,pierce)))),seed,owner,slot,inventory))
+    case ProjectileSnapshot{Shot.State{+space,+seed,Shot.PlayerShot{},+payload,Components.Trajectory{+vx,+vy,+life,+pierce,+visited,+owner,+slot,+sourcePlayer}}} <> rest: shot_inventory(rest,inventory_add(Bool.and(PL.is_player_shot(seed),Shot.active(Shot.State{space,seed,Shot.PlayerShot{},payload,Components.Trajectory{vx,vy,life,pierce,visited,owner,slot,sourcePlayer}})),seed,owner,slot,inventory))
     case _ <> rest: shot_inventory(rest,inventory)
 def free_slot(available: Bool,seed: U32,rest: List<&2,U32>) -> List<&2,U32>:
   match available:
@@ -1186,13 +1186,13 @@ def own_snapshots(rows: List<&2,Snapshot>,+id: U32) -> List<&2,Snapshot>:
   match rows:
     case []: []
     case +row <> rest: own_snapshot(row,id,own_snapshots(rest,id))
-def parity_slots(rows: List<&2,U32>,+id: U32) -> List<&2,U32>:
+def player_shot_slots(rows: List<&2,U32>,+id: U32) -> List<&2,U32>:
   match rows:
     case []: []
-    case +seed <> rest: free_slot(U32.is_eq((seed % 2 : U32),id),seed,parity_slots(rest,id))
+    case +seed <> rest: free_slot(U32.is_eq((seed % PL.coop_player_capacity() : U32),id),seed,player_shot_slots(rest,id))
 def assigned_plan(+id: U32,+run: Run,inventory: ShotInventory) -> SP.Plan:
   match inventory:
-    case ShotInventory{occupied,counts,locks}: SP.allocate(parity_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule_for(id,run)) % PL.owner_count() : U32),shot_schedule_for(id,run),locks))
+    case ShotInventory{occupied,counts,locks}: SP.allocate(player_shot_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),counts,PL.caps(),shot_requests(24n,(Shot.schedule_tick(shot_schedule_for(id,run)) % PL.owner_count() : U32),shot_schedule_for(id,run),locks))
 def merge_assignments(index: BI.Index<SP.Request>,+id: U32,into: BI.Index<SP.Request>) -> BI.Index<SP.Request>:
   match index:
     case BI.Empty{}: into
@@ -1219,7 +1219,7 @@ def combo_ready(owner: SM.Owner) -> Bool:
     case SM.Owner{_,_,_,_,_,_,_,_,+ready,_}: U32.is_lt(0,ready)
 def pulse_ready(owner: SM.Owner) -> Bool:
   match owner:
-    case SM.Owner{_,_,_,_,_,+ready,_,_,_,_}: ready
+    case SM.Owner{_,_,_,_,_,+ready,_,_,_,_}: U32.is_lt(0,ready)
 def familiar_active(rows: List<&2,Snapshot>,+id: U32) -> Bool:
   match rows:
     case []: False{}
@@ -1267,7 +1267,7 @@ def mechanic_requests(+id: U32,+run: Run,+snapshots: List<&2,Snapshot>,locks: Li
   echo_requests(SM.due(personal,run_tick(run)),id,pulse)
 def mechanic_plan_inventory(+id: U32,+run: Run,+snapshots: List<&2,Snapshot>,all: ShotInventory,own: ShotInventory,split: Bool) -> SP.Plan:
   match all own:
-    case ShotInventory{+occupied,_,_} ShotInventory{_,+counts,+locks}: SP.allocate(Bool.pick(List<&2,U32>,split,parity_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied)),counts,PL.caps(),mechanic_requests(id,run,snapshots,locks))
+    case ShotInventory{+occupied,_,_} ShotInventory{_,+counts,+locks}: SP.allocate(Bool.pick(List<&2,U32>,split,player_shot_slots(free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied),id),free_shot_slots(U32.to_nat(PL.player_count()),PL.player_start(),occupied)),counts,PL.caps(),mechanic_requests(id,run,snapshots,locks))
 def player_plan(view: PlayerView,+snapshots: List<&2,Snapshot>) -> SP.Plan:
   match view:
     case PlayerView{+id,+run,_,_,_}: mechanic_plan_inventory(id,run,snapshots,shot_inventory(snapshots,ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}),shot_inventory(own_snapshots(snapshots,id),ShotInventory{BI.Empty{},empty_owner_counts(),empty_owner_counts()}),True{})
@@ -1350,7 +1350,7 @@ def owner_orbit_phase(owner: SM.Owner) -> F32:
     case SM.Owner{_,_,_,phase,_,_,_,_,_,_}: phase
 def familiar_phase(value: Shot.State,+phase: F32) -> Shot.State:
   match value:
-    case Shot.State{space,identity,side,Components.ShotPayload{21,damage,enabled,attack},Components.Trajectory{+vx,vy,life,pierce,visited,owner,slot,source}}: Shot.State{space,identity,side,Components.ShotPayload{21,damage,enabled,attack},Components.Trajectory{(vx + phase : F32),vy,life,pierce,visited,owner,slot,source}}
+    case Shot.State{Space.Spatial{+x,+y,age,radius},identity,side,Components.ShotPayload{21,damage,enabled,attack},Components.Trajectory{+vx,+vy,life,pierce,visited,owner,slot,source}}: Shot.State{Space.Spatial{(x + (F32.cos((vx + phase : F32)) - F32.cos(vx)) * vy : F32),(y + (F32.sin((vx + phase : F32)) - F32.sin(vx)) * vy : F32),age,radius},identity,side,Components.ShotPayload{21,damage,enabled,attack},Components.Trajectory{(vx + phase : F32),vy,life,pierce,visited,owner,slot,source}}
     case value: value
 def initialized_primary(+run: Run,+owner: U32,+slot: U32,projectile: Shot.State) -> Shot.State:
   match projectile:

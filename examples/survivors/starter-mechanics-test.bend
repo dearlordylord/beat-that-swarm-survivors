@@ -19,7 +19,7 @@ def combo(owner:M.Owner) -> Bool:
     case M.Owner{_,_,_,_,_,_,_,_,ready,_}: U32.is_lt(0,ready)
 def pulse(owner:M.Owner) -> Bool:
   match owner:
-    case M.Owner{_,_,_,_,_,ready,_,_,_,_}: ready
+    case M.Owner{_,_,_,_,_,ready,_,_,_,_}: U32.is_lt(0,ready)
 def wait(fuel:Nat,owner:M.Owner,+character:U32) -> M.Owner:
   match fuel:
     case 0n: owner
@@ -34,8 +34,13 @@ def fill(fuel:Nat,owner:M.Owner) -> M.Owner:
     case 0n: owner
     case 1n+rest: fill(rest,M.enqueue(owner,echo(27)))
 def count(rows:List<&2,M.Echo>) -> U32: U32.from_nat(List.length(&2,M.Echo,rows))
+def pulse_count(value: M.Owner) -> U32:
+  match value:
+    case M.Owner{_,_,_,_,_,ready,_,_,_,_}: ready
 def main() -> IO(Unit):
   do IO<Unit>:
+    expect(U32.is_eq(pulse_count(wait(1078n,M.empty(),1)),2),"two earned orbit pulses survive allocation starvation")
+    expect(U32.is_eq(pulse_count(M.consume_bonus(wait(1078n,M.empty(),1),False{},True{})),1),"one admitted orbit pulse consumes one receipt")
     expect(U32.is_eq(notes(auto_casts(89n,M.empty())),2),"automatic casts preserve one and two notes")
     expect(U32.is_eq(notes(auto_casts(90n,M.empty())),0),"third note consumed by one admitted cast")
     expect(U32.is_eq(notes(wait(90n,M.empty(),2)),3),"allocation rejection preserves full bank")
