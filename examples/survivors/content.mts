@@ -245,7 +245,7 @@ export const ACHIEVEMENTS = [
 export const ARCANA = [
   {
     "id": 0,
-    "name": "FACE of Glass",
+    "name": "Glass Resolve",
     "icon": "/",
     "description": "Might +35%, maximum health -30%."
   },
@@ -257,7 +257,7 @@ export const ARCANA = [
   },
   {
     "id": 2,
-    "name": "Indigo Gallery",
+    "name": "Open Gallery",
     "icon": "O",
     "description": "Area +35%, movement speed -15%."
   },
@@ -271,7 +271,7 @@ export const ARCANA = [
     "id": 4,
     "name": "Mirror Resolve",
     "icon": "#",
-    "description": "Armor +3, might -15%. Taking damage releases protective orbiting leaves, even without Leaf Orbit equipped.",
+    "description": "Armor +3, might -15%. Taking damage releases protective orbiting leaves, even without Garden Orbit equipped.",
     "synergy": {
       "kind": "retaliation",
       "weapons": [
@@ -284,7 +284,7 @@ export const ARCANA = [
     "id": 5,
     "name": "Unwritten Verse",
     "icon": "A",
-    "description": "Experience +30%; enemy health and count +20%. Poem Fragment and Final Bow gain 20% damage, plus 5% per Jack in the Box rank.",
+    "description": "Experience +30%; enemy health and count +20%. Scattered Lines and Curtain Flash gain 20% damage, plus 5% per Restless Box rank.",
     "synergy": {
       "kind": "curseDamage",
       "weapons": [
@@ -302,7 +302,7 @@ export const ARCANA = [
   },
   {
     "id": 7,
-    "name": "D-DAY Ember",
+    "name": "Banked Ember",
     "icon": "!",
     "description": "Duration +50%, projectile speed -20%. Burns last twice as long and deal double damage per tick.",
     "synergy": {
@@ -317,7 +317,7 @@ export const ARCANA = [
   },
   {
     "id": 8,
-    "name": "Golden Trajectory",
+    "name": "Gilt Trajectory",
     "icon": ">",
     "description": "Projectile speed +50%, might +15%. Traveling projectiles ricochet from the world boundary.",
     "synergy": {
@@ -342,16 +342,16 @@ export const ARCANA = [
   },
   {
     "id": 9,
-    "name": "Namjooning",
+    "name": "Garden Rest",
     "icon": "+",
-    "description": "Regenerates 2 health per second; maximum health +25%. With Warm Hearth or Leaf Orbit equipped, kills on periodic life-steal pulses restore 1 health each.",
+    "description": "Regenerates 2 health per second; maximum health +25%. With Hearth Glow or Garden Orbit equipped, kills on periodic life-steal pulses restore 1 health each.",
     "synergy": {
       "kind": "killHealing",
       "weapons": [
         4,
         19
       ],
-      "healthPerKill": 2
+      "healthPerKill": 1
     }
   },
   {
@@ -379,18 +379,18 @@ export const ARCANA = [
 export const CHARACTERS = [
   {
     "id": 0,
-    "name": "RM",
-    "title": "Order in Chaos",
-    "description": "Pulling ink fields organize the crowd. Pickup radius +50%.",
+    "name": "Grove Scribe",
+    "title": "Collected Thoughts",
+    "description": "Ink fields gather enemies. Hold three for 1 second to release a finishing pulse. Pickup radius +50%.",
     "weapon": 20,
     "color": "#7b98dc",
     "cost": 0
   },
   {
     "id": 1,
-    "name": "Jin",
-    "title": "Warm Astronaut",
-    "description": "An orbiting Home Star fires homing letters. Regenerates 1 health per second.",
+    "name": "Hearth Voyager",
+    "title": "Safe Return",
+    "description": "An orbiting lantern fires homing letters. Every third orbit pushes enemies away. Regenerates 1 health per second.",
     "weapon": 21,
     "color": "#f6ddba",
     "cost": 250,
@@ -402,9 +402,9 @@ export const CHARACTERS = [
   },
   {
     "id": 2,
-    "name": "SUGA",
-    "title": "Quiet Storm",
-    "description": "Delayed sound charges release a heavy burst. Might +20%.",
+    "name": "Ash Pianist",
+    "title": "Held Note",
+    "description": "Stand still to bank three notes. The next Pressure Break deals +75% damage. Moving preserves full notes. Weapon damage +20%.",
     "weapon": 14,
     "color": "#e65e64",
     "cost": 500,
@@ -416,9 +416,9 @@ export const CHARACTERS = [
   },
   {
     "id": 3,
-    "name": "j-hope",
-    "title": "Street Choreographer",
-    "description": "Leave delayed beat pulses for pursuers. Movement speed +15%.",
+    "name": "Sunlit Stepper",
+    "title": "Footwork Trail",
+    "description": "Walk to leave delayed beat marks for pursuers. Movement speed +15%.",
     "weapon": 22,
     "color": "#a5e38b",
     "cost": 750,
@@ -430,9 +430,9 @@ export const CHARACTERS = [
   },
   {
     "id": 4,
-    "name": "Jimin",
-    "title": "Mirror Dancer",
-    "description": "A mirrored fan cuts outward and returns. Armor +1.",
+    "name": "Swanward",
+    "title": "Reprise",
+    "description": "A fan cuts out and returns. Previously struck enemies take +30% damage on return. Armor +1.",
     "weapon": 8,
     "color": "#f2b5d5",
     "cost": 1000,
@@ -444,9 +444,9 @@ export const CHARACTERS = [
   },
   {
     "id": 5,
-    "name": "V",
-    "title": "Dream Wanderer",
-    "description": "Dream frames fire in several directions. Weapon cooldown -10%.",
+    "name": "Sepia Wanderer",
+    "title": "Double Exposure",
+    "description": "Radial frames echo from their original position after 0.45 seconds at half damage. Weapon cooldown -10%.",
     "weapon": 23,
     "color": "#c58da4",
     "cost": 1500,
@@ -458,9 +458,9 @@ export const CHARACTERS = [
   },
   {
     "id": 6,
-    "name": "Jung Kook",
-    "title": "Golden All-rounder",
-    "description": "Fast gold streaks follow your movement. Might +10%; maximum health +25%.",
+    "name": "Gilt Hare",
+    "title": "Clean Combo",
+    "description": "Three successful starter hits within 2 seconds release a piercing punch. Weapon damage +10%; base maximum health 125.",
     "weapon": 1,
     "color": "#f4c861",
     "cost": 2200,
@@ -476,7 +476,7 @@ export const COLLECTIONS = {
   "weapons": [
     {
       "id": 0,
-      "name": "Starlight Letter",
+      "name": "Guiding Letter",
       "condition": {
         "stat": "weaponUsed",
         "id": 0,
@@ -485,7 +485,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 1,
-      "name": "Golden Rush",
+      "name": "Forward Drive",
       "condition": {
         "stat": "weaponUsed",
         "id": 1,
@@ -512,7 +512,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 4,
-      "name": "Warm Hearth",
+      "name": "Hearth Glow",
       "condition": {
         "stat": "weaponUsed",
         "id": 4,
@@ -521,7 +521,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 5,
-      "name": "Spotlight Snap",
+      "name": "Stage Flash",
       "condition": {
         "stat": "weaponUsed",
         "id": 5,
@@ -530,7 +530,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 6,
-      "name": "Red Verse",
+      "name": "Burning Verse",
       "condition": {
         "stat": "weaponUsed",
         "id": 6,
@@ -539,7 +539,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 7,
-      "name": "Indigo Rain",
+      "name": "Ink Rain",
       "condition": {
         "stat": "weaponUsed",
         "id": 7,
@@ -548,7 +548,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 8,
-      "name": "Mirror Fan",
+      "name": "Silk Return",
       "condition": {
         "stat": "weaponUsed",
         "id": 8,
@@ -557,7 +557,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 9,
-      "name": "Poem Fragment",
+      "name": "Scattered Lines",
       "condition": {
         "stat": "weaponUsed",
         "id": 9,
@@ -575,7 +575,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 11,
-      "name": "Final Bow",
+      "name": "Curtain Flash",
       "condition": {
         "stat": "weaponUsed",
         "id": 11,
@@ -593,7 +593,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 13,
-      "name": "Practice Line",
+      "name": "Practice Thrust",
       "condition": {
         "stat": "weaponUsed",
         "id": 13,
@@ -602,7 +602,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 14,
-      "name": "D-DAY Release",
+      "name": "Pressure Break",
       "condition": {
         "stat": "weaponUsed",
         "id": 14,
@@ -620,7 +620,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 16,
-      "name": "SHOOKY Mischief",
+      "name": "Mischief Crumb",
       "condition": {
         "stat": "weaponUsed",
         "id": 16,
@@ -629,7 +629,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 17,
-      "name": "Astronaut Comet",
+      "name": "Homeward Comet",
       "condition": {
         "stat": "weaponUsed",
         "id": 17,
@@ -638,7 +638,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 18,
-      "name": "Stage Beam",
+      "name": "Spotlight Lance",
       "condition": {
         "stat": "weaponUsed",
         "id": 18,
@@ -647,7 +647,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 19,
-      "name": "Leaf Orbit",
+      "name": "Garden Orbit",
       "condition": {
         "stat": "weaponUsed",
         "id": 19,
@@ -656,7 +656,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 20,
-      "name": "Indigo Composition",
+      "name": "Gathering Ink",
       "condition": {
         "stat": "weaponUsed",
         "id": 20,
@@ -665,7 +665,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 21,
-      "name": "Home Star",
+      "name": "Hearth Orbit",
       "condition": {
         "stat": "weaponUsed",
         "id": 21,
@@ -674,7 +674,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 22,
-      "name": "Street Beat",
+      "name": "Afterbeat",
       "condition": {
         "stat": "weaponUsed",
         "id": 22,
@@ -683,7 +683,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 23,
-      "name": "Dream Frame",
+      "name": "Waking Frame",
       "condition": {
         "stat": "weaponUsed",
         "id": 23,
@@ -694,7 +694,7 @@ export const COLLECTIONS = {
   "evolutions": [
     {
       "id": 0,
-      "name": "Constellation Letter",
+      "name": "Guiding Constellation",
       "condition": {
         "stat": "weaponEvolved",
         "id": 0,
@@ -703,7 +703,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 1,
-      "name": "Golden Overdrive",
+      "name": "Gilt Overdrive",
       "condition": {
         "stat": "weaponEvolved",
         "id": 1,
@@ -721,7 +721,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 3,
-      "name": "Astronaut Halo",
+      "name": "Lunar Parade",
       "condition": {
         "stat": "weaponEvolved",
         "id": 3,
@@ -748,7 +748,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 6,
-      "name": "Agust Inferno",
+      "name": "Cinder Canticle",
       "condition": {
         "stat": "weaponEvolved",
         "id": 6,
@@ -757,7 +757,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 7,
-      "name": "Namjooning Rain",
+      "name": "Collected Rain",
       "condition": {
         "stat": "weaponEvolved",
         "id": 7,
@@ -766,7 +766,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 8,
-      "name": "MUSE Reflection",
+      "name": "Silver Reprise",
       "condition": {
         "stat": "weaponEvolved",
         "id": 8,
@@ -775,7 +775,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 9,
-      "name": "Indigo Manuscript",
+      "name": "Living Manuscript",
       "condition": {
         "stat": "weaponEvolved",
         "id": 9,
@@ -784,7 +784,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 10,
-      "name": "FACE Stillness",
+      "name": "Stillwater Glass",
       "condition": {
         "stat": "weaponEvolved",
         "id": 10,
@@ -820,7 +820,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 14,
-      "name": "Agust Storm",
+      "name": "Pressure Storm",
       "condition": {
         "stat": "weaponEvolved",
         "id": 14,
@@ -829,7 +829,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 15,
-      "name": "Daechwita Echo",
+      "name": "Night Resonance",
       "condition": {
         "stat": "weaponEvolved",
         "id": 15,
@@ -838,7 +838,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 16,
-      "name": "Cookie Chorus",
+      "name": "Crumb Chorus",
       "condition": {
         "stat": "weaponEvolved",
         "id": 16,
@@ -856,7 +856,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 18,
-      "name": "Golden Spotlight",
+      "name": "Gilt Spotlight",
       "condition": {
         "stat": "weaponEvolved",
         "id": 18,
@@ -874,7 +874,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 20,
-      "name": "Order in Chaos",
+      "name": "Quiet Composition",
       "condition": {
         "stat": "weaponEvolved",
         "id": 20,
@@ -883,7 +883,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 21,
-      "name": "RJ Constellation",
+      "name": "Traveling Hearth",
       "condition": {
         "stat": "weaponEvolved",
         "id": 21,
@@ -892,7 +892,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 22,
-      "name": "HOPE Block Party",
+      "name": "Street Crescendo",
       "condition": {
         "stat": "weaponEvolved",
         "id": 22,
@@ -901,7 +901,7 @@ export const COLLECTIONS = {
     },
     {
       "id": 23,
-      "name": "TATA Dreamscape",
+      "name": "Waking Gallery",
       "condition": {
         "stat": "weaponEvolved",
         "id": 23,
@@ -1487,126 +1487,126 @@ export const META_UPGRADES = [
 export const PASSIVES = [
   {
     "id": 0,
-    "name": "GOLDEN Drive",
+    "name": "Drive Weight",
     "icon": "+",
     "description": "All weapon damage +10% per rank.",
     "maxLevel": 5
   },
   {
     "id": 1,
-    "name": "Beat Clock",
+    "name": "Pocket Metronome",
     "icon": "o",
     "description": "Attack cooldown -7% per rank.",
     "maxLevel": 5
   },
   {
     "id": 2,
-    "name": "Gallery Lens",
+    "name": "Wideglass Lens",
     "icon": "O",
     "description": "Weapon and effect area +10% per rank.",
     "maxLevel": 5
   },
   {
     "id": 3,
-    "name": "Long Encore",
+    "name": "Silk Spool",
     "icon": "~",
     "description": "Weapon duration +15% per rank.",
     "maxLevel": 5
   },
   {
     "id": 4,
-    "name": "Harmony Split",
+    "name": "Split Fork",
     "icon": "Y",
     "description": "One additional projectile per rank.",
     "maxLevel": 5
   },
   {
     "id": 5,
-    "name": "Dance Sneakers",
+    "name": "Street Soles",
     "icon": ">",
     "description": "Movement speed +10% per rank.",
     "maxLevel": 5
   },
   {
     "id": 6,
-    "name": "Mirror Guard",
+    "name": "Lacquer Guard",
     "icon": "#",
     "description": "Reduces incoming damage by 1 per rank.",
     "maxLevel": 5
   },
   {
     "id": 7,
-    "name": "Warm Heart",
+    "name": "Hearth Locket",
     "icon": "+",
     "description": "Maximum health +20% per rank.",
     "maxLevel": 5
   },
   {
     "id": 8,
-    "name": "KOYA Focus",
+    "name": "Pressed Leaf",
     "icon": "O",
     "description": "Experience pickup radius +25% per rank.",
     "maxLevel": 5
   },
   {
     "id": 9,
-    "name": "Lyric Notebook",
+    "name": "Field Notebook",
     "icon": "A",
     "description": "Experience gained +10% per rank.",
     "maxLevel": 5
   },
   {
     "id": 10,
-    "name": "TATA Curiosity",
+    "name": "Odd Die",
     "icon": "?",
     "description": "Luck +10% per rank, improving normal enemy gold and healing drops.",
     "maxLevel": 5
   },
   {
     "id": 11,
-    "name": "RJ Comfort",
+    "name": "Travel Mug",
     "icon": "+",
     "description": "Regenerates 1 health per second per rank.",
     "maxLevel": 5
   },
   {
     "id": 12,
-    "name": "Golden Tempo",
+    "name": "Flight Feather",
     "icon": ">",
     "description": "Projectile speed +15% per rank.",
     "maxLevel": 5
   },
   {
     "id": 13,
-    "name": "Second Encore",
+    "name": "Spare Wick",
     "icon": "8",
     "description": "One additional full-health revival per rank.",
     "maxLevel": 5
   },
   {
     "id": 14,
-    "name": "Jack in the Box",
+    "name": "Restless Box",
     "icon": "!",
     "description": "Enemy health and count +10% per rank; experience and gold +10% per rank.",
     "maxLevel": 5
   },
   {
     "id": 15,
-    "name": "Platinum Record",
+    "name": "Gilt Record",
     "icon": "O",
     "description": "Gold gained +15% per rank.",
     "maxLevel": 5
   },
   {
     "id": 16,
-    "name": "Bass Pulse",
+    "name": "Bass Cabinet",
     "icon": ">",
     "description": "Enemy knockback +15% per rank.",
     "maxLevel": 5
   },
   {
     "id": 17,
-    "name": "Home Cooking",
+    "name": "Steam Bowl",
     "icon": "+",
     "description": "Healing from pickups and regeneration +20% per rank.",
     "maxLevel": 5
@@ -1759,7 +1759,7 @@ export const STAGE_RELICS = [
   {
     "id": 1,
     "name": "Golden Filament",
-    "description": "Find this relic in Midnight Library to unlock Stage Beam for future runs.",
+    "description": "Find this relic in Midnight Library to unlock Spotlight Lance for future runs.",
     "weapon": 18,
     "x": 7200,
     "y": 3600
@@ -1767,7 +1767,7 @@ export const STAGE_RELICS = [
   {
     "id": 2,
     "name": "SHOOKY Crumb",
-    "description": "Find this relic in Wisp Marsh to unlock SHOOKY Mischief for future runs.",
+    "description": "Find this relic in Wisp Marsh to unlock Mischief Crumb for future runs.",
     "weapon": 16,
     "x": 3600,
     "y": 7200
@@ -1775,7 +1775,7 @@ export const STAGE_RELICS = [
   {
     "id": 3,
     "name": "Street Cassette",
-    "description": "Find this relic in Frozen Pass to unlock Street Beat for future runs.",
+    "description": "Find this relic in Frozen Pass to unlock Afterbeat for future runs.",
     "weapon": 22,
     "x": 7200,
     "y": 10800
@@ -1783,7 +1783,7 @@ export const STAGE_RELICS = [
   {
     "id": 4,
     "name": "Astronaut Map",
-    "description": "Find this relic in Infernal Maw to unlock Astronaut Comet for future runs.",
+    "description": "Find this relic in Infernal Maw to unlock Homeward Comet for future runs.",
     "weapon": 17,
     "x": 10080,
     "y": 9360
@@ -1841,7 +1841,7 @@ export const UNIONS = [
   },
   {
     "id": 4,
-    "name": "Namjooning Home",
+    "name": "Garden Rest Home",
     "icon": "+",
     "color": "#94b89a",
     "weapons": [
@@ -1868,12 +1868,12 @@ export const UNIONS = [
 export const WEAPONS = [
   {
     "id": 0,
-    "name": "Starlight Letter",
-    "evolvedName": "Constellation Letter",
+    "name": "Guiding Letter",
+    "evolvedName": "Guiding Constellation",
     "icon": "*",
     "color": "#bedbff",
     "description": "Homing letters seek the nearest enemy.",
-    "evolvedDescription": "Starlight Letter alternates with Spotlight Snap. Damage +120%; area +35%.",
+    "evolvedDescription": "Alternates Guiding Letter with Stage Flash. Damage +120%; area +35%.",
     "passive": 1,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1884,12 +1884,12 @@ export const WEAPONS = [
   },
   {
     "id": 1,
-    "name": "Golden Rush",
-    "evolvedName": "Golden Overdrive",
+    "name": "Forward Drive",
+    "evolvedName": "Gilt Overdrive",
     "icon": ">",
     "color": "#f4c861",
     "description": "Fast gold streaks fire in your movement direction.",
-    "evolvedDescription": "Golden Rush alternates with Practice Line. Damage +120%; area +35%.",
+    "evolvedDescription": "Alternates Forward Drive with Practice Thrust. Damage +120%; area +35%.",
     "passive": 12,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1904,8 +1904,8 @@ export const WEAPONS = [
     "evolvedName": "Midnight Rotation",
     "icon": "O",
     "color": "#b99970",
-    "description": "Heavy records arc through approaching enemies.",
-    "evolvedDescription": "Vinyl Arc alternates with Shadow Verse. Damage +120%; area +35%.",
+    "description": "Throws records in an arc through enemies.",
+    "evolvedDescription": "Alternates Vinyl Arc with Shadow Verse. Damage +120%; area +35%.",
     "passive": 2,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1917,11 +1917,11 @@ export const WEAPONS = [
   {
     "id": 3,
     "name": "Moon Orbit",
-    "evolvedName": "Astronaut Halo",
+    "evolvedName": "Lunar Parade",
     "icon": "o",
     "color": "#d8d1fa",
-    "description": "Moon discs orbit you and strike nearby enemies.",
-    "evolvedDescription": "Moon Orbit alternates with Dream Frame. Damage +120%; area +35%.",
+    "description": "Moon discs orbit you and damage nearby enemies.",
+    "evolvedDescription": "Alternates Moon Orbit with Waking Frame. Damage +120%; area +35%.",
     "passive": 4,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1932,12 +1932,12 @@ export const WEAPONS = [
   },
   {
     "id": 4,
-    "name": "Warm Hearth",
+    "name": "Hearth Glow",
     "evolvedName": "Homecoming Glow",
     "icon": "+",
     "color": "#ffe5ba",
-    "description": "A warm close aura burns approaching enemies.",
-    "evolvedDescription": "Warm Hearth alternates with Leaf Orbit. Damage +120%; area +35%.",
+    "description": "Damages enemies in a small aura around you.",
+    "evolvedDescription": "Alternates Hearth Glow with Garden Orbit. Damage +120%; area +35%.",
     "passive": 11,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1948,12 +1948,12 @@ export const WEAPONS = [
   },
   {
     "id": 5,
-    "name": "Spotlight Snap",
+    "name": "Stage Flash",
     "evolvedName": "Stage Thunder",
     "icon": "!",
     "color": "#d2afff",
-    "description": "Targeted spotlights strike enemies across the arena.",
-    "evolvedDescription": "Spotlight Snap alternates with Starlight Letter. Damage +120%; area +35%.",
+    "description": "Places short-lived strikes at targeted enemy positions.",
+    "evolvedDescription": "Alternates Stage Flash with Guiding Letter. Damage +120%; area +35%.",
     "passive": 4,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1964,12 +1964,12 @@ export const WEAPONS = [
   },
   {
     "id": 6,
-    "name": "Red Verse",
-    "evolvedName": "Agust Inferno",
+    "name": "Burning Verse",
+    "evolvedName": "Cinder Canticle",
     "icon": "*",
     "color": "#ed6972",
-    "description": "Burning verses pierce enemy formations.",
-    "evolvedDescription": "Red Verse alternates with Astronaut Comet. Damage +120%; area +35%.",
+    "description": "Fires piercing verses that burn enemies.",
+    "evolvedDescription": "Alternates Burning Verse with Homeward Comet. Damage +120%; area +35%.",
     "passive": 0,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1980,12 +1980,12 @@ export const WEAPONS = [
   },
   {
     "id": 7,
-    "name": "Indigo Rain",
-    "evolvedName": "Namjooning Rain",
+    "name": "Ink Rain",
+    "evolvedName": "Collected Rain",
     "icon": "~",
     "color": "#86adc9",
-    "description": "Ink rain leaves damaging pools at selected locations.",
-    "evolvedDescription": "Indigo Rain alternates with Indigo Composition. Damage +120%; area +35%.",
+    "description": "Creates persistent damaging ink pools.",
+    "evolvedDescription": "Alternates Ink Rain with Gathering Ink. Damage +120%; area +35%.",
     "passive": 3,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -1996,13 +1996,13 @@ export const WEAPONS = [
   },
   {
     "id": 8,
-    "name": "Mirror Fan",
-    "evolvedName": "MUSE Reflection",
+    "name": "Silk Return",
+    "evolvedName": "Silver Reprise",
     "icon": "/",
     "color": "#f2b5d5",
-    "description": "A mirrored fan flies out and returns through pursuers.",
-    "evolvedDescription": "Mirror Fan alternates with Poem Fragment. Damage +120%; area +35%.",
-    "passive": 10,
+    "description": "A silver fan flies out and returns through enemies.",
+    "evolvedDescription": "Alternates Silk Return with Scattered Lines. Damage +120%; area +35%.",
+    "passive": 6,
     "maxLevel": 8,
     "evolutionRequires": {
       "weaponLevel": 8,
@@ -2012,12 +2012,12 @@ export const WEAPONS = [
   },
   {
     "id": 9,
-    "name": "Poem Fragment",
-    "evolvedName": "Indigo Manuscript",
+    "name": "Scattered Lines",
+    "evolvedName": "Living Manuscript",
     "icon": "A",
     "color": "#96a9e5",
-    "description": "Fragments of a poem appear around you as damaging fields.",
-    "evolvedDescription": "Poem Fragment alternates with Dream Frame. Damage +120%; area +35%.",
+    "description": "Creates damaging paper fields around you.",
+    "evolvedDescription": "Alternates Scattered Lines with Waking Frame. Damage +120%; area +35%.",
     "passive": 3,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2029,11 +2029,11 @@ export const WEAPONS = [
   {
     "id": 10,
     "name": "Quiet Reflection",
-    "evolvedName": "FACE Stillness",
+    "evolvedName": "Stillwater Glass",
     "icon": "|",
     "color": "#c2e7ed",
-    "description": "Aimed mirror shards slow approaching enemies.",
-    "evolvedDescription": "Quiet Reflection alternates with Spotlight Snap. Damage +120%; area +35%.",
+    "description": "Fires aimed mirror shards that slow enemies on hit.",
+    "evolvedDescription": "Alternates Quiet Reflection with Stage Flash. Damage +120%; area +35%.",
     "passive": 1,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2044,12 +2044,12 @@ export const WEAPONS = [
   },
   {
     "id": 11,
-    "name": "Final Bow",
+    "name": "Curtain Flash",
     "evolvedName": "Encore Sky",
     "icon": "*",
     "color": "#f9e9af",
-    "description": "An infrequent stage flash strikes every visible enemy.",
-    "evolvedDescription": "Final Bow alternates with Astronaut Comet. Damage +120%; area +35%.",
+    "description": "An infrequent flash damages enemies across a large area.",
+    "evolvedDescription": "Alternates Curtain Flash with Homeward Comet. Damage +120%; area +35%.",
     "passive": 9,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2064,8 +2064,8 @@ export const WEAPONS = [
     "evolvedName": "Silk Crescendo",
     "icon": "~",
     "color": "#eaa5bc",
-    "description": "A broad ribbon strike sweeps the ground ahead.",
-    "evolvedDescription": "Ribbon Sweep alternates with Warm Hearth. Damage +120%; area +35%.",
+    "description": "Sweeps a wide ribbon through enemies ahead of you.",
+    "evolvedDescription": "Alternates Ribbon Sweep with Hearth Glow. Damage +120%; area +35%.",
     "passive": 7,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2076,12 +2076,12 @@ export const WEAPONS = [
   },
   {
     "id": 13,
-    "name": "Practice Line",
+    "name": "Practice Thrust",
     "evolvedName": "Perfect Take",
     "icon": ">",
     "color": "#f1d894",
-    "description": "Long gold thrusts strike along your movement direction.",
-    "evolvedDescription": "Practice Line alternates with Mirror Fan. Damage +120%; area +35%.",
+    "description": "Thrusts a long gold strike in your movement direction.",
+    "evolvedDescription": "Alternates Practice Thrust with Silk Return. Damage +120%; area +35%.",
     "passive": 12,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2092,12 +2092,12 @@ export const WEAPONS = [
   },
   {
     "id": 14,
-    "name": "D-DAY Release",
-    "evolvedName": "Agust Storm",
+    "name": "Pressure Break",
+    "evolvedName": "Pressure Storm",
     "icon": "!",
     "color": "#e65e64",
-    "description": "A thrown sound charge detonates after a delay and damages an area.",
-    "evolvedDescription": "D-DAY Release alternates with Astronaut Comet. Damage +120%; area +35%.",
+    "description": "Throws a sound charge that explodes after a short delay.",
+    "evolvedDescription": "Alternates Pressure Break with Homeward Comet. Damage +120%; area +35%.",
     "passive": 2,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2109,11 +2109,11 @@ export const WEAPONS = [
   {
     "id": 15,
     "name": "Shadow Verse",
-    "evolvedName": "Daechwita Echo",
+    "evolvedName": "Night Resonance",
     "icon": "/",
     "color": "#c3b5d6",
-    "description": "Heavy radial sound blades slice through enemy formations.",
-    "evolvedDescription": "Shadow Verse alternates with Vinyl Arc. Damage +120%; area +35%.",
+    "description": "Fires piercing sound blades in several directions.",
+    "evolvedDescription": "Alternates Shadow Verse with Vinyl Arc. Damage +120%; area +35%.",
     "passive": 0,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2124,12 +2124,12 @@ export const WEAPONS = [
   },
   {
     "id": 16,
-    "name": "SHOOKY Mischief",
-    "evolvedName": "Cookie Chorus",
+    "name": "Mischief Crumb",
+    "evolvedName": "Crumb Chorus",
     "icon": "o",
     "color": "#d0a373",
-    "description": "Homing cookie sparks chase nearby enemies.",
-    "evolvedDescription": "SHOOKY Mischief alternates with Red Verse. Damage +120%; area +35%.",
+    "description": "Homing crumbs chase nearby enemies.",
+    "evolvedDescription": "Alternates Mischief Crumb with Burning Verse. Damage +120%; area +35%.",
     "passive": 4,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2140,12 +2140,12 @@ export const WEAPONS = [
   },
   {
     "id": 17,
-    "name": "Astronaut Comet",
+    "name": "Homeward Comet",
     "evolvedName": "Homeward Meteor",
     "icon": "*",
     "color": "#ffd5ab",
-    "description": "Falling comets explode among enemy clusters.",
-    "evolvedDescription": "Astronaut Comet alternates with D-DAY Release. Damage +120%; area +35%.",
+    "description": "Drops comets that explode after a short delay.",
+    "evolvedDescription": "Alternates Homeward Comet with Pressure Break. Damage +120%; area +35%.",
     "passive": 2,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2156,12 +2156,12 @@ export const WEAPONS = [
   },
   {
     "id": 18,
-    "name": "Stage Beam",
-    "evolvedName": "Golden Spotlight",
+    "name": "Spotlight Lance",
+    "evolvedName": "Gilt Spotlight",
     "icon": "|",
     "color": "#fff0aa",
-    "description": "A long stage beam strikes enemies along a line.",
-    "evolvedDescription": "Stage Beam alternates with Poem Fragment. Damage +120%; area +35%.",
+    "description": "Fires a fast piercing beam along a line.",
+    "evolvedDescription": "Alternates Spotlight Lance with Scattered Lines. Damage +120%; area +35%.",
     "passive": 3,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2172,12 +2172,12 @@ export const WEAPONS = [
   },
   {
     "id": 19,
-    "name": "Leaf Orbit",
+    "name": "Garden Orbit",
     "evolvedName": "Museum Garden",
     "icon": "+",
     "color": "#94b89a",
-    "description": "Orbiting leaves defend the space close to you.",
-    "evolvedDescription": "Leaf Orbit alternates with Warm Hearth. Damage +120%; area +35%.",
+    "description": "Leaves orbit you and damage nearby enemies.",
+    "evolvedDescription": "Alternates Garden Orbit with Hearth Glow. Damage +120%; area +35%.",
     "passive": 6,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2188,12 +2188,12 @@ export const WEAPONS = [
   },
   {
     "id": 20,
-    "name": "Indigo Composition",
-    "evolvedName": "Order in Chaos",
+    "name": "Gathering Ink",
+    "evolvedName": "Quiet Composition",
     "icon": "O",
     "color": "#7b98dc",
     "description": "Ink fields pull enemies inward and repeatedly damage the chosen area.",
-    "evolvedDescription": "Indigo Composition alternates with Moon Orbit. Damage +120%; area +35%.",
+    "evolvedDescription": "Alternates Gathering Ink with Moon Orbit. Damage +120%; area +35%.",
     "passive": 8,
     "maxLevel": 8,
     "evolutionRequires": {
@@ -2204,13 +2204,13 @@ export const WEAPONS = [
   },
   {
     "id": 21,
-    "name": "Home Star",
-    "evolvedName": "RJ Constellation",
+    "name": "Hearth Orbit",
+    "evolvedName": "Traveling Hearth",
     "icon": "*",
     "color": "#f6ddba",
-    "description": "An RJ-inspired orbiting star strikes nearby enemies and launches homing letters.",
-    "evolvedDescription": "Orbiting Home Stars launch homing letters and add targeted slowing spotlights. Damage +120%; area +35%.",
-    "passive": 10,
+    "description": "An orbiting light strikes nearby enemies and fires homing sparks.",
+    "evolvedDescription": "Orbiting lights fire homing sparks and add targeted slowing strikes. Damage +120%; area +35%.",
+    "passive": 11,
     "maxLevel": 8,
     "evolutionRequires": {
       "weaponLevel": 8,
@@ -2220,13 +2220,13 @@ export const WEAPONS = [
   },
   {
     "id": 22,
-    "name": "Street Beat",
-    "evolvedName": "HOPE Block Party",
+    "name": "Afterbeat",
+    "evolvedName": "Street Crescendo",
     "icon": "x",
     "color": "#a5e38b",
-    "description": "Leaves beat marks at your position. They arm after a delay and pulse at pursuers.",
-    "evolvedDescription": "Street Beat alternates with Indigo Composition. Damage +120%; area +35%.",
-    "passive": 3,
+    "description": "Leaves beat marks at your position. They arm after a delay and pulse at nearby enemies.",
+    "evolvedDescription": "Alternates Afterbeat with Gathering Ink. Damage +120%; area +35%.",
+    "passive": 5,
     "maxLevel": 8,
     "evolutionRequires": {
       "weaponLevel": 8,
@@ -2236,12 +2236,12 @@ export const WEAPONS = [
   },
   {
     "id": 23,
-    "name": "Dream Frame",
-    "evolvedName": "TATA Dreamscape",
+    "name": "Waking Frame",
+    "evolvedName": "Waking Gallery",
     "icon": "+",
     "color": "#c58da4",
-    "description": "Surreal frames send projectiles outward in several directions.",
-    "evolvedDescription": "Dream Frame alternates with Spotlight Snap. Damage +120%; area +35%.",
+    "description": "Frames fire projectiles outward in several directions.",
+    "evolvedDescription": "Alternates Waking Frame with Stage Flash. Damage +120%; area +35%.",
     "passive": 12,
     "maxLevel": 8,
     "evolutionRequires": {

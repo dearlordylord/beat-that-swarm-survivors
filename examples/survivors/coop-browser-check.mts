@@ -118,7 +118,7 @@ try {
   await host.waitForFunction(() =>
     window.coopCheckFrame?.players.some((player) => player.id === 1 && player.character === 1)
   )
-  assert.match(await host.locator('#coop-party-roster [data-player="1"]').innerText(), /Jin/)
+  assert.match(await host.locator('#coop-party-roster [data-player="1"]').innerText(), /Hearth Voyager/)
   console.log("guest survivor update reached roster and authoritative lobby world")
   assert.equal(await defined(guests[0]).locator("#coop-setup-fields").isEnabled(), true)
   await new Promise((r) => setTimeout(r, 2000))

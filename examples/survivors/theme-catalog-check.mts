@@ -12,6 +12,7 @@ const { default: native } = await bendModule<BendABI.NativeContent.API>()(locati
   "evolved_name",
   "evolved_description",
   "weapon_recipe",
+  "evolution_passive",
   "starter"
 ])
 const groups = [
@@ -31,7 +32,7 @@ for (const [items, category] of groups) {
 }
 assert.deepEqual(
   CHARACTERS.map((item) => item.name),
-  ["RM", "Jin", "SUGA", "j-hope", "Jimin", "V", "Jung Kook"]
+  ["Grove Scribe", "Hearth Voyager", "Ash Pianist", "Sunlit Stepper", "Swanward", "Sepia Wanderer", "Gilt Hare"]
 )
 assert.deepEqual(
   CHARACTERS.map((item) => item.weapon),
@@ -39,6 +40,7 @@ assert.deepEqual(
 )
 for (const item of CHARACTERS) assert.equal(native.starter(item.id), item.weapon)
 for (const item of WEAPONS) {
+  assert.equal(native.evolution_passive(item.id), item.passive)
   assert.equal(native.evolved_name(item.id), item.evolvedName)
   assert.equal(native.evolved_description(item.id), item.evolvedDescription)
   assert.equal(COLLECTIONS.weapons[item.id]?.name, item.name)

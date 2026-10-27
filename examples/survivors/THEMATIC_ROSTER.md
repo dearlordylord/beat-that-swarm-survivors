@@ -4,17 +4,17 @@ This is the authored mapping for the seven-character theme supplied by the user.
 
 ## Character contracts
 
-| ID | Character | Starting attack | Innate bonus | Feel |
+| ID | Character | Starting attack | Automatic mechanic | Innate bonus |
 | --- | --- | --- | --- | --- |
-| 0 | RM | 20: Indigo Composition | Pickup radius +50%. | Compose space by pulling crowds into ink fields. |
-| 1 | Jin | 21: Home Star | Regeneration +1 HP/second. | Travel with a protective orbit and sustained warmth. |
-| 2 | SUGA | 14: D-DAY Release | Might +20%. | Wait through a sound-charge delay, then burst. |
-| 3 | j-hope | 22: Street Beat | Movement speed +15%. | Lay a trail of delayed pulses while moving. |
-| 4 | Jimin | 8: Mirror Fan | Armor +1. | Position for the outward and returning fan. |
-| 5 | V | 23: Dream Frame | Weapon cooldown -10%. | Send attacks into several directions. |
-| 6 | Jung Kook | 1: Golden Rush | Might +10%; base maximum health 125. | Aim through movement and press forward. |
+| 0 | Grove Scribe | 20: Gathering Ink | Collected Thoughts | Experience pickup radius +50%. |
+| 1 | Hearth Voyager | 21: Hearth Orbit | Safe Return | Regenerate 1 health per second. |
+| 2 | Ash Pianist | 14: Pressure Break | Held Note | Weapon damage +20%. |
+| 3 | Sunlit Stepper | 22: Afterbeat | Footwork Trail | Movement speed +15%. |
+| 4 | Swanward | 8: Silk Return | Reprise | Armor +1. |
+| 5 | Sepia Wanderer | 23: Waking Frame | Double Exposure | Weapon cooldown -10%. |
+| 6 | Gilt Hare | 1: Forward Drive | Clean Combo | Weapon damage +10%. Base maximum health: 125. |
 
-Attacks fire automatically. D-DAY Release uses the existing delayed explosion; it has no player-controlled charge meter. Street Beat uses delayed periodic traps; it has no rhythm-input judgement or movement-trigger counter. Golden Rush rewards directional positioning; it has no mastery-stack mechanic. These distinctions keep menu promises aligned with playable behavior.
+All attacks and personal mechanics activate automatically. See [the approved mechanic contracts](../../docs/design/SEVEN_MECHANICS_IMPLEMENTATION.md) for charge, trail, return, echo, orbit, and combo rules. The personal object motifs describe innates and do not add inventory slots.
 
 ## Weapon and evolution mapping
 
@@ -22,53 +22,53 @@ Evolution requirements and secondary attacks use the existing IDs. Every weapon 
 
 | ID | Weapon | Evolution | Required passive ID | Secondary attack ID |
 | --- | --- | --- | --- | --- |
-| 0 | Starlight Letter | Constellation Letter | 1 | 5 |
-| 1 | Golden Rush | Golden Overdrive | 12 | 13 |
+| 0 | Guiding Letter | Guiding Constellation | 1 | 5 |
+| 1 | Forward Drive | Gilt Overdrive | 12 | 13 |
 | 2 | Vinyl Arc | Midnight Rotation | 2 | 15 |
-| 3 | Moon Orbit | Astronaut Halo | 4 | 23 |
-| 4 | Warm Hearth | Homecoming Glow | 11 | 19 |
-| 5 | Spotlight Snap | Stage Thunder | 4 | 0 |
-| 6 | Red Verse | Agust Inferno | 0 | 17 |
-| 7 | Indigo Rain | Namjooning Rain | 3 | 20 |
-| 8 | Mirror Fan | MUSE Reflection | 10 | 9 |
-| 9 | Poem Fragment | Indigo Manuscript | 3 | 23 |
-| 10 | Quiet Reflection | FACE Stillness | 1 | 5 |
-| 11 | Final Bow | Encore Sky | 9 | 17 |
+| 3 | Moon Orbit | Lunar Parade | 4 | 23 |
+| 4 | Hearth Glow | Homecoming Glow | 11 | 19 |
+| 5 | Stage Flash | Stage Thunder | 4 | 0 |
+| 6 | Burning Verse | Cinder Canticle | 0 | 17 |
+| 7 | Ink Rain | Collected Rain | 3 | 20 |
+| 8 | Silk Return | Silver Reprise | 6 | 9 |
+| 9 | Scattered Lines | Living Manuscript | 3 | 23 |
+| 10 | Quiet Reflection | Stillwater Glass | 1 | 5 |
+| 11 | Curtain Flash | Encore Sky | 9 | 17 |
 | 12 | Ribbon Sweep | Silk Crescendo | 7 | 4 |
-| 13 | Practice Line | Perfect Take | 12 | 8 |
-| 14 | D-DAY Release | Agust Storm | 2 | 17 |
-| 15 | Shadow Verse | Daechwita Echo | 0 | 2 |
-| 16 | SHOOKY Mischief | Cookie Chorus | 4 | 6 |
-| 17 | Astronaut Comet | Homeward Meteor | 2 | 14 |
-| 18 | Stage Beam | Golden Spotlight | 3 | 9 |
-| 19 | Leaf Orbit | Museum Garden | 6 | 4 |
-| 20 | Indigo Composition | Order in Chaos | 8 | 3 |
-| 21 | Home Star | RJ Constellation | 10 | 5 |
-| 22 | Street Beat | HOPE Block Party | 3 | 20 |
-| 23 | Dream Frame | TATA Dreamscape | 12 | 5 |
+| 13 | Practice Thrust | Perfect Take | 12 | 8 |
+| 14 | Pressure Break | Pressure Storm | 2 | 17 |
+| 15 | Shadow Verse | Night Resonance | 0 | 2 |
+| 16 | Mischief Crumb | Crumb Chorus | 4 | 6 |
+| 17 | Homeward Comet | Homeward Meteor | 2 | 14 |
+| 18 | Spotlight Lance | Gilt Spotlight | 3 | 9 |
+| 19 | Garden Orbit | Museum Garden | 6 | 4 |
+| 20 | Gathering Ink | Quiet Composition | 8 | 3 |
+| 21 | Hearth Orbit | Traveling Hearth | 11 | 5 |
+| 22 | Afterbeat | Street Crescendo | 5 | 20 |
+| 23 | Waking Frame | Waking Gallery | 12 | 5 |
 
 ## Passive upgrades
 
 | ID | Name | Effect |
 | --- | --- | --- |
-| 0 | GOLDEN Drive | All weapon damage +10% per rank. |
-| 1 | Beat Clock | Attack cooldown -7% per rank. |
-| 2 | Gallery Lens | Weapon and effect area +10% per rank. |
-| 3 | Long Encore | Weapon duration +15% per rank. |
-| 4 | Harmony Split | One additional projectile per rank. |
-| 5 | Dance Sneakers | Movement speed +10% per rank. |
-| 6 | Mirror Guard | Reduces incoming damage by 1 per rank. |
-| 7 | Warm Heart | Maximum health +20% per rank. |
-| 8 | KOYA Focus | Experience pickup radius +25% per rank. |
-| 9 | Lyric Notebook | Experience gained +10% per rank. |
-| 10 | TATA Curiosity | Luck +10% per rank, improving normal enemy gold and healing drops. |
-| 11 | RJ Comfort | Regenerates 1 health per second per rank. |
-| 12 | Golden Tempo | Projectile speed +15% per rank. |
-| 13 | Second Encore | One additional full-health revival per rank. |
-| 14 | Jack in the Box | Enemy health and count +10% per rank; experience and gold +10% per rank. |
-| 15 | Platinum Record | Gold gained +15% per rank. |
-| 16 | Bass Pulse | Enemy knockback +15% per rank. |
-| 17 | Home Cooking | Healing from pickups and regeneration +20% per rank. |
+| 0 | Drive Weight | All weapon damage +10% per rank. |
+| 1 | Pocket Metronome | Attack cooldown -7% per rank. |
+| 2 | Wideglass Lens | Weapon and effect area +10% per rank. |
+| 3 | Silk Spool | Weapon duration +15% per rank. |
+| 4 | Split Fork | One additional projectile per rank. |
+| 5 | Street Soles | Movement speed +10% per rank. |
+| 6 | Lacquer Guard | Reduces incoming damage by 1 per rank. |
+| 7 | Hearth Locket | Maximum health +20% per rank. |
+| 8 | Pressed Leaf | Experience pickup radius +25% per rank. |
+| 9 | Field Notebook | Experience gained +10% per rank. |
+| 10 | Odd Die | Luck +10% per rank, improving normal enemy gold and healing drops. |
+| 11 | Travel Mug | Regenerates 1 health per second per rank. |
+| 12 | Flight Feather | Projectile speed +15% per rank. |
+| 13 | Spare Wick | One additional full-health revival per rank. |
+| 14 | Restless Box | Enemy health and count +10% per rank; experience and gold +10% per rank. |
+| 15 | Gilt Record | Gold gained +15% per rank. |
+| 16 | Bass Cabinet | Enemy knockback +15% per rank. |
+| 17 | Steam Bowl | Healing from pickups and regeneration +20% per rank. |
 
 ## Permanent upgrades
 
@@ -89,16 +89,16 @@ Evolution requirements and secondary attacks use the existing IDs. Every weapon 
 
 | ID | Name | Effect |
 | --- | --- | --- |
-| 0 | FACE of Glass | Might +35%, maximum health -30%. |
+| 0 | Glass Resolve | Might +35%, maximum health -30%. |
 | 1 | Street Metronome | Attack cooldown -20%, area -15%. |
-| 2 | Indigo Gallery | Area +35%, movement speed -15%. |
+| 2 | Open Gallery | Area +35%, movement speed -15%. |
 | 3 | Duet Reflection | Projectile count +1, attack cooldown +15%. |
-| 4 | Mirror Resolve | Armor +3, might -15%. Taking damage releases protective orbiting leaves, even without Leaf Orbit equipped. |
-| 5 | Unwritten Verse | Experience +30%; enemy health and count +20%. Poem Fragment and Final Bow gain 20% damage, plus 5% per Jack in the Box rank. |
+| 4 | Mirror Resolve | Armor +3, might -15%. Taking damage releases protective orbiting leaves, even without Garden Orbit equipped. |
+| 5 | Unwritten Verse | Experience +30%; enemy health and count +20%. Scattered Lines and Curtain Flash gain 20% damage, plus 5% per Restless Box rank. |
 | 6 | Cosmic Hospitality | Pickup radius +100%, gold +25%. |
-| 7 | D-DAY Ember | Duration +50%, projectile speed -20%. Burns last twice as long and deal double damage per tick. |
-| 8 | Golden Trajectory | Projectile speed +50%, might +15%. Traveling projectiles ricochet from the world boundary. |
-| 9 | Namjooning | Regenerates 2 health per second; maximum health +25%. With Warm Hearth or Leaf Orbit equipped, kills on periodic life-steal pulses restore 1 health each. |
+| 7 | Banked Ember | Duration +50%, projectile speed -20%. Burns last twice as long and deal double damage per tick. |
+| 8 | Gilt Trajectory | Projectile speed +50%, might +15%. Traveling projectiles ricochet from the world boundary. |
+| 9 | Garden Rest | Regenerates 2 health per second; maximum health +25%. With Hearth Glow or Garden Orbit equipped, kills on periodic life-steal pulses restore 1 health each. |
 | 10 | Hopeful Footwork | Movement speed +30%, healing received +30%. |
 | 11 | Composition of Wind | Knockback +75%, area +15%. Vortex pull strength increases from 3 to 7. |
 
@@ -112,7 +112,7 @@ Both weapons must be level 8 or 9. A chest creates the union and consumes the se
 | 1 | Golden Duet | 1 + 13 | 23 |
 | 2 | Midnight Session | 2 + 15 | 3 |
 | 3 | Slow Dancing Halo | 3 + 23 | 18 |
-| 4 | Namjooning Home | 4 + 19 | 20 |
+| 4 | Garden Rest Home | 4 + 19 | 20 |
 | 5 | D-DAY Supernova | 6 + 17 | 14 |
 
 ## Source ownership and consistency
@@ -124,6 +124,8 @@ For another thematic pass, change display names and imagery while retaining the 
 The seven-character achievements require seven owned characters or seven distinct character wins. Numeric achievement IDs are preserved so already-earned achievements remain earned.
 
 ## Visual direction
+
+The artist names below identify the original reference brief. In-game names use the approved epithets above.
 
 Use the accepted Nightfall sprite proportions, shared eye dimensions, continuous outlines and the visual review loop in `skills/bend-sprite-art/SKILL.md`. Check both style consistency and reference fidelity. Theme does not justify changing every character into the same silhouette.
 
@@ -145,7 +147,7 @@ These are adaptation choices from the user brief. They are not claims that the g
 
 Personal starter weapons remain upgradeable during their owner's run even when the corresponding weapon is still locked in the global pool. This does not grant a permanent collection unlock.
 
-Legacy saves preserve wallet, permanent upgrades, earned achievements, discoveries and receipts. Retired character ID 7 is removed from ownership and win sets. Current character counts are recomputed; invalid selections fall back to RM.
+Legacy saves preserve wallet, permanent upgrades, earned achievements, discoveries and receipts. Retired character ID 7 is removed from ownership and win sets. Current character counts are recomputed; invalid selections fall back to Grove Scribe.
 
 Run the native catalog parity check after compiling the current native content module:
 

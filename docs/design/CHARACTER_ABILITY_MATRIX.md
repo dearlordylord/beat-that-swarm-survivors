@@ -1,6 +1,6 @@
 # Character names, icons and ability matrix
 
-Research date: 2026-10-26. This is a design study. No production names, icons, recipes or abilities were changed.
+Research date: 2026-10-26. The tables below preserve the research baseline. On 2026-10-27, the owner selected filled style A, original game epithets, and implementation of all seven automatic mechanics, including the proposed recipe partners. Implementation and verification are tracked in [the implementation record](SEVEN_MECHANICS_IMPLEMENTATION.md).
 
 The reviewed visual direction is filled vector style A. All geometry is authored in Bend. The study includes 24 base weapon icons, 18 existing shared relic icons, and seven personal object motifs. The personal motifs express innates; they do not create a seven-item inventory system.
 
@@ -40,9 +40,9 @@ A held mascot, a personal motif, a shared relic and a run charm are separate con
 | V, weapon/23 | passive/12, Golden Tempo: Projectile speed +15% per rank. | passive/12, Flight Feather | Retain current recipe. |
 | Jung Kook, weapon/1 | passive/12, Golden Tempo: Projectile speed +15% per rank. | passive/12, Flight Feather | Retain current recipe. |
 
-## New mechanic priorities
+## Seven approved mechanics
 
-Prototype Footwork Trail first, then Reprise. They change routing and return-path decisions rather than only multiplying damage. Held Note is the next candidate if stillness can remain a meaningful risk. These are starting hypotheses, not implemented or playtested balance.
+All seven mechanics are in implementation scope. The numbered order is an engineering sequence, not a smaller release scope. Numerical settings remain starting balance hypotheses. Every mechanic activates automatically through ordinary movement and combat.
 
 ### 1. j-hope: Footwork Trail
 
@@ -251,9 +251,9 @@ Rebuild the study with `python3 tools/icon-lab/study-build.py`. Component comman
 
 `arcana/9` describes one base health per qualifying kill, and `game.bend:882` implements one before healing multipliers. Its unused catalog synergy metadata says `healthPerKill: 2`. Keep the correct tooltip and track the metadata discrepancy for a separate verified content correction. No gameplay behavior was changed here.
 
-## Future mechanic acceptance cases
+## Mechanic acceptance cases
 
-These are requirements for later Bend prototypes, not tests that have already passed.
+These requirements govern the approved implementation. The implementation record distinguishes completed checks from planned checks.
 
 - A pending Footwork Trail mark always reaches its first pulse at age 25, including after movement-speed and cooldown upgrades. Queue sizes remain bounded and suppressing placement cannot build an unbounded catch-up burst.
 - Reprise can hit the same enemy once on each leg and consumes only marks from its own owner and cast. Returning contacts are not blocked by the old lifetime-wide visited list. Both leg budgets remain finite.
