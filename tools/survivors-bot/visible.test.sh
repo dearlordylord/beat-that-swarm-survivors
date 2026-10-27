@@ -22,6 +22,7 @@ cat > "$3" <<'BINARY'
 set -euo pipefail
 [[ ${BENDRTS+x} != x ]]
 printf '%s\n' "$@" > "$FIXTURE/runtime-args"
+printf '%s\n' "$NIGHTFALL_BOT_STREAM" > "$FIXTURE/stream-mode"
 printf '%s %s %s %s %s %s\n' "$NIGHTFALL_BOT_PROFILE" "$NIGHTFALL_BOT_SEED" "$NIGHTFALL_BOT_TICKS" "$NIGHTFALL_BOT_SECONDS" "$NIGHTFALL_BOT_PACING" "$NIGHTFALL_BOT_COUNT"
 exit "${NATIVE_EXIT:-0}"
 BINARY
@@ -54,8 +55,17 @@ bash "$runner" --seed 12 --unlimited --count 11 > "$fixture/count-reuse"
 BENDVY_CLANG=/nonexistent/clang bash "$runner" --no-build --seed 0 --count 64 > "$fixture/reuse"
 [[ $(cat "$fixture/reuse") == 'fresh 0 0 0 realtime 64' ]]
 [[ $(wc -l < "$fixture/builds") == 1 ]]
+bash "$runner" --no-build --stream --seconds 5 --ticks 30 > "$fixture/stream"
+[[ $(cat "$fixture/stream") == 'fresh 12345 30 5 realtime 1' ]]
+[[ $(cat "$fixture/stream-mode") == 1 ]]
+for option in '--count 2' '--unlimited'; do
+  if bash "$runner" --no-build --stream $option >/dev/null 2>&1; then
+    echo 'Accepted incompatible stream options.' >&2; exit 1
+  fi
+done
 bash "$runner" --no-build --unlimited --ticks 120 > "$fixture/unlimited"
 [[ $(cat "$fixture/unlimited") == 'fresh 12345 120 0 unlimited 1' ]]
+[[ $(cat "$fixture/stream-mode") == 0 ]]
 NIGHTFALL_BOT_COUNT=3 NIGHTFALL_BOT_PACING=unlimited bash "$runner" --no-build > "$fixture/environment"
 [[ $(cat "$fixture/environment") == 'fresh 12345 0 0 unlimited 3' ]]
 if NIGHTFALL_BOT_COUNT=0 bash "$runner" --no-build >/dev/null 2>&1; then

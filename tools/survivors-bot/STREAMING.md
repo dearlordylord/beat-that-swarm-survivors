@@ -42,7 +42,7 @@ start broadcasting there when you are ready. These launchers do not start a broa
 
 Open `tools/survivors-bot/Stop Stream Bot.command` to stop the service. Closing
 the game window or pressing Escape also stops normal play. macOS restarts the
-process after a failure, with at least a 60-second launch throttle.
+process after a failure. Launch frequency is throttled to one launch per 60 seconds.
 
 From the repository root, inspect the service with:
 
@@ -53,7 +53,8 @@ bash tools/survivors-bot/stream-macos.sh status
 The latest process launch writes to
 `~/Library/Application Support/Nightfall Stream Bot/last-launch.log`.
 Each process launch replaces that log. It contains native build and bot output;
-there is no accumulated archive of past process launches.
+there is no accumulated archive of past process launches. Output from one healthy
+continuous process is not size-capped.
 
 ## Start after login
 
@@ -89,3 +90,19 @@ Closing the window ends the session instead of starting another world.
 The native lifecycle is checked in the development environment. The launchd
 commands and OBS capture require verification on the target Mac. This setup has
 not established a 24-hour soak-test result.
+
+## Development verification
+
+The native Linux build passed. An eight-second GUI check used a three-tick
+per-run bound to exercise 99 world replacements in one unchanged window ID,
+with the exact title `Beat That Swarm: Survivors`. A separate GUI check closed
+the stream window after multiple replacements and confirmed exit status zero.
+An ordinary single-bot window retained its existing bounded exit behavior.
+These accelerated transitions test lifecycle behavior, not complete-run survival.
+
+The visible-launcher fixture passed, including stream environment forwarding
+and rejection of grid/unlimited combinations. Mac setup fixtures covered
+start, stop, login installation/removal, build failures and XML-escaped paths.
+Independent review found no remaining actionable lifecycle defects. One redundant
+comment was removed; the documentation records the log-size and target-Mac
+verification limits above.

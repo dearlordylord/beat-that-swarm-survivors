@@ -10,10 +10,11 @@ threads=${NIGHTFALL_BOT_THREADS:-auto}
 ticks=${NIGHTFALL_BOT_TICKS:-0}
 seconds=${NIGHTFALL_BOT_SECONDS:-0}
 pacing=${NIGHTFALL_BOT_PACING:-realtime}
+stream=${NIGHTFALL_BOT_STREAM:-0}
 build=1
 build_only=0
 force_build=0
-usage() { echo 'visible.sh [--profile fresh|advanced] [--seed U32] [--count U32] [--threads auto|U32] [--ticks U32] [--seconds N] [--unlimited] [--no-build|--build-only|--rebuild]'; }
+usage() { echo 'visible.sh [--profile fresh|advanced] [--seed U32] [--count U32] [--threads auto|U32] [--ticks U32] [--seconds N] [--unlimited|--stream] [--no-build|--build-only|--rebuild]'; }
 while (($#)); do
   case "$1" in
     --help) usage; exit 0 ;;
@@ -21,6 +22,7 @@ while (($#)); do
     --build-only) build_only=1; shift ;;
     --rebuild) force_build=1; shift ;;
     --unlimited) pacing=unlimited; shift ;;
+    --stream) stream=1; shift ;;
     --profile|--seed|--count|--threads|--ticks|--seconds)
       [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       key=${1#--}; printf -v "$key" '%s' "$2"; shift 2 ;;
@@ -37,6 +39,10 @@ done
 [[ $pacing == realtime || $pacing == unlimited ]] || { echo 'Invalid pacing' >&2; exit 2; }
 ((seconds <= 4294967)) || { echo 'Seconds must be at most 4294967.' >&2; exit 2; }
 ((build || (!build_only && !force_build))) || { echo '--no-build cannot be combined with --build-only or --rebuild.' >&2; exit 2; }
+[[ $stream == 0 || $stream == 1 ]] || { echo 'Stream must be 0 or 1.' >&2; exit 2; }
+if ((stream)) && { ((count != 1)) || [[ $pacing != realtime ]]; }; then
+  echo 'Stream mode requires one game and realtime pacing.' >&2; exit 2
+fi
 app_dir="$PWD/examples/survivors"
 binary="$app_dir/dist/nightfall-bot"
 if ((build)); then
@@ -110,7 +116,7 @@ if ((build_only)); then
   echo "Ready: $binary"
   exit 0
 fi
-export NIGHTFALL_BOT_PROFILE=$profile NIGHTFALL_BOT_SEED=$seed NIGHTFALL_BOT_COUNT=$count NIGHTFALL_BOT_TICKS=$ticks NIGHTFALL_BOT_SECONDS=$seconds NIGHTFALL_BOT_PACING=$pacing
+export NIGHTFALL_BOT_STREAM=$stream NIGHTFALL_BOT_PROFILE=$profile NIGHTFALL_BOT_SEED=$seed NIGHTFALL_BOT_COUNT=$count NIGHTFALL_BOT_TICKS=$ticks NIGHTFALL_BOT_SECONDS=$seconds NIGHTFALL_BOT_PACING=$pacing
 runtime_args=()
 if [[ $threads != auto ]]; then runtime_args=(+RTS --threads "$threads" -RTS); fi
 exec "$binary" "${runtime_args[@]}"

@@ -41,7 +41,6 @@ stop() {
 case "$command" in
   run)
     cd "$state_dir"
-    # A process restart replaces the previous launch's log.
     exec > "$state_dir/last-launch.log" 2>&1
     exec /usr/bin/caffeinate -d -i /bin/bash "$repo/tools/survivors-bot/visible.sh" --stream
     ;;
