@@ -115,7 +115,42 @@ A local build writes `version.json` with the Git revision, dirty state and
 `buildContext: "local-development"`; it has no source fingerprint. The
 publication preparation step replaces it with the immutable release manifest.
 
-Deploy the complete `examples/survivors/dist/web` directory. Serve over HTTP; rebuild and redeploy after source changes. The hosted version needs no server-side Bend, Astro or Node.js. `index.html` is the source HTML shell; the deployable, prerendered page is `dist/web/index.html`. `content.mts` is generated from `menu-catalog.bend` at build time; edit the Bend catalog, not the generated file.
+Serve the complete `examples/survivors/dist/web` directory; rebuild after source changes. Use HTTPS for remote-device previews, especially iPhone Safari. The hosted version needs no server-side Bend, Astro or Node.js. `index.html` is the source HTML shell; the deployable, prerendered page is `dist/web/index.html`. `content.mts` is generated from `menu-catalog.bend` at build time; edit the Bend catalog, not the generated file.
+
+### Private HTTPS preview on iPhone
+
+On the Mac hosting the checkout, with Tailscale running:
+
+```sh
+bash tools/survivors-performance/serve-private-macos.sh
+```
+
+Keep the terminal open and open the HTTPS hostname printed by Tailscale,
+including port 9443. Use the hostname, not the numeric IP, for the certificate.
+First-time Serve/HTTPS setup may print an enablement link. Stop with Ctrl+C.
+Set `SURVIVORS_HTTPS_PORT` if another listener owns that port. The launcher uses
+Tailscale Serve within the private tailnet and preserves existing mappings.
+
+Safari's iOS 27 Enhanced Security policy can disable JIT for plaintext HTTP;
+[WebKit confirms this behavior](https://bugs.webkit.org/show_bug.cgi?id=324968#c3).
+On 2026-10-27 both original and mod were severely slow on the player's iPhone
+over HTTP; the same mod build became smooth over private HTTPS. The phone's
+JIT status was inferred from that comparison and local JIT-disabled tests,
+not directly observed.
+
+Bend's browser output is JavaScript. Safari generates bytecode and normally
+compiles hot code to CPU instructions; disabling JIT keeps it interpreted,
+regardless of warmup time. A simulation that misses its frame budget can then
+run several catch-up steps before drawing, amplifying visible freezes. This
+does not mean all HTTP pages or all browsers disable JIT.
+
+Before optimizing a reported browser regression, compare the same device,
+browser, build and input over HTTPS. Record the origin scheme and separate
+simulation, rendering and presented-frame timings. Diagnostic `ADV` totals per
+frame may include multiple ticks; report step count or per-tick cost explicitly.
+For short repeatable simulation checks, use the
+[checkpoint tool](../../tools/survivors-performance/README.md), which restores
+saved worlds outside the timer and validates replay results.
 
 ## Publication
 
