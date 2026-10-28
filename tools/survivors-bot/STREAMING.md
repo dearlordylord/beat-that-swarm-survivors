@@ -18,12 +18,14 @@ the public Survivors site.
 
 Each completed run, including death and victory, starts the next survivor in
 catalog order. Gilt Hare wraps to Grove Scribe. The first run uses your menu
-selection. Stream mode unlocks all seven inside its isolated profile. Ordinary
+selection. **Next character** immediately starts a new run with the next survivor,
+including while paused. It is disabled before startup and after Stop. Stream
+mode unlocks all seven inside its isolated profile. Ordinary
 player saves are unchanged. The announcement rebuilds its lead and supporting
 roster from the actual newly started character.
 
 The original window keeps the game, HUD and character announcement. The second
-window provides pause/resume, stop, strategy reload, audio resume and diagnostics;
+window provides pause/resume, stop, **Next character**, strategy reload, audio resume and diagnostics;
 it does not start another simulation. **Return controls to game**, or closing
 the control window, restores the panel to the game window. This browser strategy
 feature was brought across from the separate `bendvy-stream-bot` checkout; the

@@ -47,6 +47,7 @@ try {
   await controls.waitForLoadState()
   controls.on("pageerror", (error) => errors.push(String(error)))
   assert.equal(await page.locator("#stream-controls").count(), 0)
+  assert.equal(await controls.locator("#stream-next").isDisabled(), true)
   await page.locator("#start").click()
   const card = page.locator("#stream-announcement")
   await card.waitFor()
@@ -124,12 +125,23 @@ try {
     )
   }
   assert.equal((await diagnostic(controls)).run, 8)
+  await controls.locator("#stream-pause").click()
+  assert.equal((await diagnostic(controls)).paused, true)
+  await controls.locator("#stream-next").click()
+  await page.waitForFunction(
+    () => document.querySelector("#stream-announcement")?.getAttribute("data-character") === "2"
+  )
+  assert.equal((await diagnostic(controls)).run, 9)
+  assert.equal((await diagnostic(controls)).paused, false)
+  assert.equal(await card.locator("svg").count(), 7)
+  assert.equal(await page.evaluate(() => localStorage.getItem("nightfall-survivors-v1")), saved)
   await controls.close({ runBeforeUnload: true })
   await page.locator("#stream-controls").waitFor()
   const secondPopup = page.waitForEvent("popup")
   await page.locator("#stream-detach").click()
   const second = await secondPopup
   await second.locator("#stream-stop").click()
+  assert.equal(await second.locator("#stream-next").isDisabled(), true)
   await card.waitFor({ state: "hidden" })
   await second.close({ runBeforeUnload: true })
   await page.goto(origin.href)
@@ -138,7 +150,7 @@ try {
   assert.equal(await page.locator("#stream-announcement").count(), 0)
   assert.deepEqual(errors, [])
   console.log(
-    `PASS: detached controls, player Start, pause/resume, reload, audio, actual character card, compact card, full seven-death roster cycle, profile isolation, close/reattach, second detach, stop and player mode. Screenshot: ${capture}`
+    `PASS: detached controls, player Start, pause/resume, reload, audio, actual character card, compact card, full seven-death roster cycle, manual next character from pause, profile isolation, close/reattach, second detach, stop and player mode. Screenshot: ${capture}`
   )
 } finally {
   await browser.close()

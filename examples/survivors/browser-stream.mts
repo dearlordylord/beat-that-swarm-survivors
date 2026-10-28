@@ -89,7 +89,7 @@ export class BrowserStream {
     const container = document.createElement("section")
     container.id = "stream-controls"
     this.controls = container
-    container.innerHTML = `<div class="stream-heading"><strong>✦ Stream session</strong><span id="stream-status">Ready</span><button id="stream-compact" aria-label="Toggle stream controls" aria-expanded="true">⚙</button></div><div class="stream-actions"><button id="stream-detach">Separate controls</button><button id="stream-start">Start stream</button><button id="stream-pause" disabled>Pause</button><button id="stream-stop" disabled>Stop</button><button id="stream-reload">Reload strategy</button><button id="stream-audio">Resume audio</button><a href="./">Player mode</a></div><label class="stream-module">Strategy manifest <input id="stream-strategy" value="" spellcheck="false"></label><p id="stream-intention">Ready to observe</p><p id="stream-error" role="alert" hidden></p><details><summary>Diagnostics</summary><pre id="stream-diagnostics"></pre></details>`
+    container.innerHTML = `<div class="stream-heading"><strong>✦ Stream session</strong><span id="stream-status">Ready</span><button id="stream-compact" aria-label="Toggle stream controls" aria-expanded="true">⚙</button></div><div class="stream-actions"><button id="stream-detach">Separate controls</button><button id="stream-start">Start stream</button><button id="stream-pause" disabled>Pause</button><button id="stream-stop" disabled>Stop</button><button id="stream-next" disabled>Next character</button><button id="stream-reload">Reload strategy</button><button id="stream-audio">Resume audio</button><a href="./">Player mode</a></div><label class="stream-module">Strategy manifest <input id="stream-strategy" value="" spellcheck="false"></label><p id="stream-intention">Ready to observe</p><p id="stream-error" role="alert" hidden></p><details><summary>Diagnostics</summary><pre id="stream-diagnostics"></pre></details>`
     document.body.append(container)
     const input = container.querySelector<HTMLInputElement>("#stream-strategy")
     if (input) input.value = query.get("strategy") ?? "./stream-strategy.json"
@@ -102,6 +102,10 @@ export class BrowserStream {
         } else if (id === "stream-pause") {
           this.hooks.unlock()
           this.pause(!this.machine.paused)
+        } else if (id === "stream-next" && this.active && !this.starting) {
+          this.hooks.unlock()
+          void this.start(false).catch((error: unknown) => this.fail(error))
+          this.draw()
         } else if (id === "stream-stop") this.stop()
         else if (id === "stream-reload" && this.observation)
           void this.strategies?.reload(this.manifest(), this.observation)
@@ -485,11 +489,13 @@ export class BrowserStream {
     const start = this.controls.querySelector<HTMLButtonElement>("#stream-start")
     const pause = this.controls.querySelector<HTMLButtonElement>("#stream-pause")
     const stop = this.controls.querySelector<HTMLButtonElement>("#stream-stop")
+    const next = this.controls.querySelector<HTMLButtonElement>("#stream-next")
     if (start) start.disabled = this.active
     if (pause) {
       pause.disabled = !this.active
       pause.textContent = this.machine.paused ? "Resume" : "Pause"
     }
     if (stop) stop.disabled = !this.active
+    if (next) next.disabled = !this.active || this.starting
   }
 }
