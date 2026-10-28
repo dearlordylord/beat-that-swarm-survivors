@@ -33,9 +33,16 @@ detachable operator window is part of this mod's integration.
 
 Use HTTPS for iPhone Safari comparisons; see the
 [private preview rules](../../examples/survivors/README.md#private-https-preview-on-iphone).
-Keep the Mac powered and awake. The browser session pauses when its game document
-becomes hidden and requires explicit resume on return. Moving to another Space,
-minimizing a window or retaining only the control window is not a 24/7 guarantee.
+Keep the Mac powered and awake. Stream mode keeps playing when its game document
+becomes hidden. A background timer updates the simulation and Canvas while
+requestAnimationFrame is suspended. Visible mode uses the normal animation clock;
+visibility changes do not resume a manually paused stream. Ordinary player mode
+still pauses when hidden.
+
+Browsers can throttle timers or freeze background pages, especially when audio
+is muted. This fallback removes the game's own hidden-window pause; it cannot
+guarantee minimized-window frame rate or 24/7 operation. See the
+[Page Visibility API scheduling limits](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API).
 Check game ticks and the OBS picture in the intended window arrangement before
 leaving it unattended. Use **Resume audio** if the browser suspends sound.
 
@@ -132,6 +139,16 @@ profile, ordinary player mode, and no browser exceptions. Controlled death fixtu
 exercise a full seven-transition roster cycle, including Gilt Hare wrapping to
 Grove Scribe, matching card identities and cyclic supporters after every restart.
 
+`check-background-stream.mts` suppresses animation-frame callbacks while simulating a
+hidden document. It verifies continued stream ticks, preserved operator pause,
+repeated clock handoffs, and ordinary-player automatic pause. This isolates the
+application behavior; it does not qualify target-Mac timer throttling or OBS
+capture of a minimized window. Run it against the same private preview:
+
+```sh
+node tools/survivors-bot/check-background-stream.mts http://127.0.0.1:8812/
+```
+
 The session check passed 34 laws and 28 literal scenarios, with semantic mutants
 rejected. The compiled observation and preference behavior checks passed.
 `preference-PROOF.bend --verdict` remains unverified because BendTT reports
@@ -156,7 +173,7 @@ Restart the existing Mac launcher to use the new backend. The queue change is a
 candidate fix; its behavior behind the target Tailscale proxy remains unverified.
 
 Target-Mac OBS capture, hidden-window behavior and 24-hour continuous operation
-remain unverified. The browser pauses when the game document becomes hidden.
+remain unverified. Browser throttling and operating-system sleep remain external limits.
 
 The older native lifecycle passed a Linux GUI check that exercised 99 world
 replacements in one unchanged window ID, plus a clean close after replacements.

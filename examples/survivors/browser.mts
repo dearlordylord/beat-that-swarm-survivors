@@ -461,7 +461,7 @@ function fail(error: unknown) {
     `Unable to continue the game: ${errorMessage(error)}\nReload the page to return to the menu.`
   console.error(error)
 }
-function animation(now: number) {
+function advanceFrame(now: number) {
   const dt = Math.min(100, now - (previous || now))
   previous = now
   try {
@@ -504,6 +504,9 @@ function animation(now: number) {
     else fail(e)
   }
   if (!running) stream?.frame(now, undefined)
+}
+function animation(now: number) {
+  if (!streamMode || !document.hidden) advanceFrame(now)
   requestAnimationFrame(animation)
 }
 let banishing = false
@@ -700,9 +703,19 @@ window.addEventListener("blur", () => {
   keys.clear()
   if (!streamMode) pause(true)
 })
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) pause(true)
-})
+let hiddenClock: ReturnType<typeof setInterval> | undefined
+function visibilityChanged() {
+  clearInterval(hiddenClock)
+  hiddenClock = undefined
+  previous = 0
+  if (streamMode) {
+    if (document.hidden) hiddenClock = setInterval(() => advanceFrame(performance.now()), STEP)
+  } else if (document.hidden) pause(true)
+}
+document.addEventListener("visibilitychange", visibilityChanged)
+window.addEventListener("pageshow", visibilityChanged)
+window.addEventListener("pagehide", () => clearInterval(hiddenClock))
+visibilityChanged()
 const joy = $("#joystick")
 let pointer: number | null = null
 function joystick(e: PointerEvent) {
