@@ -37,6 +37,7 @@ export function isolatedStreamProfile(source: Profile, persist = false): Profile
       profile = parseProfile(JSON.parse(localStorage.getItem(`${KEY}-stream`) ?? "null"))
     } catch {}
   }
+  profile.characters = Catalog.CHARACTERS.map((character) => character.id)
   profileStores.set(profile, persist ? `${KEY}-stream` : null)
   return profile
 }

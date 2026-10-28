@@ -37,3 +37,11 @@ def movement_reply_current() -> {accepted(C.step(movement(),C.MovementReply{iden
 def movement_reply_stale() -> {accepted(C.step(movement(),C.MovementReply{C.Identity{1n,2n,2n,4n,5n,1},0,2,12n})) == False{} : Bool}: {==}
 def movement_reply_expired() -> {accepted(C.step(movement(),C.MovementReply{identity(),0,2,15n})) == False{} : Bool}: {==}
 def movement_reply_not_twice() -> {accepted(C.step(out_state(C.step(movement(),C.MovementReply{identity(),0,2,12n})),C.MovementReply{identity(),1,2,12n})) == False{} : Bool}: {==}
+
+def roster_0_to_1() -> {C.next_character(0) == 1 : U32}: {==}
+def roster_1_to_2() -> {C.next_character(1) == 2 : U32}: {==}
+def roster_2_to_3() -> {C.next_character(2) == 3 : U32}: {==}
+def roster_3_to_4() -> {C.next_character(3) == 4 : U32}: {==}
+def roster_4_to_5() -> {C.next_character(4) == 5 : U32}: {==}
+def roster_5_to_6() -> {C.next_character(5) == 6 : U32}: {==}
+def roster_6_to_0() -> {C.next_character(6) == 0 : U32}: {==}

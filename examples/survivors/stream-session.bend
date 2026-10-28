@@ -1,5 +1,7 @@
 import Base
 
+def next_character(character:U32) -> U32: ((character + 1 : U32) % 7 : U32)
+
 type Identity is Data: Identity{session:Nat,run:Nat,request:Nat,generation:Nat,decision:Nat,phase:U32}
 type Mode is Data:
   Stopped{}

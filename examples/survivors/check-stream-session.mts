@@ -93,7 +93,9 @@ try {
       throw new Error(`${name}: expected rejection in ${law}: ${result.output}`)
     results.push({ name, law, result: "rejected" })
   }
-  process.stdout.write(JSON.stringify({ laws: 34, literalScenarios: 21, mutants: results }, null, 2) + "\n")
+  const laws = source.get("stream-session-LAWS.bend")?.match(/^law /gm)?.length ?? 0
+  const literalScenarios = source.get("stream-session-probe.bend")?.match(/^def \w+\([^\n]*\) -> \{/gm)?.length ?? 0
+  process.stdout.write(JSON.stringify({ laws, literalScenarios, mutants: results }, null, 2) + "\n")
 } finally {
   rmSync(work, { recursive: true, force: true })
 }

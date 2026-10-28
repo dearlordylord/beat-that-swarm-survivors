@@ -749,7 +749,8 @@ if (streamMode) {
   import("./browser-stream.mts")
     .then(({ BrowserStream }) => {
       stream = new BrowserStream({
-        start: async (seed) => {
+        start: async (seed, nextCharacter) => {
+          if (nextCharacter !== undefined) character = nextCharacter
           await start(seed)
         },
         choose: (index) => {

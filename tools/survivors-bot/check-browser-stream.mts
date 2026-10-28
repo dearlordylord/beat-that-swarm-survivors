@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import type Game from "../../examples/survivors/dist/web/dist/game.mjs"
 import { chromium, type Page } from "playwright"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -26,6 +27,7 @@ try {
   page.on("pageerror", (error) => errors.push(String(error)))
   const streamUrl = new URL(origin)
   streamUrl.searchParams.set("stream", "1")
+  streamUrl.searchParams.set("between", "0")
   await page.goto(streamUrl.href)
   await page.locator("#stream-start").waitFor()
   const profile = freshProfile()
@@ -85,6 +87,43 @@ try {
   assert(group && identity)
   assert(group.x + group.width <= identity.x, "The group must not overlap the character name")
   assert.equal(await page.evaluate(() => localStorage.getItem("nightfall-survivors-v1")), saved)
+  await page.evaluate(async () => {
+    const path = "./dist/game.mjs"
+    const { default: game } = (await import(path)) as { default: typeof Game }
+    const advance = game.advance_live.bind(game)
+    let ended = false
+    window.addEventListener("stream-check-death", () => {
+      ended = true
+    })
+    game.advance_live = (state, x, y) => {
+      if (!ended) return advance(state, x, y)
+      ended = false
+      state.run.session.phase = 3
+      state.run.player.hp = 0
+      return { $: "Packet", state }
+    }
+  })
+  for (const character of [2, 3, 4, 5, 6, 0, 1]) {
+    await page.evaluate(() => window.dispatchEvent(new Event("stream-check-death")))
+    await page.waitForFunction(
+      (character) =>
+        document.querySelector("#stream-announcement")?.getAttribute("data-character") === String(character),
+      character
+    )
+    assert.equal(await card.locator("svg").count(), 7)
+    const supporters = await card
+      .locator(".stream-supporter")
+      .evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-character"))))
+    assert.deepEqual(
+      supporters,
+      Array.from({ length: 6 }, (_, index) => (character + index + 1) % 7)
+    )
+    assert.equal(await page.evaluate(() => localStorage.getItem("nightfall-survivors-v1")), saved)
+    await controls.waitForFunction(
+      () => Number(document.querySelector("#stream-diagnostics")?.textContent?.match(/"tick":\s*(\d+)/)?.[1]) > 0
+    )
+  }
+  assert.equal((await diagnostic(controls)).run, 8)
   await controls.close({ runBeforeUnload: true })
   await page.locator("#stream-controls").waitFor()
   const secondPopup = page.waitForEvent("popup")
@@ -99,7 +138,7 @@ try {
   assert.equal(await page.locator("#stream-announcement").count(), 0)
   assert.deepEqual(errors, [])
   console.log(
-    `PASS: detached controls, player Start, pause/resume, reload, audio, actual character card, compact card, profile isolation, close/reattach, second detach, stop and player mode. Screenshot: ${capture}`
+    `PASS: detached controls, player Start, pause/resume, reload, audio, actual character card, compact card, full seven-death roster cycle, profile isolation, close/reattach, second detach, stop and player mode. Screenshot: ${capture}`
   )
 } finally {
   await browser.close()

@@ -16,6 +16,12 @@ the public Survivors site.
 5. Click **Separate controls** to move the operator panel into its own browser
    window. Allow the popup for this private origin if the browser blocks it.
 
+Each completed run, including death and victory, starts the next survivor in
+catalog order. Gilt Hare wraps to Grove Scribe. The first run uses your menu
+selection. Stream mode unlocks all seven inside its isolated profile. Ordinary
+player saves are unchanged. The announcement rebuilds its lead and supporting
+roster from the actual newly started character.
+
 The original window keeps the game, HUD and character announcement. The second
 window provides pause/resume, stop, strategy reload, audio resume and diagnostics;
 it does not start another simulation. **Return controls to game**, or closing
@@ -58,7 +64,7 @@ a strategy does not restart the world or replay the character announcement.
 Each successfully started run shows **NOW PLAYING**, the actual character's
 name and title, its enlarged current sprite, and the run number. The other six
 survivors stand behind the current survivor as a borderless group. This is the
-roster, not a promised next-run order. After six
+roster in cyclic order after the active survivor. After six
 seconds the card becomes a compact identity badge. The character comes from
 the authoritative game frame after startup, not from a preset label or editable
 strategy text. Stopping the stream hides the card. The presentation does not
@@ -120,9 +126,11 @@ controls, Start from the game window, advancing ticks, Pause, Resume, strategy
 reload without a world restart, and restoring controls after user-close. A second
 detach and Stop passed. The check selected Hearth Voyager and verified the actual
 character announcement, its compact transition, running audio, unchanged player
-profile, ordinary player mode, and no browser exceptions.
+profile, ordinary player mode, and no browser exceptions. Controlled death fixtures
+exercise a full seven-transition roster cycle, including Gilt Hare wrapping to
+Grove Scribe, matching card identities and cyclic supporters after every restart.
 
-The session check passed 34 laws and 21 literal scenarios, with semantic mutants
+The session check passed 34 laws and 28 literal scenarios, with semantic mutants
 rejected. The compiled observation and preference behavior checks passed.
 `preference-PROOF.bend --verdict` remains unverified because BendTT reports
 out-of-scope imported ECS templates. Runtime checks do not establish that proof.

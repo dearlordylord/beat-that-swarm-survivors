@@ -75,7 +75,7 @@ export class BrowserStream {
   private fps = 0
   private tps = 0
   private readonly hooks: {
-    start(seed: number): Promise<void>
+    start(seed: number, character?: number): Promise<void>
     choose(index: number): void
     stop(): void
     audio(): string
@@ -273,7 +273,7 @@ export class BrowserStream {
     const seed = this.seed
     this.seed = (this.seed + 2654435761) >>> 0
     try {
-      await this.hooks.start(seed)
+      await this.hooks.start(seed, newSession ? undefined : Session.next_character(this.hooks.character()))
       if (this.machine.mode.$ !== "Stopped") {
         this.announcement.show(this.hooks.character(), this.run)
         this.log("run-started", `Run ${this.run}, seed ${seed}`)

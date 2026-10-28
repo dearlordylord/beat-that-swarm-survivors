@@ -19,8 +19,12 @@ export class StreamAnnouncement {
     this.card.dataset.character = String(hero.id)
     this.card.dataset.run = String(run)
     this.card.classList.remove("stream-announcement-compact")
-    const supporting = CHARACTERS.filter((member) => member.id !== hero.id)
-      .map((member, index) => `<div class="stream-supporter" style="--member:${index}">${survivorSvg(member.id)}</div>`)
+    const activeIndex = CHARACTERS.indexOf(hero)
+    const supporting = [...CHARACTERS.slice(activeIndex + 1), ...CHARACTERS.slice(0, activeIndex)]
+      .map(
+        (member, index) =>
+          `<div class="stream-supporter" data-character="${member.id}" style="--member:${index}">${survivorSvg(member.id)}</div>`
+      )
       .join("")
     this.card.innerHTML = `<div class="stream-group" aria-hidden="true">${supporting}<div class="stream-lead">${survivorSvg(hero.id)}</div></div><div class="stream-identity"><small>NOW PLAYING · RUN ${run}</small><strong>${escapeHtml(hero.name)}</strong><span>${escapeHtml(hero.title)}</span></div>`
     this.card.hidden = false
